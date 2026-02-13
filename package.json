@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "quicklify": "./dist/index.js"
+    "quicklify": "dist/index.js"
   },
   "scripts": {
     "dev": "tsx src/index.ts",
