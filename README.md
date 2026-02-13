@@ -1,9 +1,12 @@
 # quicklify
 
-> Deploy Coolify to any cloud VPS in 60 seconds ⚡
+![Tests](https://github.com/omrfc/quicklify/actions/workflows/ci.yml/badge.svg)
+![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
+![npm](https://img.shields.io/npm/v/quicklify)
+![Downloads](https://img.shields.io/npm/dw/quicklify)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-[![npm version](https://badge.fury.io/js/quicklify.svg)](https://www.npmjs.com/package/quicklify)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+> Deploy Coolify to any cloud VPS in 60 seconds
 
 ## 🚀 What is Quicklify?
 
