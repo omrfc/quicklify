@@ -105,6 +105,7 @@ export class HetznerProvider implements CloudProvider {
       });
 
       const types = response.data.server_types.filter((type: any) =>
+        !type.deprecation &&
         type.prices.some((p: any) => p.location === location),
       );
 

@@ -50,18 +50,46 @@ export async function initCommand() {
     // Generate cloud-init script
     const cloudInit = getCoolifyCloudInit(config.serverName);
 
-    // Create server
-    const serverSpinner = createSpinner("Creating VPS server...");
-    serverSpinner.start();
+    // Create server with retry on unavailable server type
+    let server: { id: string; ip: string; status: string } | undefined;
+    let retries = 0;
+    const maxRetries = 2;
 
-    const server = await providerWithToken.createServer({
-      name: config.serverName,
-      region: config.region,
-      size: config.serverSize,
-      cloudInit,
-    });
+    while (!server && retries <= maxRetries) {
+      const serverSpinner = createSpinner("Creating VPS server...");
+      serverSpinner.start();
 
-    serverSpinner.succeed(`Server created (ID: ${server.id})`);
+      try {
+        server = await providerWithToken.createServer({
+          name: config.serverName,
+          region: config.region,
+          size: config.serverSize,
+          cloudInit,
+        });
+        serverSpinner.succeed(`Server created (ID: ${server.id})`);
+      } catch (createError: any) {
+        serverSpinner.fail("Server creation failed");
+        const errorMsg = createError.message || "";
+
+        if (errorMsg.includes("unavailable") || errorMsg.includes("not available") || errorMsg.includes("sold out")) {
+          if (retries < maxRetries) {
+            logger.warning(`Server type "${config.serverSize}" is not available in this location`);
+            logger.info("Please select a different server type:");
+            config.serverSize = await getServerTypeConfig(providerWithToken, config.region);
+            retries++;
+          } else {
+            throw createError;
+          }
+        } else {
+          throw createError;
+        }
+      }
+    }
+
+    if (!server) {
+      logger.error("Could not create server after multiple attempts");
+      process.exit(1);
+    }
 
     // Wait for server to be running
     const statusSpinner = createSpinner("Waiting for server to boot...");
