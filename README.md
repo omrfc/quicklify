@@ -5,6 +5,7 @@
 ![npm](https://img.shields.io/npm/v/quicklify)
 ![Downloads](https://img.shields.io/npm/dw/quicklify)
 ![License](https://img.shields.io/badge/license-MIT-blue)
+![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
 
 > Deploy Coolify to any cloud VPS in 4 minutes
 
