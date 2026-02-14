@@ -41,6 +41,9 @@ npx quicklify init
 - 💻 **Beautiful CLI** - Interactive prompts with validation
 - 🎨 **ARM64 Ready** - Support for cost-effective ARM servers
 - ⚡ **Fast Setup** - Production-ready in minutes
+- ✨ **Dynamic Server Types** - Only shows compatible types for selected location
+- 🔥 **Auto Firewall** - Ports 8000, 22, 80, 443 configured automatically
+- 🚀 **Zero SSH Required** - Opens directly in browser after deployment
 
 ## 📦 Installation
 
@@ -149,24 +152,38 @@ For production use, we recommend setting up a domain instead of using the IP add
 
 **Savings: ~$180-240/year per project!** 💰
 
+## 📋 Recent Updates
+
+### v0.2.1 (2026-02-14)
+- Fixed URL protocol (http for initial Coolify setup)
+
+### v0.2.0 (2026-02-14)
+- Added dynamic server type filtering based on selected location
+- Auto firewall configuration (ports 8000, 22, 80, 443)
+- Improved price formatting
+- Removed debug logs
+
 ## 🗺️ Roadmap
 
-### v0.1.0 (Current)
+### v0.1.0 (Completed)
 
 - [x] Hetzner Cloud integration
 - [x] Interactive CLI
 - [x] Automated Coolify installation
 - [x] ARM64 support
 
-### v0.2.0 (Next)
+### v0.2.0 (Completed)
+
+- [x] Dynamic server type filtering
+- [x] Auto firewall configuration
+- [x] Price formatting fix
+
+### Future
 
 - [ ] DigitalOcean support
 - [ ] Domain configuration helper
 - [ ] SSL certificate automation
 - [ ] Health checks & monitoring
-
-### Future
-
 - [ ] Backup configuration
 - [ ] Multi-server management
 - [ ] Web dashboard
