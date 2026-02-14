@@ -5,9 +5,10 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "quicklify": "dist/index.js"
+    "quicklify": "bin/quicklify"
   },
   "files": [
+    "bin/",
     "dist/",
     "README.md",
     "LICENSE",
