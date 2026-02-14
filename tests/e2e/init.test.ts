@@ -213,4 +213,78 @@ describe('initCommand E2E', () => {
 
     expect(processExitSpy).toHaveBeenCalledWith(1);
   });
+
+  it('should retry with different server type when unavailable', async () => {
+    // Mock prompts: apiToken → region → size → serverName → retry size → confirm
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ apiToken: 'valid-token' })
+      .mockResolvedValueOnce({ region: 'nbg1' })
+      .mockResolvedValueOnce({ size: 'cax11' })
+      .mockResolvedValueOnce({ serverName: 'coolify-test' })
+      .mockResolvedValueOnce({ confirm: true })
+      .mockResolvedValueOnce({ size: 'cpx11' }); // retry: pick different type
+
+    // Mock API: validateToken → locations → server_types
+    mockedAxios.get
+      .mockResolvedValueOnce({ data: { servers: [] } })
+      .mockResolvedValueOnce(locationsResponse)
+      .mockResolvedValueOnce(serverTypesResponse)
+      // retry: fetch server types again for re-selection
+      .mockResolvedValueOnce(serverTypesResponse)
+      // getServerStatus
+      .mockResolvedValueOnce({ data: { server: { status: 'running' } } });
+
+    // Mock: first createServer fails (unavailable), second succeeds
+    mockedAxios.post
+      .mockRejectedValueOnce(new Error('Failed to create server: server type unavailable'))
+      .mockResolvedValueOnce({
+        data: {
+          server: {
+            id: 789,
+            public_net: { ipv4: { ip: '9.8.7.6' } },
+            status: 'initializing',
+          },
+        },
+      });
+
+    await initCommand();
+
+    // Should have attempted createServer twice
+    expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+
+    // Should show success
+    const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(allOutput).toContain('9.8.7.6');
+    expect(processExitSpy).not.toHaveBeenCalled();
+  });
+
+  it('should exit after max retries on unavailable server type', async () => {
+    // Mock prompts: apiToken → region → size → serverName → confirm → retry1 → retry2
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ apiToken: 'valid-token' })
+      .mockResolvedValueOnce({ region: 'nbg1' })
+      .mockResolvedValueOnce({ size: 'cax11' })
+      .mockResolvedValueOnce({ serverName: 'coolify-test' })
+      .mockResolvedValueOnce({ confirm: true })
+      .mockResolvedValueOnce({ size: 'cpx11' })   // retry 1
+      .mockResolvedValueOnce({ size: 'cax21' });   // retry 2
+
+    // Mock API: validateToken → locations → server_types (+ retries)
+    mockedAxios.get
+      .mockResolvedValueOnce({ data: { servers: [] } })
+      .mockResolvedValueOnce(locationsResponse)
+      .mockResolvedValueOnce(serverTypesResponse)
+      .mockResolvedValueOnce(serverTypesResponse)  // retry 1
+      .mockResolvedValueOnce(serverTypesResponse); // retry 2
+
+    // Mock: all createServer calls fail with unavailable
+    mockedAxios.post
+      .mockRejectedValueOnce(new Error('Failed to create server: server type unavailable'))
+      .mockRejectedValueOnce(new Error('Failed to create server: server type unavailable'))
+      .mockRejectedValueOnce(new Error('Failed to create server: server type unavailable'));
+
+    await initCommand();
+
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+  });
 });
