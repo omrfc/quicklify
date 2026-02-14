@@ -25,6 +25,14 @@ export class DigitalOceanProvider implements CloudProvider {
     return [];
   }
 
+  async getAvailableLocations(): Promise<Region[]> {
+    return this.getRegions();
+  }
+
+  async getAvailableServerTypes(_location: string): Promise<ServerSize[]> {
+    return this.getServerSizes();
+  }
+
   async createServer(_config: ServerConfig): Promise<ServerResult> {
     // TODO: Implement DigitalOcean API call
     throw new Error("Not implemented");

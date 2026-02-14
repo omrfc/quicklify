@@ -107,6 +107,143 @@ describe('HetznerProvider', () => {
     });
   });
 
+  describe('getAvailableLocations', () => {
+    it('should return locations from API', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          locations: [
+            { name: 'nbg1', city: 'Nuremberg', country: 'Germany' },
+            { name: 'fsn1', city: 'Falkenstein', country: 'Germany' },
+          ],
+        },
+      });
+
+      const locations = await provider.getAvailableLocations();
+
+      expect(locations).toHaveLength(2);
+      expect(locations[0]).toEqual({ id: 'nbg1', name: 'Nuremberg', location: 'Germany' });
+      expect(mockedAxios.get).toHaveBeenCalledWith(
+        'https://api.hetzner.cloud/v1/locations',
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer test-api-token' },
+        }),
+      );
+    });
+
+    it('should fallback to static regions on API error', async () => {
+      mockedAxios.get.mockRejectedValueOnce(new Error('Network Error'));
+
+      const locations = await provider.getAvailableLocations();
+
+      expect(locations).toEqual(provider.getRegions());
+    });
+  });
+
+  describe('getAvailableServerTypes', () => {
+    it('should return server types filtered by location', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          server_types: [
+            {
+              name: 'cax11',
+              cores: 2,
+              memory: 4,
+              disk: 40,
+              prices: [
+                { location: 'nbg1', price_monthly: { gross: '3.85' } },
+                { location: 'fsn1', price_monthly: { gross: '3.85' } },
+              ],
+            },
+            {
+              name: 'cpx11',
+              cores: 2,
+              memory: 2,
+              disk: 40,
+              prices: [
+                { location: 'nbg1', price_monthly: { gross: '4.15' } },
+              ],
+            },
+            {
+              name: 'cx52',
+              cores: 16,
+              memory: 32,
+              disk: 320,
+              prices: [
+                { location: 'hel1', price_monthly: { gross: '99.00' } },
+              ],
+            },
+          ],
+        },
+      });
+
+      const types = await provider.getAvailableServerTypes('nbg1');
+
+      // cx52 should be filtered out (only available in hel1)
+      expect(types).toHaveLength(2);
+      expect(types[0].id).toBe('cax11');
+      expect(types[0].vcpu).toBe(2);
+      expect(types[0].ram).toBe(4);
+      expect(types[0].price).toBe('€3.85/mo');
+      expect(types[0].recommended).toBe(true);
+      expect(types[1].id).toBe('cpx11');
+    });
+
+    it('should fallback to static sizes on API error', async () => {
+      mockedAxios.get.mockRejectedValueOnce(new Error('Network Error'));
+
+      const types = await provider.getAvailableServerTypes('nbg1');
+
+      expect(types).toEqual(provider.getServerSizes());
+    });
+
+    it('should fallback to static sizes when no types match location', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          server_types: [
+            {
+              name: 'cx52',
+              cores: 16,
+              memory: 32,
+              disk: 320,
+              prices: [
+                { location: 'hel1', price_monthly: { gross: '99.00' } },
+              ],
+            },
+          ],
+        },
+      });
+
+      const types = await provider.getAvailableServerTypes('nbg1');
+
+      expect(types).toEqual(provider.getServerSizes());
+    });
+
+    it('should call correct API endpoint', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          server_types: [
+            {
+              name: 'cax11',
+              cores: 2,
+              memory: 4,
+              disk: 40,
+              prices: [{ location: 'nbg1', price_monthly: { gross: '3.85' } }],
+            },
+          ],
+        },
+      });
+
+      await provider.getAvailableServerTypes('nbg1');
+
+      expect(mockedAxios.get).toHaveBeenCalledWith(
+        'https://api.hetzner.cloud/v1/server_types',
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer test-api-token' },
+        }),
+      );
+    });
+  });
+
   describe('validateToken', () => {
     it('should return true for a valid token', async () => {
       mockedAxios.get.mockResolvedValueOnce({ data: { servers: [] } });

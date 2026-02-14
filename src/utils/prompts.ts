@@ -3,7 +3,8 @@ import type { CloudProvider } from "../providers/base.js";
 import type { DeploymentConfig } from "../types/index.js";
 
 export async function getDeploymentConfig(provider: CloudProvider): Promise<DeploymentConfig> {
-  const answers = await inquirer.prompt([
+  // Step 1: Get API token
+  const { apiToken } = await inquirer.prompt([
     {
       type: "password",
       name: "apiToken",
@@ -15,24 +16,55 @@ export async function getDeploymentConfig(provider: CloudProvider): Promise<Depl
         return true;
       },
     },
+  ]);
+
+  return {
+    provider: provider.name,
+    apiToken: apiToken.trim(),
+    region: "",
+    serverSize: "",
+    serverName: "",
+  };
+}
+
+export async function getLocationConfig(provider: CloudProvider): Promise<string> {
+  const locations = await provider.getAvailableLocations();
+
+  const { region } = await inquirer.prompt([
     {
       type: "list",
       name: "region",
       message: "Select region:",
-      choices: provider.getRegions().map((r) => ({
+      choices: locations.map((r) => ({
         name: `${r.name} (${r.location})`,
         value: r.id,
       })),
     },
+  ]);
+
+  return region;
+}
+
+export async function getServerTypeConfig(provider: CloudProvider, location: string): Promise<string> {
+  const serverTypes = await provider.getAvailableServerTypes(location);
+
+  const { size } = await inquirer.prompt([
     {
       type: "list",
       name: "size",
       message: "Select server size:",
-      choices: provider.getServerSizes().map((s) => ({
-        name: `${s.name} - ${s.vcpu} vCPU, ${s.ram}GB RAM - ${s.price}${s.recommended ? " ⭐ Recommended" : ""}`,
+      choices: serverTypes.map((s) => ({
+        name: `${s.name} - ${s.vcpu} vCPU, ${s.ram}GB RAM, ${s.disk}GB - ${s.price}${s.recommended ? " ⭐ Recommended" : ""}`,
         value: s.id,
       })),
     },
+  ]);
+
+  return size;
+}
+
+export async function getServerNameConfig(): Promise<string> {
+  const { serverName } = await inquirer.prompt([
     {
       type: "input",
       name: "serverName",
@@ -50,13 +82,7 @@ export async function getDeploymentConfig(provider: CloudProvider): Promise<Depl
     },
   ]);
 
-  return {
-    provider: provider.name,
-    apiToken: answers.apiToken.trim(),
-    region: answers.region,
-    serverSize: answers.size,
-    serverName: answers.serverName.trim(),
-  };
+  return serverName.trim();
 }
 
 export async function confirmDeployment(config: DeploymentConfig, provider: CloudProvider): Promise<boolean> {
@@ -65,9 +91,9 @@ export async function confirmDeployment(config: DeploymentConfig, provider: Clou
 
   console.log("\nDeployment Summary:");
   console.log(`  Provider: ${provider.displayName}`);
-  console.log(`  Region: ${region?.name} (${region?.location})`);
-  console.log(`  Size: ${size?.name} - ${size?.vcpu} vCPU, ${size?.ram}GB RAM`);
-  console.log(`  Price: ${size?.price}`);
+  console.log(`  Region: ${region?.name || config.region} (${region?.location || ""})`);
+  console.log(`  Size: ${size?.name || config.serverSize} - ${size?.vcpu || "?"} vCPU, ${size?.ram || "?"}GB RAM`);
+  console.log(`  Price: ${size?.price || "N/A"}`);
   console.log(`  Server Name: ${config.serverName}`);
   console.log();
 

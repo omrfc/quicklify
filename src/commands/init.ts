@@ -1,5 +1,5 @@
 import { HetznerProvider } from "../providers/hetzner.js";
-import { getDeploymentConfig, confirmDeployment } from "../utils/prompts.js";
+import { getDeploymentConfig, getLocationConfig, getServerTypeConfig, getServerNameConfig, confirmDeployment } from "../utils/prompts.js";
 import { getCoolifyCloudInit } from "../utils/cloudInit.js";
 import { logger, createSpinner } from "../utils/logger.js";
 
@@ -12,11 +12,32 @@ export async function initCommand() {
 
   const provider = new HetznerProvider(""); // Token will be set from config
 
-  // Get deployment configuration
+  // Step 1: Get API token
   const config = await getDeploymentConfig(provider);
 
-  // Update provider with actual token
+  // Create provider with actual token for API calls
   const providerWithToken = new HetznerProvider(config.apiToken);
+
+  // Step 2: Validate API token
+  const tokenSpinner = createSpinner("Validating API token...");
+  tokenSpinner.start();
+
+  const isValid = await providerWithToken.validateToken(config.apiToken);
+  if (!isValid) {
+    tokenSpinner.fail("Invalid API token");
+    logger.error("Please check your API token and try again");
+    return;
+  }
+  tokenSpinner.succeed("API token validated");
+
+  // Step 3: Get location (dynamic from API)
+  config.region = await getLocationConfig(providerWithToken);
+
+  // Step 4: Get server type (dynamic based on location)
+  config.serverSize = await getServerTypeConfig(providerWithToken, config.region);
+
+  // Step 5: Get server name
+  config.serverName = await getServerNameConfig();
 
   // Confirm deployment
   const confirmed = await confirmDeployment(config, providerWithToken);
@@ -26,18 +47,6 @@ export async function initCommand() {
   }
 
   try {
-    // Validate API token
-    const tokenSpinner = createSpinner("Validating API token...");
-    tokenSpinner.start();
-
-    const isValid = await providerWithToken.validateToken(config.apiToken);
-    if (!isValid) {
-      tokenSpinner.fail("Invalid API token");
-      logger.error("Please check your API token and try again");
-      return;
-    }
-    tokenSpinner.succeed("API token validated");
-
     // Generate cloud-init script
     const cloudInit = getCoolifyCloudInit(config.serverName);
 

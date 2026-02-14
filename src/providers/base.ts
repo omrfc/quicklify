@@ -6,6 +6,8 @@ export interface CloudProvider {
   validateToken(token: string): Promise<boolean>;
   getRegions(): Region[];
   getServerSizes(): ServerSize[];
+  getAvailableLocations(): Promise<Region[]>;
+  getAvailableServerTypes(location: string): Promise<ServerSize[]>;
   createServer(config: ServerConfig): Promise<ServerResult>;
   getServerStatus(serverId: string): Promise<string>;
 }

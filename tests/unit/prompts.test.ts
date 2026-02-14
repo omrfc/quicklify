@@ -1,5 +1,5 @@
 import inquirer from 'inquirer';
-import { getDeploymentConfig, confirmDeployment } from '../../src/utils/prompts';
+import { getDeploymentConfig, getLocationConfig, getServerTypeConfig, getServerNameConfig, confirmDeployment } from '../../src/utils/prompts';
 import type { CloudProvider } from '../../src/providers/base';
 
 const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
@@ -16,6 +16,14 @@ const mockProvider: CloudProvider = {
     { id: 'cax11', name: 'CAX11', vcpu: 2, ram: 4, disk: 40, price: '€3.85/mo', recommended: true },
     { id: 'cpx11', name: 'CPX11', vcpu: 2, ram: 2, disk: 40, price: '€4.15/mo' },
   ],
+  getAvailableLocations: jest.fn().mockResolvedValue([
+    { id: 'nbg1', name: 'Nuremberg', location: 'Germany' },
+    { id: 'fsn1', name: 'Falkenstein', location: 'Germany' },
+  ]),
+  getAvailableServerTypes: jest.fn().mockResolvedValue([
+    { id: 'cax11', name: 'CAX11', vcpu: 2, ram: 4, disk: 40, price: '€3.85/mo', recommended: true },
+    { id: 'cpx11', name: 'CPX11', vcpu: 2, ram: 2, disk: 40, price: '€4.15/mo' },
+  ]),
   createServer: jest.fn(),
   getServerStatus: jest.fn(),
 };
@@ -25,85 +33,43 @@ describe('getDeploymentConfig', () => {
     jest.clearAllMocks();
   });
 
-  it('should return deployment config from user input', async () => {
+  it('should return deployment config with apiToken', async () => {
     mockedInquirer.prompt.mockResolvedValueOnce({
       apiToken: 'my-token',
-      region: 'nbg1',
-      size: 'cax11',
-      serverName: 'my-server',
     });
 
     const config = await getDeploymentConfig(mockProvider);
 
     expect(config.provider).toBe('hetzner');
     expect(config.apiToken).toBe('my-token');
-    expect(config.region).toBe('nbg1');
-    expect(config.serverSize).toBe('cax11');
-    expect(config.serverName).toBe('my-server');
   });
 
   it('should trim apiToken whitespace', async () => {
     mockedInquirer.prompt.mockResolvedValueOnce({
       apiToken: '  token-with-spaces  ',
-      region: 'nbg1',
-      size: 'cax11',
-      serverName: 'server',
     });
 
     const config = await getDeploymentConfig(mockProvider);
     expect(config.apiToken).toBe('token-with-spaces');
   });
 
-  it('should trim serverName whitespace', async () => {
+  it('should pass correct prompt config for password input', async () => {
     mockedInquirer.prompt.mockResolvedValueOnce({
       apiToken: 'token',
-      region: 'nbg1',
-      size: 'cax11',
-      serverName: '  my-server  ',
-    });
-
-    const config = await getDeploymentConfig(mockProvider);
-    expect(config.serverName).toBe('my-server');
-  });
-
-  it('should pass correct prompt config with regions and sizes', async () => {
-    mockedInquirer.prompt.mockResolvedValueOnce({
-      apiToken: 'token',
-      region: 'nbg1',
-      size: 'cax11',
-      serverName: 'server',
     });
 
     await getDeploymentConfig(mockProvider);
 
     const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
-
-    // Check password prompt for API token
     expect(promptConfig[0].type).toBe('password');
     expect(promptConfig[0].name).toBe('apiToken');
-
-    // Check region list has choices from provider
-    expect(promptConfig[1].type).toBe('list');
-    expect(promptConfig[1].choices).toHaveLength(2);
-
-    // Check size list has recommended marker
-    expect(promptConfig[2].type).toBe('list');
-    const sizeChoices = promptConfig[2].choices;
-    const recommendedChoice = sizeChoices.find((c: any) => c.name.includes('Recommended'));
-    expect(recommendedChoice).toBeDefined();
-
-    // Check server name input with default
-    expect(promptConfig[3].type).toBe('input');
-    expect(promptConfig[3].default).toBe('coolify-server');
   });
 
   describe('apiToken validator', () => {
     let validateToken: (input: string) => string | true;
 
     beforeEach(async () => {
-      mockedInquirer.prompt.mockResolvedValueOnce({
-        apiToken: 'x', region: 'nbg1', size: 'cax11', serverName: 's',
-      });
+      mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: 'x' });
       await getDeploymentConfig(mockProvider);
       const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
       validateToken = promptConfig[0].validate;
@@ -121,17 +87,99 @@ describe('getDeploymentConfig', () => {
       expect(validateToken('   ')).toBe('API token is required');
     });
   });
+});
+
+describe('getLocationConfig', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should fetch locations from provider and return selected region', async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ region: 'nbg1' });
+
+    const region = await getLocationConfig(mockProvider);
+
+    expect(mockProvider.getAvailableLocations).toHaveBeenCalled();
+    expect(region).toBe('nbg1');
+  });
+
+  it('should pass location choices to prompt', async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ region: 'fsn1' });
+
+    await getLocationConfig(mockProvider);
+
+    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
+    expect(promptConfig[0].type).toBe('list');
+    expect(promptConfig[0].choices).toHaveLength(2);
+    expect(promptConfig[0].choices[0].name).toContain('Nuremberg');
+  });
+});
+
+describe('getServerTypeConfig', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should fetch server types for location and return selected size', async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ size: 'cax11' });
+
+    const size = await getServerTypeConfig(mockProvider, 'nbg1');
+
+    expect(mockProvider.getAvailableServerTypes).toHaveBeenCalledWith('nbg1');
+    expect(size).toBe('cax11');
+  });
+
+  it('should show recommended marker for recommended server types', async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ size: 'cax11' });
+
+    await getServerTypeConfig(mockProvider, 'nbg1');
+
+    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
+    const choices = promptConfig[0].choices;
+    const recommendedChoice = choices.find((c: any) => c.name.includes('Recommended'));
+    expect(recommendedChoice).toBeDefined();
+  });
+
+  it('should include disk size in choice labels', async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ size: 'cax11' });
+
+    await getServerTypeConfig(mockProvider, 'nbg1');
+
+    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
+    const choices = promptConfig[0].choices;
+    expect(choices[0].name).toContain('40GB');
+  });
+});
+
+describe('getServerNameConfig', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return trimmed server name', async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ serverName: '  my-server  ' });
+
+    const name = await getServerNameConfig();
+    expect(name).toBe('my-server');
+  });
+
+  it('should have default value coolify-server', async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ serverName: 'coolify-server' });
+
+    await getServerNameConfig();
+
+    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
+    expect(promptConfig[0].default).toBe('coolify-server');
+  });
 
   describe('serverName validator', () => {
     let validateName: (input: string) => string | true;
 
     beforeEach(async () => {
-      mockedInquirer.prompt.mockResolvedValueOnce({
-        apiToken: 'x', region: 'nbg1', size: 'cax11', serverName: 's',
-      });
-      await getDeploymentConfig(mockProvider);
+      mockedInquirer.prompt.mockResolvedValueOnce({ serverName: 's' });
+      await getServerNameConfig();
       const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
-      validateName = promptConfig[3].validate;
+      validateName = promptConfig[0].validate;
     });
 
     it('should accept valid lowercase name', () => {

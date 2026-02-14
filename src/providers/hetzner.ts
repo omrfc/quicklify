@@ -82,4 +82,54 @@ export class HetznerProvider implements CloudProvider {
       { id: "cpx21", name: "CPX21", vcpu: 3, ram: 4, disk: 80, price: "€7.35/mo" },
     ];
   }
+
+  async getAvailableLocations(): Promise<Region[]> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/locations`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+      return response.data.locations.map((loc: any) => ({
+        id: loc.name,
+        name: loc.city,
+        location: loc.country,
+      }));
+    } catch {
+      return this.getRegions();
+    }
+  }
+
+  async getAvailableServerTypes(location: string): Promise<ServerSize[]> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/server_types`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+
+      const types = response.data.server_types.filter((type: any) =>
+        type.prices.some((p: any) => p.location === location),
+      );
+
+      if (types.length === 0) {
+        return this.getServerSizes();
+      }
+
+      return types.map((type: any) => {
+        const price = type.prices.find((p: any) => p.location === location);
+        const rawPrice = price?.price_monthly?.gross;
+        const priceMonthly = rawPrice ? parseFloat(rawPrice).toFixed(2) : "N/A";
+        const isRecommended = type.name === "cax11";
+
+        return {
+          id: type.name,
+          name: type.name.toUpperCase(),
+          vcpu: type.cores,
+          ram: type.memory,
+          disk: type.disk,
+          price: `€${priceMonthly}/mo`,
+          ...(isRecommended && { recommended: true }),
+        };
+      });
+    } catch {
+      return this.getServerSizes();
+    }
+  }
 }
