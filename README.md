@@ -1,7 +1,7 @@
 # quicklify
 
 ![Tests](https://github.com/omrfc/quicklify/actions/workflows/ci.yml/badge.svg)
-![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
+[![Coverage](https://codecov.io/gh/omrfc/quicklify/branch/main/graph/badge.svg)](https://codecov.io/gh/omrfc/quicklify)
 ![npm](https://img.shields.io/npm/v/quicklify)
 ![Downloads](https://img.shields.io/npm/dw/quicklify)
 ![License](https://img.shields.io/badge/license-MIT-blue)
