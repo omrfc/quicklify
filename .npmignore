@@ -1,0 +1,28 @@
+# Tests
+tests/
+*.test.ts
+*.test.js
+coverage/
+
+# Development
+.github/
+.claude/
+tsconfig.json
+tsconfig.test.json
+jest.config.cjs
+
+# Source (TypeScript source not needed)
+src/
+
+# Misc
+.DS_Store
+*.log
+node_modules/
+
+# NOT IGNORED (these must be in package):
+# dist/
+# bin/
+# README.md
+# LICENSE
+# SECURITY.md
+# package.json
