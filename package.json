@@ -7,6 +7,12 @@
   "bin": {
     "quicklify": "dist/index.js"
   },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md"
+  ],
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc && chmod +x dist/index.js",
