@@ -19,6 +19,16 @@ curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
 echo "Waiting for Coolify services to start..."
 sleep 30
 
+# Open port 8000 for Coolify web interface
+echo "Configuring firewall..."
+iptables -A INPUT -p tcp --dport 8000 -j ACCEPT
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+iptables -A INPUT -p tcp --dport 443 -j ACCEPT
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables-save > /etc/iptables/rules.v4
+DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent
+
 echo "=================================="
 echo "Coolify installation completed!"
 echo "=================================="

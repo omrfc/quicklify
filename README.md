@@ -101,6 +101,18 @@ Access Coolify: https://123.45.67.89:8000
 
 Visit the URL, create your admin account, and start deploying!
 
+## 🔒 Security Notes
+
+**Important:** Port 8000 is publicly accessible after deployment.
+
+**Recommended next steps:**
+1. **Add a domain** and enable SSL in Coolify settings
+2. Use **Cloudflare** for DDoS protection
+3. Set a **strong password** on first login
+4. Consider **IP whitelisting** for sensitive deployments
+
+For production use, we recommend setting up a domain instead of using the IP address directly.
+
 ## 🌐 Supported Providers
 
 | Provider | Status | Starting Price | Architecture |
