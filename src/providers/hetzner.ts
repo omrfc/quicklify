@@ -76,7 +76,7 @@ export class HetznerProvider implements CloudProvider {
 
   getServerSizes(): ServerSize[] {
     return [
-      { id: "cax11", name: "CAX11", vcpu: 2, ram: 4, disk: 40, price: "€3.85/mo", recommended: true },
+      { id: "cax11", name: "CAX11", vcpu: 2, ram: 4, disk: 40, price: "€3.85/mo" },
       { id: "cpx11", name: "CPX11", vcpu: 2, ram: 2, disk: 40, price: "€4.15/mo" },
       { id: "cax21", name: "CAX21", vcpu: 4, ram: 8, disk: 80, price: "€7.05/mo" },
       { id: "cpx21", name: "CPX21", vcpu: 3, ram: 4, disk: 80, price: "€7.35/mo" },
@@ -113,27 +113,10 @@ export class HetznerProvider implements CloudProvider {
         return this.getServerSizes();
       }
 
-      // Find cheapest type to mark as recommended
-      const hasCax11 = types.some((t: any) => t.name === "cax11");
-      let cheapestName = "";
-      let cheapestPrice = Infinity;
-
-      if (!hasCax11) {
-        for (const type of types) {
-          const p = type.prices.find((pr: any) => pr.location === location);
-          const gross = parseFloat(p?.price_monthly?.gross || "9999");
-          if (gross < cheapestPrice) {
-            cheapestPrice = gross;
-            cheapestName = type.name;
-          }
-        }
-      }
-
       return types.map((type: any) => {
         const price = type.prices.find((p: any) => p.location === location);
         const rawPrice = price?.price_monthly?.gross;
         const priceMonthly = rawPrice ? parseFloat(rawPrice).toFixed(2) : "N/A";
-        const isRecommended = hasCax11 ? type.name === "cax11" : type.name === cheapestName;
 
         return {
           id: type.name,
@@ -142,7 +125,6 @@ export class HetznerProvider implements CloudProvider {
           ram: type.memory,
           disk: type.disk,
           price: `€${priceMonthly}/mo`,
-          ...(isRecommended && { recommended: true }),
         };
       });
     } catch {

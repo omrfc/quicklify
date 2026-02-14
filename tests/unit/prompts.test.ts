@@ -13,7 +13,7 @@ const mockProvider: CloudProvider = {
     { id: 'fsn1', name: 'Falkenstein', location: 'Germany' },
   ],
   getServerSizes: () => [
-    { id: 'cax11', name: 'CAX11', vcpu: 2, ram: 4, disk: 40, price: '€3.85/mo', recommended: true },
+    { id: 'cax11', name: 'CAX11', vcpu: 2, ram: 4, disk: 40, price: '€3.85/mo' },
     { id: 'cpx11', name: 'CPX11', vcpu: 2, ram: 2, disk: 40, price: '€4.15/mo' },
   ],
   getAvailableLocations: jest.fn().mockResolvedValue([
@@ -21,7 +21,7 @@ const mockProvider: CloudProvider = {
     { id: 'fsn1', name: 'Falkenstein', location: 'Germany' },
   ]),
   getAvailableServerTypes: jest.fn().mockResolvedValue([
-    { id: 'cax11', name: 'CAX11', vcpu: 2, ram: 4, disk: 40, price: '€3.85/mo', recommended: true },
+    { id: 'cax11', name: 'CAX11', vcpu: 2, ram: 4, disk: 40, price: '€3.85/mo' },
     { id: 'cpx11', name: 'CPX11', vcpu: 2, ram: 2, disk: 40, price: '€4.15/mo' },
   ]),
   createServer: jest.fn(),
@@ -127,17 +127,6 @@ describe('getServerTypeConfig', () => {
 
     expect(mockProvider.getAvailableServerTypes).toHaveBeenCalledWith('nbg1');
     expect(size).toBe('cax11');
-  });
-
-  it('should show recommended marker for recommended server types', async () => {
-    mockedInquirer.prompt.mockResolvedValueOnce({ size: 'cax11' });
-
-    await getServerTypeConfig(mockProvider, 'nbg1');
-
-    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
-    const choices = promptConfig[0].choices;
-    const recommendedChoice = choices.find((c: any) => c.name.includes('Recommended'));
-    expect(recommendedChoice).toBeDefined();
   });
 
   it('should include disk size in choice labels', async () => {

@@ -45,8 +45,11 @@ export async function getLocationConfig(provider: CloudProvider): Promise<string
   return region;
 }
 
-export async function getServerTypeConfig(provider: CloudProvider, location: string): Promise<string> {
-  const serverTypes = await provider.getAvailableServerTypes(location);
+export async function getServerTypeConfig(provider: CloudProvider, location: string, exclude: string[] = []): Promise<string> {
+  const allTypes = await provider.getAvailableServerTypes(location);
+  const serverTypes = exclude.length > 0
+    ? allTypes.filter((s) => !exclude.includes(s.id))
+    : allTypes;
 
   const { size } = await inquirer.prompt([
     {
@@ -54,7 +57,7 @@ export async function getServerTypeConfig(provider: CloudProvider, location: str
       name: "size",
       message: "Select server size:",
       choices: serverTypes.map((s) => ({
-        name: `${s.name} - ${s.vcpu} vCPU, ${s.ram}GB RAM, ${s.disk}GB - ${s.price}${s.recommended ? " ⭐ Recommended" : ""}`,
+        name: `${s.name} - ${s.vcpu} vCPU, ${s.ram}GB RAM, ${s.disk}GB - ${s.price}`,
         value: s.id,
       })),
     },

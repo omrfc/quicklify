@@ -11,7 +11,6 @@ export interface ServerSize {
   ram: number;
   disk: number;
   price: string;
-  recommended?: boolean;
 }
 
 export interface ServerConfig {

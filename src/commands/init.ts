@@ -54,6 +54,7 @@ export async function initCommand() {
     let server: { id: string; ip: string; status: string } | undefined;
     let retries = 0;
     const maxRetries = 2;
+    const failedTypes: string[] = [];
 
     while (!server && retries <= maxRetries) {
       const serverSpinner = createSpinner("Creating VPS server...");
@@ -73,9 +74,10 @@ export async function initCommand() {
 
         if (errorMsg.includes("unavailable") || errorMsg.includes("not available") || errorMsg.includes("sold out") || errorMsg.includes("unsupported")) {
           if (retries < maxRetries) {
+            failedTypes.push(config.serverSize);
             logger.warning(`Server type "${config.serverSize}" is not available in this location`);
             logger.info("Please select a different server type:");
-            config.serverSize = await getServerTypeConfig(providerWithToken, config.region);
+            config.serverSize = await getServerTypeConfig(providerWithToken, config.region, failedTypes);
             retries++;
           } else {
             throw createError;

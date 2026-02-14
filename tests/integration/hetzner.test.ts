@@ -71,17 +71,10 @@ describe('HetznerProvider', () => {
       expect(sizes.length).toBeGreaterThan(0);
     });
 
-    it('should have exactly one recommended option', () => {
-      const sizes = provider.getServerSizes();
-      const recommended = sizes.filter(s => s.recommended);
-      expect(recommended).toHaveLength(1);
-    });
-
-    it('should have CAX11 as the recommended option', () => {
+    it('should have CAX11 as first option', () => {
       const sizes = provider.getServerSizes();
       const cax11 = sizes.find(s => s.id === 'cax11');
       expect(cax11).toBeDefined();
-      expect(cax11!.recommended).toBe(true);
       expect(cax11!.vcpu).toBe(2);
       expect(cax11!.ram).toBe(4);
     });
@@ -184,7 +177,6 @@ describe('HetznerProvider', () => {
       expect(types[0].vcpu).toBe(2);
       expect(types[0].ram).toBe(4);
       expect(types[0].price).toBe('€3.85/mo');
-      expect(types[0].recommended).toBe(true);
       expect(types[1].id).toBe('cpx11');
     });
 
@@ -218,39 +210,6 @@ describe('HetznerProvider', () => {
       expect(types).toEqual(provider.getServerSizes());
     });
 
-    it('should mark cheapest type as recommended when cax11 is not available', async () => {
-      mockedAxios.get.mockResolvedValueOnce({
-        data: {
-          server_types: [
-            {
-              name: 'cpx11',
-              cores: 2,
-              memory: 2,
-              disk: 40,
-              prices: [{ location: 'nbg1', price_monthly: { gross: '4.15' } }],
-            },
-            {
-              name: 'cpx21',
-              cores: 3,
-              memory: 4,
-              disk: 80,
-              prices: [{ location: 'nbg1', price_monthly: { gross: '7.35' } }],
-            },
-          ],
-        },
-      });
-
-      const types = await provider.getAvailableServerTypes('nbg1');
-
-      expect(types).toHaveLength(2);
-      // cpx11 is cheapest, so it should be recommended
-      expect(types[0].id).toBe('cpx11');
-      expect(types[0].recommended).toBe(true);
-      // cpx21 should NOT be recommended
-      expect(types[1].id).toBe('cpx21');
-      expect(types[1].recommended).toBeUndefined();
-    });
-
     it('should filter out deprecated server types', async () => {
       mockedAxios.get.mockResolvedValueOnce({
         data: {
@@ -278,8 +237,6 @@ describe('HetznerProvider', () => {
 
       expect(types).toHaveLength(1);
       expect(types[0].id).toBe('cpx11');
-      // cpx11 is the only and cheapest one, so recommended
-      expect(types[0].recommended).toBe(true);
     });
 
     it('should call correct API endpoint', async () => {
