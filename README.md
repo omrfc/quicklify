@@ -6,7 +6,7 @@
 ![Downloads](https://img.shields.io/npm/dw/quicklify)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-> Deploy Coolify to any cloud VPS in 60 seconds
+> Deploy Coolify to any cloud VPS in 4 minutes
 
 ## 🚀 What is Quicklify?
 
@@ -32,7 +32,7 @@ npx quicklify init
 
 ## ✨ Features
 
-- 🎯 **One Command Deploy** - VPS + Coolify in 60 seconds
+- 🎯 **One Command Deploy** - VPS + Coolify in 4 minutes
 - 💰 **Cost Savings** - $50-200/mo (Vercel/Netlify) → €3.85/mo
 - 🔒 **Secure by Default** - Automated security setup
 - 🌍 **Multi-Cloud** - Hetzner, DigitalOcean support
