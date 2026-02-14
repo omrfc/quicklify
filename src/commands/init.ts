@@ -71,7 +71,7 @@ export async function initCommand() {
         serverSpinner.fail("Server creation failed");
         const errorMsg = createError.message || "";
 
-        if (errorMsg.includes("unavailable") || errorMsg.includes("not available") || errorMsg.includes("sold out")) {
+        if (errorMsg.includes("unavailable") || errorMsg.includes("not available") || errorMsg.includes("sold out") || errorMsg.includes("unsupported")) {
           if (retries < maxRetries) {
             logger.warning(`Server type "${config.serverSize}" is not available in this location`);
             logger.info("Please select a different server type:");

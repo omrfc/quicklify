@@ -265,4 +265,28 @@ describe('confirmDeployment', () => {
     expect(output).toContain('€3.85/mo');
     expect(output).toContain('my-server');
   });
+
+  it('should fallback to static data when dynamic lookup returns no match', async () => {
+    // Provider returns empty arrays from dynamic methods, forcing fallback to static getRegions/getServerSizes
+    const fallbackProvider: CloudProvider = {
+      ...mockProvider,
+      getAvailableLocations: jest.fn().mockResolvedValue([]),
+      getAvailableServerTypes: jest.fn().mockResolvedValue([]),
+    };
+
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+
+    const result = await confirmDeployment(
+      { provider: 'hetzner', apiToken: 'x', region: 'nbg1', serverSize: 'cax11', serverName: 'my-server' },
+      fallbackProvider,
+    );
+
+    expect(result).toBe(true);
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    // Should fallback to static getRegions() data
+    expect(output).toContain('Nuremberg');
+    // Should fallback to static getServerSizes() data
+    expect(output).toContain('CAX11');
+  });
 });

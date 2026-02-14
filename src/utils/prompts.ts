@@ -86,8 +86,14 @@ export async function getServerNameConfig(): Promise<string> {
 }
 
 export async function confirmDeployment(config: DeploymentConfig, provider: CloudProvider): Promise<boolean> {
-  const region = provider.getRegions().find((r) => r.id === config.region);
-  const size = provider.getServerSizes().find((s) => s.id === config.serverSize);
+  // Try dynamic data first, fallback to static
+  const locations = await provider.getAvailableLocations();
+  const region = locations.find((r) => r.id === config.region)
+    || provider.getRegions().find((r) => r.id === config.region);
+
+  const serverTypes = await provider.getAvailableServerTypes(config.region);
+  const size = serverTypes.find((s) => s.id === config.serverSize)
+    || provider.getServerSizes().find((s) => s.id === config.serverSize);
 
   console.log("\nDeployment Summary:");
   console.log(`  Provider: ${provider.displayName}`);
