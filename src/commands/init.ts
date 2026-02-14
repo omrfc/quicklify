@@ -98,7 +98,7 @@ export async function initCommand() {
     logger.title("Deployment Successful!");
     console.log();
     logger.success(`Server IP: ${server.ip}`);
-    logger.success(`Access Coolify: https://${server.ip}:8000`);
+    logger.success(`Access Coolify: http://${server.ip}:8000`);
     console.log();
     logger.info("Default credentials will be shown on first login");
     logger.info("Please wait 1-2 more minutes for Coolify to fully initialize");

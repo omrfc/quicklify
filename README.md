@@ -96,7 +96,7 @@ After ~3 minutes:
 ```
 ✅ Deployment Successful!
 Server IP: 123.45.67.89
-Access Coolify: https://123.45.67.89:8000
+Access Coolify: http://123.45.67.89:8000
 ```
 
 Visit the URL, create your admin account, and start deploying!

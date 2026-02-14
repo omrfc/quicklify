@@ -34,6 +34,6 @@ echo "Coolify installation completed!"
 echo "=================================="
 echo ""
 echo "Please wait 2-3 more minutes for Coolify to fully initialize."
-echo "Then access your instance at: https://YOUR_SERVER_IP:8000"
+echo "Then access your instance at: http://YOUR_SERVER_IP:8000"
 `;
 }
