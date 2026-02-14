@@ -4,7 +4,7 @@ import { getCoolifyCloudInit } from "../utils/cloudInit.js";
 import { logger, createSpinner } from "../utils/logger.js";
 
 export async function initCommand() {
-  logger.title("Quicklify - Deploy Coolify in 60 seconds");
+  logger.title("Quicklify - Deploy Coolify in 4 minutes");
 
   // For MVP, we only support Hetzner
   // Later: Add provider selection prompt
