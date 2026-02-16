@@ -154,6 +154,15 @@ For production use, we recommend setting up a domain instead of using the IP add
 
 ## 📋 Recent Updates
 
+### v0.2.8 (2026-02-16)
+- Replaced all `any` types with proper TypeScript interfaces
+- Added ESLint 9 + Prettier for code quality enforcement
+- Added CHANGELOG.md and CONTRIBUTING.md
+
+### v0.2.7 (2026-02-16)
+- Fixed inaccurate README/SECURITY claims
+- Added npm keywords for better discoverability
+
 ### v0.2.6 (2026-02-16)
 - CI: Upgraded Codecov action to v5
 
@@ -200,6 +209,8 @@ For production use, we recommend setting up a domain instead of using the IP add
 - [x] Dynamic deployment summary
 - [x] Dynamic recommended selection
 - [x] Codecov integration with coverage badge
+- [x] ESLint + Prettier code quality tooling
+- [x] Zero `any` types - full type safety
 
 ### Future
 
@@ -221,6 +232,8 @@ For production use, we recommend setting up a domain instead of using the IP add
 - **Styling:** Chalk (colors) + Ora (spinners)
 - **HTTP Client:** Axios
 - **Cloud APIs:** Hetzner Cloud API v1
+- **Linting:** ESLint 9 + typescript-eslint
+- **Formatting:** Prettier
 
 ## 📖 CLI Reference
 
@@ -258,6 +271,12 @@ npm run test:watch
 
 # Run tests with coverage report
 npm run test:coverage
+
+# Lint code
+npm run lint
+
+# Format code
+npm run format
 ```
 
 ### Test Structure
@@ -285,7 +304,7 @@ Tests run automatically on every push/PR via GitHub Actions across:
 
 ### Coverage
 
-Current coverage: **100%** across all files (statements, branches, functions, lines).
+Current coverage: **98%+ statements/lines**, **91%+ branches**, **100% functions**.
 
 ## 🔧 Troubleshooting
 
@@ -309,13 +328,7 @@ Current coverage: **100%** across all files (statements, branches, functions, li
 
 ## 🤝 Contributing
 
-Contributions are welcome! Here's how:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code guidelines, and PR process.
 
 **Areas for contribution:**
 
