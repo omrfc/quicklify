@@ -4,7 +4,7 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
+| 0.2.x   | :white_check_mark: |
 
 ## Reporting a Vulnerability
 
@@ -24,15 +24,14 @@ Response time: Within 48 hours
 
 - All dependencies scanned with Socket.dev
 - No credentials stored in code
-- API tokens handled via environment variables
-- SSH keys created with secure permissions (600)
+- API tokens collected via interactive secure prompts (masked input)
 - Input validation on all user inputs
 - Automated security checks via GitHub Actions
 
 ## Third-party Dependencies
 
 Quicklify uses audited dependencies:
-- Hetzner Cloud API (official SDK)
+- Hetzner Cloud API v1 (via Axios)
 - All dependencies regularly updated
 - Socket.dev security monitoring enabled
 

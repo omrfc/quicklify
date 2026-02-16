@@ -37,7 +37,7 @@ npx quicklify init
 - 🎯 **One Command Deploy** - VPS + Coolify in 4 minutes
 - 💰 **Cost Savings** - $50-200/mo (Vercel/Netlify) → €3.85/mo
 - 🔒 **Secure by Default** - Automated security setup
-- 🌍 **Multi-Cloud** - Hetzner, DigitalOcean support
+- 🌍 **Multi-Cloud** - Hetzner (DigitalOcean coming soon)
 - 💻 **Beautiful CLI** - Interactive prompts with validation
 - 🎨 **ARM64 Ready** - Support for cost-effective ARM servers
 - ⚡ **Fast Setup** - Production-ready in minutes
@@ -154,6 +154,21 @@ For production use, we recommend setting up a domain instead of using the IP add
 
 ## 📋 Recent Updates
 
+### v0.2.6 (2026-02-16)
+- CI: Upgraded Codecov action to v5
+
+### v0.2.5 (2026-02-16)
+- CI: Added Codecov integration for automatic coverage badge
+
+### v0.2.4 (2026-02-15)
+- Refactor: Removed recommended label, excluded failed server types from retry list
+
+### v0.2.3 (2026-02-15)
+- Fix: Unsupported error retry, dynamic deployment summary, dynamic recommended selection
+
+### v0.2.2 (2026-02-15)
+- Feat: Filter deprecated server types and add retry on unavailable
+
 ### v0.2.1 (2026-02-14)
 - Fixed URL protocol (http for initial Coolify setup)
 
@@ -177,6 +192,14 @@ For production use, we recommend setting up a domain instead of using the IP add
 - [x] Dynamic server type filtering
 - [x] Auto firewall configuration
 - [x] Price formatting fix
+
+### v0.2.x (Completed)
+
+- [x] Deprecated server type filtering
+- [x] Retry on unavailable server types
+- [x] Dynamic deployment summary
+- [x] Dynamic recommended selection
+- [x] Codecov integration with coverage badge
 
 ### Future
 
@@ -217,7 +240,7 @@ quicklify --help
 ### Interactive Prompts
 
 1. **API Token** - Validated before proceeding
-2. **Region Selection** - Nearest datacenter auto-highlighted
+2. **Region Selection** - Choose your preferred datacenter
 3. **Server Size** - Recommended option marked
 4. **Server Name** - Validates format (lowercase, alphanumeric, hyphens)
 5. **Confirmation** - Review summary before deployment

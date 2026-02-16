@@ -26,7 +26,14 @@
     "coolify",
     "deployment",
     "hetzner",
-    "cli"
+    "cli",
+    "vps",
+    "cloud",
+    "automation",
+    "self-hosted",
+    "paas",
+    "devops",
+    "server"
   ],
   "license": "MIT",
   "repository": {

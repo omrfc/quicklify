@@ -1,10 +1,11 @@
 export function getCoolifyCloudInit(serverName: string): string {
+  const safeName = serverName.replace(/[^a-z0-9-]/g, "");
   return `#!/bin/bash
 set -e
 
 echo "=================================="
 echo "Quicklify Auto-Installer"
-echo "Server: ${serverName}"
+echo "Server: ${safeName}"
 echo "=================================="
 
 # Update system
