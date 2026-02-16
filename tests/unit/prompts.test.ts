@@ -278,4 +278,27 @@ describe('confirmDeployment', () => {
     // Should fallback to static getServerSizes() data
     expect(output).toContain('CAX11');
   });
+
+  it('should show raw config values when region and size not found anywhere', async () => {
+    const noMatchProvider: CloudProvider = {
+      ...mockProvider,
+      getAvailableLocations: jest.fn().mockResolvedValue([]),
+      getAvailableServerTypes: jest.fn().mockResolvedValue([]),
+      getRegions: () => [],
+      getServerSizes: () => [],
+    };
+
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+
+    await confirmDeployment(
+      { provider: 'hetzner', apiToken: 'x', region: 'unknown-region', serverSize: 'unknown-size', serverName: 'test' },
+      noMatchProvider,
+    );
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(output).toContain('unknown-region');
+    expect(output).toContain('unknown-size');
+    expect(output).toContain('?');
+    expect(output).toContain('N/A');
+  });
 });

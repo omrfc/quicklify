@@ -383,6 +383,14 @@ describe('HetznerProvider', () => {
         'Failed to create server: timeout of 30000ms exceeded'
       );
     });
+
+    it('should handle non-Error thrown values', async () => {
+      mockedAxios.post.mockRejectedValueOnce('unexpected string error');
+
+      await expect(provider.createServer(serverConfig)).rejects.toThrow(
+        'Failed to create server: unexpected string error'
+      );
+    });
   });
 
   describe('getServerStatus', () => {
