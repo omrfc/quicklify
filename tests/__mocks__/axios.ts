@@ -9,6 +9,11 @@ const axios = {
       common: {},
     },
   },
+  isAxiosError: (error: unknown): boolean => {
+    if (error === null || error === undefined) return false;
+    if (typeof error === "object" && "response" in error) return true;
+    return error instanceof Error;
+  },
 };
 
 export default axios;

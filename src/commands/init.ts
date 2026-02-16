@@ -1,5 +1,11 @@
 import { HetznerProvider } from "../providers/hetzner.js";
-import { getDeploymentConfig, getLocationConfig, getServerTypeConfig, getServerNameConfig, confirmDeployment } from "../utils/prompts.js";
+import {
+  getDeploymentConfig,
+  getLocationConfig,
+  getServerTypeConfig,
+  getServerNameConfig,
+  confirmDeployment,
+} from "../utils/prompts.js";
 import { getCoolifyCloudInit } from "../utils/cloudInit.js";
 import { logger, createSpinner } from "../utils/logger.js";
 
@@ -68,16 +74,25 @@ export async function initCommand() {
           cloudInit,
         });
         serverSpinner.succeed(`Server created (ID: ${server.id})`);
-      } catch (createError: any) {
+      } catch (createError: unknown) {
         serverSpinner.fail("Server creation failed");
-        const errorMsg = createError.message || "";
+        const errorMsg = createError instanceof Error ? createError.message : "";
 
-        if (errorMsg.includes("unavailable") || errorMsg.includes("not available") || errorMsg.includes("sold out") || errorMsg.includes("unsupported")) {
+        if (
+          errorMsg.includes("unavailable") ||
+          errorMsg.includes("not available") ||
+          errorMsg.includes("sold out") ||
+          errorMsg.includes("unsupported")
+        ) {
           if (retries < maxRetries) {
             failedTypes.push(config.serverSize);
             logger.warning(`Server type "${config.serverSize}" is not available in this location`);
             logger.info("Please select a different server type:");
-            config.serverSize = await getServerTypeConfig(providerWithToken, config.region, failedTypes);
+            config.serverSize = await getServerTypeConfig(
+              providerWithToken,
+              config.region,
+              failedTypes,
+            );
             retries++;
           } else {
             throw createError;
@@ -133,8 +148,8 @@ export async function initCommand() {
     logger.info("Default credentials will be shown on first login");
     logger.info("Please wait 1-2 more minutes for Coolify to fully initialize");
     console.log();
-  } catch (error: any) {
-    logger.error(`Deployment failed: ${error.message}`);
+  } catch (error: unknown) {
+    logger.error(`Deployment failed: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
 }

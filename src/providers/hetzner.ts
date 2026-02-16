@@ -2,6 +2,34 @@ import axios from "axios";
 import type { CloudProvider } from "./base.js";
 import type { Region, ServerSize, ServerConfig, ServerResult } from "../types/index.js";
 
+interface HetznerLocation {
+  name: string;
+  city: string;
+  country: string;
+}
+
+interface HetznerPrice {
+  location: string;
+  price_monthly: {
+    gross: string;
+  };
+}
+
+interface HetznerServerType {
+  name: string;
+  cores: number;
+  memory: number;
+  disk: number;
+  deprecation: unknown;
+  prices: HetznerPrice[];
+}
+
+interface HetznerErrorResponse {
+  error: {
+    message: string;
+  };
+}
+
 export class HetznerProvider implements CloudProvider {
   name = "hetzner";
   displayName = "Hetzner Cloud";
@@ -47,9 +75,14 @@ export class HetznerProvider implements CloudProvider {
         ip: response.data.server.public_net.ipv4.ip,
         status: response.data.server.status,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      if (axios.isAxiosError<HetznerErrorResponse>(error)) {
+        throw new Error(
+          `Failed to create server: ${error.response?.data?.error?.message || error.message}`,
+        );
+      }
       throw new Error(
-        `Failed to create server: ${error.response?.data?.error?.message || error.message}`,
+        `Failed to create server: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -60,8 +93,10 @@ export class HetznerProvider implements CloudProvider {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       return response.data.server.status;
-    } catch (error: any) {
-      throw new Error(`Failed to get server status: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(
+        `Failed to get server status: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -88,7 +123,7 @@ export class HetznerProvider implements CloudProvider {
       const response = await axios.get(`${this.baseUrl}/locations`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
-      return response.data.locations.map((loc: any) => ({
+      return response.data.locations.map((loc: HetznerLocation) => ({
         id: loc.name,
         name: loc.city,
         location: loc.country,
@@ -104,17 +139,17 @@ export class HetznerProvider implements CloudProvider {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
 
-      const types = response.data.server_types.filter((type: any) =>
-        !type.deprecation &&
-        type.prices.some((p: any) => p.location === location),
+      const types = response.data.server_types.filter(
+        (type: HetznerServerType) =>
+          !type.deprecation && type.prices.some((p: HetznerPrice) => p.location === location),
       );
 
       if (types.length === 0) {
         return this.getServerSizes();
       }
 
-      return types.map((type: any) => {
-        const price = type.prices.find((p: any) => p.location === location);
+      return types.map((type: HetznerServerType) => {
+        const price = type.prices.find((p: HetznerPrice) => p.location === location);
         const rawPrice = price?.price_monthly?.gross;
         const priceMonthly = rawPrice ? parseFloat(rawPrice).toFixed(2) : "N/A";
 
