@@ -226,7 +226,7 @@ export async function initCommand() {
     // Installing Coolify
     const isDigitalOcean = providerChoice === "digitalocean";
     const waitTime = isDigitalOcean ? 300000 : 180000; // DO: 5 min, Hetzner: 3 min
-    const waitLabel = isDigitalOcean ? "5-7" : "3-5";
+    const waitLabel = isDigitalOcean ? "4-6" : "3-5";
     const installSpinner = createSpinner(`Installing Coolify (this takes ${waitLabel} minutes)...`);
     installSpinner.start();
 

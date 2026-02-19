@@ -284,6 +284,85 @@ describe('initCommand E2E', () => {
       expect(processExitSpy).not.toHaveBeenCalled();
     });
 
+    it('should retry with new name when server name is already used', async () => {
+      mockedInquirer.prompt
+        .mockResolvedValueOnce({ provider: 'hetzner' })
+        .mockResolvedValueOnce({ apiToken: 'valid-token' })
+        .mockResolvedValueOnce({ region: 'nbg1' })
+        .mockResolvedValueOnce({ size: 'cax11' })
+        .mockResolvedValueOnce({ serverName: 'coolify-server' })
+        .mockResolvedValueOnce({ confirm: 'yes' })
+        .mockResolvedValueOnce({ serverName: 'coolify-new' }); // retry: pick new name
+
+      mockedAxios.get
+        .mockResolvedValueOnce({ data: { servers: [] } })          // validateToken
+        .mockResolvedValueOnce(hetznerLocationsResponse)            // getAvailableLocations (selection)
+        .mockResolvedValueOnce(hetznerServerTypesResponse)          // getAvailableServerTypes (selection)
+        .mockResolvedValueOnce(hetznerLocationsResponse)            // getAvailableLocations (confirmDeployment)
+        .mockResolvedValueOnce(hetznerServerTypesResponse)          // getAvailableServerTypes (confirmDeployment)
+        .mockResolvedValueOnce({ data: { server: { status: 'running' } } }); // getServerStatus
+
+      mockedAxios.post
+        .mockRejectedValueOnce(new Error('Failed to create server: server name is already used'))
+        .mockResolvedValueOnce({
+          data: {
+            server: {
+              id: 111,
+              public_net: { ipv4: { ip: '2.3.4.5' } },
+              status: 'initializing',
+            },
+          },
+        });
+
+      await initCommand();
+
+      expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+      const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+      expect(allOutput).toContain('2.3.4.5');
+      expect(processExitSpy).not.toHaveBeenCalled();
+    });
+
+    it('should retry with new region and server type when location is disabled', async () => {
+      mockedInquirer.prompt
+        .mockResolvedValueOnce({ provider: 'hetzner' })
+        .mockResolvedValueOnce({ apiToken: 'valid-token' })
+        .mockResolvedValueOnce({ region: 'fsn1' })
+        .mockResolvedValueOnce({ size: 'cax11' })
+        .mockResolvedValueOnce({ serverName: 'coolify-test' })
+        .mockResolvedValueOnce({ confirm: 'yes' })
+        .mockResolvedValueOnce({ region: 'nbg1' })    // retry: pick new region
+        .mockResolvedValueOnce({ size: 'cx23' });      // retry: pick new server type
+
+      mockedAxios.get
+        .mockResolvedValueOnce({ data: { servers: [] } })          // validateToken
+        .mockResolvedValueOnce(hetznerLocationsResponse)            // getAvailableLocations (selection)
+        .mockResolvedValueOnce(hetznerServerTypesResponse)          // getAvailableServerTypes (selection)
+        .mockResolvedValueOnce(hetznerLocationsResponse)            // getAvailableLocations (confirmDeployment)
+        .mockResolvedValueOnce(hetznerServerTypesResponse)          // getAvailableServerTypes (confirmDeployment)
+        .mockResolvedValueOnce(hetznerLocationsResponse)            // getAvailableLocations (retry)
+        .mockResolvedValueOnce(hetznerServerTypesResponse)          // getAvailableServerTypes (retry)
+        .mockResolvedValueOnce({ data: { server: { status: 'running' } } }); // getServerStatus
+
+      mockedAxios.post
+        .mockRejectedValueOnce(new Error('Failed to create server: location disabled'))
+        .mockResolvedValueOnce({
+          data: {
+            server: {
+              id: 222,
+              public_net: { ipv4: { ip: '3.4.5.6' } },
+              status: 'initializing',
+            },
+          },
+        });
+
+      await initCommand();
+
+      expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+      const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+      expect(allOutput).toContain('3.4.5.6');
+      expect(processExitSpy).not.toHaveBeenCalled();
+    });
+
     it('should exit after max retries on unavailable server type', async () => {
       mockedInquirer.prompt
         .mockResolvedValueOnce({ provider: 'hetzner' })
