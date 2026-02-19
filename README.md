@@ -29,7 +29,7 @@ Total: ~30 minutes + manual work
 
 ```bash
 npx quicklify init
-# Hetzner: ~5 minutes | DigitalOcean: ~6 minutes
+# Hetzner: ~4 minutes | DigitalOcean: ~6 minutes
 # Zero manual work ✨
 ```
 
@@ -41,7 +41,7 @@ npx quicklify init
 - 🌍 **Multi-Cloud** - Hetzner Cloud + DigitalOcean
 - 💻 **Beautiful CLI** - Interactive prompts with validation
 - 🎨 **ARM64 Ready** - Support for cost-effective ARM servers
-- ⚡ **Fast Setup** - Hetzner ~5 min, DigitalOcean ~6 min
+- ⚡ **Fast Setup** - Hetzner ~4 min, DigitalOcean ~6 min
 - ✨ **Dynamic Server Types** - Only shows compatible types for selected location
 - 🔥 **Auto Firewall** - Ports 8000, 22, 80, 443 configured automatically
 - 🚀 **Zero SSH Required** - Opens directly in browser after deployment
@@ -95,7 +95,7 @@ You'll be prompted for:
 
 ### Step 3: Access Coolify
 
-After deployment (Hetzner ~5 min, DigitalOcean ~6 min):
+After deployment (Hetzner ~4 min, DigitalOcean ~6 min):
 
 ```
 ✅ Deployment Successful!
@@ -148,7 +148,7 @@ For production use, we recommend setting up a domain instead of using the IP add
 | Vercel (Hobby) | $20+ | 5 min | Easy |
 | Vercel (Pro) | $50+ | 5 min | Easy |
 | Netlify (Pro) | $19+ | 5 min | Easy |
-| **Quicklify + Hetzner** | **€3.49** | **~5 min** | **Easy** |
+| **Quicklify + Hetzner** | **€3.49** | **~4 min** | **Easy** |
 | **Quicklify + DigitalOcean** | **$12** | **~6 min** | **Easy** |
 | Manual VPS + Coolify | €3.49 | 30+ min | Hard |
 
