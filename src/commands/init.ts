@@ -120,6 +120,7 @@ export async function initCommand() {
     let retries = 0;
     const maxRetries = 2;
     const failedTypes: string[] = [];
+    const failedLocations: string[] = [];
 
     while (!server && retries <= maxRetries) {
       const serverSpinner = createSpinner("Creating VPS server...");
@@ -137,7 +138,33 @@ export async function initCommand() {
         serverSpinner.fail("Server creation failed");
         const errorMsg = createError instanceof Error ? createError.message : "";
 
-        if (
+        if (errorMsg.includes("already") && errorMsg.includes("used")) {
+          logger.warning(`Server name "${config.serverName}" is already in use`);
+          logger.info("Please choose a different name:");
+          let newName = BACK_SIGNAL;
+          while (newName === BACK_SIGNAL) {
+            newName = await getServerNameConfig();
+          }
+          config.serverName = newName;
+          retries++;
+        } else if (errorMsg.includes("location disabled")) {
+          failedLocations.push(config.region);
+          logger.warning(`Location "${config.region}" is currently disabled for new servers`);
+          logger.info("Please select a different region and server type:");
+          let pickedSize = false;
+          while (!pickedSize) {
+            let newRegion = BACK_SIGNAL;
+            while (newRegion === BACK_SIGNAL) {
+              newRegion = await getLocationConfig(providerWithToken, failedLocations);
+            }
+            config.region = newRegion;
+            const newSize = await getServerTypeConfig(providerWithToken, config.region);
+            if (newSize === BACK_SIGNAL) continue; // back to region
+            config.serverSize = newSize;
+            pickedSize = true;
+          }
+          retries++;
+        } else if (
           errorMsg.includes("unavailable") ||
           errorMsg.includes("not available") ||
           errorMsg.includes("sold out") ||
@@ -149,11 +176,7 @@ export async function initCommand() {
             logger.info("Please select a different server type:");
             let newSize = BACK_SIGNAL;
             while (newSize === BACK_SIGNAL) {
-              newSize = await getServerTypeConfig(
-                providerWithToken,
-                config.region,
-                failedTypes,
-              );
+              newSize = await getServerTypeConfig(providerWithToken, config.region, failedTypes);
             }
             config.serverSize = newSize;
             retries++;

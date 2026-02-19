@@ -44,8 +44,13 @@ export async function getDeploymentConfig(provider: CloudProvider): Promise<Depl
   };
 }
 
-export async function getLocationConfig(provider: CloudProvider): Promise<string> {
-  const locations = await provider.getAvailableLocations();
+export async function getLocationConfig(
+  provider: CloudProvider,
+  exclude: string[] = [],
+): Promise<string> {
+  const allLocations = await provider.getAvailableLocations();
+  const locations =
+    exclude.length > 0 ? allLocations.filter((r) => !exclude.includes(r.id)) : allLocations;
 
   const { region } = await inquirer.prompt([
     {

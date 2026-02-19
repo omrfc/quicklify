@@ -29,19 +29,19 @@ Total: ~30 minutes + manual work
 
 ```bash
 npx quicklify init
-# Hetzner: ~5 minutes | DigitalOcean: ~10 minutes
+# Hetzner: ~5 minutes | DigitalOcean: ~7 minutes
 # Zero manual work ✨
 ```
 
 ## ✨ Features
 
 - 🎯 **One Command Deploy** - VPS + Coolify with a single command
-- 💰 **Cost Savings** - $50-200/mo (Vercel/Netlify) → €3.85/mo
+- 💰 **Cost Savings** - $50-200/mo (Vercel/Netlify) → €3.49/mo
 - 🔒 **Secure by Default** - Automated security setup
 - 🌍 **Multi-Cloud** - Hetzner Cloud + DigitalOcean
 - 💻 **Beautiful CLI** - Interactive prompts with validation
 - 🎨 **ARM64 Ready** - Support for cost-effective ARM servers
-- ⚡ **Fast Setup** - Hetzner ~5 min, DigitalOcean ~10 min
+- ⚡ **Fast Setup** - Hetzner ~5 min, DigitalOcean ~7 min
 - ✨ **Dynamic Server Types** - Only shows compatible types for selected location
 - 🔥 **Auto Firewall** - Ports 8000, 22, 80, 443 configured automatically
 - 🚀 **Zero SSH Required** - Opens directly in browser after deployment
@@ -95,7 +95,7 @@ You'll be prompted for:
 
 ### Step 3: Access Coolify
 
-After deployment (Hetzner ~5 min, DigitalOcean ~10 min):
+After deployment (Hetzner ~5 min, DigitalOcean ~7 min):
 
 ```
 ✅ Deployment Successful!
@@ -121,7 +121,7 @@ For production use, we recommend setting up a domain instead of using the IP add
 
 | Provider | Status | Starting Price | Architecture |
 |----------|--------|----------------|--------------|
-| **Hetzner Cloud** | ✅ Available | €3.85/mo | ARM64 + x86 |
+| **Hetzner Cloud** | ✅ Available | €3.49/mo | ARM64 + x86 |
 | **DigitalOcean** | ✅ Available | $12/mo | x86 |
 | **Vultr** | 📋 Planned | $2.50/mo | x86 |
 | **Linode** | 📋 Planned | $5/mo | x86 |
@@ -148,20 +148,27 @@ For production use, we recommend setting up a domain instead of using the IP add
 | Vercel (Hobby) | $20+ | 5 min | Easy |
 | Vercel (Pro) | $50+ | 5 min | Easy |
 | Netlify (Pro) | $19+ | 5 min | Easy |
-| **Quicklify + Hetzner** | **€3.85** | **~5 min** | **Easy** |
-| **Quicklify + DigitalOcean** | **$12** | **~10 min** | **Easy** |
-| Manual VPS + Coolify | €3.85 | 30+ min | Hard |
+| **Quicklify + Hetzner** | **€3.49** | **~5 min** | **Easy** |
+| **Quicklify + DigitalOcean** | **$12** | **~7 min** | **Easy** |
+| Manual VPS + Coolify | €3.49 | 30+ min | Hard |
 
 **Savings: ~$180-240/year per project!** 💰
 
 ## 📋 Recent Updates
+
+### v0.3.1 (2026-02-19)
+- Hetzner pricing now shows net prices (excl. VAT), matching website display
+- Hetzner server types use `/datacenters` API for real availability per location
+- Replaced deprecated Hetzner server types (cpx→cx23/cx33)
+- "Server name already used" error now prompts for a new name
+- Location disabled retry now re-prompts for server type
+- Back navigation works correctly in error retry flows
 
 ### v0.3.0 (2026-02-19)
 - DigitalOcean provider support (full API integration)
 - Interactive provider selection (Hetzner / DigitalOcean)
 - Step-based back navigation in all prompts
 - Network wait loop + install logging for DigitalOcean cloud-init reliability
-- Troubleshooting info in deployment success message
 - 143 tests with 97%+ statement coverage
 
 ### v0.2.8 (2026-02-16)

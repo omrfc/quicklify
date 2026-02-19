@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2026-02-19
+
+### Fixed
+- Hetzner pricing now shows net prices (excl. VAT) matching website display
+- Hetzner server types filtered by `/datacenters` API for real availability
+- Replaced deprecated Hetzner server types (cpx→cx23/cx33, per Jan 2026 deprecation)
+- "Server name already used" error now prompts for a new name instead of crashing
+- Location disabled retry now re-prompts for both region and server type
+- Back navigation in error retry flows (server type → region)
+- Updated static fallback prices to match current Hetzner net pricing
+
+### Changed
+- `getLocationConfig` now accepts `exclude` parameter to filter disabled locations
+
 ## [0.3.0] - 2026-02-19
 
 ### Added
@@ -15,18 +29,24 @@ All notable changes to this project will be documented in this file.
 - Network connectivity wait loop in cloud-init (DigitalOcean cloud-init timing fix)
 - Installation logging to `/var/log/quicklify-install.log` for troubleshooting
 - Troubleshooting info in deployment success message
+- Location retry on "server location disabled" error (offers region change)
 - 50+ new tests (DigitalOcean integration, provider selection, E2E flows)
 
 ### Changed
 - `init` command now prompts for provider selection instead of defaulting to Hetzner
 - DigitalOcean image changed from Ubuntu 24.04 to 22.04 (stable cloud-init support)
+- Hetzner server type filtering now uses `/datacenters` API for real availability
+- Replaced deprecated Hetzner server types (cpx→cx23/cx33, per Jan 2026 deprecation)
+- Provider-specific deployment timing (Hetzner ~5 min, DigitalOcean ~7 min)
 - Cloud-init script now uses `set +e` for resilient execution
 - UFW firewall support for DigitalOcean (alongside iptables for Hetzner)
 - Updated `typescript-eslint` from 8.55 to 8.56
 - Test count: 95 → 143+
 
 ### Fixed
+- Hetzner deprecated server types (cpx11, cx22 etc.) shown but failing on creation
 - DigitalOcean cloud-init failing due to network not ready at script execution time
+- Hetzner pricing now shows net prices (excl. VAT) matching website display
 - Coverage gaps in Hetzner provider (price null fallback, error.data.error undefined)
 
 ## [0.2.8] - 2026-02-16

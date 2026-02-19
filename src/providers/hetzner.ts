@@ -11,17 +11,25 @@ interface HetznerLocation {
 interface HetznerPrice {
   location: string;
   price_monthly: {
+    net: string;
     gross: string;
   };
 }
 
 interface HetznerServerType {
+  id: number;
   name: string;
   cores: number;
   memory: number;
   disk: number;
   deprecation: unknown;
   prices: HetznerPrice[];
+}
+
+interface HetznerDatacenter {
+  name: string;
+  location: { name: string };
+  server_types: { available: number[] };
 }
 
 interface HetznerErrorResponse {
@@ -122,10 +130,10 @@ export class HetznerProvider implements CloudProvider {
 
   getServerSizes(): ServerSize[] {
     return [
-      { id: "cax11", name: "CAX11", vcpu: 2, ram: 4, disk: 40, price: "€3.85/mo" },
-      { id: "cpx11", name: "CPX11", vcpu: 2, ram: 2, disk: 40, price: "€4.15/mo" },
-      { id: "cax21", name: "CAX21", vcpu: 4, ram: 8, disk: 80, price: "€7.05/mo" },
-      { id: "cpx21", name: "CPX21", vcpu: 3, ram: 4, disk: 80, price: "€7.35/mo" },
+      { id: "cax11", name: "CAX11", vcpu: 2, ram: 4, disk: 40, price: "€3.79/mo" },
+      { id: "cx23", name: "CX23", vcpu: 2, ram: 4, disk: 40, price: "€3.49/mo" },
+      { id: "cax21", name: "CAX21", vcpu: 4, ram: 8, disk: 80, price: "€6.49/mo" },
+      { id: "cx33", name: "CX33", vcpu: 4, ram: 8, disk: 80, price: "€5.49/mo" },
     ];
   }
 
@@ -146,6 +154,16 @@ export class HetznerProvider implements CloudProvider {
 
   async getAvailableServerTypes(location: string): Promise<ServerSize[]> {
     try {
+      // Get actually available server type IDs from datacenter
+      const dcResponse = await axios.get(`${this.baseUrl}/datacenters`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+      const datacenter = dcResponse.data.datacenters.find(
+        (dc: HetznerDatacenter) => dc.location.name === location,
+      );
+      const availableIds: number[] = datacenter?.server_types?.available || [];
+
+      // Get server type details
       const response = await axios.get(`${this.baseUrl}/server_types`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
@@ -155,6 +173,7 @@ export class HetznerProvider implements CloudProvider {
         (type: HetznerServerType) =>
           !type.deprecation &&
           type.memory >= MIN_RAM_GB &&
+          availableIds.includes(type.id) &&
           type.prices.some((p: HetznerPrice) => p.location === location),
       );
 
@@ -164,7 +183,7 @@ export class HetznerProvider implements CloudProvider {
 
       return types.map((type: HetznerServerType) => {
         const price = type.prices.find((p: HetznerPrice) => p.location === location);
-        const rawPrice = price?.price_monthly?.gross;
+        const rawPrice = price?.price_monthly?.net;
         const priceMonthly = rawPrice ? parseFloat(rawPrice).toFixed(2) : "N/A";
 
         return {

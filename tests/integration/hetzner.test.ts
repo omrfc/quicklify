@@ -91,10 +91,10 @@ describe('HetznerProvider', () => {
       });
     });
 
-    it('should include both ARM64 (CAX) and x86 (CPX) options', () => {
+    it('should include both ARM64 (CAX) and x86 (CX) options', () => {
       const sizes = provider.getServerSizes();
       const arm = sizes.filter(s => s.id.startsWith('cax'));
-      const x86 = sizes.filter(s => s.id.startsWith('cpx'));
+      const x86 = sizes.filter(s => s.id.startsWith('cx'));
       expect(arm.length).toBeGreaterThan(0);
       expect(x86.length).toBeGreaterThan(0);
     });
@@ -133,51 +133,70 @@ describe('HetznerProvider', () => {
   });
 
   describe('getAvailableServerTypes', () => {
-    it('should return server types filtered by location', async () => {
-      mockedAxios.get.mockResolvedValueOnce({
-        data: {
-          server_types: [
-            {
-              name: 'cax11',
-              cores: 2,
-              memory: 4,
-              disk: 40,
-              prices: [
-                { location: 'nbg1', price_monthly: { gross: '3.85' } },
-                { location: 'fsn1', price_monthly: { gross: '3.85' } },
-              ],
-            },
-            {
-              name: 'cpx11',
-              cores: 2,
-              memory: 2,
-              disk: 40,
-              prices: [
-                { location: 'nbg1', price_monthly: { gross: '4.15' } },
-              ],
-            },
-            {
-              name: 'cx52',
-              cores: 16,
-              memory: 32,
-              disk: 320,
-              prices: [
-                { location: 'hel1', price_monthly: { gross: '99.00' } },
-              ],
-            },
-          ],
-        },
-      });
+    const mockDatacentersResponse = {
+      data: {
+        datacenters: [
+          {
+            name: 'nbg1-dc3',
+            location: { name: 'nbg1' },
+            server_types: { available: [1, 2, 3] },
+          },
+          {
+            name: 'hel1-dc2',
+            location: { name: 'hel1' },
+            server_types: { available: [1] },
+          },
+        ],
+      },
+    };
+
+    it('should return server types filtered by datacenter availability', async () => {
+      mockedAxios.get
+        .mockResolvedValueOnce(mockDatacentersResponse)
+        .mockResolvedValueOnce({
+          data: {
+            server_types: [
+              {
+                id: 1,
+                name: 'cax11',
+                cores: 2,
+                memory: 4,
+                disk: 40,
+                prices: [
+                  { location: 'nbg1', price_monthly: { net: '3.79', gross: '4.51' } },
+                ],
+              },
+              {
+                id: 2,
+                name: 'cx22',
+                cores: 2,
+                memory: 4,
+                disk: 40,
+                prices: [
+                  { location: 'nbg1', price_monthly: { net: '3.49', gross: '4.15' } },
+                ],
+              },
+              {
+                id: 99,
+                name: 'cpx11',
+                cores: 2,
+                memory: 2,
+                disk: 40,
+                prices: [
+                  { location: 'nbg1', price_monthly: { net: '3.49', gross: '4.15' } },
+                ],
+              },
+            ],
+          },
+        });
 
       const types = await provider.getAvailableServerTypes('nbg1');
 
-      // cx52 should be filtered out (only available in hel1)
+      // cpx11 (id:99) not in available list [1,2,3] → filtered out
       expect(types).toHaveLength(2);
       expect(types[0].id).toBe('cax11');
-      expect(types[0].vcpu).toBe(2);
-      expect(types[0].ram).toBe(4);
-      expect(types[0].price).toBe('€3.85/mo');
-      expect(types[1].id).toBe('cpx11');
+      expect(types[0].price).toBe('€3.79/mo');
+      expect(types[1].id).toBe('cx22');
     });
 
     it('should fallback to static sizes on API error', async () => {
@@ -188,42 +207,52 @@ describe('HetznerProvider', () => {
       expect(types).toEqual(provider.getServerSizes());
     });
 
-    it('should fallback to static sizes when no types match location', async () => {
-      mockedAxios.get.mockResolvedValueOnce({
-        data: {
-          server_types: [
-            {
-              name: 'cx52',
-              cores: 16,
-              memory: 32,
-              disk: 320,
-              prices: [
-                { location: 'hel1', price_monthly: { gross: '99.00' } },
-              ],
-            },
-          ],
-        },
-      });
+    it('should fallback to static sizes when no types match', async () => {
+      mockedAxios.get
+        .mockResolvedValueOnce({
+          data: {
+            datacenters: [
+              { name: 'nbg1-dc3', location: { name: 'nbg1' }, server_types: { available: [99] } },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            server_types: [
+              {
+                id: 1,
+                name: 'cax11',
+                cores: 2,
+                memory: 4,
+                disk: 40,
+                prices: [{ location: 'nbg1', price_monthly: { net: '3.79', gross: '4.51' } }],
+              },
+            ],
+          },
+        });
 
       const types = await provider.getAvailableServerTypes('nbg1');
 
       expect(types).toEqual(provider.getServerSizes());
     });
 
-    it('should return "N/A" price when price_monthly.gross is undefined', async () => {
-      mockedAxios.get.mockResolvedValueOnce({
-        data: {
-          server_types: [
-            {
-              name: 'cax11',
-              cores: 2,
-              memory: 4,
-              disk: 40,
-              prices: [{ location: 'nbg1', price_monthly: {} }],
-            },
-          ],
-        },
-      });
+    it('should return "N/A" price when price_monthly.net is undefined', async () => {
+      mockedAxios.get
+        .mockResolvedValueOnce(mockDatacentersResponse)
+        .mockResolvedValueOnce({
+          data: {
+            server_types: [
+              {
+                id: 1,
+                name: 'cax11',
+                cores: 2,
+                memory: 4,
+                disk: 40,
+                prices: [{ location: 'nbg1', price_monthly: {} }],
+              },
+            ],
+          },
+        });
 
       const types = await provider.getAvailableServerTypes('nbg1');
 
@@ -232,51 +261,64 @@ describe('HetznerProvider', () => {
     });
 
     it('should filter out deprecated server types', async () => {
-      mockedAxios.get.mockResolvedValueOnce({
-        data: {
-          server_types: [
-            {
-              name: 'cax11',
-              cores: 2,
-              memory: 4,
-              disk: 40,
-              deprecation: { announced: '2025-01-01' },
-              prices: [{ location: 'nbg1', price_monthly: { gross: '3.85' } }],
-            },
-            {
-              name: 'cpx11',
-              cores: 2,
-              memory: 2,
-              disk: 40,
-              prices: [{ location: 'nbg1', price_monthly: { gross: '4.15' } }],
-            },
-          ],
-        },
-      });
+      mockedAxios.get
+        .mockResolvedValueOnce(mockDatacentersResponse)
+        .mockResolvedValueOnce({
+          data: {
+            server_types: [
+              {
+                id: 1,
+                name: 'cax11',
+                cores: 2,
+                memory: 4,
+                disk: 40,
+                deprecation: { announced: '2025-01-01' },
+                prices: [{ location: 'nbg1', price_monthly: { net: '3.79', gross: '4.51' } }],
+              },
+              {
+                id: 2,
+                name: 'cx22',
+                cores: 2,
+                memory: 4,
+                disk: 40,
+                prices: [{ location: 'nbg1', price_monthly: { net: '3.49', gross: '4.15' } }],
+              },
+            ],
+          },
+        });
 
       const types = await provider.getAvailableServerTypes('nbg1');
 
       expect(types).toHaveLength(1);
-      expect(types[0].id).toBe('cpx11');
+      expect(types[0].id).toBe('cx22');
     });
 
-    it('should call correct API endpoint', async () => {
-      mockedAxios.get.mockResolvedValueOnce({
-        data: {
-          server_types: [
-            {
-              name: 'cax11',
-              cores: 2,
-              memory: 4,
-              disk: 40,
-              prices: [{ location: 'nbg1', price_monthly: { gross: '3.85' } }],
-            },
-          ],
-        },
-      });
+    it('should call datacenters and server_types endpoints', async () => {
+      mockedAxios.get
+        .mockResolvedValueOnce(mockDatacentersResponse)
+        .mockResolvedValueOnce({
+          data: {
+            server_types: [
+              {
+                id: 1,
+                name: 'cax11',
+                cores: 2,
+                memory: 4,
+                disk: 40,
+                prices: [{ location: 'nbg1', price_monthly: { net: '3.79', gross: '4.51' } }],
+              },
+            ],
+          },
+        });
 
       await provider.getAvailableServerTypes('nbg1');
 
+      expect(mockedAxios.get).toHaveBeenCalledWith(
+        'https://api.hetzner.cloud/v1/datacenters',
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer test-api-token' },
+        }),
+      );
       expect(mockedAxios.get).toHaveBeenCalledWith(
         'https://api.hetzner.cloud/v1/server_types',
         expect.objectContaining({
