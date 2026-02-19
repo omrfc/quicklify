@@ -1,5 +1,5 @@
 import inquirer from 'inquirer';
-import { getDeploymentConfig, getLocationConfig, getServerTypeConfig, getServerNameConfig, confirmDeployment } from '../../src/utils/prompts';
+import { BACK_SIGNAL, getProviderConfig, getDeploymentConfig, getLocationConfig, getServerTypeConfig, getServerNameConfig, confirmDeployment } from '../../src/utils/prompts';
 import type { CloudProvider } from '../../src/providers/base';
 
 const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
@@ -26,7 +26,54 @@ const mockProvider: CloudProvider = {
   ]),
   createServer: jest.fn(),
   getServerStatus: jest.fn(),
+  getServerDetails: jest.fn(),
 };
+
+describe('getProviderConfig', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return selected provider', async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ provider: 'hetzner' });
+
+    const result = await getProviderConfig();
+
+    expect(result.provider).toBe('hetzner');
+  });
+
+  it('should return digitalocean when selected', async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ provider: 'digitalocean' });
+
+    const result = await getProviderConfig();
+
+    expect(result.provider).toBe('digitalocean');
+  });
+
+  it('should pass correct prompt config for list input', async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ provider: 'hetzner' });
+
+    await getProviderConfig();
+
+    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
+    expect(promptConfig[0].type).toBe('list');
+    expect(promptConfig[0].name).toBe('provider');
+    expect(promptConfig[0].choices).toHaveLength(2);
+  });
+
+  it('should have Hetzner and DigitalOcean as choices', async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ provider: 'hetzner' });
+
+    await getProviderConfig();
+
+    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
+    const choices = promptConfig[0].choices;
+    expect(choices[0].value).toBe('hetzner');
+    expect(choices[0].name).toBe('Hetzner Cloud');
+    expect(choices[1].value).toBe('digitalocean');
+    expect(choices[1].name).toBe('DigitalOcean');
+  });
+});
 
 describe('getDeploymentConfig', () => {
   beforeEach(() => {
@@ -110,8 +157,9 @@ describe('getLocationConfig', () => {
 
     const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
     expect(promptConfig[0].type).toBe('list');
-    expect(promptConfig[0].choices).toHaveLength(2);
-    expect(promptConfig[0].choices[0].name).toContain('Nuremberg');
+    // Separator + 2 locations + Separator + Back = 5 choices
+    expect(promptConfig[0].choices).toHaveLength(5);
+    expect(promptConfig[0].choices[1].name).toContain('Nuremberg');
   });
 });
 
@@ -136,7 +184,8 @@ describe('getServerTypeConfig', () => {
 
     const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
     const choices = promptConfig[0].choices;
-    expect(choices[0].name).toContain('40GB');
+    // choices[0] is Separator, choices[1] is first server type
+    expect(choices[1].name).toContain('40GB');
   });
 });
 
@@ -150,6 +199,20 @@ describe('getServerNameConfig', () => {
 
     const name = await getServerNameConfig();
     expect(name).toBe('my-server');
+  });
+
+  it('should return BACK_SIGNAL when server name is empty', async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ serverName: '' });
+
+    const name = await getServerNameConfig();
+    expect(name).toBe(BACK_SIGNAL);
+  });
+
+  it('should return BACK_SIGNAL when server name is whitespace', async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ serverName: '   ' });
+
+    const name = await getServerNameConfig();
+    expect(name).toBe(BACK_SIGNAL);
   });
 
   it('should have default value coolify-server', async () => {
@@ -179,12 +242,12 @@ describe('getServerNameConfig', () => {
       expect(validateName('server-01')).toBe(true);
     });
 
-    it('should reject empty string', () => {
-      expect(validateName('')).toBe('Server name is required');
+    it('should accept empty string (back signal)', () => {
+      expect(validateName('')).toBe(true);
     });
 
-    it('should reject whitespace-only string', () => {
-      expect(validateName('   ')).toBe('Server name is required');
+    it('should accept whitespace-only string (back signal)', () => {
+      expect(validateName('   ')).toBe(true);
     });
 
     it('should reject uppercase letters', () => {
@@ -218,7 +281,7 @@ describe('confirmDeployment', () => {
   });
 
   it('should return true when user confirms', async () => {
-    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: 'yes' });
 
     const result = await confirmDeployment(
       { provider: 'hetzner', apiToken: 'x', region: 'nbg1', serverSize: 'cax11', serverName: 'server' },
@@ -229,7 +292,7 @@ describe('confirmDeployment', () => {
   });
 
   it('should return false when user declines', async () => {
-    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: false });
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: 'no' });
 
     const result = await confirmDeployment(
       { provider: 'hetzner', apiToken: 'x', region: 'nbg1', serverSize: 'cax11', serverName: 'server' },
@@ -239,8 +302,19 @@ describe('confirmDeployment', () => {
     expect(result).toBe(false);
   });
 
+  it('should return BACK_SIGNAL when user selects back', async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: '__BACK__' });
+
+    const result = await confirmDeployment(
+      { provider: 'hetzner', apiToken: 'x', region: 'nbg1', serverSize: 'cax11', serverName: 'server' },
+      mockProvider,
+    );
+
+    expect(result).toBe(BACK_SIGNAL);
+  });
+
   it('should print deployment summary with correct details', async () => {
-    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: 'yes' });
 
     await confirmDeployment(
       { provider: 'hetzner', apiToken: 'x', region: 'nbg1', serverSize: 'cax11', serverName: 'my-server' },
@@ -261,9 +335,10 @@ describe('confirmDeployment', () => {
       ...mockProvider,
       getAvailableLocations: jest.fn().mockResolvedValue([]),
       getAvailableServerTypes: jest.fn().mockResolvedValue([]),
+      getServerDetails: jest.fn(),
     };
 
-    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: 'yes' });
 
     const result = await confirmDeployment(
       { provider: 'hetzner', apiToken: 'x', region: 'nbg1', serverSize: 'cax11', serverName: 'my-server' },
@@ -286,9 +361,10 @@ describe('confirmDeployment', () => {
       getAvailableServerTypes: jest.fn().mockResolvedValue([]),
       getRegions: () => [],
       getServerSizes: () => [],
+      getServerDetails: jest.fn(),
     };
 
-    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: 'yes' });
 
     await confirmDeployment(
       { provider: 'hetzner', apiToken: 'x', region: 'unknown-region', serverSize: 'unknown-size', serverName: 'test' },

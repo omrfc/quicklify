@@ -10,4 +10,5 @@ export interface CloudProvider {
   getAvailableServerTypes(location: string): Promise<ServerSize[]>;
   createServer(config: ServerConfig): Promise<ServerResult>;
   getServerStatus(serverId: string): Promise<string>;
+  getServerDetails(serverId: string): Promise<ServerResult>;
 }

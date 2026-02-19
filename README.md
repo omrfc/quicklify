@@ -8,7 +8,7 @@
 ![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
 [![Socket Badge](https://socket.dev/api/badge/npm/package/quicklify)](https://socket.dev/npm/package/quicklify)
 
-> Deploy Coolify to any cloud VPS in 4 minutes
+> Deploy Coolify to any cloud VPS with one command
 
 ## 🚀 What is Quicklify?
 
@@ -29,18 +29,19 @@ Total: ~30 minutes + manual work
 
 ```bash
 npx quicklify init
-# Total: ~4 minutes + zero manual work ✨
+# Hetzner: ~5 minutes | DigitalOcean: ~10 minutes
+# Zero manual work ✨
 ```
 
 ## ✨ Features
 
-- 🎯 **One Command Deploy** - VPS + Coolify in 4 minutes
+- 🎯 **One Command Deploy** - VPS + Coolify with a single command
 - 💰 **Cost Savings** - $50-200/mo (Vercel/Netlify) → €3.85/mo
 - 🔒 **Secure by Default** - Automated security setup
-- 🌍 **Multi-Cloud** - Hetzner (DigitalOcean coming soon)
+- 🌍 **Multi-Cloud** - Hetzner Cloud + DigitalOcean
 - 💻 **Beautiful CLI** - Interactive prompts with validation
 - 🎨 **ARM64 Ready** - Support for cost-effective ARM servers
-- ⚡ **Fast Setup** - Production-ready in minutes
+- ⚡ **Fast Setup** - Hetzner ~5 min, DigitalOcean ~10 min
 - ✨ **Dynamic Server Types** - Only shows compatible types for selected location
 - 🔥 **Auto Firewall** - Ports 8000, 22, 80, 443 configured automatically
 - 🚀 **Zero SSH Required** - Opens directly in browser after deployment
@@ -73,11 +74,11 @@ quicklify init
 5. Set permissions to **Read & Write**
 6. Copy the token (shown only once!)
 
-**DigitalOcean:** (Coming Soon)
+**DigitalOcean:**
 
 1. Visit [DigitalOcean API](https://cloud.digitalocean.com/account/api/tokens)
-2. Generate New Token
-3. Copy token
+2. Generate New Token with **Read & Write** scope
+3. Copy the token
 
 ### Step 2: Deploy Coolify
 
@@ -94,7 +95,7 @@ You'll be prompted for:
 
 ### Step 3: Access Coolify
 
-After ~3 minutes:
+After deployment (Hetzner ~5 min, DigitalOcean ~10 min):
 
 ```
 ✅ Deployment Successful!
@@ -121,7 +122,7 @@ For production use, we recommend setting up a domain instead of using the IP add
 | Provider | Status | Starting Price | Architecture |
 |----------|--------|----------------|--------------|
 | **Hetzner Cloud** | ✅ Available | €3.85/mo | ARM64 + x86 |
-| **DigitalOcean** | 🚧 Coming Soon | $4/mo | x86 |
+| **DigitalOcean** | ✅ Available | $12/mo | x86 |
 | **Vultr** | 📋 Planned | $2.50/mo | x86 |
 | **Linode** | 📋 Planned | $5/mo | x86 |
 
@@ -147,12 +148,21 @@ For production use, we recommend setting up a domain instead of using the IP add
 | Vercel (Hobby) | $20+ | 5 min | Easy |
 | Vercel (Pro) | $50+ | 5 min | Easy |
 | Netlify (Pro) | $19+ | 5 min | Easy |
-| **Quicklify + Hetzner** | **€3.85** | **4 min** | **Easy** |
+| **Quicklify + Hetzner** | **€3.85** | **~5 min** | **Easy** |
+| **Quicklify + DigitalOcean** | **$12** | **~10 min** | **Easy** |
 | Manual VPS + Coolify | €3.85 | 30+ min | Hard |
 
 **Savings: ~$180-240/year per project!** 💰
 
 ## 📋 Recent Updates
+
+### v0.3.0 (2026-02-19)
+- DigitalOcean provider support (full API integration)
+- Interactive provider selection (Hetzner / DigitalOcean)
+- Step-based back navigation in all prompts
+- Network wait loop + install logging for DigitalOcean cloud-init reliability
+- Troubleshooting info in deployment success message
+- 143 tests with 97%+ statement coverage
 
 ### v0.2.8 (2026-02-16)
 - Replaced all `any` types with proper TypeScript interfaces
@@ -212,9 +222,16 @@ For production use, we recommend setting up a domain instead of using the IP add
 - [x] ESLint + Prettier code quality tooling
 - [x] Zero `any` types - full type safety
 
-### Future
+### v0.3.0 (Completed)
 
-- [ ] DigitalOcean support
+- [x] DigitalOcean support
+- [x] Interactive provider selection UI
+- [x] Step-based back navigation
+- [x] Cloud-init reliability improvements (network wait, logging)
+
+### Future
+- [ ] Vultr support
+- [ ] Linode support
 - [ ] Domain configuration helper
 - [ ] SSL certificate automation
 - [ ] Health checks & monitoring
@@ -231,7 +248,7 @@ For production use, we recommend setting up a domain instead of using the IP add
 - **Interactive Prompts:** Inquirer.js
 - **Styling:** Chalk (colors) + Ora (spinners)
 - **HTTP Client:** Axios
-- **Cloud APIs:** Hetzner Cloud API v1
+- **Cloud APIs:** Hetzner Cloud API v1, DigitalOcean API v2
 - **Linting:** ESLint 9 + typescript-eslint
 - **Formatting:** Prettier
 
@@ -252,11 +269,14 @@ quicklify --help
 
 ### Interactive Prompts
 
-1. **API Token** - Validated before proceeding
-2. **Region Selection** - Choose your preferred datacenter
-3. **Server Size** - Recommended option marked
-4. **Server Name** - Validates format (lowercase, alphanumeric, hyphens)
-5. **Confirmation** - Review summary before deployment
+1. **Provider Selection** - Choose Hetzner Cloud or DigitalOcean
+2. **API Token** - Validated before proceeding
+3. **Region Selection** - Choose your preferred datacenter
+4. **Server Size** - Filtered by Coolify requirements (2GB RAM, 2 vCPU)
+5. **Server Name** - Validates format (lowercase, alphanumeric, hyphens)
+6. **Confirmation** - Review summary before deployment
+
+All steps support **← Back** navigation to return to the previous step.
 
 ## 🧪 Testing
 
@@ -290,7 +310,8 @@ tests/
 │   ├── prompts.test.ts
 │   └── validators.test.ts
 ├── integration/        # Integration tests (provider API calls)
-│   └── hetzner.test.ts
+│   ├── hetzner.test.ts
+│   └── digitalocean.test.ts
 └── e2e/                # End-to-end tests (full init flow)
     └── init.test.ts
 ```
@@ -304,7 +325,7 @@ Tests run automatically on every push/PR via GitHub Actions across:
 
 ### Coverage
 
-Current coverage: **98%+ statements/lines**, **91%+ branches**, **100% functions**.
+Current coverage: **97%+ statements/lines**, **90%+ branches**, **100% functions**. 143 tests across 7 test suites.
 
 ## 🔧 Troubleshooting
 
@@ -322,7 +343,8 @@ Current coverage: **98%+ statements/lines**, **91%+ branches**, **100% functions
 
 **"Cannot access Coolify UI"**
 
-- Wait 1-2 more minutes (Coolify initialization)
+- Wait 3-5 more minutes (Coolify initialization takes time)
+- Check the install log: `ssh root@YOUR_IP "cat /var/log/quicklify-install.log | tail -20"`
 - Check firewall settings (should auto-configure)
 - Verify server is running in cloud console
 

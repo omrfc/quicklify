@@ -2,8 +2,25 @@ import inquirer from "inquirer";
 import type { CloudProvider } from "../providers/base.js";
 import type { DeploymentConfig } from "../types/index.js";
 
+export const BACK_SIGNAL = "__BACK__";
+
+export async function getProviderConfig(): Promise<{ provider: string }> {
+  const { provider } = await inquirer.prompt([
+    {
+      type: "list",
+      name: "provider",
+      message: "Select cloud provider:",
+      choices: [
+        { name: "Hetzner Cloud", value: "hetzner" },
+        { name: "DigitalOcean", value: "digitalocean" },
+      ],
+    },
+  ]);
+
+  return { provider };
+}
+
 export async function getDeploymentConfig(provider: CloudProvider): Promise<DeploymentConfig> {
-  // Step 1: Get API token
   const { apiToken } = await inquirer.prompt([
     {
       type: "password",
@@ -35,10 +52,15 @@ export async function getLocationConfig(provider: CloudProvider): Promise<string
       type: "list",
       name: "region",
       message: "Select region:",
-      choices: locations.map((r) => ({
-        name: `${r.name} (${r.location})`,
-        value: r.id,
-      })),
+      choices: [
+        new inquirer.Separator("──────────"),
+        ...locations.map((r) => ({
+          name: `${r.name} (${r.location})`,
+          value: r.id,
+        })),
+        new inquirer.Separator("──────────"),
+        { name: "← Back", value: BACK_SIGNAL },
+      ],
     },
   ]);
 
@@ -59,10 +81,15 @@ export async function getServerTypeConfig(
       type: "list",
       name: "size",
       message: "Select server size:",
-      choices: serverTypes.map((s) => ({
-        name: `${s.name} - ${s.vcpu} vCPU, ${s.ram}GB RAM, ${s.disk}GB - ${s.price}`,
-        value: s.id,
-      })),
+      choices: [
+        new inquirer.Separator("──────────"),
+        ...serverTypes.map((s) => ({
+          name: `${s.name} - ${s.vcpu} vCPU, ${s.ram}GB RAM, ${s.disk}GB - ${s.price}`,
+          value: s.id,
+        })),
+        new inquirer.Separator("──────────"),
+        { name: "← Back", value: BACK_SIGNAL },
+      ],
     },
   ]);
 
@@ -74,11 +101,11 @@ export async function getServerNameConfig(): Promise<string> {
     {
       type: "input",
       name: "serverName",
-      message: "Server name:",
+      message: "Server name (leave empty to go back):",
       default: "coolify-server",
       validate: (input: string) => {
         if (!input || input.trim().length === 0) {
-          return "Server name is required";
+          return true; // empty = back signal
         }
         if (!/^[a-z0-9-]+$/.test(input)) {
           return "Server name must contain only lowercase letters, numbers, and hyphens";
@@ -88,13 +115,17 @@ export async function getServerNameConfig(): Promise<string> {
     },
   ]);
 
-  return serverName.trim();
+  const trimmed = serverName.trim();
+  if (trimmed.length === 0) {
+    return BACK_SIGNAL;
+  }
+  return trimmed;
 }
 
 export async function confirmDeployment(
   config: DeploymentConfig,
   provider: CloudProvider,
-): Promise<boolean> {
+): Promise<boolean | string> {
   // Try dynamic data first, fallback to static
   const locations = await provider.getAvailableLocations();
   const region =
@@ -118,12 +149,18 @@ export async function confirmDeployment(
 
   const { confirm } = await inquirer.prompt([
     {
-      type: "confirm",
+      type: "list",
       name: "confirm",
       message: "Proceed with deployment?",
-      default: true,
+      choices: [
+        { name: "Yes, deploy!", value: "yes" },
+        { name: "No, cancel", value: "no" },
+        { name: "← Back (change settings)", value: BACK_SIGNAL },
+      ],
     },
   ]);
 
-  return confirm;
+  if (confirm === "yes") return true;
+  if (confirm === BACK_SIGNAL) return BACK_SIGNAL;
+  return false;
 }

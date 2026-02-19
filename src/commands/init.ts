@@ -1,5 +1,9 @@
 import { HetznerProvider } from "../providers/hetzner.js";
+import { DigitalOceanProvider } from "../providers/digitalocean.js";
+import type { CloudProvider } from "../providers/base.js";
 import {
+  BACK_SIGNAL,
+  getProviderConfig,
   getDeploymentConfig,
   getLocationConfig,
   getServerTypeConfig,
@@ -9,22 +13,45 @@ import {
 import { getCoolifyCloudInit } from "../utils/cloudInit.js";
 import { logger, createSpinner } from "../utils/logger.js";
 
+function createProvider(providerName: string): CloudProvider {
+  switch (providerName) {
+    case "hetzner":
+      return new HetznerProvider("");
+    case "digitalocean":
+      return new DigitalOceanProvider("");
+    default:
+      throw new Error(`Unknown provider: ${providerName}`);
+  }
+}
+
+function createProviderWithToken(providerName: string, token: string): CloudProvider {
+  switch (providerName) {
+    case "hetzner":
+      return new HetznerProvider(token);
+    case "digitalocean":
+      return new DigitalOceanProvider(token);
+    /* istanbul ignore next */
+    default:
+      throw new Error(`Unknown provider: ${providerName}`);
+  }
+}
+
 export async function initCommand() {
   logger.title("Quicklify - Deploy Coolify in 4 minutes");
 
-  // For MVP, we only support Hetzner
-  // Later: Add provider selection prompt
-  logger.info("Using Hetzner Cloud (more providers coming soon!)");
+  // Step 1: Select cloud provider
+  const { provider: providerChoice } = await getProviderConfig();
+  const provider = createProvider(providerChoice);
 
-  const provider = new HetznerProvider(""); // Token will be set from config
+  logger.info(`Using ${provider.displayName}`);
 
-  // Step 1: Get API token
+  // Step 2: Get API token
   const config = await getDeploymentConfig(provider);
 
   // Create provider with actual token for API calls
-  const providerWithToken = new HetznerProvider(config.apiToken);
+  const providerWithToken = createProviderWithToken(providerChoice, config.apiToken);
 
-  // Step 2: Validate API token
+  // Step 3: Validate API token
   const tokenSpinner = createSpinner("Validating API token...");
   tokenSpinner.start();
 
@@ -36,20 +63,52 @@ export async function initCommand() {
   }
   tokenSpinner.succeed("API token validated");
 
-  // Step 3: Get location (dynamic from API)
-  config.region = await getLocationConfig(providerWithToken);
+  // Steps 4-7: Configuration with back navigation
+  let step = 4;
 
-  // Step 4: Get server type (dynamic based on location)
-  config.serverSize = await getServerTypeConfig(providerWithToken, config.region);
-
-  // Step 5: Get server name
-  config.serverName = await getServerNameConfig();
-
-  // Confirm deployment
-  const confirmed = await confirmDeployment(config, providerWithToken);
-  if (!confirmed) {
-    logger.warning("Deployment cancelled");
-    return;
+  while (step >= 4 && step <= 7) {
+    switch (step) {
+      case 4: {
+        const region = await getLocationConfig(providerWithToken);
+        if (region === BACK_SIGNAL) break;
+        config.region = region;
+        step = 5;
+        break;
+      }
+      case 5: {
+        const serverSize = await getServerTypeConfig(providerWithToken, config.region);
+        if (serverSize === BACK_SIGNAL) {
+          step = 4;
+          break;
+        }
+        config.serverSize = serverSize;
+        step = 6;
+        break;
+      }
+      case 6: {
+        const serverName = await getServerNameConfig();
+        if (serverName === BACK_SIGNAL) {
+          step = 5;
+          break;
+        }
+        config.serverName = serverName;
+        step = 7;
+        break;
+      }
+      case 7: {
+        const confirmed = await confirmDeployment(config, providerWithToken);
+        if (confirmed === BACK_SIGNAL) {
+          step = 6;
+          break;
+        }
+        if (!confirmed) {
+          logger.warning("Deployment cancelled");
+          return;
+        }
+        step = 8;
+        break;
+      }
+    }
   }
 
   try {
@@ -88,11 +147,15 @@ export async function initCommand() {
             failedTypes.push(config.serverSize);
             logger.warning(`Server type "${config.serverSize}" is not available in this location`);
             logger.info("Please select a different server type:");
-            config.serverSize = await getServerTypeConfig(
-              providerWithToken,
-              config.region,
-              failedTypes,
-            );
+            let newSize = BACK_SIGNAL;
+            while (newSize === BACK_SIGNAL) {
+              newSize = await getServerTypeConfig(
+                providerWithToken,
+                config.region,
+                failedTypes,
+              );
+            }
+            config.serverSize = newSize;
             retries++;
           } else {
             throw createError;
@@ -103,6 +166,7 @@ export async function initCommand() {
       }
     }
 
+    /* istanbul ignore next */
     if (!server) {
       logger.error("Could not create server after multiple attempts");
       process.exit(1);
@@ -130,23 +194,33 @@ export async function initCommand() {
 
     statusSpinner.succeed("Server is running");
 
+    // Refresh server details to get final IP (DO assigns IP after boot)
+    if (server.ip === "pending") {
+      const details = await providerWithToken.getServerDetails(server.id);
+      server.ip = details.ip;
+    }
+
     // Installing Coolify
-    const installSpinner = createSpinner("Installing Coolify (this takes 3-5 minutes)...");
+    const isDigitalOcean = providerChoice === "digitalocean";
+    const waitTime = isDigitalOcean ? 300000 : 180000; // DO: 5 min, Hetzner: 3 min
+    const waitLabel = isDigitalOcean ? "5-7" : "3-5";
+    const installSpinner = createSpinner(`Installing Coolify (this takes ${waitLabel} minutes)...`);
     installSpinner.start();
 
     // Wait for Coolify installation (cloud-init runs in background)
-    await new Promise((resolve) => setTimeout(resolve, 180000));
+    await new Promise((resolve) => setTimeout(resolve, waitTime));
 
     installSpinner.succeed("Coolify installation completed");
 
     // Success message
+    const extraWait = isDigitalOcean ? "3-5" : "1-2";
     logger.title("Deployment Successful!");
     console.log();
     logger.success(`Server IP: ${server.ip}`);
     logger.success(`Access Coolify: http://${server.ip}:8000`);
     console.log();
     logger.info("Default credentials will be shown on first login");
-    logger.info("Please wait 1-2 more minutes for Coolify to fully initialize");
+    logger.info(`Please wait ${extraWait} more minutes for Coolify to fully initialize`);
     console.log();
   } catch (error: unknown) {
     logger.error(`Deployment failed: ${error instanceof Error ? error.message : String(error)}`);

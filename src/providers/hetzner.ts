@@ -87,6 +87,17 @@ export class HetznerProvider implements CloudProvider {
     }
   }
 
+  async getServerDetails(serverId: string): Promise<ServerResult> {
+    const response = await axios.get(`${this.baseUrl}/servers/${serverId}`, {
+      headers: { Authorization: `Bearer ${this.apiToken}` },
+    });
+    return {
+      id: response.data.server.id.toString(),
+      ip: response.data.server.public_net.ipv4.ip,
+      status: response.data.server.status,
+    };
+  }
+
   async getServerStatus(serverId: string): Promise<string> {
     try {
       const response = await axios.get(`${this.baseUrl}/servers/${serverId}`, {
@@ -139,9 +150,12 @@ export class HetznerProvider implements CloudProvider {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
 
+      const MIN_RAM_GB = 2; // Coolify requires at least 2GB RAM
       const types = response.data.server_types.filter(
         (type: HetznerServerType) =>
-          !type.deprecation && type.prices.some((p: HetznerPrice) => p.location === location),
+          !type.deprecation &&
+          type.memory >= MIN_RAM_GB &&
+          type.prices.some((p: HetznerPrice) => p.location === location),
       );
 
       if (types.length === 0) {

@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-02-19
+
+### Added
+- DigitalOcean provider implementation (full API integration)
+- Provider selection UI prompt (Hetzner Cloud / DigitalOcean)
+- `getProviderConfig()` prompt function
+- DigitalOcean-specific interfaces (`DORegion`, `DOSize`, `DOErrorResponse`)
+- Step-based back navigation with `← Back` option in all prompts
+- `getServerDetails()` + IP refresh for DigitalOcean delayed IP assignment
+- Minimum 2GB RAM + 2 vCPU filter for Coolify requirements
+- Network connectivity wait loop in cloud-init (DigitalOcean cloud-init timing fix)
+- Installation logging to `/var/log/quicklify-install.log` for troubleshooting
+- Troubleshooting info in deployment success message
+- 50+ new tests (DigitalOcean integration, provider selection, E2E flows)
+
+### Changed
+- `init` command now prompts for provider selection instead of defaulting to Hetzner
+- DigitalOcean image changed from Ubuntu 24.04 to 22.04 (stable cloud-init support)
+- Cloud-init script now uses `set +e` for resilient execution
+- UFW firewall support for DigitalOcean (alongside iptables for Hetzner)
+- Updated `typescript-eslint` from 8.55 to 8.56
+- Test count: 95 → 143+
+
+### Fixed
+- DigitalOcean cloud-init failing due to network not ready at script execution time
+- Coverage gaps in Hetzner provider (price null fallback, error.data.error undefined)
+
 ## [0.2.8] - 2026-02-16
 
 ### Added

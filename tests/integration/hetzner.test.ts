@@ -210,6 +210,27 @@ describe('HetznerProvider', () => {
       expect(types).toEqual(provider.getServerSizes());
     });
 
+    it('should return "N/A" price when price_monthly.gross is undefined', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          server_types: [
+            {
+              name: 'cax11',
+              cores: 2,
+              memory: 4,
+              disk: 40,
+              prices: [{ location: 'nbg1', price_monthly: {} }],
+            },
+          ],
+        },
+      });
+
+      const types = await provider.getAvailableServerTypes('nbg1');
+
+      expect(types).toHaveLength(1);
+      expect(types[0].price).toBe('€N/A/mo');
+    });
+
     it('should filter out deprecated server types', async () => {
       mockedAxios.get.mockResolvedValueOnce({
         data: {
@@ -384,12 +405,45 @@ describe('HetznerProvider', () => {
       );
     });
 
+    it('should fallback to error.message when response.data.error is undefined', async () => {
+      mockedAxios.post.mockRejectedValueOnce({
+        response: {
+          data: {},
+        },
+        message: 'Request failed',
+      });
+
+      await expect(provider.createServer(serverConfig)).rejects.toThrow(
+        'Failed to create server: Request failed'
+      );
+    });
+
     it('should handle non-Error thrown values', async () => {
       mockedAxios.post.mockRejectedValueOnce('unexpected string error');
 
       await expect(provider.createServer(serverConfig)).rejects.toThrow(
         'Failed to create server: unexpected string error'
       );
+    });
+  });
+
+  describe('getServerDetails', () => {
+    it('should return full server details', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          server: {
+            id: 12345,
+            public_net: { ipv4: { ip: '1.2.3.4' } },
+            status: 'running',
+          },
+        },
+      });
+
+      const details = await provider.getServerDetails('12345');
+
+      expect(details.id).toBe('12345');
+      expect(details.ip).toBe('1.2.3.4');
+      expect(details.status).toBe('running');
     });
   });
 
