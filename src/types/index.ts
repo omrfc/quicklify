@@ -58,3 +58,29 @@ export interface QuicklifyConfig {
   size?: string;
   name?: string;
 }
+
+// Firewall
+export type FirewallProtocol = "tcp" | "udp";
+export interface FirewallRule {
+  port: number;
+  protocol: FirewallProtocol;
+  action: "ALLOW" | "DENY";
+  from: string;
+}
+export interface FirewallStatus {
+  active: boolean;
+  rules: FirewallRule[];
+}
+
+// Secure
+export interface SshdSetting {
+  key: string;
+  value: string;
+  status: "secure" | "insecure" | "missing";
+}
+export interface SecureAuditResult {
+  passwordAuth: SshdSetting;
+  rootLogin: SshdSetting;
+  fail2ban: { installed: boolean; active: boolean };
+  sshPort: number;
+}

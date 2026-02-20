@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2026-02-20
+
+### Added
+- **`quicklify firewall [subcommand]`** command - Manage server firewall (UFW)
+  - `setup` - Install UFW + configure Coolify ports (80, 443, 8000, 6001, 6002) + SSH (22)
+  - `add` - Open a port (`--port`, `--protocol tcp|udp`)
+  - `remove` - Close a port (port 22 protected, Coolify ports warn before removal)
+  - `list` - Show current firewall rules
+  - `status` - Check UFW active/inactive state
+- **`quicklify domain [subcommand]`** command - Manage server domain and SSL
+  - `add` - Bind domain to Coolify (`--domain`, `--no-ssl` to disable HTTPS)
+  - `remove` - Remove domain, revert to IP:8000
+  - `check` - Verify DNS A record matches server IP
+  - `list` - Show current APP_URL configuration
+- **`quicklify secure [subcommand]`** command - SSH hardening and fail2ban
+  - `setup` - Disable password auth, set root login to key-only, install fail2ban (requires SSH key check + double confirmation)
+  - `status` - Show current SSH security settings
+  - `audit` - Detailed security report with score (0-4)
+- `--dry-run` flag on all three commands - Preview commands without executing
+- Protected port system: port 22 cannot be removed via `firewall remove`
+- Coolify port warnings: removing ports 80/443/8000/6001/6002 requires confirmation
+- SSH key safety check: `secure setup` refuses to run if no authorized_keys found
+- Pure functions for all commands (unit-testable): `isValidPort`, `isProtectedPort`, `buildUfwRuleCommand`, `parseUfwStatus`, `isValidDomain`, `sanitizeDomain`, `buildSetFqdnCommand`, `parseDnsResult`, `parseFqdn`, `parseSshdConfig`, `parseAuditResult`, `buildHardeningCommand`, `buildFail2banCommand`
+- `FirewallRule`, `FirewallStatus`, `SshdSetting`, `SecureAuditResult` TypeScript interfaces
+- 140 new tests across 3 test files (firewall, domain, secure)
+
+### Changed
+- Total commands: 12 → 15
+- Test count: 354 → 494
+- Test suites: 29 → 32
+- Coverage maintained: 97%+ statements, 85%+ branches, 96%+ functions
+- Zero new npm dependencies added
+
 ## [0.6.0] - 2026-02-20
 
 ### Added

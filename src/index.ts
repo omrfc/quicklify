@@ -16,6 +16,9 @@ import { logsCommand } from "./commands/logs.js";
 import { monitorCommand } from "./commands/monitor.js";
 import { healthCommand } from "./commands/health.js";
 import { doctorCommand } from "./commands/doctor.js";
+import { firewallCommand } from "./commands/firewall.js";
+import { domainCommand } from "./commands/domain.js";
+import { secureCommand } from "./commands/secure.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -97,5 +100,37 @@ program
   .description("Check your local environment and configuration")
   .option("--check-tokens", "Validate provider API tokens")
   .action((options?: { checkTokens?: boolean }) => doctorCommand(options, pkg.version));
+
+program
+  .command("firewall [subcommand] [query]")
+  .description("Manage server firewall (UFW)")
+  .option("--port <port>", "Port number (for add/remove)")
+  .option("--protocol <protocol>", "Protocol: tcp or udp (default: tcp)")
+  .option("--dry-run", "Show commands without executing")
+  .action(
+    (subcommand?: string, query?: string, options?: { port?: string; protocol?: string; dryRun?: boolean }) =>
+      firewallCommand(subcommand, query, options),
+  );
+
+program
+  .command("domain [subcommand] [query]")
+  .description("Manage server domain and SSL")
+  .option("--domain <domain>", "Domain name (for add/check)")
+  .option("--no-ssl", "Disable HTTPS (default: enabled)")
+  .option("--dry-run", "Show commands without executing")
+  .action(
+    (subcommand?: string, query?: string, options?: { domain?: string; ssl?: boolean; dryRun?: boolean }) =>
+      domainCommand(subcommand, query, options),
+  );
+
+program
+  .command("secure [subcommand] [query]")
+  .description("Manage server security (SSH hardening, fail2ban)")
+  .option("--port <port>", "Change SSH port")
+  .option("--dry-run", "Show commands without executing")
+  .action(
+    (subcommand?: string, query?: string, options?: { port?: string; dryRun?: boolean }) =>
+      secureCommand(subcommand, query, options),
+  );
 
 program.parse();

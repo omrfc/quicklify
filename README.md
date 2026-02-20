@@ -54,6 +54,10 @@ npx quicklify init
 - 📜 **Log Viewer** - View Coolify, Docker, or system logs with follow mode
 - 🩺 **Environment Doctor** - Diagnose local setup issues
 - 🫀 **Bulk Health Check** - Check all servers at once
+- 🔥 **Firewall Management** - UFW setup, add/remove ports, protected port safety
+- 🌐 **Domain Management** - Bind domains, DNS check, auto SSL via Coolify
+- 🛡️ **SSH Hardening** - Disable password auth, fail2ban, security audit with score
+- 🧪 **Dry-Run Mode** - Preview commands on firewall/domain/secure before executing
 - 🤖 **Non-Interactive Mode** - CI/CD friendly with `--provider --token --region --size --name` flags
 
 ## 📦 Installation
@@ -120,12 +124,12 @@ Visit the URL, create your admin account, and start deploying!
 **Important:** Port 8000 is publicly accessible after deployment.
 
 **Recommended next steps:**
-1. **Add a domain** and enable SSL in Coolify settings
-2. Use **Cloudflare** for DDoS protection
-3. Set a **strong password** on first login
-4. Consider **IP whitelisting** for sensitive deployments
-
-For production use, we recommend setting up a domain instead of using the IP address directly.
+1. **Setup firewall:** `quicklify firewall setup my-server`
+2. **Add a domain:** `quicklify domain add my-server --domain example.com`
+3. **Harden SSH:** `quicklify secure setup my-server`
+4. **Run security audit:** `quicklify secure audit my-server`
+5. Set a **strong password** on first login
+6. Consider **Cloudflare** for DDoS protection
 
 ## 🌐 Supported Providers
 
@@ -165,6 +169,14 @@ For production use, we recommend setting up a domain instead of using the IP add
 **Savings: ~$180-240/year per project!** 💰
 
 ## 📋 Recent Updates
+
+### v0.7.0 (2026-02-20)
+- **New commands:** `quicklify firewall`, `quicklify domain`, `quicklify secure`
+- **Firewall management:** UFW setup, add/remove ports, protected port 22 safety, Coolify port warnings
+- **Domain management:** Bind domains to Coolify, DNS A record check, auto SSL
+- **SSH hardening:** Disable password auth, key-only root login, fail2ban, security audit with 0-4 score
+- **Dry-run mode:** `--dry-run` flag previews all commands without executing
+- Zero new dependencies, 494 tests with 97%+ statement coverage
 
 ### v0.6.0 (2026-02-20)
 - **New commands:** `quicklify logs`, `quicklify monitor`, `quicklify health`, `quicklify doctor`
@@ -258,13 +270,18 @@ For production use, we recommend setting up a domain instead of using the IP add
 - [x] Environment diagnostics (`quicklify doctor`)
 - [x] SSH streaming for real-time log following
 
+### v0.7.0 (Completed)
+
+- [x] Firewall management - UFW setup, add/remove ports (`quicklify firewall`)
+- [x] Domain management - Bind domains, DNS check, SSL (`quicklify domain`)
+- [x] SSH hardening - Password disable, fail2ban, security audit (`quicklify secure`)
+- [x] Dry-run mode for all security commands
+
 ### Future
 - [ ] Vultr support
 - [ ] Linode / AWS Lightsail support
-- [ ] Domain + SSL configuration helper
 - [ ] Backup/restore commands
 - [ ] Interactive TUI dashboard
-- [ ] Firewall management
 
 ## 🛠️ Tech Stack
 
@@ -338,6 +355,30 @@ quicklify health
 
 # Run environment diagnostics
 quicklify doctor
+
+# Firewall management
+quicklify firewall setup my-server           # Install UFW + Coolify ports
+quicklify firewall add my-server --port 3000  # Open port 3000/tcp
+quicklify firewall add my-server --port 53 --protocol udp  # Open port 53/udp
+quicklify firewall remove my-server --port 3000  # Close port 3000
+quicklify firewall list my-server             # Show firewall rules
+quicklify firewall status my-server           # Check UFW active/inactive
+quicklify firewall setup my-server --dry-run  # Preview without executing
+
+# Domain management
+quicklify domain add my-server --domain example.com     # Bind domain + HTTPS
+quicklify domain add my-server --domain example.com --no-ssl  # HTTP only
+quicklify domain remove my-server             # Revert to IP:8000
+quicklify domain check my-server --domain example.com   # Verify DNS
+quicklify domain list my-server               # Show current domain
+quicklify domain add my-server --domain example.com --dry-run  # Preview
+
+# SSH hardening & security
+quicklify secure status my-server            # Show security settings
+quicklify secure audit my-server             # Security score (0-4)
+quicklify secure setup my-server             # Harden SSH + install fail2ban
+quicklify secure setup my-server --port 2222  # Change SSH port
+quicklify secure setup my-server --dry-run    # Preview without executing
 
 # Show version
 quicklify --version
@@ -420,6 +461,8 @@ tests/
 │   ├── defaults.test.ts        # Default config CRUD
 │   ├── destroy.test.ts         # Destroy command unit tests
 │   ├── doctor.test.ts           # Doctor command tests
+│   ├── domain.test.ts           # Domain command tests
+│   ├── firewall.test.ts         # Firewall command tests
 │   ├── health-command.test.ts   # Health command tests
 │   ├── healthCheck.test.ts     # Health check polling tests
 │   ├── healthCheck-edge.test.ts # Health check edge cases (302, 401, 500)
@@ -430,6 +473,7 @@ tests/
 │   ├── prompts.test.ts
 │   ├── providerFactory.test.ts # Provider factory tests
 │   ├── restart.test.ts         # Restart command tests
+│   ├── secure.test.ts           # Secure command tests
 │   ├── serverSelect.test.ts    # Server selection utility tests
 │   ├── ssh-command.test.ts     # SSH command tests
 │   ├── ssh-utils.test.ts       # SSH helper tests
@@ -455,7 +499,7 @@ Tests run automatically on every push/PR via GitHub Actions across:
 
 ### Coverage
 
-Current coverage: **97%+ statements/lines**, **87%+ branches**, **96%+ functions**. 354 tests across 29 test suites.
+Current coverage: **97%+ statements/lines**, **85%+ branches**, **96%+ functions**. 494 tests across 32 test suites.
 
 ## 🔧 Troubleshooting
 
