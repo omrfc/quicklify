@@ -65,9 +65,6 @@
     "inquirer": "^12.3.2",
     "ora": "^9.3.0"
   },
-  "overrides": {
-    "minimatch": "10.2.2"
-  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/inquirer": "^9.0.7",
