@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1] - 2026-02-20
+
+### Security
+- **Environment variable token support** - Use `HETZNER_TOKEN` / `DIGITALOCEAN_TOKEN` env vars instead of `--token` flag to avoid shell history and `ps aux` exposure
+- Config directory (`~/.quicklify/`) created with `0o700` permissions (owner only)
+- Cloud-init install log restricted to `chmod 600` (root read/write only)
+- Server name validation strengthened: 3-63 chars, must start with letter, end with letter/number
+- SSL/HTTPS setup warnings added to `init` and `status` command output
+- Updated `SECURITY.md` with current security measures and DigitalOcean API v2
+
+### Changed
+- Non-interactive mode now detected by `--provider` flag alone (token can come from env var)
+- `--token` option description updated to mention env var alternatives
+
 ## [0.4.0] - 2026-02-20
 
 ### Added

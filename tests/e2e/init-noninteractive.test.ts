@@ -20,11 +20,15 @@ describe('initCommand Non-Interactive', () => {
   let consoleSpy: jest.SpyInstance;
   let processExitSpy: jest.SpyInstance;
   const originalSetTimeout = global.setTimeout;
+  const originalEnv = process.env;
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, 'log').mockImplementation();
     processExitSpy = jest.spyOn(process, 'exit').mockImplementation((() => {}) as any);
     jest.clearAllMocks();
+    process.env = { ...originalEnv };
+    delete process.env.HETZNER_TOKEN;
+    delete process.env.DIGITALOCEAN_TOKEN;
     global.setTimeout = ((fn: Function) => {
       fn();
       return 0;
@@ -34,6 +38,7 @@ describe('initCommand Non-Interactive', () => {
   afterEach(() => {
     consoleSpy.mockRestore();
     processExitSpy.mockRestore();
+    process.env = originalEnv;
     global.setTimeout = originalSetTimeout;
   });
 
@@ -262,5 +267,140 @@ describe('initCommand Non-Interactive', () => {
 
     const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
     expect(allOutput).toContain('check your cloud provider dashboard');
+  });
+
+  it('should use HETZNER_TOKEN env var when --token not provided', async () => {
+    process.env.HETZNER_TOKEN = 'env-hetzner-token';
+
+    mockedAxios.get
+      .mockResolvedValueOnce({ data: { servers: [] } })           // validateToken
+      .mockResolvedValueOnce({ data: { server: { status: 'running' } } }); // getServerStatus
+
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        server: {
+          id: 701,
+          public_net: { ipv4: { ip: '10.20.30.40' } },
+          status: 'initializing',
+        },
+      },
+    });
+
+    await initCommand({
+      provider: 'hetzner',
+      region: 'nbg1',
+      size: 'cax11',
+      name: 'env-hetzner',
+    });
+
+    expect(mockedInquirer.prompt).not.toHaveBeenCalled();
+    expect(mockedAxios.post).toHaveBeenCalled();
+    const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(allOutput).toContain('10.20.30.40');
+  });
+
+  it('should use DIGITALOCEAN_TOKEN env var when --token not provided', async () => {
+    process.env.DIGITALOCEAN_TOKEN = 'env-do-token';
+
+    mockedAxios.get
+      .mockResolvedValueOnce({ data: { account: { status: 'active' } } }) // validateToken
+      .mockResolvedValueOnce({ data: { droplet: { status: 'active' } } }); // getServerStatus
+
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        droplet: {
+          id: 702,
+          networks: { v4: [{ type: 'public', ip_address: '50.60.70.80' }] },
+          status: 'new',
+        },
+      },
+    });
+
+    await initCommand({
+      provider: 'digitalocean',
+      region: 'nyc1',
+      size: 's-2vcpu-2gb',
+      name: 'env-do-test',
+    });
+
+    expect(mockedInquirer.prompt).not.toHaveBeenCalled();
+    expect(mockedAxios.post).toHaveBeenCalled();
+    const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(allOutput).toContain('50.60.70.80');
+  });
+
+  it('should prefer --token flag over env var', async () => {
+    process.env.HETZNER_TOKEN = 'env-token-should-not-be-used';
+
+    mockedAxios.get
+      .mockResolvedValueOnce({ data: { servers: [] } })
+      .mockResolvedValueOnce({ data: { server: { status: 'running' } } });
+
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        server: {
+          id: 703,
+          public_net: { ipv4: { ip: '11.22.33.44' } },
+          status: 'initializing',
+        },
+      },
+    });
+
+    await initCommand({
+      provider: 'hetzner',
+      token: 'explicit-flag-token',
+      region: 'nbg1',
+      size: 'cax11',
+      name: 'flag-priority',
+    });
+
+    // Verify the explicit token was used (post was called, meaning token validated)
+    expect(mockedAxios.post).toHaveBeenCalled();
+    // The first GET (validateToken) should use the flag token, not env token
+    const firstGetCall = mockedAxios.get.mock.calls[0];
+    expect(firstGetCall[1]?.headers?.Authorization).toBe('Bearer explicit-flag-token');
+  });
+
+  it('should error when non-interactive and no token available', async () => {
+    // No --token, no env var
+    await initCommand({
+      provider: 'hetzner',
+      region: 'nbg1',
+      size: 'cax11',
+      name: 'no-token-test',
+    });
+
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+    const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(allOutput).toContain('API token required');
+    expect(allOutput).toContain('HETZNER_TOKEN');
+  });
+
+  it('should show SSL warning after successful deploy', async () => {
+    mockedAxios.get
+      .mockResolvedValueOnce({ data: { servers: [] } })
+      .mockResolvedValueOnce({ data: { server: { status: 'running' } } });
+
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        server: {
+          id: 800,
+          public_net: { ipv4: { ip: '88.99.11.22' } },
+          status: 'initializing',
+        },
+      },
+    });
+
+    await initCommand({
+      provider: 'hetzner',
+      token: 'valid-token',
+      region: 'nbg1',
+      size: 'cax11',
+      name: 'ssl-warn-test',
+    });
+
+    const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(allOutput).toContain('SSL');
+    expect(allOutput).toContain('domain');
   });
 });

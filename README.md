@@ -284,6 +284,20 @@ quicklify init \
   --name production-coolify
 ```
 
+**Using environment variables (recommended for CI/CD):**
+
+```bash
+# Set token as environment variable (avoids shell history exposure)
+export HETZNER_TOKEN="your-api-token"
+# or
+export DIGITALOCEAN_TOKEN="your-api-token"
+
+# Token is read automatically from env var
+quicklify init --provider hetzner --region nbg1 --size cax11 --name my-server
+```
+
+Token resolution order: `--token` flag > environment variable > interactive prompt.
+
 If some flags are missing, only the missing values will be prompted interactively.
 
 ### Interactive Prompts

@@ -251,20 +251,66 @@ describe('getServerNameConfig', () => {
       expect(validateName('   ')).toBe(true);
     });
 
+    it('should accept minimum valid length (3 chars)', () => {
+      expect(validateName('abc')).toBe(true);
+    });
+
+    it('should accept maximum valid length (63 chars)', () => {
+      expect(validateName('a' + 'b'.repeat(61) + 'c')).toBe(true);
+    });
+
+    it('should reject too short name (2 chars)', () => {
+      expect(validateName('ab')).toBe('Server name must be 3-63 characters');
+    });
+
+    it('should reject single character name', () => {
+      expect(validateName('a')).toBe('Server name must be 3-63 characters');
+    });
+
+    it('should reject too long name (64+ chars)', () => {
+      expect(validateName('a'.repeat(64))).toBe('Server name must be 3-63 characters');
+    });
+
+    it('should reject name starting with hyphen', () => {
+      expect(validateName('-my-server')).toBe(
+        'Must start with a letter, end with letter/number, only lowercase letters, numbers, hyphens',
+      );
+    });
+
+    it('should reject name ending with hyphen', () => {
+      expect(validateName('my-server-')).toBe(
+        'Must start with a letter, end with letter/number, only lowercase letters, numbers, hyphens',
+      );
+    });
+
+    it('should reject name starting with number', () => {
+      expect(validateName('1server')).toBe(
+        'Must start with a letter, end with letter/number, only lowercase letters, numbers, hyphens',
+      );
+    });
+
     it('should reject uppercase letters', () => {
-      expect(validateName('MyServer')).toBe('Server name must contain only lowercase letters, numbers, and hyphens');
+      expect(validateName('MyServer')).toBe(
+        'Must start with a letter, end with letter/number, only lowercase letters, numbers, hyphens',
+      );
     });
 
     it('should reject underscores', () => {
-      expect(validateName('my_server')).toBe('Server name must contain only lowercase letters, numbers, and hyphens');
+      expect(validateName('my_server')).toBe(
+        'Must start with a letter, end with letter/number, only lowercase letters, numbers, hyphens',
+      );
     });
 
     it('should reject dots', () => {
-      expect(validateName('server.com')).toBe('Server name must contain only lowercase letters, numbers, and hyphens');
+      expect(validateName('server.com')).toBe(
+        'Must start with a letter, end with letter/number, only lowercase letters, numbers, hyphens',
+      );
     });
 
     it('should reject spaces', () => {
-      expect(validateName('my server')).toBe('Server name must contain only lowercase letters, numbers, and hyphens');
+      expect(validateName('my server')).toBe(
+        'Must start with a letter, end with letter/number, only lowercase letters, numbers, hyphens',
+      );
     });
   });
 });

@@ -2,6 +2,8 @@ export function getCoolifyCloudInit(serverName: string): string {
   const safeName = serverName.replace(/[^a-z0-9-]/g, "");
   return `#!/bin/bash
 set +e
+touch /var/log/quicklify-install.log
+chmod 600 /var/log/quicklify-install.log
 exec > >(tee /var/log/quicklify-install.log) 2>&1
 
 echo "=================================="

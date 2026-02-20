@@ -87,6 +87,7 @@ export async function statusCommand(query?: string): Promise<void> {
 
     if (coolifyStatus === "running") {
       logger.success(`Access Coolify: http://${server.ip}:8000`);
+      logger.warning("Running on HTTP. Set up a domain + SSL for production use.");
     } else {
       logger.warning("Coolify is not reachable. It may still be installing.");
     }

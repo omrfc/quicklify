@@ -112,8 +112,11 @@ export async function getServerNameConfig(): Promise<string> {
         if (!input || input.trim().length === 0) {
           return true; // empty = back signal
         }
-        if (!/^[a-z0-9-]+$/.test(input)) {
-          return "Server name must contain only lowercase letters, numbers, and hyphens";
+        if (input.length < 3 || input.length > 63) {
+          return "Server name must be 3-63 characters";
+        }
+        if (!/^[a-z][a-z0-9-]*[a-z0-9]$/.test(input)) {
+          return "Must start with a letter, end with letter/number, only lowercase letters, numbers, hyphens";
         }
         return true;
       },

@@ -16,8 +16,7 @@ import { getCoolifyCloudInit } from "../utils/cloudInit.js";
 import { logger, createSpinner } from "../utils/logger.js";
 
 export async function initCommand(options: InitOptions = {}): Promise<void> {
-  const isNonInteractive =
-    options.provider !== undefined && options.token !== undefined;
+  const isNonInteractive = options.provider !== undefined;
 
   logger.title("Quicklify - Deploy Coolify in minutes");
 
@@ -42,9 +41,19 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
   const provider = createProvider(providerChoice);
   logger.info(`Using ${provider.displayName}`);
 
-  // Step 2: Get API token
+  // Step 2: Get API token (flag > env var > interactive prompt)
   if (options.token) {
     apiToken = options.token;
+  } else if (providerChoice === "hetzner" && process.env.HETZNER_TOKEN) {
+    apiToken = process.env.HETZNER_TOKEN;
+  } else if (providerChoice === "digitalocean" && process.env.DIGITALOCEAN_TOKEN) {
+    apiToken = process.env.DIGITALOCEAN_TOKEN;
+  } else if (isNonInteractive) {
+    logger.error(
+      "API token required. Use --token or set HETZNER_TOKEN/DIGITALOCEAN_TOKEN env var",
+    );
+    process.exit(1);
+    return;
   } else {
     const config = await getDeploymentConfig(provider);
     apiToken = config.apiToken;
@@ -314,6 +323,7 @@ async function deployServer(
       logger.warning("Coolify did not respond yet. Please check in a few minutes.");
       logger.info(`You can check status later with: quicklify status ${server.ip}`);
     }
+    logger.warning("Set up a domain and enable SSL in Coolify for production use.");
     logger.info("Server saved to local config. Use 'quicklify list' to see all servers.");
     console.log();
   } catch (error: unknown) {

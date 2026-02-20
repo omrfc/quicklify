@@ -24,7 +24,7 @@ program
   .command("init")
   .description("Deploy a new Coolify instance on a cloud provider")
   .option("--provider <provider>", "Cloud provider (hetzner, digitalocean)")
-  .option("--token <token>", "API token")
+  .option("--token <token>", "API token (or set HETZNER_TOKEN / DIGITALOCEAN_TOKEN env var)")
   .option("--region <region>", "Server region")
   .option("--size <size>", "Server size")
   .option("--name <name>", "Server name")
