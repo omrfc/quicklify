@@ -137,6 +137,32 @@ export class DigitalOceanProvider implements CloudProvider {
     }
   }
 
+  async rebootServer(serverId: string): Promise<void> {
+    try {
+      await axios.post(
+        `${this.baseUrl}/droplets/${serverId}/actions`,
+        { type: "reboot" },
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiToken}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    } catch (error: unknown) {
+      if (axios.isAxiosError<DOErrorResponse>(error)) {
+        throw new Error(
+          `Failed to reboot server: ${error.response?.data?.message || error.message}`,
+          { cause: error },
+        );
+      }
+      throw new Error(
+        `Failed to reboot server: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
   getRegions(): Region[] {
     return [
       { id: "nyc1", name: "New York 1", location: "USA" },

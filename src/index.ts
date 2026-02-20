@@ -8,6 +8,10 @@ import { initCommand } from "./commands/init.js";
 import { listCommand } from "./commands/list.js";
 import { statusCommand } from "./commands/status.js";
 import { destroyCommand } from "./commands/destroy.js";
+import { configCommand } from "./commands/config.js";
+import { sshCommand } from "./commands/ssh.js";
+import { updateCommand } from "./commands/update.js";
+import { restartCommand } from "./commands/restart.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -41,5 +45,26 @@ program
   .command("destroy [query]")
   .description("Destroy a registered server")
   .action(destroyCommand);
+
+program
+  .command("config [subcommand] [args...]")
+  .description("Manage default configuration")
+  .action((subcommand?: string, args?: string[]) => configCommand(subcommand, args));
+
+program
+  .command("ssh [query]")
+  .description("SSH into a registered server")
+  .option("-c, --command <command>", "Execute a single command via SSH")
+  .action((query?: string, options?: { command?: string }) => sshCommand(query, options));
+
+program
+  .command("update [query]")
+  .description("Update Coolify on a registered server")
+  .action(updateCommand);
+
+program
+  .command("restart [query]")
+  .description("Restart a registered server")
+  .action(restartCommand);
 
 program.parse();

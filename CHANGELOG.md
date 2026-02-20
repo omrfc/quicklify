@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-02-20
+
+### Added
+- **`quicklify config`** command - Manage default configuration (`set`, `get`, `list`, `reset`)
+- **`quicklify ssh [query]`** command - SSH into a registered server (interactive or `--command` mode)
+- **`quicklify update [query]`** command - Update Coolify on a registered server via SSH
+- **`quicklify restart [query]`** command - Restart a server via provider API (Hetzner + DigitalOcean)
+- `rebootServer()` method on `CloudProvider` interface (Hetzner + DigitalOcean implementations)
+- Shared `resolveServer()` and `promptApiToken()` utilities (`src/utils/serverSelect.ts`)
+- Default config management via `~/.quicklify/config.json` (`src/utils/defaults.ts`)
+- SSH helper utilities: `checkSshAvailable()`, `sshConnect()`, `sshExec()` (`src/utils/ssh.ts`)
+- `QuicklifyConfig` TypeScript interface
+- 65 new tests across 7 new test files
+- SSH availability detection for Windows/Linux/macOS
+
+### Changed
+- Extracted duplicate `selectServer()` into shared utility (DRY refactor)
+- Refactored `status` and `destroy` commands to use shared `resolveServer` + `promptApiToken`
+- Test count: 246 → 311
+- Coverage maintained: 97%+ statements, 88%+ branches
+
 ## [0.4.1] - 2026-02-20
 
 ### Security

@@ -12,4 +12,5 @@ export interface CloudProvider {
   getServerStatus(serverId: string): Promise<string>;
   getServerDetails(serverId: string): Promise<ServerResult>;
   destroyServer(serverId: string): Promise<void>;
+  rebootServer(serverId: string): Promise<void>;
 }

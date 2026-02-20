@@ -141,6 +141,32 @@ export class HetznerProvider implements CloudProvider {
     }
   }
 
+  async rebootServer(serverId: string): Promise<void> {
+    try {
+      await axios.post(
+        `${this.baseUrl}/servers/${serverId}/actions/reboot`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiToken}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    } catch (error: unknown) {
+      if (axios.isAxiosError<HetznerErrorResponse>(error)) {
+        throw new Error(
+          `Failed to reboot server: ${error.response?.data?.error?.message || error.message}`,
+          { cause: error },
+        );
+      }
+      throw new Error(
+        `Failed to reboot server: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
   getRegions(): Region[] {
     return [
       { id: "nbg1", name: "Nuremberg", location: "Germany" },

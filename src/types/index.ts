@@ -51,3 +51,10 @@ export interface InitOptions {
   size?: string;
   name?: string;
 }
+
+export interface QuicklifyConfig {
+  provider?: string;
+  region?: string;
+  size?: string;
+  name?: string;
+}

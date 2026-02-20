@@ -28,6 +28,7 @@ const mockProvider: CloudProvider = {
   getServerStatus: jest.fn(),
   getServerDetails: jest.fn(),
   destroyServer: jest.fn(),
+  rebootServer: jest.fn(),
 };
 
 describe('getProviderConfig', () => {

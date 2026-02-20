@@ -45,7 +45,10 @@ npx quicklify init
 - ✨ **Dynamic Server Types** - Only shows compatible types for selected location
 - 🔥 **Auto Firewall** - Ports 8000, 22, 80, 443 configured automatically
 - 🚀 **Zero SSH Required** - Opens directly in browser after deployment
-- 📋 **Server Management** - List, status check, and destroy commands
+- 📋 **Server Management** - List, status check, destroy, restart commands
+- 🔧 **Default Config** - Set defaults to skip repetitive prompts
+- 🔑 **SSH Access** - Connect to servers or run remote commands
+- 🔄 **Coolify Update** - Update Coolify with one command
 - 🏥 **Health Check Polling** - Detects when Coolify is ready (no more blind waiting)
 - 🤖 **Non-Interactive Mode** - CI/CD friendly with `--provider --token --region --size --name` flags
 
@@ -159,13 +162,19 @@ For production use, we recommend setting up a domain instead of using the IP add
 
 ## 📋 Recent Updates
 
+### v0.5.0 (2026-02-20)
+- **New commands:** `quicklify config`, `quicklify ssh`, `quicklify update`, `quicklify restart`
+- **Default config:** Set defaults for provider, region, size with `quicklify config set`
+- **SSH access:** Connect to servers with `quicklify ssh` or run commands with `--command`
+- **Coolify updates:** Update Coolify via SSH with `quicklify update`
+- **Server restart:** Reboot via provider API with `quicklify restart`
+- 311 tests with 97%+ statement coverage
+
 ### v0.4.0 (2026-02-20)
 - **New commands:** `quicklify list`, `quicklify status [query]`, `quicklify destroy [query]`
 - **Non-interactive mode:** `quicklify init --provider --token --region --size --name` for CI/CD
 - **Health check polling:** Detects when Coolify is ready instead of blind waiting
-- **Server persistence:** Deploys saved to `~/.quicklify/servers.json` for list/status/destroy
-- **`destroyServer()`** added to provider interface (Hetzner + DigitalOcean)
-- 233 tests with 97%+ statement coverage
+- 246 tests with 97%+ statement coverage
 
 ### v0.3.1 (2026-02-19)
 - Hetzner pricing now shows net prices (excl. VAT), matching website display
@@ -221,14 +230,22 @@ For production use, we recommend setting up a domain instead of using the IP add
 - [x] `destroyServer()` on provider interface
 - [x] Double confirmation safety for destroy
 
+### v0.5.0 (Completed)
+
+- [x] Default configuration management (`quicklify config`)
+- [x] SSH access to servers (`quicklify ssh`)
+- [x] Coolify update via SSH (`quicklify update`)
+- [x] Server restart via provider API (`quicklify restart`)
+- [x] Shared server selection and token utilities (DRY refactor)
+
 ### Future
 - [ ] Vultr support
-- [ ] Linode support
-- [ ] Domain configuration helper
-- [ ] SSL certificate automation
-- [ ] Backup configuration
-- [ ] Web dashboard
-- [ ] GitHub Actions integration
+- [ ] Linode / AWS Lightsail support
+- [ ] Domain + SSL configuration helper
+- [ ] Backup/restore commands
+- [ ] Server monitoring (CPU/RAM/Disk)
+- [ ] Interactive TUI dashboard
+- [ ] Firewall management
 
 ## 🛠️ Tech Stack
 
@@ -263,6 +280,23 @@ quicklify status my-server
 # Destroy a server (with double confirmation)
 quicklify destroy 123.45.67.89
 quicklify destroy my-server
+
+# Manage default configuration
+quicklify config set provider hetzner
+quicklify config set region nbg1
+quicklify config get provider
+quicklify config list
+quicklify config reset
+
+# SSH into a server
+quicklify ssh my-server
+quicklify ssh 123.45.67.89 -c "docker ps"
+
+# Update Coolify on a server
+quicklify update my-server
+
+# Restart a server
+quicklify restart my-server
 
 # Show version
 quicklify --version
@@ -341,6 +375,8 @@ tests/
 │   ├── cloudInit.test.ts
 │   ├── config.test.ts          # Config CRUD operations
 │   ├── config-edge.test.ts     # Config edge cases (corruption, empty files)
+│   ├── config-command.test.ts   # Config command subcommands
+│   ├── defaults.test.ts        # Default config CRUD
 │   ├── destroy.test.ts         # Destroy command unit tests
 │   ├── healthCheck.test.ts     # Health check polling tests
 │   ├── healthCheck-edge.test.ts # Health check edge cases (302, 401, 500)
@@ -348,7 +384,12 @@ tests/
 │   ├── logger.test.ts
 │   ├── prompts.test.ts
 │   ├── providerFactory.test.ts # Provider factory tests
+│   ├── restart.test.ts         # Restart command tests
+│   ├── serverSelect.test.ts    # Server selection utility tests
+│   ├── ssh-command.test.ts     # SSH command tests
+│   ├── ssh-utils.test.ts       # SSH helper tests
 │   ├── status.test.ts          # Status command unit tests
+│   ├── update.test.ts          # Update command tests
 │   └── validators.test.ts
 ├── integration/            # Integration tests (provider API calls)
 │   ├── hetzner.test.ts         # Including destroyServer tests
@@ -369,7 +410,7 @@ Tests run automatically on every push/PR via GitHub Actions across:
 
 ### Coverage
 
-Current coverage: **97%+ statements/lines**, **89%+ branches**, **96%+ functions**. 233 tests across 18 test suites.
+Current coverage: **97%+ statements/lines**, **88%+ branches**, **97%+ functions**. 311 tests across 25 test suites.
 
 ## 🔧 Troubleshooting
 
