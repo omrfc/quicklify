@@ -50,6 +50,10 @@ npx quicklify init
 - 🔑 **SSH Access** - Connect to servers or run remote commands
 - 🔄 **Coolify Update** - Update Coolify with one command
 - 🏥 **Health Check Polling** - Detects when Coolify is ready (no more blind waiting)
+- 📊 **Server Monitoring** - CPU/RAM/Disk usage and Docker container status
+- 📜 **Log Viewer** - View Coolify, Docker, or system logs with follow mode
+- 🩺 **Environment Doctor** - Diagnose local setup issues
+- 🫀 **Bulk Health Check** - Check all servers at once
 - 🤖 **Non-Interactive Mode** - CI/CD friendly with `--provider --token --region --size --name` flags
 
 ## 📦 Installation
@@ -162,6 +166,14 @@ For production use, we recommend setting up a domain instead of using the IP add
 
 ## 📋 Recent Updates
 
+### v0.6.0 (2026-02-20)
+- **New commands:** `quicklify logs`, `quicklify monitor`, `quicklify health`, `quicklify doctor`
+- **Log viewer:** View Coolify/Docker/system logs with `--follow` real-time streaming
+- **Server monitoring:** CPU/RAM/Disk usage and Docker container list
+- **Bulk health check:** Check all registered servers at once with response times
+- **Environment doctor:** Diagnose Node.js, SSH, config issues locally
+- Zero new dependencies, 354 tests with 97%+ statement coverage
+
 ### v0.5.0 (2026-02-20)
 - **New commands:** `quicklify config`, `quicklify ssh`, `quicklify update`, `quicklify restart`
 - **Default config:** Set defaults for provider, region, size with `quicklify config set`
@@ -238,12 +250,19 @@ For production use, we recommend setting up a domain instead of using the IP add
 - [x] Server restart via provider API (`quicklify restart`)
 - [x] Shared server selection and token utilities (DRY refactor)
 
+### v0.6.0 (Completed)
+
+- [x] Server monitoring - CPU/RAM/Disk usage (`quicklify monitor`)
+- [x] Log viewer - Coolify/Docker/system logs (`quicklify logs`)
+- [x] Bulk health check for all servers (`quicklify health`)
+- [x] Environment diagnostics (`quicklify doctor`)
+- [x] SSH streaming for real-time log following
+
 ### Future
 - [ ] Vultr support
 - [ ] Linode / AWS Lightsail support
 - [ ] Domain + SSL configuration helper
 - [ ] Backup/restore commands
-- [ ] Server monitoring (CPU/RAM/Disk)
 - [ ] Interactive TUI dashboard
 - [ ] Firewall management
 
@@ -297,6 +316,28 @@ quicklify update my-server
 
 # Restart a server
 quicklify restart my-server
+
+# View Coolify logs (last 50 lines)
+quicklify logs my-server
+
+# Follow Coolify logs in real-time
+quicklify logs my-server --follow
+
+# View Docker or system logs
+quicklify logs my-server --service docker --lines 100
+quicklify logs my-server --service system
+
+# Show CPU/RAM/Disk usage
+quicklify monitor my-server
+
+# Show usage with Docker containers
+quicklify monitor my-server --containers
+
+# Check health of all servers
+quicklify health
+
+# Run environment diagnostics
+quicklify doctor
 
 # Show version
 quicklify --version
@@ -378,10 +419,14 @@ tests/
 │   ├── config-command.test.ts   # Config command subcommands
 │   ├── defaults.test.ts        # Default config CRUD
 │   ├── destroy.test.ts         # Destroy command unit tests
+│   ├── doctor.test.ts           # Doctor command tests
+│   ├── health-command.test.ts   # Health command tests
 │   ├── healthCheck.test.ts     # Health check polling tests
 │   ├── healthCheck-edge.test.ts # Health check edge cases (302, 401, 500)
 │   ├── list.test.ts            # List command unit tests
 │   ├── logger.test.ts
+│   ├── logs.test.ts             # Logs command tests
+│   ├── monitor.test.ts          # Monitor command tests
 │   ├── prompts.test.ts
 │   ├── providerFactory.test.ts # Provider factory tests
 │   ├── restart.test.ts         # Restart command tests
@@ -410,7 +455,7 @@ Tests run automatically on every push/PR via GitHub Actions across:
 
 ### Coverage
 
-Current coverage: **97%+ statements/lines**, **88%+ branches**, **97%+ functions**. 311 tests across 25 test suites.
+Current coverage: **97%+ statements/lines**, **87%+ branches**, **96%+ functions**. 354 tests across 29 test suites.
 
 ## 🔧 Troubleshooting
 

@@ -6,7 +6,7 @@ jest.mock('child_process', () => ({
 }));
 
 import { spawn, execSync } from 'child_process';
-import { checkSshAvailable, sshConnect, sshExec } from '../../src/utils/ssh';
+import { checkSshAvailable, sshConnect, sshExec, sshStream } from '../../src/utils/ssh';
 
 const mockedSpawn = spawn as jest.MockedFunction<typeof spawn>;
 const mockedExecSync = execSync as jest.MockedFunction<typeof execSync>;
@@ -75,6 +75,53 @@ describe('ssh utils', () => {
       mockedSpawn.mockReturnValue(mockCp);
 
       const promise = sshConnect('1.2.3.4');
+      process.nextTick(() => mockCp.emit('close', null));
+      const code = await promise;
+      expect(code).toBe(0);
+    });
+  });
+
+  describe('sshStream', () => {
+    it('should spawn ssh with command and inherit stdio', async () => {
+      const mockCp = createMockProcess(0);
+      mockedSpawn.mockReturnValue(mockCp);
+
+      const code = await sshStream('1.2.3.4', 'docker logs coolify --follow');
+      expect(code).toBe(0);
+      expect(mockedSpawn).toHaveBeenCalledWith(
+        'ssh',
+        ['-o', 'StrictHostKeyChecking=accept-new', 'root@1.2.3.4', 'docker logs coolify --follow'],
+        { stdio: 'inherit' },
+      );
+    });
+
+    it('should return non-zero exit code', async () => {
+      const mockCp = createMockProcess(1);
+      mockedSpawn.mockReturnValue(mockCp);
+
+      const code = await sshStream('1.2.3.4', 'journalctl -f');
+      expect(code).toBe(1);
+    });
+
+    it('should return 1 on error', async () => {
+      const mockCp = new EventEmitter() as any;
+      mockCp.stdout = new EventEmitter();
+      mockCp.stderr = new EventEmitter();
+      mockedSpawn.mockReturnValue(mockCp);
+
+      const promise = sshStream('1.2.3.4', 'tail -f /var/log/syslog');
+      process.nextTick(() => mockCp.emit('error', new Error('spawn failed')));
+      const code = await promise;
+      expect(code).toBe(1);
+    });
+
+    it('should return 0 when close code is null', async () => {
+      const mockCp = new EventEmitter() as any;
+      mockCp.stdout = new EventEmitter();
+      mockCp.stderr = new EventEmitter();
+      mockedSpawn.mockReturnValue(mockCp);
+
+      const promise = sshStream('1.2.3.4', 'journalctl -f');
       process.nextTick(() => mockCp.emit('close', null));
       const code = await promise;
       expect(code).toBe(0);

@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-02-20
+
+### Added
+- **`quicklify logs [query]`** command - View Coolify, Docker, or system logs via SSH
+  - `--lines N` (default 50), `--follow` (real-time streaming), `--service coolify|docker|system`
+- **`quicklify monitor [query]`** command - Show CPU, RAM, Disk usage via SSH
+  - `--containers` flag to display Docker container list
+- **`quicklify health`** command - Bulk health check of all registered servers
+  - Parallel HTTP checks with response time measurement and table output
+- **`quicklify doctor`** command - Local environment diagnostics
+  - Checks Node.js version, npm, SSH client, config directory, registered servers
+  - `--check-tokens` flag for future provider token validation
+- `sshStream()` SSH helper - Spawns SSH with `stdio: "inherit"` for real-time log streaming
+- `parseMetrics()` pure function for parsing `top`/`free`/`df` output
+- `buildLogCommand()` pure function for service-to-command mapping
+- `checkServerHealth()` function for individual server HTTP health checks
+- 43 new tests across 5 test files (doctor, health-command, logs, monitor, ssh-utils)
+
+### Changed
+- Test count: 311 → 354
+- Test suites: 25 → 29
+- Coverage maintained: 97%+ statements, 87%+ branches, 96%+ functions
+- Zero new npm dependencies added
+
 ## [0.5.0] - 2026-02-20
 
 ### Added

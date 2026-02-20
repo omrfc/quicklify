@@ -12,6 +12,10 @@ import { configCommand } from "./commands/config.js";
 import { sshCommand } from "./commands/ssh.js";
 import { updateCommand } from "./commands/update.js";
 import { restartCommand } from "./commands/restart.js";
+import { logsCommand } from "./commands/logs.js";
+import { monitorCommand } from "./commands/monitor.js";
+import { healthCommand } from "./commands/health.js";
+import { doctorCommand } from "./commands/doctor.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -66,5 +70,32 @@ program
   .command("restart [query]")
   .description("Restart a registered server")
   .action(restartCommand);
+
+program
+  .command("logs [query]")
+  .description("View server logs (Coolify, Docker, or system)")
+  .option("-n, --lines <lines>", "Number of log lines to show", "50")
+  .option("-f, --follow", "Follow log output in real-time")
+  .option("-s, --service <service>", "Log service: coolify, docker, system", "coolify")
+  .action(
+    (query?: string, options?: { lines?: string; follow?: boolean; service?: string }) =>
+      logsCommand(query, options),
+  );
+
+program
+  .command("monitor [query]")
+  .description("Show server resource usage (CPU, RAM, Disk)")
+  .option("--containers", "Show Docker container list")
+  .action(
+    (query?: string, options?: { containers?: boolean }) => monitorCommand(query, options),
+  );
+
+program.command("health").description("Check health of all registered servers").action(healthCommand);
+
+program
+  .command("doctor")
+  .description("Check your local environment and configuration")
+  .option("--check-tokens", "Validate provider API tokens")
+  .action((options?: { checkTokens?: boolean }) => doctorCommand(options, pkg.version));
 
 program.parse();
