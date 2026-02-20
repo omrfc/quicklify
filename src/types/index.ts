@@ -33,3 +33,21 @@ export interface DeploymentConfig {
   serverSize: string;
   serverName: string;
 }
+
+export interface ServerRecord {
+  id: string;
+  name: string;
+  provider: string;
+  ip: string;
+  region: string;
+  size: string;
+  createdAt: string;
+}
+
+export interface InitOptions {
+  provider?: string;
+  token?: string;
+  region?: string;
+  size?: string;
+  name?: string;
+}

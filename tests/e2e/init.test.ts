@@ -2,6 +2,18 @@ import axios from 'axios';
 import inquirer from 'inquirer';
 import { initCommand } from '../../src/commands/init';
 
+// Mock healthCheck and config to avoid real filesystem/network in E2E tests
+jest.mock('../../src/utils/healthCheck', () => ({
+  waitForCoolify: jest.fn().mockResolvedValue(true),
+}));
+
+jest.mock('../../src/utils/config', () => ({
+  saveServer: jest.fn(),
+  getServers: jest.fn().mockReturnValue([]),
+  removeServer: jest.fn(),
+  findServer: jest.fn(),
+}));
+
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
 
@@ -482,6 +494,54 @@ describe('initCommand E2E', () => {
       await initCommand();
 
       expect(processExitSpy).toHaveBeenCalledWith(1);
+    });
+  });
+
+  describe('Non-interactive mode', () => {
+    it('should exit with error for invalid provider option', async () => {
+      await initCommand({ provider: 'aws', token: 'test' });
+
+      expect(processExitSpy).toHaveBeenCalledWith(1);
+      const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+      expect(allOutput).toContain('Invalid provider');
+    });
+
+    it('should exit with error for invalid token', async () => {
+      mockedAxios.get.mockRejectedValueOnce(new Error('Unauthorized'));
+
+      await initCommand({ provider: 'hetzner', token: 'bad-token', region: 'nbg1', size: 'cax11', name: 'test' });
+
+      expect(processExitSpy).toHaveBeenCalledWith(1);
+    });
+
+    it('should deploy with all options provided', async () => {
+      // validateToken
+      mockedAxios.get
+        .mockResolvedValueOnce({ data: { servers: [] } })
+        .mockResolvedValueOnce({ data: { server: { status: 'running' } } });
+
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          server: {
+            id: 999,
+            public_net: { ipv4: { ip: '5.5.5.5' } },
+            status: 'initializing',
+          },
+        },
+      });
+
+      await initCommand({
+        provider: 'hetzner',
+        token: 'valid-token',
+        region: 'nbg1',
+        size: 'cax11',
+        name: 'auto-server',
+      });
+
+      expect(mockedAxios.post).toHaveBeenCalled();
+      const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+      expect(allOutput).toContain('5.5.5.5');
+      expect(processExitSpy).not.toHaveBeenCalled();
     });
   });
 });

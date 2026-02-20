@@ -119,6 +119,23 @@ export class HetznerProvider implements CloudProvider {
     }
   }
 
+  async destroyServer(serverId: string): Promise<void> {
+    try {
+      await axios.delete(`${this.baseUrl}/servers/${serverId}`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+    } catch (error: unknown) {
+      if (axios.isAxiosError<HetznerErrorResponse>(error)) {
+        throw new Error(
+          `Failed to destroy server: ${error.response?.data?.error?.message || error.message}`,
+        );
+      }
+      throw new Error(
+        `Failed to destroy server: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
   getRegions(): Region[] {
     return [
       { id: "nbg1", name: "Nuremberg", location: "Germany" },

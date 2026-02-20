@@ -533,4 +533,49 @@ describe('HetznerProvider', () => {
       );
     });
   });
+
+  describe('destroyServer', () => {
+    it('should delete server successfully', async () => {
+      mockedAxios.delete.mockResolvedValueOnce({});
+
+      await provider.destroyServer('12345');
+
+      expect(mockedAxios.delete).toHaveBeenCalledWith(
+        'https://api.hetzner.cloud/v1/servers/12345',
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer test-api-token' },
+        }),
+      );
+    });
+
+    it('should throw with API error message on failure', async () => {
+      mockedAxios.delete.mockRejectedValueOnce({
+        response: {
+          data: {
+            error: { message: 'server not found' },
+          },
+        },
+      });
+
+      await expect(provider.destroyServer('99999')).rejects.toThrow(
+        'Failed to destroy server: server not found',
+      );
+    });
+
+    it('should throw with generic message on network error', async () => {
+      mockedAxios.delete.mockRejectedValueOnce(new Error('Network Error'));
+
+      await expect(provider.destroyServer('12345')).rejects.toThrow(
+        'Failed to destroy server: Network Error',
+      );
+    });
+
+    it('should handle non-Error thrown values', async () => {
+      mockedAxios.delete.mockRejectedValueOnce('unexpected');
+
+      await expect(provider.destroyServer('12345')).rejects.toThrow(
+        'Failed to destroy server: unexpected',
+      );
+    });
+  });
 });

@@ -1,6 +1,8 @@
-import { HetznerProvider } from "../providers/hetzner.js";
-import { DigitalOceanProvider } from "../providers/digitalocean.js";
 import type { CloudProvider } from "../providers/base.js";
+import type { InitOptions } from "../types/index.js";
+import { createProvider, createProviderWithToken } from "../utils/providerFactory.js";
+import { saveServer } from "../utils/config.js";
+import { waitForCoolify } from "../utils/healthCheck.js";
 import {
   BACK_SIGNAL,
   getProviderConfig,
@@ -13,109 +15,170 @@ import {
 import { getCoolifyCloudInit } from "../utils/cloudInit.js";
 import { logger, createSpinner } from "../utils/logger.js";
 
-function createProvider(providerName: string): CloudProvider {
-  switch (providerName) {
-    case "hetzner":
-      return new HetznerProvider("");
-    case "digitalocean":
-      return new DigitalOceanProvider("");
-    default:
-      throw new Error(`Unknown provider: ${providerName}`);
-  }
-}
+export async function initCommand(options: InitOptions = {}): Promise<void> {
+  const isNonInteractive =
+    options.provider !== undefined && options.token !== undefined;
 
-function createProviderWithToken(providerName: string, token: string): CloudProvider {
-  switch (providerName) {
-    case "hetzner":
-      return new HetznerProvider(token);
-    case "digitalocean":
-      return new DigitalOceanProvider(token);
-    /* istanbul ignore next */
-    default:
-      throw new Error(`Unknown provider: ${providerName}`);
-  }
-}
+  logger.title("Quicklify - Deploy Coolify in minutes");
 
-export async function initCommand() {
-  logger.title("Quicklify - Deploy Coolify in 4 minutes");
+  let providerChoice: string;
+  let apiToken: string;
+  let region: string;
+  let serverSize: string;
+  let serverName: string;
 
   // Step 1: Select cloud provider
-  const { provider: providerChoice } = await getProviderConfig();
+  if (options.provider) {
+    if (!["hetzner", "digitalocean"].includes(options.provider)) {
+      logger.error(`Invalid provider: ${options.provider}. Use "hetzner" or "digitalocean".`);
+      process.exit(1);
+      return;
+    }
+    providerChoice = options.provider;
+  } else {
+    const result = await getProviderConfig();
+    providerChoice = result.provider;
+  }
   const provider = createProvider(providerChoice);
-
   logger.info(`Using ${provider.displayName}`);
 
   // Step 2: Get API token
-  const config = await getDeploymentConfig(provider);
-
-  // Create provider with actual token for API calls
-  const providerWithToken = createProviderWithToken(providerChoice, config.apiToken);
+  if (options.token) {
+    apiToken = options.token;
+  } else {
+    const config = await getDeploymentConfig(provider);
+    apiToken = config.apiToken;
+  }
 
   // Step 3: Validate API token
+  const providerWithToken = createProviderWithToken(providerChoice, apiToken);
   const tokenSpinner = createSpinner("Validating API token...");
   tokenSpinner.start();
 
-  const isValid = await providerWithToken.validateToken(config.apiToken);
+  const isValid = await providerWithToken.validateToken(apiToken);
   if (!isValid) {
     tokenSpinner.fail("Invalid API token");
     logger.error("Please check your API token and try again");
+    if (isNonInteractive) {
+      process.exit(1);
+      return;
+    }
     return;
   }
   tokenSpinner.succeed("API token validated");
 
-  // Steps 4-7: Configuration with back navigation
-  let step = 4;
+  // Step 4: Region
+  if (options.region) {
+    region = options.region;
+  } else {
+    // Interactive region selection with back navigation
+    let step = 4;
+    region = "";
+    serverSize = "";
+    serverName = "";
 
-  while (step >= 4 && step <= 7) {
-    switch (step) {
-      case 4: {
-        const region = await getLocationConfig(providerWithToken);
-        if (region === BACK_SIGNAL) break;
-        config.region = region;
-        step = 5;
-        break;
-      }
-      case 5: {
-        const serverSize = await getServerTypeConfig(providerWithToken, config.region);
-        if (serverSize === BACK_SIGNAL) {
-          step = 4;
-          break;
-        }
-        config.serverSize = serverSize;
-        step = 6;
-        break;
-      }
-      case 6: {
-        const serverName = await getServerNameConfig();
-        if (serverName === BACK_SIGNAL) {
+    while (step >= 4 && step <= 7) {
+      switch (step) {
+        case 4: {
+          const r = await getLocationConfig(providerWithToken);
+          if (r === BACK_SIGNAL) break;
+          region = r;
           step = 5;
           break;
         }
-        config.serverName = serverName;
-        step = 7;
-        break;
-      }
-      case 7: {
-        const confirmed = await confirmDeployment(config, providerWithToken);
-        if (confirmed === BACK_SIGNAL) {
+        case 5: {
+          const s = await getServerTypeConfig(providerWithToken, region);
+          if (s === BACK_SIGNAL) {
+            step = 4;
+            break;
+          }
+          serverSize = s;
           step = 6;
           break;
         }
-        if (!confirmed) {
-          logger.warning("Deployment cancelled");
-          return;
+        case 6: {
+          const n = await getServerNameConfig();
+          if (n === BACK_SIGNAL) {
+            step = 5;
+            break;
+          }
+          serverName = n;
+          step = 7;
+          break;
         }
-        step = 8;
-        break;
+        case 7: {
+          const config = {
+            provider: providerChoice,
+            apiToken,
+            region,
+            serverSize,
+            serverName,
+          };
+          const confirmed = await confirmDeployment(config, providerWithToken);
+          if (confirmed === BACK_SIGNAL) {
+            step = 6;
+            break;
+          }
+          if (!confirmed) {
+            logger.warning("Deployment cancelled");
+            return;
+          }
+          step = 8;
+          break;
+        }
       }
     }
+
+    // Deploy
+    return deployServer(
+      providerChoice,
+      providerWithToken,
+      region,
+      serverSize,
+      serverName,
+    );
   }
 
-  try {
-    // Generate cloud-init script
-    const cloudInit = getCoolifyCloudInit(config.serverName);
+  // Non-interactive or partially interactive: size, name
+  if (options.size) {
+    serverSize = options.size;
+  } else {
+    let s = BACK_SIGNAL;
+    while (s === BACK_SIGNAL) {
+      s = await getServerTypeConfig(providerWithToken, region);
+    }
+    serverSize = s;
+  }
 
-    // Create server with retry on unavailable server type
+  if (options.name) {
+    serverName = options.name;
+  } else {
+    let n = BACK_SIGNAL;
+    while (n === BACK_SIGNAL) {
+      n = await getServerNameConfig();
+    }
+    serverName = n;
+  }
+
+  return deployServer(
+    providerChoice,
+    providerWithToken,
+    region,
+    serverSize,
+    serverName,
+  );
+}
+
+async function deployServer(
+  providerChoice: string,
+  providerWithToken: CloudProvider,
+  region: string,
+  serverSize: string,
+  serverName: string,
+): Promise<void> {
+  try {
+    const cloudInit = getCoolifyCloudInit(serverName);
+
     let server: { id: string; ip: string; status: string } | undefined;
     let retries = 0;
     const maxRetries = 2;
@@ -128,9 +191,9 @@ export async function initCommand() {
 
       try {
         server = await providerWithToken.createServer({
-          name: config.serverName,
-          region: config.region,
-          size: config.serverSize,
+          name: serverName,
+          region,
+          size: serverSize,
           cloudInit,
         });
         serverSpinner.succeed(`Server created (ID: ${server.id})`);
@@ -139,17 +202,17 @@ export async function initCommand() {
         const errorMsg = createError instanceof Error ? createError.message : "";
 
         if (errorMsg.includes("already") && errorMsg.includes("used")) {
-          logger.warning(`Server name "${config.serverName}" is already in use`);
+          logger.warning(`Server name "${serverName}" is already in use`);
           logger.info("Please choose a different name:");
           let newName = BACK_SIGNAL;
           while (newName === BACK_SIGNAL) {
             newName = await getServerNameConfig();
           }
-          config.serverName = newName;
+          serverName = newName;
           retries++;
         } else if (errorMsg.includes("location disabled")) {
-          failedLocations.push(config.region);
-          logger.warning(`Location "${config.region}" is currently disabled for new servers`);
+          failedLocations.push(region);
+          logger.warning(`Location "${region}" is currently disabled for new servers`);
           logger.info("Please select a different region and server type:");
           let pickedSize = false;
           while (!pickedSize) {
@@ -157,10 +220,10 @@ export async function initCommand() {
             while (newRegion === BACK_SIGNAL) {
               newRegion = await getLocationConfig(providerWithToken, failedLocations);
             }
-            config.region = newRegion;
-            const newSize = await getServerTypeConfig(providerWithToken, config.region);
-            if (newSize === BACK_SIGNAL) continue; // back to region
-            config.serverSize = newSize;
+            region = newRegion;
+            const newSize = await getServerTypeConfig(providerWithToken, region);
+            if (newSize === BACK_SIGNAL) continue;
+            serverSize = newSize;
             pickedSize = true;
           }
           retries++;
@@ -171,14 +234,14 @@ export async function initCommand() {
           errorMsg.includes("unsupported")
         ) {
           if (retries < maxRetries) {
-            failedTypes.push(config.serverSize);
-            logger.warning(`Server type "${config.serverSize}" is not available in this location`);
+            failedTypes.push(serverSize);
+            logger.warning(`Server type "${serverSize}" is not available in this location`);
             logger.info("Please select a different server type:");
             let newSize = BACK_SIGNAL;
             while (newSize === BACK_SIGNAL) {
-              newSize = await getServerTypeConfig(providerWithToken, config.region, failedTypes);
+              newSize = await getServerTypeConfig(providerWithToken, region, failedTypes);
             }
-            config.serverSize = newSize;
+            serverSize = newSize;
             retries++;
           } else {
             throw createError;
@@ -223,27 +286,35 @@ export async function initCommand() {
       server.ip = details.ip;
     }
 
-    // Installing Coolify
+    // Health check polling instead of blind wait
     const isDigitalOcean = providerChoice === "digitalocean";
-    const waitTime = isDigitalOcean ? 300000 : 180000; // DO: 5 min, Hetzner: 3 min
-    const waitLabel = isDigitalOcean ? "4-6" : "3-5";
-    const installSpinner = createSpinner(`Installing Coolify (this takes ${waitLabel} minutes)...`);
-    installSpinner.start();
+    const minWait = isDigitalOcean ? 120000 : 60000;
+    const ready = await waitForCoolify(server.ip, minWait);
 
-    // Wait for Coolify installation (cloud-init runs in background)
-    await new Promise((resolve) => setTimeout(resolve, waitTime));
-
-    installSpinner.succeed("Coolify installation completed");
+    // Save server record to config
+    saveServer({
+      id: server.id,
+      name: serverName,
+      provider: providerChoice,
+      ip: server.ip,
+      region,
+      size: serverSize,
+      createdAt: new Date().toISOString(),
+    });
 
     // Success message
-    const extraWait = isDigitalOcean ? "3-5" : "1-2";
     logger.title("Deployment Successful!");
     console.log();
     logger.success(`Server IP: ${server.ip}`);
     logger.success(`Access Coolify: http://${server.ip}:8000`);
     console.log();
-    logger.info("Default credentials will be shown on first login");
-    logger.info(`Please wait ${extraWait} more minutes for Coolify to fully initialize`);
+    if (ready) {
+      logger.info("Coolify is ready! Open the URL above to get started.");
+    } else {
+      logger.warning("Coolify did not respond yet. Please check in a few minutes.");
+      logger.info(`You can check status later with: quicklify status ${server.ip}`);
+    }
+    logger.info("Server saved to local config. Use 'quicklify list' to see all servers.");
     console.log();
   } catch (error: unknown) {
     logger.error(`Deployment failed: ${error instanceof Error ? error.message : String(error)}`);

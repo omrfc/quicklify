@@ -45,6 +45,9 @@ npx quicklify init
 - ✨ **Dynamic Server Types** - Only shows compatible types for selected location
 - 🔥 **Auto Firewall** - Ports 8000, 22, 80, 443 configured automatically
 - 🚀 **Zero SSH Required** - Opens directly in browser after deployment
+- 📋 **Server Management** - List, status check, and destroy commands
+- 🏥 **Health Check Polling** - Detects when Coolify is ready (no more blind waiting)
+- 🤖 **Non-Interactive Mode** - CI/CD friendly with `--provider --token --region --size --name` flags
 
 ## 📦 Installation
 
@@ -156,53 +159,26 @@ For production use, we recommend setting up a domain instead of using the IP add
 
 ## 📋 Recent Updates
 
+### v0.4.0 (2026-02-20)
+- **New commands:** `quicklify list`, `quicklify status [query]`, `quicklify destroy [query]`
+- **Non-interactive mode:** `quicklify init --provider --token --region --size --name` for CI/CD
+- **Health check polling:** Detects when Coolify is ready instead of blind waiting
+- **Server persistence:** Deploys saved to `~/.quicklify/servers.json` for list/status/destroy
+- **`destroyServer()`** added to provider interface (Hetzner + DigitalOcean)
+- 233 tests with 97%+ statement coverage
+
 ### v0.3.1 (2026-02-19)
 - Hetzner pricing now shows net prices (excl. VAT), matching website display
 - Hetzner server types use `/datacenters` API for real availability per location
 - Replaced deprecated Hetzner server types (cpx→cx23/cx33)
 - "Server name already used" error now prompts for a new name
 - Location disabled retry now re-prompts for server type
-- Back navigation works correctly in error retry flows
 
 ### v0.3.0 (2026-02-19)
 - DigitalOcean provider support (full API integration)
 - Interactive provider selection (Hetzner / DigitalOcean)
 - Step-based back navigation in all prompts
 - Network wait loop + install logging for DigitalOcean cloud-init reliability
-- 143 tests with 97%+ statement coverage
-
-### v0.2.8 (2026-02-16)
-- Replaced all `any` types with proper TypeScript interfaces
-- Added ESLint 9 + Prettier for code quality enforcement
-- Added CHANGELOG.md and CONTRIBUTING.md
-
-### v0.2.7 (2026-02-16)
-- Fixed inaccurate README/SECURITY claims
-- Added npm keywords for better discoverability
-
-### v0.2.6 (2026-02-16)
-- CI: Upgraded Codecov action to v5
-
-### v0.2.5 (2026-02-16)
-- CI: Added Codecov integration for automatic coverage badge
-
-### v0.2.4 (2026-02-15)
-- Refactor: Removed recommended label, excluded failed server types from retry list
-
-### v0.2.3 (2026-02-15)
-- Fix: Unsupported error retry, dynamic deployment summary, dynamic recommended selection
-
-### v0.2.2 (2026-02-15)
-- Feat: Filter deprecated server types and add retry on unavailable
-
-### v0.2.1 (2026-02-14)
-- Fixed URL protocol (http for initial Coolify setup)
-
-### v0.2.0 (2026-02-14)
-- Added dynamic server type filtering based on selected location
-- Auto firewall configuration (ports 8000, 22, 80, 443)
-- Improved price formatting
-- Removed debug logs
 
 ## 🗺️ Roadmap
 
@@ -236,14 +212,21 @@ For production use, we recommend setting up a domain instead of using the IP add
 - [x] Step-based back navigation
 - [x] Cloud-init reliability improvements (network wait, logging)
 
+### v0.4.0 (Completed)
+
+- [x] Server management commands (list, status, destroy)
+- [x] Non-interactive mode for CI/CD
+- [x] Coolify health check polling (replaces blind wait)
+- [x] Server record persistence (`~/.quicklify/servers.json`)
+- [x] `destroyServer()` on provider interface
+- [x] Double confirmation safety for destroy
+
 ### Future
 - [ ] Vultr support
 - [ ] Linode support
 - [ ] Domain configuration helper
 - [ ] SSL certificate automation
-- [ ] Health checks & monitoring
 - [ ] Backup configuration
-- [ ] Multi-server management
 - [ ] Web dashboard
 - [ ] GitHub Actions integration
 
@@ -264,8 +247,22 @@ For production use, we recommend setting up a domain instead of using the IP add
 ### Commands
 
 ```bash
-# Deploy new Coolify instance
+# Deploy new Coolify instance (interactive)
 quicklify init
+
+# Deploy non-interactively (CI/CD friendly)
+quicklify init --provider hetzner --token YOUR_TOKEN --region nbg1 --size cax11 --name my-server
+
+# List all registered servers
+quicklify list
+
+# Check server and Coolify status
+quicklify status 123.45.67.89
+quicklify status my-server
+
+# Destroy a server (with double confirmation)
+quicklify destroy 123.45.67.89
+quicklify destroy my-server
 
 # Show version
 quicklify --version
@@ -273,6 +270,21 @@ quicklify --version
 # Show help
 quicklify --help
 ```
+
+### Non-Interactive Mode
+
+Pass all options as flags to skip interactive prompts (useful for CI/CD pipelines):
+
+```bash
+quicklify init \
+  --provider hetzner \
+  --token $HETZNER_TOKEN \
+  --region nbg1 \
+  --size cax11 \
+  --name production-coolify
+```
+
+If some flags are missing, only the missing values will be prompted interactively.
 
 ### Interactive Prompts
 
@@ -310,17 +322,28 @@ npm run format
 
 ```
 tests/
-├── __mocks__/          # Mock modules (axios, inquirer, ora, chalk)
-├── unit/               # Unit tests
+├── __mocks__/              # Mock modules (axios, inquirer, ora, chalk)
+├── unit/                   # Unit tests
 │   ├── cloudInit.test.ts
+│   ├── config.test.ts          # Config CRUD operations
+│   ├── config-edge.test.ts     # Config edge cases (corruption, empty files)
+│   ├── destroy.test.ts         # Destroy command unit tests
+│   ├── healthCheck.test.ts     # Health check polling tests
+│   ├── healthCheck-edge.test.ts # Health check edge cases (302, 401, 500)
+│   ├── list.test.ts            # List command unit tests
 │   ├── logger.test.ts
 │   ├── prompts.test.ts
+│   ├── providerFactory.test.ts # Provider factory tests
+│   ├── status.test.ts          # Status command unit tests
 │   └── validators.test.ts
-├── integration/        # Integration tests (provider API calls)
-│   ├── hetzner.test.ts
-│   └── digitalocean.test.ts
-└── e2e/                # End-to-end tests (full init flow)
-    └── init.test.ts
+├── integration/            # Integration tests (provider API calls)
+│   ├── hetzner.test.ts         # Including destroyServer tests
+│   └── digitalocean.test.ts    # Including destroyServer tests
+└── e2e/                    # End-to-end tests (full command flows)
+    ├── init.test.ts
+    ├── init-noninteractive.test.ts  # Non-interactive mode E2E
+    ├── status.test.ts               # Status command E2E
+    └── destroy.test.ts              # Destroy command E2E
 ```
 
 ### CI/CD
@@ -332,7 +355,7 @@ Tests run automatically on every push/PR via GitHub Actions across:
 
 ### Coverage
 
-Current coverage: **97%+ statements/lines**, **90%+ branches**, **100% functions**. 143 tests across 7 test suites.
+Current coverage: **97%+ statements/lines**, **89%+ branches**, **96%+ functions**. 233 tests across 18 test suites.
 
 ## 🔧 Troubleshooting
 

@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-02-20
+
+### Added
+- **`quicklify list`** command - List all registered servers (no token required)
+- **`quicklify status [query]`** command - Check server and Coolify status by IP or name
+- **`quicklify destroy [query]`** command - Destroy a server with double confirmation safety
+- **Non-interactive mode** for `quicklify init` with `--provider`, `--token`, `--region`, `--size`, `--name` flags
+- **Coolify health check polling** - Replaces blind wait with intelligent `http://IP:8000` polling
+- **Server record persistence** - Successful deploys saved to `~/.quicklify/servers.json`
+- `ServerRecord` and `InitOptions` TypeScript interfaces
+- `src/utils/config.ts` - Config module for server record CRUD (`getServers`, `saveServer`, `removeServer`, `findServer`)
+- `src/utils/providerFactory.ts` - Provider factory extracted from init.ts for better testability
+- `src/utils/healthCheck.ts` - `waitForCoolify()` with configurable polling (min wait + 5s interval + max attempts)
+- `destroyServer()` method on `CloudProvider` interface (Hetzner + DigitalOcean implementations)
+- 86 new tests: config, list, status, destroy, healthCheck, providerFactory, edge cases, E2E flows
+- Edge case test coverage: config corruption, health check retries, non-interactive validation
+
+### Changed
+- `initCommand` now accepts `InitOptions` parameter for non-interactive mode
+- Init flow uses `waitForCoolify()` instead of fixed `setTimeout` (faster with early exit on success)
+- Init flow saves server record to local config after successful deploy
+- Success message now includes `quicklify status` and `quicklify list` hints
+- Provider creation extracted to `providerFactory.ts` (no behavior change)
+- Test count: 145 → 233
+- Coverage maintained: 97%+ statements, 89%+ branches, 96%+ functions
+
+### Fixed
+- Non-interactive mode properly exits with code 1 on invalid provider or token
+- Health check accepts any HTTP response (200, 302, 401, 500) as "Coolify is running"
+- `destroy` now removes local config record when server already deleted from provider ("not found")
+
 ## [0.3.1] - 2026-02-19
 
 ### Fixed

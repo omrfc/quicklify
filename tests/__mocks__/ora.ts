@@ -6,6 +6,7 @@ const createMockSpinner = () => {
   spinner.start = jest.fn(() => spinner);
   spinner.succeed = jest.fn(() => spinner);
   spinner.fail = jest.fn(() => spinner);
+  spinner.warn = jest.fn(() => spinner);
   spinner.stop = jest.fn(() => spinner);
   return spinner;
 };

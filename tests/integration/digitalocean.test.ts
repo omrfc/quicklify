@@ -486,4 +486,49 @@ describe('DigitalOceanProvider', () => {
       );
     });
   });
+
+  describe('destroyServer', () => {
+    it('should delete droplet successfully', async () => {
+      mockedAxios.delete.mockResolvedValueOnce({});
+
+      await provider.destroyServer('12345');
+
+      expect(mockedAxios.delete).toHaveBeenCalledWith(
+        'https://api.digitalocean.com/v2/droplets/12345',
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer test-do-token' },
+        }),
+      );
+    });
+
+    it('should throw with API error message on failure', async () => {
+      mockedAxios.delete.mockRejectedValueOnce({
+        response: {
+          data: {
+            message: 'The resource you requested could not be found.',
+          },
+        },
+      });
+
+      await expect(provider.destroyServer('99999')).rejects.toThrow(
+        'Failed to destroy server: The resource you requested could not be found.',
+      );
+    });
+
+    it('should throw with generic message on network error', async () => {
+      mockedAxios.delete.mockRejectedValueOnce(new Error('Network Error'));
+
+      await expect(provider.destroyServer('12345')).rejects.toThrow(
+        'Failed to destroy server: Network Error',
+      );
+    });
+
+    it('should handle non-Error thrown values', async () => {
+      mockedAxios.delete.mockRejectedValueOnce('unexpected');
+
+      await expect(provider.destroyServer('12345')).rejects.toThrow(
+        'Failed to destroy server: unexpected',
+      );
+    });
+  });
 });

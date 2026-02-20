@@ -115,6 +115,23 @@ export class DigitalOceanProvider implements CloudProvider {
     }
   }
 
+  async destroyServer(serverId: string): Promise<void> {
+    try {
+      await axios.delete(`${this.baseUrl}/droplets/${serverId}`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+    } catch (error: unknown) {
+      if (axios.isAxiosError<DOErrorResponse>(error)) {
+        throw new Error(
+          `Failed to destroy server: ${error.response?.data?.message || error.message}`,
+        );
+      }
+      throw new Error(
+        `Failed to destroy server: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
   getRegions(): Region[] {
     return [
       { id: "nyc1", name: "New York 1", location: "USA" },
