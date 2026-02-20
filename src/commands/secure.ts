@@ -83,7 +83,8 @@ export function buildHardeningCommand(options?: { port?: number }): string {
     commands.push(`sed -i 's/^#\\?Port.*/Port ${options.port}/' /etc/ssh/sshd_config`);
   }
 
-  commands.push("systemctl restart sshd");
+  // Ubuntu/Debian uses 'ssh', RHEL/CentOS uses 'sshd'
+  commands.push("systemctl restart sshd 2>/dev/null || systemctl restart ssh");
   return commands.join(" && ");
 }
 

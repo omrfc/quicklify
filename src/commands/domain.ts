@@ -2,7 +2,10 @@ import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 
-const COOLIFY_ENV_PATH = "/data/coolify/source/.env";
+const COOLIFY_SOURCE_DIR = "/data/coolify/source";
+const COOLIFY_DB_CONTAINER = "coolify-db";
+const COOLIFY_DB_USER = "coolify";
+const COOLIFY_DB_NAME = "coolify";
 
 export function isValidDomain(domain: string): boolean {
   // RFC 1035 compliant domain validation
@@ -24,27 +27,36 @@ export function sanitizeDomain(input: string): string {
 export function buildSetFqdnCommand(domain: string, ssl: boolean): string {
   const protocol = ssl ? "https" : "http";
   const url = `${protocol}://${domain}`;
-  return `sed -i 's|^APP_URL=.*|APP_URL=${url}|' ${COOLIFY_ENV_PATH} && cd /data/coolify/source && docker compose up -d --force-recreate`;
+  return [
+    `docker exec ${COOLIFY_DB_CONTAINER} psql -U ${COOLIFY_DB_USER} -d ${COOLIFY_DB_NAME} -c "UPDATE instance_settings SET fqdn='${url}' WHERE id=0;"`,
+    `cd ${COOLIFY_SOURCE_DIR} && docker compose -f docker-compose.yml -f docker-compose.prod.yml restart coolify`,
+  ].join(" && ");
 }
 
 export function buildGetFqdnCommand(): string {
-  return `grep '^APP_URL=' ${COOLIFY_ENV_PATH}`;
+  return `docker exec ${COOLIFY_DB_CONTAINER} psql -U ${COOLIFY_DB_USER} -d ${COOLIFY_DB_NAME} -t -c "SELECT fqdn FROM instance_settings WHERE id=0;"`;
+}
+
+export function buildCoolifyCheckCommand(): string {
+  return `docker ps --filter name=${COOLIFY_DB_CONTAINER} --format '{{.Names}}' 2>/dev/null`;
 }
 
 export function buildDnsCheckCommand(domain: string): string {
-  return `dig +short A ${domain} 2>/dev/null || host -t A ${domain} 2>/dev/null || nslookup ${domain} 2>/dev/null`;
+  // dig first, fallback to getent ahosts (always available on Linux)
+  return `dig +short A ${domain} 2>/dev/null || getent ahosts ${domain} 2>/dev/null | head -1 | awk '{print $1}'`;
 }
 
 export function parseDnsResult(stdout: string): string | null {
-  // dig +short returns just IP addresses
+  // dig +short returns just IP addresses, getent returns IP + hostname
   const ipMatch = stdout.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/);
   return ipMatch ? ipMatch[1] : null;
 }
 
 export function parseFqdn(stdout: string): string | null {
-  const match = stdout.match(/^APP_URL=(.+)$/m);
-  if (!match) return null;
-  return match[1].trim();
+  // psql -t output: just the value with possible leading/trailing whitespace
+  const trimmed = stdout.trim();
+  if (!trimmed) return null;
+  return trimmed;
 }
 
 export async function domainCommand(
@@ -114,7 +126,7 @@ async function domainAdd(
     console.log();
     logger.info("Commands to execute:");
     for (const cmd of command.split(" && ")) {
-      logger.step(cmd);
+      logger.step(cmd.trim());
     }
     console.log();
     logger.warning("No changes applied. Remove --dry-run to execute.");
@@ -125,12 +137,12 @@ async function domainAdd(
   spinner.start();
 
   try {
-    // Check if .env file exists
-    const checkResult = await sshExec(ip, `test -f ${COOLIFY_ENV_PATH} && echo "exists"`);
-    if (!checkResult.stdout.includes("exists")) {
-      spinner.fail("Coolify environment file not found");
-      logger.error(`Expected: ${COOLIFY_ENV_PATH}`);
-      logger.info("Is Coolify installed on this server?");
+    // Check if coolify-db container is running
+    const checkResult = await sshExec(ip, buildCoolifyCheckCommand());
+    if (!checkResult.stdout.includes(COOLIFY_DB_CONTAINER)) {
+      spinner.fail("Coolify database container not found");
+      logger.error("Is Coolify installed and running on this server?");
+      logger.info("Run: quicklify status <server> to check");
       return;
     }
 
@@ -161,7 +173,7 @@ async function domainRemove(ip: string, name: string, dryRun: boolean): Promise<
     console.log();
     logger.info("Commands to execute:");
     for (const cmd of command.split(" && ")) {
-      logger.step(cmd);
+      logger.step(cmd.trim());
     }
     console.log();
     logger.warning("No changes applied. Remove --dry-run to execute.");
@@ -239,7 +251,7 @@ async function domainList(ip: string, name: string): Promise<void> {
     const fqdn = parseFqdn(result.stdout);
     if (fqdn) {
       spinner.succeed(`Current domain for ${name}`);
-      logger.info(`APP_URL: ${fqdn}`);
+      logger.info(`FQDN: ${fqdn}`);
     } else {
       spinner.succeed(`No custom domain set for ${name}`);
       logger.info(`Default: http://${ip}:8000`);

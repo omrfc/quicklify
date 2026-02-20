@@ -6,6 +6,7 @@ import {
   sanitizeDomain,
   buildSetFqdnCommand,
   buildGetFqdnCommand,
+  buildCoolifyCheckCommand,
   buildDnsCheckCommand,
   parseDnsResult,
   parseFqdn,
@@ -85,30 +86,46 @@ describe('domain', () => {
   });
 
   describe('buildSetFqdnCommand', () => {
-    it('should build HTTPS command', () => {
+    it('should build HTTPS psql update + restart command', () => {
       const cmd = buildSetFqdnCommand('example.com', true);
-      expect(cmd).toContain('APP_URL=https://example.com');
-      expect(cmd).toContain('docker compose up -d');
+      expect(cmd).toContain("UPDATE instance_settings SET fqdn='https://example.com'");
+      expect(cmd).toContain('docker exec coolify-db psql');
+      expect(cmd).toContain('docker compose -f docker-compose.yml -f docker-compose.prod.yml restart coolify');
     });
 
-    it('should build HTTP command', () => {
+    it('should build HTTP psql update command', () => {
       const cmd = buildSetFqdnCommand('example.com', false);
-      expect(cmd).toContain('APP_URL=http://example.com');
+      expect(cmd).toContain("fqdn='http://example.com'");
+    });
+
+    it('should chain commands with &&', () => {
+      const cmd = buildSetFqdnCommand('example.com', true);
+      expect(cmd).toContain(' && ');
     });
   });
 
   describe('buildGetFqdnCommand', () => {
-    it('should grep APP_URL', () => {
+    it('should query instance_settings via psql', () => {
       const cmd = buildGetFqdnCommand();
-      expect(cmd).toContain('grep');
-      expect(cmd).toContain('APP_URL');
+      expect(cmd).toContain('docker exec coolify-db psql');
+      expect(cmd).toContain('SELECT fqdn FROM instance_settings');
+      expect(cmd).toContain('-t'); // tuple-only mode
+    });
+  });
+
+  describe('buildCoolifyCheckCommand', () => {
+    it('should check for coolify-db container', () => {
+      const cmd = buildCoolifyCheckCommand();
+      expect(cmd).toContain('docker ps');
+      expect(cmd).toContain('coolify-db');
     });
   });
 
   describe('buildDnsCheckCommand', () => {
-    it('should use dig with fallback', () => {
+    it('should use dig with getent fallback', () => {
       const cmd = buildDnsCheckCommand('example.com');
       expect(cmd).toContain('dig');
+      expect(cmd).toContain('getent ahosts');
       expect(cmd).toContain('example.com');
     });
   });
@@ -116,6 +133,10 @@ describe('domain', () => {
   describe('parseDnsResult', () => {
     it('should parse IP from dig output', () => {
       expect(parseDnsResult('1.2.3.4\n')).toBe('1.2.3.4');
+    });
+
+    it('should parse IP from getent ahosts output', () => {
+      expect(parseDnsResult('1.2.3.4       STREAM example.com')).toBe('1.2.3.4');
     });
 
     it('should parse IP from host output', () => {
@@ -129,13 +150,18 @@ describe('domain', () => {
   });
 
   describe('parseFqdn', () => {
-    it('should parse APP_URL', () => {
-      expect(parseFqdn('APP_URL=https://example.com')).toBe('https://example.com');
+    it('should parse psql output with leading whitespace', () => {
+      expect(parseFqdn(' https://example.com\n')).toBe('https://example.com');
     });
 
-    it('should return null for missing APP_URL', () => {
+    it('should parse clean psql output', () => {
+      expect(parseFqdn('https://example.com')).toBe('https://example.com');
+    });
+
+    it('should return null for empty output', () => {
       expect(parseFqdn('')).toBeNull();
-      expect(parseFqdn('OTHER_VAR=value')).toBeNull();
+      expect(parseFqdn('   ')).toBeNull();
+      expect(parseFqdn('\n')).toBeNull();
     });
   });
 
@@ -188,8 +214,8 @@ describe('domain', () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServer.mockReturnValue(sampleServer);
       mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: 'exists', stderr: '' }) // test -f check
-        .mockResolvedValueOnce({ code: 0, stdout: '', stderr: '' }); // actual command
+        .mockResolvedValueOnce({ code: 0, stdout: 'coolify-db', stderr: '' }) // container check
+        .mockResolvedValueOnce({ code: 0, stdout: '', stderr: '' }); // psql update + restart
 
       await domainCommand('add', '1.2.3.4', { domain: 'example.com' });
 
@@ -197,15 +223,15 @@ describe('domain', () => {
       expect(output).toContain('https://example.com');
     });
 
-    it('should error when Coolify env file not found', async () => {
+    it('should error when Coolify DB container not found', async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServer.mockReturnValue(sampleServer);
-      mockedSsh.sshExec.mockResolvedValueOnce({ code: 1, stdout: '', stderr: '' });
+      mockedSsh.sshExec.mockResolvedValueOnce({ code: 0, stdout: '', stderr: '' });
 
       await domainCommand('add', '1.2.3.4', { domain: 'example.com' });
 
-      // spinner.fail called - env file not found
-      expect(mockedSsh.sshExec).toHaveBeenCalled();
+      // spinner.fail - container not found, sshExec called once (only check)
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(1);
     });
 
     it('should show dry-run for add', async () => {
@@ -223,7 +249,7 @@ describe('domain', () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServer.mockReturnValue(sampleServer);
       mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: 'exists', stderr: '' })
+        .mockResolvedValueOnce({ code: 0, stdout: 'coolify-db', stderr: '' })
         .mockResolvedValueOnce({ code: 1, stdout: '', stderr: 'error' });
 
       await domainCommand('add', '1.2.3.4', { domain: 'example.com' });
@@ -234,7 +260,7 @@ describe('domain', () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServer.mockReturnValue(sampleServer);
       mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: 'exists', stderr: '' })
+        .mockResolvedValueOnce({ code: 0, stdout: 'coolify-db', stderr: '' })
         .mockRejectedValueOnce(new Error('fail'));
 
       await domainCommand('add', '1.2.3.4', { domain: 'example.com' });
@@ -245,13 +271,26 @@ describe('domain', () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServer.mockReturnValue(sampleServer);
       mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: 'exists', stderr: '' })
+        .mockResolvedValueOnce({ code: 0, stdout: 'coolify-db', stderr: '' })
         .mockResolvedValueOnce({ code: 0, stdout: '', stderr: '' });
 
       await domainCommand('add', '1.2.3.4', { domain: 'https://example.com/' });
 
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
       expect(output).toContain('https://example.com');
+    });
+
+    it('should add domain with SSL disabled', async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedSsh.sshExec
+        .mockResolvedValueOnce({ code: 0, stdout: 'coolify-db', stderr: '' })
+        .mockResolvedValueOnce({ code: 0, stdout: '', stderr: '' });
+
+      await domainCommand('add', '1.2.3.4', { domain: 'example.com', ssl: false });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+      expect(output).toContain('http://example.com');
     });
 
     // remove subcommand
@@ -355,12 +394,12 @@ describe('domain', () => {
     });
 
     // list subcommand
-    it('should list current domain', async () => {
+    it('should list current domain from psql', async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServer.mockReturnValue(sampleServer);
       mockedSsh.sshExec.mockResolvedValue({
         code: 0,
-        stdout: 'APP_URL=https://example.com',
+        stdout: ' https://example.com\n',
         stderr: '',
       });
 
@@ -375,7 +414,7 @@ describe('domain', () => {
       mockedConfig.findServer.mockReturnValue(sampleServer);
       mockedSsh.sshExec.mockResolvedValue({
         code: 0,
-        stdout: '',
+        stdout: '  \n',
         stderr: '',
       });
 
@@ -408,7 +447,7 @@ describe('domain', () => {
       mockedConfig.findServer.mockReturnValue(sampleServer);
       mockedSsh.sshExec.mockResolvedValue({
         code: 0,
-        stdout: 'APP_URL=https://example.com',
+        stdout: ' https://example.com\n',
         stderr: '',
       });
 
@@ -416,7 +455,7 @@ describe('domain', () => {
 
       expect(mockedSsh.sshExec).toHaveBeenCalledWith(
         '1.2.3.4',
-        expect.stringContaining('APP_URL'),
+        expect.stringContaining('SELECT fqdn'),
       );
     });
   });
