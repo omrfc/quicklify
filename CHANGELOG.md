@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.1] - 2026-02-20
+
+### Fixed
+- **Domain command rewritten for Coolify v4** - Uses PostgreSQL `instance_settings` table instead of `.env` APP_URL
+- Domain add now uses `docker compose -f docker-compose.yml -f docker-compose.prod.yml restart` (fixes compose error)
+- Coolify existence check uses `docker ps` container check instead of `.env` file check
+- DNS check fallback to `getent ahosts` (works on servers without `dig`/`dnsutils`)
+- SSH restart compatibility: fallback `systemctl restart ssh` for Ubuntu/Debian (was `sshd` only)
+
 ## [0.7.0] - 2026-02-20
 
 ### Added
