@@ -13,6 +13,11 @@ All notable changes to this project will be documented in this file.
 - Updated `SECURITY.md` with current security measures and DigitalOcean API v2
 
 ### Changed
+- ESLint upgraded from v9 to v10 (new `preserve-caught-error` rule compliance)
+- Updated dependencies: axios 1.13, chalk 5.6, commander 14, ora 9, tsx 4.21, typescript 5.9
+- Minimum Node.js version: 20 (ESLint 10 + ora 9 + commander 14 requirement)
+- CI matrix: 3 OS x 2 Node versions (dropped Node 18)
+- Security: npm overrides for minimatch (29 → 10 vulnerabilities, 0 high remaining)
 - Non-interactive mode now detected by `--provider` flag alone (token can come from env var)
 - `--token` option description updated to mention env var alternatives
 

@@ -87,10 +87,12 @@ export class HetznerProvider implements CloudProvider {
       if (axios.isAxiosError<HetznerErrorResponse>(error)) {
         throw new Error(
           `Failed to create server: ${error.response?.data?.error?.message || error.message}`,
+          { cause: error },
         );
       }
       throw new Error(
         `Failed to create server: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
   }
@@ -115,6 +117,7 @@ export class HetznerProvider implements CloudProvider {
     } catch (error: unknown) {
       throw new Error(
         `Failed to get server status: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
   }
@@ -128,10 +131,12 @@ export class HetznerProvider implements CloudProvider {
       if (axios.isAxiosError<HetznerErrorResponse>(error)) {
         throw new Error(
           `Failed to destroy server: ${error.response?.data?.error?.message || error.message}`,
+          { cause: error },
         );
       }
       throw new Error(
         `Failed to destroy server: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
   }

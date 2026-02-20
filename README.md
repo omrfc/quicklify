@@ -232,14 +232,14 @@ For production use, we recommend setting up a domain instead of using the IP add
 
 ## 🛠️ Tech Stack
 
-- **Runtime:** Node.js 18+
+- **Runtime:** Node.js 20+
 - **Language:** TypeScript
 - **CLI Framework:** Commander.js
 - **Interactive Prompts:** Inquirer.js
 - **Styling:** Chalk (colors) + Ora (spinners)
 - **HTTP Client:** Axios
 - **Cloud APIs:** Hetzner Cloud API v1, DigitalOcean API v2
-- **Linting:** ESLint 9 + typescript-eslint
+- **Linting:** ESLint 10 + typescript-eslint
 - **Formatting:** Prettier
 
 ## 📖 CLI Reference
@@ -365,7 +365,7 @@ tests/
 Tests run automatically on every push/PR via GitHub Actions across:
 
 - **OS:** Ubuntu, macOS, Windows
-- **Node.js:** 18, 20, 22
+- **Node.js:** 20, 22
 
 ### Coverage
 
