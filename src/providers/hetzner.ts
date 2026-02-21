@@ -59,17 +59,52 @@ export class HetznerProvider implements CloudProvider {
     }
   }
 
-  async createServer(config: ServerConfig): Promise<ServerResult> {
+  async uploadSshKey(name: string, publicKey: string): Promise<string> {
     try {
       const response = await axios.post(
-        `${this.baseUrl}/servers`,
+        `${this.baseUrl}/ssh_keys`,
+        { name, public_key: publicKey },
         {
-          name: config.name,
-          server_type: config.size,
-          location: config.region,
-          image: "ubuntu-24.04",
-          user_data: config.cloudInit,
+          headers: {
+            Authorization: `Bearer ${this.apiToken}`,
+            "Content-Type": "application/json",
+          },
         },
+      );
+      return response.data.ssh_key.id.toString();
+    } catch (error: unknown) {
+      // Key already exists → find by matching public key
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        const listResponse = await axios.get(`${this.baseUrl}/ssh_keys?per_page=200`, {
+          headers: { Authorization: `Bearer ${this.apiToken}` },
+        });
+        const existing = listResponse.data.ssh_keys.find(
+          (k: { public_key: string }) => k.public_key.trim() === publicKey.trim(),
+        );
+        if (existing) return existing.id.toString();
+      }
+      throw new Error(
+        `Failed to upload SSH key: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  async createServer(config: ServerConfig): Promise<ServerResult> {
+    try {
+      const body: Record<string, unknown> = {
+        name: config.name,
+        server_type: config.size,
+        location: config.region,
+        image: "ubuntu-24.04",
+        user_data: config.cloudInit,
+      };
+      if (config.sshKeyIds?.length) {
+        body.ssh_keys = config.sshKeyIds.map(Number);
+      }
+      const response = await axios.post(
+        `${this.baseUrl}/servers`,
+        body,
         {
           headers: {
             Authorization: `Bearer ${this.apiToken}`,

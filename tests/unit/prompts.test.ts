@@ -24,6 +24,7 @@ const mockProvider: CloudProvider = {
     { id: 'cax11', name: 'CAX11', vcpu: 2, ram: 4, disk: 40, price: '€3.85/mo' },
     { id: 'cpx11', name: 'CPX11', vcpu: 2, ram: 2, disk: 40, price: '€4.15/mo' },
   ]),
+  uploadSshKey: jest.fn(),
   createServer: jest.fn(),
   getServerStatus: jest.fn(),
   getServerDetails: jest.fn(),

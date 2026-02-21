@@ -96,7 +96,7 @@ export function buildFail2banCommand(): string {
 enabled = true
 port = ssh
 filter = sshd
-logpath = /var/log/auth.log
+backend = systemd
 maxretry = 5
 bantime = 3600
 findtime = 600

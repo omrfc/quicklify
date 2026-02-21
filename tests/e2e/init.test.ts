@@ -14,6 +14,12 @@ jest.mock('../../src/utils/config', () => ({
   findServer: jest.fn(),
 }));
 
+jest.mock('../../src/utils/sshKey', () => ({
+  findLocalSshKey: jest.fn().mockReturnValue(null),
+  generateSshKey: jest.fn().mockReturnValue(null),
+  getSshKeyName: jest.fn().mockReturnValue('quicklify-test'),
+}));
+
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
 

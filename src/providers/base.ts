@@ -8,6 +8,7 @@ export interface CloudProvider {
   getServerSizes(): ServerSize[];
   getAvailableLocations(): Promise<Region[]>;
   getAvailableServerTypes(location: string): Promise<ServerSize[]>;
+  uploadSshKey(name: string, publicKey: string): Promise<string>;
   createServer(config: ServerConfig): Promise<ServerResult>;
   getServerStatus(serverId: string): Promise<string>;
   getServerDetails(serverId: string): Promise<ServerResult>;

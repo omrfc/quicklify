@@ -18,6 +18,7 @@ export interface ServerConfig {
   size: string;
   region: string;
   cloudInit: string;
+  sshKeyIds?: string[];
 }
 
 export interface ServerResult {

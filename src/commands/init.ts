@@ -14,6 +14,7 @@ import {
 } from "../utils/prompts.js";
 import { getCoolifyCloudInit } from "../utils/cloudInit.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { findLocalSshKey, generateSshKey, getSshKeyName } from "../utils/sshKey.js";
 
 export async function initCommand(options: InitOptions = {}): Promise<void> {
   const isNonInteractive = options.provider !== undefined;
@@ -178,6 +179,35 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
   );
 }
 
+async function uploadSshKeyToProvider(
+  provider: CloudProvider,
+): Promise<string[]> {
+  let publicKey = findLocalSshKey();
+  if (!publicKey) {
+    logger.info("No SSH key found. Generating one...");
+    publicKey = generateSshKey();
+    if (publicKey) {
+      logger.success("SSH key generated (~/.ssh/id_ed25519)");
+    } else {
+      logger.warning("Could not generate SSH key — falling back to password auth");
+      logger.info("Server will require password change on first SSH login");
+      return [];
+    }
+  }
+
+  const spinner = createSpinner("Uploading SSH key to provider...");
+  spinner.start();
+  try {
+    const keyId = await provider.uploadSshKey(getSshKeyName(), publicKey);
+    spinner.succeed("SSH key uploaded — password-free access enabled");
+    return [keyId];
+  } catch (error: unknown) {
+    spinner.fail("SSH key upload failed — falling back to password auth");
+    logger.warning(error instanceof Error ? error.message : String(error));
+    return [];
+  }
+}
+
 async function deployServer(
   providerChoice: string,
   providerWithToken: CloudProvider,
@@ -186,6 +216,8 @@ async function deployServer(
   serverName: string,
 ): Promise<void> {
   try {
+    // Upload SSH key before creating server
+    const sshKeyIds = await uploadSshKeyToProvider(providerWithToken);
     const cloudInit = getCoolifyCloudInit(serverName);
 
     let server: { id: string; ip: string; status: string } | undefined;
@@ -204,6 +236,7 @@ async function deployServer(
           region,
           size: serverSize,
           cloudInit,
+          sshKeyIds,
         });
         serverSpinner.succeed(`Server created (ID: ${server.id})`);
       } catch (createError: unknown) {
