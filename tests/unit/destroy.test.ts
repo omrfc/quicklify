@@ -101,7 +101,8 @@ describe('destroyCommand', () => {
     mockedInquirer.prompt
       .mockResolvedValueOnce({ confirm: true })
       .mockResolvedValueOnce({ confirmName: 'coolify-test' })
-      .mockResolvedValueOnce({ apiToken: 'test-token' });
+      .mockResolvedValueOnce({ apiToken: 'test-token' })
+      .mockResolvedValueOnce({ removeLocal: false });
 
     mockedAxios.delete.mockRejectedValueOnce(new Error('API Error'));
 
@@ -109,6 +110,25 @@ describe('destroyCommand', () => {
 
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
     expect(output).toContain('Failed to destroy');
+  });
+
+  it('should remove from local config when user confirms after API error', async () => {
+    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.removeServer.mockReturnValue(true);
+
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ confirm: true })
+      .mockResolvedValueOnce({ confirmName: 'coolify-test' })
+      .mockResolvedValueOnce({ apiToken: 'test-token' })
+      .mockResolvedValueOnce({ removeLocal: true });
+
+    mockedAxios.delete.mockRejectedValueOnce(new Error('API Error'));
+
+    await destroyCommand('1.2.3.4');
+
+    expect(mockedConfig.removeServer).toHaveBeenCalledWith('123');
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(output).toContain('Removed from local config');
   });
 
   it('should remove from local config when server not found on provider', async () => {

@@ -110,7 +110,8 @@ describe('destroyCommand E2E', () => {
     mockedInquirer.prompt
       .mockResolvedValueOnce({ confirm: true })
       .mockResolvedValueOnce({ confirmName: 'coolify-test' })
-      .mockResolvedValueOnce({ apiToken: 'test-token' });
+      .mockResolvedValueOnce({ apiToken: 'test-token' })
+      .mockResolvedValueOnce({ removeLocal: false });
 
     mockedAxios.delete.mockRejectedValueOnce(new Error('quota exceeded'));
 

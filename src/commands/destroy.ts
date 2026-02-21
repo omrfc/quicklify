@@ -61,6 +61,19 @@ export async function destroyCommand(query?: string): Promise<void> {
     } else {
       spinner.fail("Failed to destroy server");
       logger.error(message);
+
+      const { removeLocal } = await inquirer.prompt([
+        {
+          type: "confirm",
+          name: "removeLocal",
+          message: "Remove this server from local config anyway?",
+          default: false,
+        },
+      ]);
+      if (removeLocal) {
+        removeServer(server.id);
+        logger.success("Removed from local config.");
+      }
     }
   }
 }
