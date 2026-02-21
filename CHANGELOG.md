@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.2] - 2026-02-21
+
+### Added
+- **Auto SSH key upload** during `quicklify init` — detects local SSH key (`~/.ssh/id_ed25519.pub`, `id_rsa.pub`, `id_ecdsa.pub`) and uploads to provider (DigitalOcean/Hetzner) automatically. Eliminates password requirement on first SSH login
+- **Auto SSH key generation** — if no SSH key exists, generates ed25519 key pair automatically
+- **Local config cleanup on destroy failure** — when `quicklify destroy` fails (server already deleted), prompts to remove from local config
+
+### Fixed
+- **Fail2ban heredoc bug** — heredoc delimiter was not recognized when joined with `&&` chain, causing invalid config file and fail2ban crash. Replaced with `printf`
+- **Fail2ban systemd backend** — added `python3-systemd` package (required for `backend = systemd` on Ubuntu)
+
 ## [0.7.1] - 2026-02-20
 
 ### Fixed
