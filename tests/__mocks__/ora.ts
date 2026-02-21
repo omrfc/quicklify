@@ -1,7 +1,7 @@
 const createMockSpinner = () => {
   const spinner: any = {
-    text: '',
-    color: 'cyan',
+    text: "",
+    color: "cyan",
   };
   spinner.start = jest.fn(() => spinner);
   spinner.succeed = jest.fn(() => spinner);

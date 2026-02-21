@@ -1,30 +1,30 @@
-import * as config from '../../src/utils/config';
-import * as sshUtils from '../../src/utils/ssh';
-import { logsCommand, buildLogCommand } from '../../src/commands/logs';
+import * as config from "../../src/utils/config";
+import * as sshUtils from "../../src/utils/ssh";
+import { logsCommand, buildLogCommand } from "../../src/commands/logs";
 
-jest.mock('../../src/utils/config');
-jest.mock('../../src/utils/ssh');
+jest.mock("../../src/utils/config");
+jest.mock("../../src/utils/ssh");
 
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
 
 const sampleServer = {
-  id: '123',
-  name: 'coolify-test',
-  provider: 'hetzner',
-  ip: '1.2.3.4',
-  region: 'nbg1',
-  size: 'cax11',
-  createdAt: '2026-01-01T00:00:00.000Z',
+  id: "123",
+  name: "coolify-test",
+  provider: "hetzner",
+  ip: "1.2.3.4",
+  region: "nbg1",
+  size: "cax11",
+  createdAt: "2026-01-01T00:00:00.000Z",
 };
 
-describe('logsCommand', () => {
+describe("logsCommand", () => {
   let consoleSpy: jest.SpyInstance;
   let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    consoleSpy = jest.spyOn(console, "log").mockImplementation();
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
     jest.clearAllMocks();
   });
 
@@ -33,110 +33,103 @@ describe('logsCommand', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  describe('buildLogCommand', () => {
-    it('should build coolify log command', () => {
-      expect(buildLogCommand('coolify', 50, false)).toBe('docker logs coolify --tail 50');
+  describe("buildLogCommand", () => {
+    it("should build coolify log command", () => {
+      expect(buildLogCommand("coolify", 50, false)).toBe("docker logs coolify --tail 50");
     });
 
-    it('should build coolify log command with follow', () => {
-      expect(buildLogCommand('coolify', 100, true)).toBe(
-        'docker logs coolify --tail 100 --follow',
-      );
+    it("should build coolify log command with follow", () => {
+      expect(buildLogCommand("coolify", 100, true)).toBe("docker logs coolify --tail 100 --follow");
     });
 
-    it('should build docker log command', () => {
-      expect(buildLogCommand('docker', 30, false)).toBe(
-        'journalctl -u docker --no-pager -n 30',
-      );
+    it("should build docker log command", () => {
+      expect(buildLogCommand("docker", 30, false)).toBe("journalctl -u docker --no-pager -n 30");
     });
 
-    it('should build system log command with follow', () => {
-      expect(buildLogCommand('system', 50, true)).toBe('journalctl --no-pager -n 50 -f');
+    it("should build system log command with follow", () => {
+      expect(buildLogCommand("system", 50, true)).toBe("journalctl --no-pager -n 50 -f");
     });
   });
 
-  it('should show error when SSH not available', async () => {
+  it("should show error when SSH not available", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(false);
     await logsCommand();
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
-    expect(output).toContain('SSH client not found');
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("SSH client not found");
   });
 
-  it('should return when no server found', async () => {
+  it("should return when no server found", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServer.mockReturnValue(undefined);
-    await logsCommand('nonexistent');
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
-    expect(output).toContain('Server not found');
+    await logsCommand("nonexistent");
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Server not found");
   });
 
-  it('should show error for invalid --lines value', async () => {
+  it("should show error for invalid --lines value", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServer.mockReturnValue(sampleServer);
-    await logsCommand('1.2.3.4', { lines: 'abc' });
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
-    expect(output).toContain('Invalid --lines');
+    await logsCommand("1.2.3.4", { lines: "abc" });
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Invalid --lines");
   });
 
-  it('should show error for invalid service', async () => {
+  it("should show error for invalid service", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServer.mockReturnValue(sampleServer);
-    await logsCommand('1.2.3.4', { service: 'invalid' });
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
-    expect(output).toContain('Invalid service');
+    await logsCommand("1.2.3.4", { service: "invalid" });
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Invalid service");
   });
 
-  it('should use sshExec for non-follow mode', async () => {
+  it("should use sshExec for non-follow mode", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServer.mockReturnValue(sampleServer);
     mockedSsh.sshExec.mockResolvedValue({
       code: 0,
-      stdout: 'log line 1\nlog line 2',
-      stderr: '',
+      stdout: "log line 1\nlog line 2",
+      stderr: "",
     });
 
-    await logsCommand('1.2.3.4', { service: 'coolify', lines: '20' });
+    await logsCommand("1.2.3.4", { service: "coolify", lines: "20" });
 
-    expect(mockedSsh.sshExec).toHaveBeenCalledWith(
-      '1.2.3.4',
-      'docker logs coolify --tail 20',
-    );
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
-    expect(output).toContain('log line 1');
+    expect(mockedSsh.sshExec).toHaveBeenCalledWith("1.2.3.4", "docker logs coolify --tail 20");
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("log line 1");
   });
 
-  it('should use sshStream for follow mode', async () => {
+  it("should use sshStream for follow mode", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServer.mockReturnValue(sampleServer);
     mockedSsh.sshStream.mockResolvedValue(0);
 
-    await logsCommand('1.2.3.4', { follow: true });
+    await logsCommand("1.2.3.4", { follow: true });
 
     expect(mockedSsh.sshStream).toHaveBeenCalledWith(
-      '1.2.3.4',
-      'docker logs coolify --tail 50 --follow',
+      "1.2.3.4",
+      "docker logs coolify --tail 50 --follow",
     );
   });
 
-  it('should show error on non-zero sshExec exit code', async () => {
+  it("should show error on non-zero sshExec exit code", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServer.mockReturnValue(sampleServer);
-    mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: '', stderr: 'error' });
+    mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "error" });
 
-    await logsCommand('1.2.3.4');
+    await logsCommand("1.2.3.4");
 
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
-    expect(output).toContain('Failed to fetch logs');
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Failed to fetch logs");
   });
 
-  it('should show error on non-zero sshStream exit code', async () => {
+  it("should show error on non-zero sshStream exit code", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServer.mockReturnValue(sampleServer);
     mockedSsh.sshStream.mockResolvedValue(1);
 
-    await logsCommand('1.2.3.4', { follow: true });
+    await logsCommand("1.2.3.4", { follow: true });
 
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
-    expect(output).toContain('Log stream ended with code 1');
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Log stream ended with code 1");
   });
 });

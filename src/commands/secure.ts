@@ -55,7 +55,8 @@ export function parseAuditResult(stdout: string): SecureAuditResult {
   };
 
   // Parse fail2ban
-  const fail2banInstalled = fail2banStatus.includes("active") || fail2banStatus.includes("inactive");
+  const fail2banInstalled =
+    fail2banStatus.includes("active") || fail2banStatus.includes("inactive");
   const fail2banActive = fail2banStatus.includes("active (running)");
 
   // Parse SSH port
@@ -288,9 +289,15 @@ async function secureStatus(ip: string, name: string): Promise<void> {
     const passIcon = (status: string) =>
       status === "secure" ? "\u2714" : status === "insecure" ? "\u2716" : "?";
 
-    logger.info(`Password Auth:  ${passIcon(audit.passwordAuth.status)} ${audit.passwordAuth.value || "not set"}`);
-    logger.info(`Root Login:     ${passIcon(audit.rootLogin.status)} ${audit.rootLogin.value || "not set"}`);
-    logger.info(`Fail2ban:       ${audit.fail2ban.installed ? (audit.fail2ban.active ? "\u2714 active" : "\u2716 inactive") : "\u2716 not installed"}`);
+    logger.info(
+      `Password Auth:  ${passIcon(audit.passwordAuth.status)} ${audit.passwordAuth.value || "not set"}`,
+    );
+    logger.info(
+      `Root Login:     ${passIcon(audit.rootLogin.status)} ${audit.rootLogin.value || "not set"}`,
+    );
+    logger.info(
+      `Fail2ban:       ${audit.fail2ban.installed ? (audit.fail2ban.active ? "\u2714 active" : "\u2716 inactive") : "\u2716 not installed"}`,
+    );
     logger.info(`SSH Port:       ${audit.sshPort}`);
   } catch (error: unknown) {
     spinner.fail("Failed to check security status");
@@ -325,8 +332,7 @@ async function secureAudit(ip: string, name: string): Promise<void> {
     logger.title(`Security Score: ${score}/${maxScore}`);
 
     // Detailed report
-    const check = (ok: boolean, msg: string) =>
-      ok ? logger.success(msg) : logger.warning(msg);
+    const check = (ok: boolean, msg: string) => (ok ? logger.success(msg) : logger.warning(msg));
 
     check(
       audit.passwordAuth.status === "secure",
@@ -340,7 +346,10 @@ async function secureAudit(ip: string, name: string): Promise<void> {
       audit.fail2ban.active,
       `Fail2ban: ${audit.fail2ban.installed ? (audit.fail2ban.active ? "active (OK)" : "installed but inactive") : "not installed"}`,
     );
-    check(audit.sshPort !== 22, `SSH Port: ${audit.sshPort} ${audit.sshPort !== 22 ? "(non-default, OK)" : "(default port 22)"}`);
+    check(
+      audit.sshPort !== 22,
+      `SSH Port: ${audit.sshPort} ${audit.sshPort !== 22 ? "(non-default, OK)" : "(default port 22)"}`,
+    );
 
     if (score < maxScore) {
       console.log();

@@ -1,4 +1,10 @@
-import { getDefaults, setDefault, getDefault, resetDefaults, VALID_KEYS } from "../utils/defaults.js";
+import {
+  getDefaults,
+  setDefault,
+  getDefault,
+  resetDefaults,
+  VALID_KEYS,
+} from "../utils/defaults.js";
 import { logger } from "../utils/logger.js";
 
 export async function configCommand(subcommand?: string, args?: string[]): Promise<void> {

@@ -82,7 +82,8 @@ export async function monitorCommand(
     let command =
       "top -bn1 | head -5 && echo '---SEPARATOR---' && free -h && echo '---SEPARATOR---' && df -h --total | grep -E '(Filesystem|total)'";
     if (options?.containers) {
-      command += " && echo '---SEPARATOR---' && docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'";
+      command +=
+        " && echo '---SEPARATOR---' && docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'";
     }
 
     const result = await sshExec(server.ip, command);
@@ -100,7 +101,9 @@ export async function monitorCommand(
     console.log();
     logger.info(`CPU Usage:    ${metrics.cpu}`);
     logger.info(`RAM Usage:    ${metrics.ramUsed} / ${metrics.ramTotal}`);
-    logger.info(`Disk Usage:   ${metrics.diskUsed} / ${metrics.diskTotal} (${metrics.diskPercent})`);
+    logger.info(
+      `Disk Usage:   ${metrics.diskUsed} / ${metrics.diskTotal} (${metrics.diskPercent})`,
+    );
 
     if (options?.containers) {
       const sections = result.stdout.split("---SEPARATOR---");

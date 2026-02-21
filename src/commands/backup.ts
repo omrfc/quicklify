@@ -10,11 +10,7 @@ import type { BackupManifest } from "../types/index.js";
 // Pure functions (testable)
 
 export function formatTimestamp(date: Date): string {
-  return date
-    .toISOString()
-    .replace(/[:.]/g, "-")
-    .replace("T", "_")
-    .replace("Z", "");
+  return date.toISOString().replace(/[:.]/g, "-").replace("T", "_").replace("Z", "");
 }
 
 export function getBackupDir(serverName: string): string {
@@ -72,10 +68,7 @@ export function listBackups(serverName: string): string[] {
 
 // Command
 
-export async function backupCommand(
-  query?: string,
-  options?: { dryRun?: boolean },
-): Promise<void> {
+export async function backupCommand(query?: string, options?: { dryRun?: boolean }): Promise<void> {
   if (!checkSshAvailable()) {
     logger.error("SSH client not found. Please install OpenSSH.");
     return;

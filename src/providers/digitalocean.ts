@@ -87,16 +87,12 @@ export class DigitalOceanProvider implements CloudProvider {
       if (config.sshKeyIds?.length) {
         body.ssh_keys = config.sshKeyIds.map(Number);
       }
-      const response = await axios.post(
-        `${this.baseUrl}/droplets`,
-        body,
-        {
-          headers: {
-            Authorization: `Bearer ${this.apiToken}`,
-            "Content-Type": "application/json",
-          },
+      const response = await axios.post(`${this.baseUrl}/droplets`, body, {
+        headers: {
+          Authorization: `Bearer ${this.apiToken}`,
+          "Content-Type": "application/json",
         },
-      );
+      });
 
       const droplet = response.data.droplet;
       const ip =
@@ -245,7 +241,10 @@ export class DigitalOceanProvider implements CloudProvider {
       const MIN_VCPUS = 2; // Coolify requires at least 2 CPUs
       const sizes = response.data.sizes.filter(
         (s: DOSize) =>
-          s.available && s.regions.includes(location) && s.memory >= MIN_RAM_MB && s.vcpus >= MIN_VCPUS,
+          s.available &&
+          s.regions.includes(location) &&
+          s.memory >= MIN_RAM_MB &&
+          s.vcpus >= MIN_VCPUS,
       );
 
       if (sizes.length === 0) {

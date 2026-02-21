@@ -21,11 +21,9 @@ export function sshConnect(ip: string): Promise<number> {
 
 export function sshStream(ip: string, command: string): Promise<number> {
   return new Promise((resolve) => {
-    const child = spawn(
-      "ssh",
-      ["-o", "StrictHostKeyChecking=accept-new", `root@${ip}`, command],
-      { stdio: "inherit" },
-    );
+    const child = spawn("ssh", ["-o", "StrictHostKeyChecking=accept-new", `root@${ip}`, command], {
+      stdio: "inherit",
+    });
     child.on("close", (code) => resolve(code ?? 0));
     child.on("error", () => resolve(1));
   });

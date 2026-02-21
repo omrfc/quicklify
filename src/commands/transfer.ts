@@ -4,7 +4,15 @@ import { getServers, saveServer } from "../utils/config.js";
 import { logger } from "../utils/logger.js";
 import type { ServerRecord } from "../types/index.js";
 
-const REQUIRED_FIELDS: (keyof ServerRecord)[] = ["id", "name", "provider", "ip", "region", "size", "createdAt"];
+const REQUIRED_FIELDS: (keyof ServerRecord)[] = [
+  "id",
+  "name",
+  "provider",
+  "ip",
+  "region",
+  "size",
+  "createdAt",
+];
 
 export function validateServerRecords(data: unknown): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
@@ -43,7 +51,9 @@ export async function exportCommand(filePath?: string): Promise<void> {
     writeFileSync(outPath, JSON.stringify(servers, null, 2), "utf-8");
     logger.success(`Exported ${servers.length} server(s) to ${outPath}`);
   } catch (error: unknown) {
-    logger.error(`Failed to write export file: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(
+      `Failed to write export file: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 

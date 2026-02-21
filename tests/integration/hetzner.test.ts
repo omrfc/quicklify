@@ -1,62 +1,62 @@
-import axios from 'axios';
-import { HetznerProvider } from '../../src/providers/hetzner';
+import axios from "axios";
+import { HetznerProvider } from "../../src/providers/hetzner";
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
-describe('HetznerProvider', () => {
+describe("HetznerProvider", () => {
   let provider: HetznerProvider;
 
   beforeEach(() => {
-    provider = new HetznerProvider('test-api-token');
+    provider = new HetznerProvider("test-api-token");
     jest.clearAllMocks();
   });
 
-  describe('properties', () => {
+  describe("properties", () => {
     it('should have name "hetzner"', () => {
-      expect(provider.name).toBe('hetzner');
+      expect(provider.name).toBe("hetzner");
     });
 
     it('should have displayName "Hetzner Cloud"', () => {
-      expect(provider.displayName).toBe('Hetzner Cloud');
+      expect(provider.displayName).toBe("Hetzner Cloud");
     });
   });
 
-  describe('getRegions', () => {
-    it('should return an array of regions', () => {
+  describe("getRegions", () => {
+    it("should return an array of regions", () => {
       const regions = provider.getRegions();
       expect(Array.isArray(regions)).toBe(true);
       expect(regions.length).toBeGreaterThan(0);
     });
 
-    it('should include Nuremberg (nbg1)', () => {
+    it("should include Nuremberg (nbg1)", () => {
       const regions = provider.getRegions();
-      const nbg = regions.find(r => r.id === 'nbg1');
+      const nbg = regions.find((r) => r.id === "nbg1");
       expect(nbg).toBeDefined();
-      expect(nbg!.name).toBe('Nuremberg');
+      expect(nbg!.name).toBe("Nuremberg");
     });
 
-    it('should include Falkenstein (fsn1)', () => {
+    it("should include Falkenstein (fsn1)", () => {
       const regions = provider.getRegions();
-      const fsn = regions.find(r => r.id === 'fsn1');
+      const fsn = regions.find((r) => r.id === "fsn1");
       expect(fsn).toBeDefined();
-      expect(fsn!.name).toBe('Falkenstein');
+      expect(fsn!.name).toBe("Falkenstein");
     });
 
-    it('should include Helsinki (hel1)', () => {
+    it("should include Helsinki (hel1)", () => {
       const regions = provider.getRegions();
-      const hel = regions.find(r => r.id === 'hel1');
+      const hel = regions.find((r) => r.id === "hel1");
       expect(hel).toBeDefined();
     });
 
-    it('should include Ashburn (ash)', () => {
+    it("should include Ashburn (ash)", () => {
       const regions = provider.getRegions();
-      const ash = regions.find(r => r.id === 'ash');
+      const ash = regions.find((r) => r.id === "ash");
       expect(ash).toBeDefined();
     });
 
-    it('should have id, name, and location for every region', () => {
+    it("should have id, name, and location for every region", () => {
       const regions = provider.getRegions();
-      regions.forEach(region => {
+      regions.forEach((region) => {
         expect(region.id).toBeTruthy();
         expect(region.name).toBeTruthy();
         expect(region.location).toBeTruthy();
@@ -64,24 +64,24 @@ describe('HetznerProvider', () => {
     });
   });
 
-  describe('getServerSizes', () => {
-    it('should return an array of server sizes', () => {
+  describe("getServerSizes", () => {
+    it("should return an array of server sizes", () => {
       const sizes = provider.getServerSizes();
       expect(Array.isArray(sizes)).toBe(true);
       expect(sizes.length).toBeGreaterThan(0);
     });
 
-    it('should have CAX11 as first option', () => {
+    it("should have CAX11 as first option", () => {
       const sizes = provider.getServerSizes();
-      const cax11 = sizes.find(s => s.id === 'cax11');
+      const cax11 = sizes.find((s) => s.id === "cax11");
       expect(cax11).toBeDefined();
       expect(cax11!.vcpu).toBe(2);
       expect(cax11!.ram).toBe(4);
     });
 
-    it('should have valid specs for every size', () => {
+    it("should have valid specs for every size", () => {
       const sizes = provider.getServerSizes();
-      sizes.forEach(size => {
+      sizes.forEach((size) => {
         expect(size.id).toBeTruthy();
         expect(size.name).toBeTruthy();
         expect(size.vcpu).toBeGreaterThan(0);
@@ -91,22 +91,22 @@ describe('HetznerProvider', () => {
       });
     });
 
-    it('should include both ARM64 (CAX) and x86 (CX) options', () => {
+    it("should include both ARM64 (CAX) and x86 (CX) options", () => {
       const sizes = provider.getServerSizes();
-      const arm = sizes.filter(s => s.id.startsWith('cax'));
-      const x86 = sizes.filter(s => s.id.startsWith('cx'));
+      const arm = sizes.filter((s) => s.id.startsWith("cax"));
+      const x86 = sizes.filter((s) => s.id.startsWith("cx"));
       expect(arm.length).toBeGreaterThan(0);
       expect(x86.length).toBeGreaterThan(0);
     });
   });
 
-  describe('getAvailableLocations', () => {
-    it('should return locations from API', async () => {
+  describe("getAvailableLocations", () => {
+    it("should return locations from API", async () => {
       mockedAxios.get.mockResolvedValueOnce({
         data: {
           locations: [
-            { name: 'nbg1', city: 'Nuremberg', country: 'Germany' },
-            { name: 'fsn1', city: 'Falkenstein', country: 'Germany' },
+            { name: "nbg1", city: "Nuremberg", country: "Germany" },
+            { name: "fsn1", city: "Falkenstein", country: "Germany" },
           ],
         },
       });
@@ -114,17 +114,17 @@ describe('HetznerProvider', () => {
       const locations = await provider.getAvailableLocations();
 
       expect(locations).toHaveLength(2);
-      expect(locations[0]).toEqual({ id: 'nbg1', name: 'Nuremberg', location: 'Germany' });
+      expect(locations[0]).toEqual({ id: "nbg1", name: "Nuremberg", location: "Germany" });
       expect(mockedAxios.get).toHaveBeenCalledWith(
-        'https://api.hetzner.cloud/v1/locations',
+        "https://api.hetzner.cloud/v1/locations",
         expect.objectContaining({
-          headers: { Authorization: 'Bearer test-api-token' },
+          headers: { Authorization: "Bearer test-api-token" },
         }),
       );
     });
 
-    it('should fallback to static regions on API error', async () => {
-      mockedAxios.get.mockRejectedValueOnce(new Error('Network Error'));
+    it("should fallback to static regions on API error", async () => {
+      mockedAxios.get.mockRejectedValueOnce(new Error("Network Error"));
 
       const locations = await provider.getAvailableLocations();
 
@@ -132,87 +132,79 @@ describe('HetznerProvider', () => {
     });
   });
 
-  describe('getAvailableServerTypes', () => {
+  describe("getAvailableServerTypes", () => {
     const mockDatacentersResponse = {
       data: {
         datacenters: [
           {
-            name: 'nbg1-dc3',
-            location: { name: 'nbg1' },
+            name: "nbg1-dc3",
+            location: { name: "nbg1" },
             server_types: { available: [1, 2, 3] },
           },
           {
-            name: 'hel1-dc2',
-            location: { name: 'hel1' },
+            name: "hel1-dc2",
+            location: { name: "hel1" },
             server_types: { available: [1] },
           },
         ],
       },
     };
 
-    it('should return server types filtered by datacenter availability', async () => {
-      mockedAxios.get
-        .mockResolvedValueOnce(mockDatacentersResponse)
-        .mockResolvedValueOnce({
-          data: {
-            server_types: [
-              {
-                id: 1,
-                name: 'cax11',
-                cores: 2,
-                memory: 4,
-                disk: 40,
-                prices: [
-                  { location: 'nbg1', price_monthly: { net: '3.79', gross: '4.51' } },
-                ],
-              },
-              {
-                id: 2,
-                name: 'cx22',
-                cores: 2,
-                memory: 4,
-                disk: 40,
-                prices: [
-                  { location: 'nbg1', price_monthly: { net: '3.49', gross: '4.15' } },
-                ],
-              },
-              {
-                id: 99,
-                name: 'cpx11',
-                cores: 2,
-                memory: 2,
-                disk: 40,
-                prices: [
-                  { location: 'nbg1', price_monthly: { net: '3.49', gross: '4.15' } },
-                ],
-              },
-            ],
-          },
-        });
+    it("should return server types filtered by datacenter availability", async () => {
+      mockedAxios.get.mockResolvedValueOnce(mockDatacentersResponse).mockResolvedValueOnce({
+        data: {
+          server_types: [
+            {
+              id: 1,
+              name: "cax11",
+              cores: 2,
+              memory: 4,
+              disk: 40,
+              prices: [{ location: "nbg1", price_monthly: { net: "3.79", gross: "4.51" } }],
+            },
+            {
+              id: 2,
+              name: "cx22",
+              cores: 2,
+              memory: 4,
+              disk: 40,
+              prices: [{ location: "nbg1", price_monthly: { net: "3.49", gross: "4.15" } }],
+            },
+            {
+              id: 99,
+              name: "cpx11",
+              cores: 2,
+              memory: 2,
+              disk: 40,
+              prices: [{ location: "nbg1", price_monthly: { net: "3.49", gross: "4.15" } }],
+            },
+          ],
+        },
+      });
 
-      const types = await provider.getAvailableServerTypes('nbg1');
+      const types = await provider.getAvailableServerTypes("nbg1");
 
       // cpx11 (id:99) not in available list [1,2,3] → filtered out
       expect(types).toHaveLength(2);
-      expect(types[0].id).toBe('cax11');
-      expect(types[0].price).toBe('€3.79/mo');
-      expect(types[1].id).toBe('cx22');
+      expect(types[0].id).toBe("cax11");
+      expect(types[0].price).toBe("€3.79/mo");
+      expect(types[1].id).toBe("cx22");
     });
 
-    it('should fallback to static sizes on API error', async () => {
-      mockedAxios.get.mockRejectedValueOnce(new Error('Network Error'));
+    it("should fallback to static sizes on API error", async () => {
+      mockedAxios.get.mockRejectedValueOnce(new Error("Network Error"));
 
-      const types = await provider.getAvailableServerTypes('nbg1');
+      const types = await provider.getAvailableServerTypes("nbg1");
 
       expect(types).toEqual(provider.getServerSizes());
     });
 
-    it('should fallback to static sizes when no types match', async () => {
+    it("should fallback to static sizes when no types match", async () => {
       mockedAxios.get
         .mockResolvedValueOnce({
           data: {
             datacenters: [
-              { name: 'nbg1-dc3', location: { name: 'nbg1' }, server_types: { available: [99] } },
+              { name: "nbg1-dc3", location: { name: "nbg1" }, server_types: { available: [99] } },
             ],
           },
         })
@@ -221,254 +213,248 @@ describe('HetznerProvider', () => {
             server_types: [
               {
                 id: 1,
-                name: 'cax11',
+                name: "cax11",
                 cores: 2,
                 memory: 4,
                 disk: 40,
-                prices: [{ location: 'nbg1', price_monthly: { net: '3.79', gross: '4.51' } }],
+                prices: [{ location: "nbg1", price_monthly: { net: "3.79", gross: "4.51" } }],
               },
             ],
           },
         });
 
-      const types = await provider.getAvailableServerTypes('nbg1');
+      const types = await provider.getAvailableServerTypes("nbg1");
 
       expect(types).toEqual(provider.getServerSizes());
     });
 
     it('should return "N/A" price when price_monthly.net is undefined', async () => {
-      mockedAxios.get
-        .mockResolvedValueOnce(mockDatacentersResponse)
-        .mockResolvedValueOnce({
-          data: {
-            server_types: [
-              {
-                id: 1,
-                name: 'cax11',
-                cores: 2,
-                memory: 4,
-                disk: 40,
-                prices: [{ location: 'nbg1', price_monthly: {} }],
-              },
-            ],
-          },
-        });
+      mockedAxios.get.mockResolvedValueOnce(mockDatacentersResponse).mockResolvedValueOnce({
+        data: {
+          server_types: [
+            {
+              id: 1,
+              name: "cax11",
+              cores: 2,
+              memory: 4,
+              disk: 40,
+              prices: [{ location: "nbg1", price_monthly: {} }],
+            },
+          ],
+        },
+      });
 
-      const types = await provider.getAvailableServerTypes('nbg1');
+      const types = await provider.getAvailableServerTypes("nbg1");
 
       expect(types).toHaveLength(1);
-      expect(types[0].price).toBe('€N/A/mo');
+      expect(types[0].price).toBe("€N/A/mo");
     });
 
-    it('should filter out deprecated server types', async () => {
-      mockedAxios.get
-        .mockResolvedValueOnce(mockDatacentersResponse)
-        .mockResolvedValueOnce({
-          data: {
-            server_types: [
-              {
-                id: 1,
-                name: 'cax11',
-                cores: 2,
-                memory: 4,
-                disk: 40,
-                deprecation: { announced: '2025-01-01' },
-                prices: [{ location: 'nbg1', price_monthly: { net: '3.79', gross: '4.51' } }],
-              },
-              {
-                id: 2,
-                name: 'cx22',
-                cores: 2,
-                memory: 4,
-                disk: 40,
-                prices: [{ location: 'nbg1', price_monthly: { net: '3.49', gross: '4.15' } }],
-              },
-            ],
-          },
-        });
+    it("should filter out deprecated server types", async () => {
+      mockedAxios.get.mockResolvedValueOnce(mockDatacentersResponse).mockResolvedValueOnce({
+        data: {
+          server_types: [
+            {
+              id: 1,
+              name: "cax11",
+              cores: 2,
+              memory: 4,
+              disk: 40,
+              deprecation: { announced: "2025-01-01" },
+              prices: [{ location: "nbg1", price_monthly: { net: "3.79", gross: "4.51" } }],
+            },
+            {
+              id: 2,
+              name: "cx22",
+              cores: 2,
+              memory: 4,
+              disk: 40,
+              prices: [{ location: "nbg1", price_monthly: { net: "3.49", gross: "4.15" } }],
+            },
+          ],
+        },
+      });
 
-      const types = await provider.getAvailableServerTypes('nbg1');
+      const types = await provider.getAvailableServerTypes("nbg1");
 
       expect(types).toHaveLength(1);
-      expect(types[0].id).toBe('cx22');
+      expect(types[0].id).toBe("cx22");
     });
 
-    it('should call datacenters and server_types endpoints', async () => {
-      mockedAxios.get
-        .mockResolvedValueOnce(mockDatacentersResponse)
-        .mockResolvedValueOnce({
-          data: {
-            server_types: [
-              {
-                id: 1,
-                name: 'cax11',
-                cores: 2,
-                memory: 4,
-                disk: 40,
-                prices: [{ location: 'nbg1', price_monthly: { net: '3.79', gross: '4.51' } }],
-              },
-            ],
-          },
-        });
+    it("should call datacenters and server_types endpoints", async () => {
+      mockedAxios.get.mockResolvedValueOnce(mockDatacentersResponse).mockResolvedValueOnce({
+        data: {
+          server_types: [
+            {
+              id: 1,
+              name: "cax11",
+              cores: 2,
+              memory: 4,
+              disk: 40,
+              prices: [{ location: "nbg1", price_monthly: { net: "3.79", gross: "4.51" } }],
+            },
+          ],
+        },
+      });
 
-      await provider.getAvailableServerTypes('nbg1');
+      await provider.getAvailableServerTypes("nbg1");
 
       expect(mockedAxios.get).toHaveBeenCalledWith(
-        'https://api.hetzner.cloud/v1/datacenters',
+        "https://api.hetzner.cloud/v1/datacenters",
         expect.objectContaining({
-          headers: { Authorization: 'Bearer test-api-token' },
+          headers: { Authorization: "Bearer test-api-token" },
         }),
       );
       expect(mockedAxios.get).toHaveBeenCalledWith(
-        'https://api.hetzner.cloud/v1/server_types',
+        "https://api.hetzner.cloud/v1/server_types",
         expect.objectContaining({
-          headers: { Authorization: 'Bearer test-api-token' },
+          headers: { Authorization: "Bearer test-api-token" },
         }),
       );
     });
   });
 
-  describe('validateToken', () => {
-    it('should return true for a valid token', async () => {
+  describe("validateToken", () => {
+    it("should return true for a valid token", async () => {
       mockedAxios.get.mockResolvedValueOnce({ data: { servers: [] } });
 
-      const result = await provider.validateToken('valid-token');
+      const result = await provider.validateToken("valid-token");
 
       expect(result).toBe(true);
       expect(mockedAxios.get).toHaveBeenCalledWith(
-        'https://api.hetzner.cloud/v1/servers',
+        "https://api.hetzner.cloud/v1/servers",
         expect.objectContaining({
-          headers: { Authorization: 'Bearer valid-token' },
-        })
+          headers: { Authorization: "Bearer valid-token" },
+        }),
       );
     });
 
-    it('should return false for an invalid token', async () => {
-      mockedAxios.get.mockRejectedValueOnce(new Error('Unauthorized'));
+    it("should return false for an invalid token", async () => {
+      mockedAxios.get.mockRejectedValueOnce(new Error("Unauthorized"));
 
-      const result = await provider.validateToken('bad-token');
+      const result = await provider.validateToken("bad-token");
 
       expect(result).toBe(false);
     });
 
-    it('should return false on network error', async () => {
-      mockedAxios.get.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+    it("should return false on network error", async () => {
+      mockedAxios.get.mockRejectedValueOnce(new Error("ECONNREFUSED"));
 
-      const result = await provider.validateToken('any-token');
+      const result = await provider.validateToken("any-token");
 
       expect(result).toBe(false);
     });
   });
 
-  describe('uploadSshKey', () => {
-    it('should upload SSH key and return ID', async () => {
+  describe("uploadSshKey", () => {
+    it("should upload SSH key and return ID", async () => {
       mockedAxios.post.mockResolvedValueOnce({
         data: { ssh_key: { id: 12345 } },
       });
 
-      const result = await provider.uploadSshKey('my-key', 'ssh-rsa AAAA...');
+      const result = await provider.uploadSshKey("my-key", "ssh-rsa AAAA...");
 
-      expect(result).toBe('12345');
+      expect(result).toBe("12345");
       expect(mockedAxios.post).toHaveBeenCalledWith(
-        'https://api.hetzner.cloud/v1/ssh_keys',
-        { name: 'my-key', public_key: 'ssh-rsa AAAA...' },
+        "https://api.hetzner.cloud/v1/ssh_keys",
+        { name: "my-key", public_key: "ssh-rsa AAAA..." },
         expect.objectContaining({
           headers: expect.objectContaining({
-            Authorization: 'Bearer test-api-token',
+            Authorization: "Bearer test-api-token",
           }),
         }),
       );
     });
 
-    it('should find existing key on 409 conflict', async () => {
+    it("should find existing key on 409 conflict", async () => {
       const axiosError = {
-        response: { status: 409, data: { error: { message: 'SSH key already exists' } } },
-        message: 'Conflict',
+        response: { status: 409, data: { error: { message: "SSH key already exists" } } },
+        message: "Conflict",
       };
       mockedAxios.post.mockRejectedValueOnce(axiosError);
       mockedAxios.get.mockResolvedValueOnce({
         data: {
           ssh_keys: [
-            { id: 111, public_key: 'ssh-rsa OTHER...' },
-            { id: 222, public_key: 'ssh-rsa MATCH' },
+            { id: 111, public_key: "ssh-rsa OTHER..." },
+            { id: 222, public_key: "ssh-rsa MATCH" },
           ],
         },
       });
 
-      const result = await provider.uploadSshKey('my-key', 'ssh-rsa MATCH');
+      const result = await provider.uploadSshKey("my-key", "ssh-rsa MATCH");
 
-      expect(result).toBe('222');
+      expect(result).toBe("222");
     });
 
-    it('should throw when 409 conflict but key not found in list', async () => {
+    it("should throw when 409 conflict but key not found in list", async () => {
       const axiosError = {
         response: { status: 409, data: {} },
-        message: 'Conflict',
+        message: "Conflict",
       };
       mockedAxios.post.mockRejectedValueOnce(axiosError);
       mockedAxios.get.mockResolvedValueOnce({
-        data: { ssh_keys: [{ id: 111, public_key: 'ssh-rsa OTHER...' }] },
+        data: { ssh_keys: [{ id: 111, public_key: "ssh-rsa OTHER..." }] },
       });
 
-      await expect(provider.uploadSshKey('my-key', 'ssh-rsa NOMATCH')).rejects.toThrow(
-        'Failed to upload SSH key',
+      await expect(provider.uploadSshKey("my-key", "ssh-rsa NOMATCH")).rejects.toThrow(
+        "Failed to upload SSH key",
       );
     });
 
-    it('should throw on non-409 error', async () => {
+    it("should throw on non-409 error", async () => {
       const axiosError = {
-        response: { status: 500, data: { error: { message: 'Internal' } } },
-        message: 'Server Error',
+        response: { status: 500, data: { error: { message: "Internal" } } },
+        message: "Server Error",
       };
       mockedAxios.post.mockRejectedValueOnce(axiosError);
 
-      await expect(provider.uploadSshKey('my-key', 'ssh-rsa AAA')).rejects.toThrow(
-        'Failed to upload SSH key',
+      await expect(provider.uploadSshKey("my-key", "ssh-rsa AAA")).rejects.toThrow(
+        "Failed to upload SSH key",
       );
     });
 
-    it('should handle non-Error thrown values', async () => {
-      mockedAxios.post.mockRejectedValueOnce('unexpected string');
+    it("should handle non-Error thrown values", async () => {
+      mockedAxios.post.mockRejectedValueOnce("unexpected string");
 
-      await expect(provider.uploadSshKey('my-key', 'ssh-rsa AAA')).rejects.toThrow(
-        'Failed to upload SSH key: unexpected string',
+      await expect(provider.uploadSshKey("my-key", "ssh-rsa AAA")).rejects.toThrow(
+        "Failed to upload SSH key: unexpected string",
       );
     });
   });
 
-  describe('createServer', () => {
+  describe("createServer", () => {
     const serverConfig = {
-      name: 'test-server',
-      size: 'cax11',
-      region: 'nbg1',
-      cloudInit: '#!/bin/bash\necho hello',
+      name: "test-server",
+      size: "cax11",
+      region: "nbg1",
+      cloudInit: "#!/bin/bash\necho hello",
     };
 
-    it('should create a server and return result', async () => {
+    it("should create a server and return result", async () => {
       mockedAxios.post.mockResolvedValueOnce({
         data: {
           server: {
             id: 12345,
-            public_net: { ipv4: { ip: '1.2.3.4' } },
-            status: 'initializing',
+            public_net: { ipv4: { ip: "1.2.3.4" } },
+            status: "initializing",
           },
         },
       });
 
       const result = await provider.createServer(serverConfig);
 
-      expect(result.id).toBe('12345');
-      expect(result.ip).toBe('1.2.3.4');
-      expect(result.status).toBe('initializing');
+      expect(result.id).toBe("12345");
+      expect(result.ip).toBe("1.2.3.4");
+      expect(result.status).toBe("initializing");
     });
 
-    it('should send correct request payload to Hetzner API', async () => {
+    it("should send correct request payload to Hetzner API", async () => {
       mockedAxios.post.mockResolvedValueOnce({
         data: {
           server: {
             id: 1,
-            public_net: { ipv4: { ip: '10.0.0.1' } },
-            status: 'initializing',
+            public_net: { ipv4: { ip: "10.0.0.1" } },
+            status: "initializing",
           },
         },
       });
@@ -476,89 +462,89 @@ describe('HetznerProvider', () => {
       await provider.createServer(serverConfig);
 
       expect(mockedAxios.post).toHaveBeenCalledWith(
-        'https://api.hetzner.cloud/v1/servers',
+        "https://api.hetzner.cloud/v1/servers",
         {
-          name: 'test-server',
-          server_type: 'cax11',
-          location: 'nbg1',
-          image: 'ubuntu-24.04',
+          name: "test-server",
+          server_type: "cax11",
+          location: "nbg1",
+          image: "ubuntu-24.04",
           user_data: serverConfig.cloudInit,
         },
         expect.objectContaining({
           headers: expect.objectContaining({
-            Authorization: 'Bearer test-api-token',
-            'Content-Type': 'application/json',
+            Authorization: "Bearer test-api-token",
+            "Content-Type": "application/json",
           }),
-        })
+        }),
       );
     });
 
-    it('should throw with API error message on failure', async () => {
+    it("should throw with API error message on failure", async () => {
       mockedAxios.post.mockRejectedValueOnce({
         response: {
           data: {
-            error: { message: 'server_limit_exceeded' },
+            error: { message: "server_limit_exceeded" },
           },
         },
       });
 
       await expect(provider.createServer(serverConfig)).rejects.toThrow(
-        'Failed to create server: server_limit_exceeded'
+        "Failed to create server: server_limit_exceeded",
       );
     });
 
-    it('should throw with generic message on network error', async () => {
-      mockedAxios.post.mockRejectedValueOnce(new Error('Network Error'));
+    it("should throw with generic message on network error", async () => {
+      mockedAxios.post.mockRejectedValueOnce(new Error("Network Error"));
 
       await expect(provider.createServer(serverConfig)).rejects.toThrow(
-        'Failed to create server: Network Error'
+        "Failed to create server: Network Error",
       );
     });
 
-    it('should throw on timeout', async () => {
-      mockedAxios.post.mockRejectedValueOnce(new Error('timeout of 30000ms exceeded'));
+    it("should throw on timeout", async () => {
+      mockedAxios.post.mockRejectedValueOnce(new Error("timeout of 30000ms exceeded"));
 
       await expect(provider.createServer(serverConfig)).rejects.toThrow(
-        'Failed to create server: timeout of 30000ms exceeded'
+        "Failed to create server: timeout of 30000ms exceeded",
       );
     });
 
-    it('should fallback to error.message when response.data.error is undefined', async () => {
+    it("should fallback to error.message when response.data.error is undefined", async () => {
       mockedAxios.post.mockRejectedValueOnce({
         response: {
           data: {},
         },
-        message: 'Request failed',
+        message: "Request failed",
       });
 
       await expect(provider.createServer(serverConfig)).rejects.toThrow(
-        'Failed to create server: Request failed'
+        "Failed to create server: Request failed",
       );
     });
 
-    it('should handle non-Error thrown values', async () => {
-      mockedAxios.post.mockRejectedValueOnce('unexpected string error');
+    it("should handle non-Error thrown values", async () => {
+      mockedAxios.post.mockRejectedValueOnce("unexpected string error");
 
       await expect(provider.createServer(serverConfig)).rejects.toThrow(
-        'Failed to create server: unexpected string error'
+        "Failed to create server: unexpected string error",
       );
     });
 
-    it('should include ssh_keys in body when sshKeyIds provided', async () => {
+    it("should include ssh_keys in body when sshKeyIds provided", async () => {
       mockedAxios.post.mockResolvedValueOnce({
         data: {
           server: {
             id: 1,
-            public_net: { ipv4: { ip: '10.0.0.1' } },
-            status: 'initializing',
+            public_net: { ipv4: { ip: "10.0.0.1" } },
+            status: "initializing",
           },
         },
       });
 
-      await provider.createServer({ ...serverConfig, sshKeyIds: ['111', '222'] });
+      await provider.createServer({ ...serverConfig, sshKeyIds: ["111", "222"] });
 
       expect(mockedAxios.post).toHaveBeenCalledWith(
-        'https://api.hetzner.cloud/v1/servers',
+        "https://api.hetzner.cloud/v1/servers",
         expect.objectContaining({
           ssh_keys: [111, 222],
         }),
@@ -567,155 +553,155 @@ describe('HetznerProvider', () => {
     });
   });
 
-  describe('getServerDetails', () => {
-    it('should return full server details', async () => {
+  describe("getServerDetails", () => {
+    it("should return full server details", async () => {
       mockedAxios.get.mockResolvedValueOnce({
         data: {
           server: {
             id: 12345,
-            public_net: { ipv4: { ip: '1.2.3.4' } },
-            status: 'running',
+            public_net: { ipv4: { ip: "1.2.3.4" } },
+            status: "running",
           },
         },
       });
 
-      const details = await provider.getServerDetails('12345');
+      const details = await provider.getServerDetails("12345");
 
-      expect(details.id).toBe('12345');
-      expect(details.ip).toBe('1.2.3.4');
-      expect(details.status).toBe('running');
+      expect(details.id).toBe("12345");
+      expect(details.ip).toBe("1.2.3.4");
+      expect(details.status).toBe("running");
     });
   });
 
-  describe('getServerStatus', () => {
+  describe("getServerStatus", () => {
     it('should return "running" for a running server', async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { server: { status: 'running' } },
+        data: { server: { status: "running" } },
       });
 
-      const status = await provider.getServerStatus('12345');
+      const status = await provider.getServerStatus("12345");
 
-      expect(status).toBe('running');
+      expect(status).toBe("running");
     });
 
     it('should return "initializing" for a new server', async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { server: { status: 'initializing' } },
+        data: { server: { status: "initializing" } },
       });
 
-      const status = await provider.getServerStatus('12345');
+      const status = await provider.getServerStatus("12345");
 
-      expect(status).toBe('initializing');
+      expect(status).toBe("initializing");
     });
 
-    it('should call correct API endpoint with server ID', async () => {
+    it("should call correct API endpoint with server ID", async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { server: { status: 'running' } },
+        data: { server: { status: "running" } },
       });
 
-      await provider.getServerStatus('99999');
+      await provider.getServerStatus("99999");
 
       expect(mockedAxios.get).toHaveBeenCalledWith(
-        'https://api.hetzner.cloud/v1/servers/99999',
+        "https://api.hetzner.cloud/v1/servers/99999",
         expect.objectContaining({
-          headers: { Authorization: 'Bearer test-api-token' },
-        })
-      );
-    });
-
-    it('should throw on error', async () => {
-      mockedAxios.get.mockRejectedValueOnce(new Error('Not Found'));
-
-      await expect(provider.getServerStatus('00000')).rejects.toThrow(
-        'Failed to get server status: Not Found'
-      );
-    });
-  });
-
-  describe('destroyServer', () => {
-    it('should delete server successfully', async () => {
-      mockedAxios.delete.mockResolvedValueOnce({});
-
-      await provider.destroyServer('12345');
-
-      expect(mockedAxios.delete).toHaveBeenCalledWith(
-        'https://api.hetzner.cloud/v1/servers/12345',
-        expect.objectContaining({
-          headers: { Authorization: 'Bearer test-api-token' },
+          headers: { Authorization: "Bearer test-api-token" },
         }),
       );
     });
 
-    it('should throw with API error message on failure', async () => {
-      mockedAxios.delete.mockRejectedValueOnce({
-        response: {
-          data: {
-            error: { message: 'server not found' },
-          },
-        },
-      });
+    it("should throw on error", async () => {
+      mockedAxios.get.mockRejectedValueOnce(new Error("Not Found"));
 
-      await expect(provider.destroyServer('99999')).rejects.toThrow(
-        'Failed to destroy server: server not found',
-      );
-    });
-
-    it('should throw with generic message on network error', async () => {
-      mockedAxios.delete.mockRejectedValueOnce(new Error('Network Error'));
-
-      await expect(provider.destroyServer('12345')).rejects.toThrow(
-        'Failed to destroy server: Network Error',
-      );
-    });
-
-    it('should handle non-Error thrown values', async () => {
-      mockedAxios.delete.mockRejectedValueOnce('unexpected');
-
-      await expect(provider.destroyServer('12345')).rejects.toThrow(
-        'Failed to destroy server: unexpected',
+      await expect(provider.getServerStatus("00000")).rejects.toThrow(
+        "Failed to get server status: Not Found",
       );
     });
   });
 
-  describe('rebootServer', () => {
-    it('should reboot server successfully', async () => {
-      mockedAxios.post.mockResolvedValueOnce({
-        data: { action: { id: 1, status: 'running' } },
+  describe("destroyServer", () => {
+    it("should delete server successfully", async () => {
+      mockedAxios.delete.mockResolvedValueOnce({});
+
+      await provider.destroyServer("12345");
+
+      expect(mockedAxios.delete).toHaveBeenCalledWith(
+        "https://api.hetzner.cloud/v1/servers/12345",
+        expect.objectContaining({
+          headers: { Authorization: "Bearer test-api-token" },
+        }),
+      );
+    });
+
+    it("should throw with API error message on failure", async () => {
+      mockedAxios.delete.mockRejectedValueOnce({
+        response: {
+          data: {
+            error: { message: "server not found" },
+          },
+        },
       });
 
-      await provider.rebootServer('12345');
+      await expect(provider.destroyServer("99999")).rejects.toThrow(
+        "Failed to destroy server: server not found",
+      );
+    });
+
+    it("should throw with generic message on network error", async () => {
+      mockedAxios.delete.mockRejectedValueOnce(new Error("Network Error"));
+
+      await expect(provider.destroyServer("12345")).rejects.toThrow(
+        "Failed to destroy server: Network Error",
+      );
+    });
+
+    it("should handle non-Error thrown values", async () => {
+      mockedAxios.delete.mockRejectedValueOnce("unexpected");
+
+      await expect(provider.destroyServer("12345")).rejects.toThrow(
+        "Failed to destroy server: unexpected",
+      );
+    });
+  });
+
+  describe("rebootServer", () => {
+    it("should reboot server successfully", async () => {
+      mockedAxios.post.mockResolvedValueOnce({
+        data: { action: { id: 1, status: "running" } },
+      });
+
+      await provider.rebootServer("12345");
 
       expect(mockedAxios.post).toHaveBeenCalledWith(
-        'https://api.hetzner.cloud/v1/servers/12345/actions/reboot',
+        "https://api.hetzner.cloud/v1/servers/12345/actions/reboot",
         {},
         expect.objectContaining({
           headers: expect.objectContaining({
-            Authorization: 'Bearer test-api-token',
+            Authorization: "Bearer test-api-token",
           }),
         }),
       );
     });
 
-    it('should throw with API error message on axios error', async () => {
+    it("should throw with API error message on axios error", async () => {
       mockedAxios.post.mockRejectedValueOnce({
         response: {
           data: {
-            error: { message: 'server not found' },
+            error: { message: "server not found" },
           },
         },
-        message: 'Not Found',
+        message: "Not Found",
       });
 
-      await expect(provider.rebootServer('99999')).rejects.toThrow(
-        'Failed to reboot server: server not found',
+      await expect(provider.rebootServer("99999")).rejects.toThrow(
+        "Failed to reboot server: server not found",
       );
     });
 
-    it('should throw with generic message on non-axios error', async () => {
-      mockedAxios.post.mockRejectedValueOnce('unexpected string');
+    it("should throw with generic message on non-axios error", async () => {
+      mockedAxios.post.mockRejectedValueOnce("unexpected string");
 
-      await expect(provider.rebootServer('12345')).rejects.toThrow(
-        'Failed to reboot server: unexpected string',
+      await expect(provider.rebootServer("12345")).rejects.toThrow(
+        "Failed to reboot server: unexpected string",
       );
     });
   });

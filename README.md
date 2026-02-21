@@ -36,7 +36,7 @@ npx quicklify init
 ## ✨ Features
 
 - 🎯 **One Command Deploy** - VPS + Coolify with a single command
-- 💰 **Cost Savings** - $50-200/mo (Vercel/Netlify) → €3.49/mo
+- 💰 **Cost Savings** - $50-200/mo (Vercel/Netlify) → €3.79/mo
 - 🔒 **Secure by Default** - Automated security setup
 - 🌍 **Multi-Cloud** - Hetzner Cloud + DigitalOcean
 - 💻 **Beautiful CLI** - Interactive prompts with validation
@@ -61,6 +61,8 @@ npx quicklify init
 - 💾 **Backup & Restore** - Database + config backup with SCP download, restore with double confirmation
 - 📦 **Export/Import** - Transfer server list between machines as JSON
 - ⚡ **Full Setup** - `--full-setup` flag auto-configures firewall + SSH hardening after deploy
+- 📄 **YAML Config** - `quicklify init --config quicklify.yml` for one-command deploy
+- 📋 **Templates** - `--template starter|production|dev` with per-provider defaults
 - 🤖 **Non-Interactive Mode** - CI/CD friendly with `--provider --token --region --size --name` flags
 
 ## 📦 Installation
@@ -140,7 +142,7 @@ Visit the URL, create your admin account, and start deploying!
 
 | Provider | Status | Starting Price | Architecture |
 |----------|--------|----------------|--------------|
-| **Hetzner Cloud** | ✅ Available | €3.49/mo | ARM64 + x86 |
+| **Hetzner Cloud** | ✅ Available | €3.79/mo | ARM64 + x86 |
 | **DigitalOcean** | ✅ Available | $12/mo | x86 |
 | **Vultr** | 📋 Planned | $2.50/mo | x86 |
 | **Linode** | 📋 Planned | $5/mo | x86 |
@@ -167,13 +169,20 @@ Visit the URL, create your admin account, and start deploying!
 | Vercel (Hobby) | $20+ | 5 min | Easy |
 | Vercel (Pro) | $50+ | 5 min | Easy |
 | Netlify (Pro) | $19+ | 5 min | Easy |
-| **Quicklify + Hetzner** | **€3.49** | **~4 min** | **Easy** |
+| **Quicklify + Hetzner** | **€3.79** | **~4 min** | **Easy** |
 | **Quicklify + DigitalOcean** | **$12** | **~6 min** | **Easy** |
-| Manual VPS + Coolify | €3.49 | 30+ min | Hard |
+| Manual VPS + Coolify | €3.79 | 30+ min | Hard |
 
 **Savings: ~$180-240/year per project!** 💰
 
 ## 📋 Recent Updates
+
+### v0.9.0 (2026-02-21)
+- **YAML Config:** `quicklify init --config quicklify.yml` - deploy from a config file
+- **Templates:** `--template starter|production|dev` - predefined server configurations per provider
+- **Config merge:** Priority order: CLI flags > YAML config > template defaults > interactive prompts
+- **Security:** Token fields in YAML are detected and warned (never store tokens in config files)
+- 1 new dependency (js-yaml), 742 tests with 98%+ statement coverage
 
 ### v0.8.0 (2026-02-21)
 - **New commands:** `quicklify backup`, `quicklify restore`, `quicklify export`, `quicklify import`
@@ -297,11 +306,15 @@ Visit the URL, create your admin account, and start deploying!
 - [x] Export/Import server list (`quicklify export`, `quicklify import`)
 - [x] `--full-setup` flag for auto firewall + SSH hardening on init
 
+### v0.9.0 (Completed)
+
+- [x] YAML config file (`quicklify.yml`) for one-command deploy
+- [x] Template system (`--template starter|production|dev`)
+- [x] Config merge with priority: CLI > YAML > template > interactive
+
 ### Future
 - [ ] Vultr support
 - [ ] Linode / AWS Lightsail support
-- [ ] Config file (`quicklify.yml`) for one-command full setup
-- [ ] Template system (`--template starter|production|dev`)
 - [ ] Interactive TUI dashboard
 
 ## 🛠️ Tech Stack
@@ -312,6 +325,7 @@ Visit the URL, create your admin account, and start deploying!
 - **Interactive Prompts:** Inquirer.js
 - **Styling:** Chalk (colors) + Ora (spinners)
 - **HTTP Client:** Axios
+- **YAML Parser:** js-yaml
 - **Cloud APIs:** Hetzner Cloud API v1, DigitalOcean API v2
 - **Linting:** ESLint 10 + typescript-eslint
 - **Formatting:** Prettier
@@ -325,10 +339,17 @@ Visit the URL, create your admin account, and start deploying!
 quicklify init
 
 # Deploy non-interactively (CI/CD friendly)
-quicklify init --provider hetzner --token YOUR_TOKEN --region nbg1 --size cax11 --name my-server
+export HETZNER_TOKEN="your-api-token"
+quicklify init --provider hetzner --region nbg1 --size cax11 --name my-server
 
 # Deploy with auto firewall + SSH hardening
 quicklify init --full-setup
+
+# Deploy from a YAML config file
+quicklify init --config quicklify.yml
+
+# Deploy using a template
+quicklify init --template production --provider hetzner
 
 # List all registered servers
 quicklify list
@@ -427,32 +448,70 @@ quicklify --help
 
 ### Non-Interactive Mode
 
-Pass all options as flags to skip interactive prompts (useful for CI/CD pipelines):
+Set your API token as an environment variable, then pass all options as flags:
 
 ```bash
+# Set token (recommended - avoids shell history exposure)
+export HETZNER_TOKEN="your-api-token"
+# or
+export DIGITALOCEAN_TOKEN="your-api-token"
+
+# Deploy non-interactively
 quicklify init \
   --provider hetzner \
-  --token $HETZNER_TOKEN \
   --region nbg1 \
   --size cax11 \
   --name production-coolify
 ```
 
-**Using environment variables (recommended for CI/CD):**
-
-```bash
-# Set token as environment variable (avoids shell history exposure)
-export HETZNER_TOKEN="your-api-token"
-# or
-export DIGITALOCEAN_TOKEN="your-api-token"
-
-# Token is read automatically from env var
-quicklify init --provider hetzner --region nbg1 --size cax11 --name my-server
-```
-
-Token resolution order: `--token` flag > environment variable > interactive prompt.
+Token resolution order: environment variable > interactive prompt. The `--token` flag is available but **not recommended** as it exposes the token in shell history.
 
 If some flags are missing, only the missing values will be prompted interactively.
+
+### YAML Config File
+
+Create a `quicklify.yml` file for repeatable deployments:
+
+```yaml
+# quicklify.yml
+template: production
+provider: hetzner
+region: nbg1
+size: cx33
+name: my-coolify-prod
+fullSetup: true
+```
+
+Then deploy with:
+
+```bash
+export HETZNER_TOKEN="your-api-token"
+quicklify init --config quicklify.yml
+```
+
+**Security:** Never store API tokens in config files. Use environment variables (`export HETZNER_TOKEN=...`).
+
+**Config merge priority:** CLI flags > YAML values > template defaults > interactive prompts.
+
+### Templates
+
+Templates provide sensible defaults per provider:
+
+| Template | Hetzner | DigitalOcean | Full Setup |
+|----------|---------|--------------|------------|
+| `starter` | nbg1 / cax11 (€3.79) | fra1 / s-2vcpu-2gb ($12) | No |
+| `production` | nbg1 / cx33 (€5.49) | fra1 / s-2vcpu-4gb ($24) | Yes |
+| `dev` | nbg1 / cax11 (€3.79) | fra1 / s-2vcpu-2gb ($12) | No |
+
+```bash
+# Quick production deploy
+export HETZNER_TOKEN="your-api-token"
+quicklify init --template production --provider hetzner --name my-server
+
+# Cheap starter for testing
+export DIGITALOCEAN_TOKEN="your-api-token"
+quicklify init --template starter --provider digitalocean --name test-server
+```
 
 ### Interactive Prompts
 
@@ -515,6 +574,9 @@ tests/
 │   ├── backup.test.ts           # Backup command tests
 │   ├── restore.test.ts          # Restore command tests
 │   ├── transfer.test.ts         # Export/Import command tests
+│   ├── templates.test.ts         # Template definitions tests
+│   ├── yamlConfig.test.ts        # YAML config loader tests
+│   ├── configMerge.test.ts       # Config merge logic tests
 │   ├── init-fullsetup.test.ts   # Init --full-setup tests
 │   ├── serverSelect.test.ts    # Server selection utility tests
 │   ├── ssh-command.test.ts     # SSH command tests
@@ -528,6 +590,7 @@ tests/
 └── e2e/                    # End-to-end tests (full command flows)
     ├── init.test.ts
     ├── init-noninteractive.test.ts  # Non-interactive mode E2E
+    ├── init-config.test.ts          # YAML config + template E2E
     ├── status.test.ts               # Status command E2E
     └── destroy.test.ts              # Destroy command E2E
 ```
@@ -541,7 +604,7 @@ Tests run automatically on every push/PR via GitHub Actions across:
 
 ### Coverage
 
-Current coverage: **98%+ statements/lines**, **90%+ branches**, **98%+ functions**. 636 tests across 36 test suites.
+Current coverage: **98%+ statements/lines**, **91%+ branches**, **98%+ functions**. 742 tests across 40 test suites.
 
 ## 🔧 Troubleshooting
 

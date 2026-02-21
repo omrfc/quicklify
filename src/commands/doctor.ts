@@ -33,7 +33,11 @@ function checkSsh(): CheckResult {
   if (checkSshAvailable()) {
     return { name: "SSH Client", status: "pass", detail: "available" };
   }
-  return { name: "SSH Client", status: "warn", detail: "not found (needed for ssh/logs/monitor/update)" };
+  return {
+    name: "SSH Client",
+    status: "warn",
+    detail: "not found (needed for ssh/logs/monitor/update)",
+  };
 }
 
 function checkQuicklifyVersion(version?: string): CheckResult {

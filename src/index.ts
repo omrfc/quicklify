@@ -43,6 +43,8 @@ program
   .option("--size <size>", "Server size")
   .option("--name <name>", "Server name")
   .option("--full-setup", "Auto-configure firewall and SSH hardening after deploy")
+  .option("--config <path>", "Load deployment config from a YAML file (quicklify.yml)")
+  .option("--template <template>", "Use a predefined template (starter, production, dev)")
   .action(initCommand);
 
 program.command("list").description("List all registered servers").action(listCommand);
@@ -84,20 +86,20 @@ program
   .option("-n, --lines <lines>", "Number of log lines to show", "50")
   .option("-f, --follow", "Follow log output in real-time")
   .option("-s, --service <service>", "Log service: coolify, docker, system", "coolify")
-  .action(
-    (query?: string, options?: { lines?: string; follow?: boolean; service?: string }) =>
-      logsCommand(query, options),
+  .action((query?: string, options?: { lines?: string; follow?: boolean; service?: string }) =>
+    logsCommand(query, options),
   );
 
 program
   .command("monitor [query]")
   .description("Show server resource usage (CPU, RAM, Disk)")
   .option("--containers", "Show Docker container list")
-  .action(
-    (query?: string, options?: { containers?: boolean }) => monitorCommand(query, options),
-  );
+  .action((query?: string, options?: { containers?: boolean }) => monitorCommand(query, options));
 
-program.command("health").description("Check health of all registered servers").action(healthCommand);
+program
+  .command("health")
+  .description("Check health of all registered servers")
+  .action(healthCommand);
 
 program
   .command("doctor")
@@ -112,8 +114,11 @@ program
   .option("--protocol <protocol>", "Protocol: tcp or udp (default: tcp)")
   .option("--dry-run", "Show commands without executing")
   .action(
-    (subcommand?: string, query?: string, options?: { port?: string; protocol?: string; dryRun?: boolean }) =>
-      firewallCommand(subcommand, query, options),
+    (
+      subcommand?: string,
+      query?: string,
+      options?: { port?: string; protocol?: string; dryRun?: boolean },
+    ) => firewallCommand(subcommand, query, options),
   );
 
 program
@@ -123,8 +128,11 @@ program
   .option("--no-ssl", "Disable HTTPS (default: enabled)")
   .option("--dry-run", "Show commands without executing")
   .action(
-    (subcommand?: string, query?: string, options?: { domain?: string; ssl?: boolean; dryRun?: boolean }) =>
-      domainCommand(subcommand, query, options),
+    (
+      subcommand?: string,
+      query?: string,
+      options?: { domain?: string; ssl?: boolean; dryRun?: boolean },
+    ) => domainCommand(subcommand, query, options),
   );
 
 program
@@ -132,28 +140,23 @@ program
   .description("Manage server security (SSH hardening, fail2ban)")
   .option("--port <port>", "Change SSH port")
   .option("--dry-run", "Show commands without executing")
-  .action(
-    (subcommand?: string, query?: string, options?: { port?: string; dryRun?: boolean }) =>
-      secureCommand(subcommand, query, options),
+  .action((subcommand?: string, query?: string, options?: { port?: string; dryRun?: boolean }) =>
+    secureCommand(subcommand, query, options),
   );
 
 program
   .command("backup [query]")
   .description("Backup Coolify database and config files")
   .option("--dry-run", "Show commands without executing")
-  .action(
-    (query?: string, options?: { dryRun?: boolean }) =>
-      backupCommand(query, options),
-  );
+  .action((query?: string, options?: { dryRun?: boolean }) => backupCommand(query, options));
 
 program
   .command("restore [query]")
   .description("Restore Coolify from a backup")
   .option("--backup <backup>", "Backup timestamp to restore (skip selection prompt)")
   .option("--dry-run", "Show commands without executing")
-  .action(
-    (query?: string, options?: { backup?: string; dryRun?: boolean }) =>
-      restoreCommand(query, options),
+  .action((query?: string, options?: { backup?: string; dryRun?: boolean }) =>
+    restoreCommand(query, options),
   );
 
 program

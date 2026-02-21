@@ -1,21 +1,21 @@
-import * as config from '../../src/utils/config';
-import * as sshUtils from '../../src/utils/ssh';
-import { monitorCommand, parseMetrics } from '../../src/commands/monitor';
+import * as config from "../../src/utils/config";
+import * as sshUtils from "../../src/utils/ssh";
+import { monitorCommand, parseMetrics } from "../../src/commands/monitor";
 
-jest.mock('../../src/utils/config');
-jest.mock('../../src/utils/ssh');
+jest.mock("../../src/utils/config");
+jest.mock("../../src/utils/ssh");
 
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
 
 const sampleServer = {
-  id: '123',
-  name: 'coolify-test',
-  provider: 'hetzner',
-  ip: '1.2.3.4',
-  region: 'nbg1',
-  size: 'cax11',
-  createdAt: '2026-01-01T00:00:00.000Z',
+  id: "123",
+  name: "coolify-test",
+  provider: "hetzner",
+  ip: "1.2.3.4",
+  region: "nbg1",
+  size: "cax11",
+  createdAt: "2026-01-01T00:00:00.000Z",
 };
 
 const sampleTopOutput = `top - 12:00:00 up 5 days, 3:22, 1 user, load average: 0.15, 0.10, 0.05
@@ -35,11 +35,11 @@ const sampleDockerPs = `NAMES     STATUS          PORTS
 coolify   Up 5 days       0.0.0.0:8000->8000/tcp
 nginx     Up 5 days       0.0.0.0:80->80/tcp`;
 
-describe('monitorCommand', () => {
+describe("monitorCommand", () => {
   let consoleSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    consoleSpy = jest.spyOn(console, "log").mockImplementation();
     jest.clearAllMocks();
   });
 
@@ -47,157 +47,157 @@ describe('monitorCommand', () => {
     consoleSpy.mockRestore();
   });
 
-  describe('parseMetrics', () => {
-    it('should parse CPU usage from top output', () => {
+  describe("parseMetrics", () => {
+    it("should parse CPU usage from top output", () => {
       const combined = `${sampleTopOutput}\n---SEPARATOR---\n${sampleFreeOutput}\n---SEPARATOR---\n${sampleDfOutput}`;
       const metrics = parseMetrics(combined);
-      expect(metrics.cpu).toBe('8.0%');
+      expect(metrics.cpu).toBe("8.0%");
     });
 
-    it('should parse RAM from free output', () => {
+    it("should parse RAM from free output", () => {
       const combined = `${sampleTopOutput}\n---SEPARATOR---\n${sampleFreeOutput}\n---SEPARATOR---\n${sampleDfOutput}`;
       const metrics = parseMetrics(combined);
-      expect(metrics.ramUsed).toBe('3.4Gi');
-      expect(metrics.ramTotal).toBe('7.8Gi');
+      expect(metrics.ramUsed).toBe("3.4Gi");
+      expect(metrics.ramTotal).toBe("7.8Gi");
     });
 
-    it('should parse disk from df output', () => {
+    it("should parse disk from df output", () => {
       const combined = `${sampleTopOutput}\n---SEPARATOR---\n${sampleFreeOutput}\n---SEPARATOR---\n${sampleDfOutput}`;
       const metrics = parseMetrics(combined);
-      expect(metrics.diskUsed).toBe('32G');
-      expect(metrics.diskTotal).toBe('78G');
-      expect(metrics.diskPercent).toBe('44%');
+      expect(metrics.diskUsed).toBe("32G");
+      expect(metrics.diskTotal).toBe("78G");
+      expect(metrics.diskPercent).toBe("44%");
     });
 
-    it('should handle missing data gracefully', () => {
-      const metrics = parseMetrics('');
-      expect(metrics.cpu).toBe('N/A');
-      expect(metrics.ramUsed).toBe('N/A');
-      expect(metrics.diskUsed).toBe('N/A');
+    it("should handle missing data gracefully", () => {
+      const metrics = parseMetrics("");
+      expect(metrics.cpu).toBe("N/A");
+      expect(metrics.ramUsed).toBe("N/A");
+      expect(metrics.diskUsed).toBe("N/A");
     });
 
-    it('should handle CPU line without idle match', () => {
-      const input = '%Cpu(s): no-data-here\n---SEPARATOR---\n---SEPARATOR---\n';
+    it("should handle CPU line without idle match", () => {
+      const input = "%Cpu(s): no-data-here\n---SEPARATOR---\n---SEPARATOR---\n";
       const metrics = parseMetrics(input);
-      expect(metrics.cpu).toBe('N/A');
+      expect(metrics.cpu).toBe("N/A");
     });
 
-    it('should handle Mem line with insufficient parts', () => {
+    it("should handle Mem line with insufficient parts", () => {
       const input = `---SEPARATOR---\nMem:\n---SEPARATOR---\n`;
       const metrics = parseMetrics(input);
-      expect(metrics.ramUsed).toBe('N/A');
-      expect(metrics.ramTotal).toBe('N/A');
+      expect(metrics.ramUsed).toBe("N/A");
+      expect(metrics.ramTotal).toBe("N/A");
     });
 
-    it('should handle disk line with insufficient parts', () => {
+    it("should handle disk line with insufficient parts", () => {
       const input = `---SEPARATOR---\n---SEPARATOR---\n/dev/sda1 40G`;
       const metrics = parseMetrics(input);
-      expect(metrics.diskUsed).toBe('N/A');
+      expect(metrics.diskUsed).toBe("N/A");
     });
 
-    it('should parse /dev/ disk line and prefer total', () => {
+    it("should parse /dev/ disk line and prefer total", () => {
       const input = `---SEPARATOR---\n---SEPARATOR---\n/dev/sda1      40G   20G   18G  53% /\ntotal          40G   20G   18G  53% -`;
       const metrics = parseMetrics(input);
-      expect(metrics.diskTotal).toBe('40G');
-      expect(metrics.diskUsed).toBe('20G');
-      expect(metrics.diskPercent).toBe('53%');
+      expect(metrics.diskTotal).toBe("40G");
+      expect(metrics.diskUsed).toBe("20G");
+      expect(metrics.diskPercent).toBe("53%");
     });
   });
 
-  it('should show error when SSH not available', async () => {
+  it("should show error when SSH not available", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(false);
     await monitorCommand();
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
-    expect(output).toContain('SSH client not found');
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("SSH client not found");
   });
 
-  it('should return when no server found', async () => {
+  it("should return when no server found", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServer.mockReturnValue(undefined);
-    await monitorCommand('nonexistent');
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
-    expect(output).toContain('Server not found');
+    await monitorCommand("nonexistent");
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Server not found");
   });
 
-  it('should display metrics on success', async () => {
+  it("should display metrics on success", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServer.mockReturnValue(sampleServer);
     const combined = `${sampleTopOutput}\n---SEPARATOR---\n${sampleFreeOutput}\n---SEPARATOR---\n${sampleDfOutput}`;
-    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: combined, stderr: '' });
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: combined, stderr: "" });
 
-    await monitorCommand('1.2.3.4');
+    await monitorCommand("1.2.3.4");
 
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
-    expect(output).toContain('CPU Usage');
-    expect(output).toContain('RAM Usage');
-    expect(output).toContain('Disk Usage');
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("CPU Usage");
+    expect(output).toContain("RAM Usage");
+    expect(output).toContain("Disk Usage");
   });
 
-  it('should display containers when --containers flag used', async () => {
+  it("should display containers when --containers flag used", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServer.mockReturnValue(sampleServer);
     const combined = `${sampleTopOutput}\n---SEPARATOR---\n${sampleFreeOutput}\n---SEPARATOR---\n${sampleDfOutput}\n---SEPARATOR---\n${sampleDockerPs}`;
-    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: combined, stderr: '' });
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: combined, stderr: "" });
 
-    await monitorCommand('1.2.3.4', { containers: true });
+    await monitorCommand("1.2.3.4", { containers: true });
 
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
-    expect(output).toContain('Docker Containers');
-    expect(output).toContain('coolify');
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Docker Containers");
+    expect(output).toContain("coolify");
   });
 
-  it('should handle SSH failure gracefully', async () => {
+  it("should handle SSH failure gracefully", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServer.mockReturnValue(sampleServer);
-    mockedSsh.sshExec.mockResolvedValue({ code: 255, stdout: '', stderr: 'Connection refused' });
+    mockedSsh.sshExec.mockResolvedValue({ code: 255, stdout: "", stderr: "Connection refused" });
 
-    await monitorCommand('1.2.3.4');
+    await monitorCommand("1.2.3.4");
 
     // spinner.fail is called but not visible in consoleSpy (ora mock)
     expect(mockedSsh.sshExec).toHaveBeenCalled();
   });
 
-  it('should handle non-Error exception in catch block', async () => {
+  it("should handle non-Error exception in catch block", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServer.mockReturnValue(sampleServer);
-    mockedSsh.sshExec.mockRejectedValueOnce('unexpected string error');
+    mockedSsh.sshExec.mockRejectedValueOnce("unexpected string error");
 
-    await monitorCommand('1.2.3.4');
+    await monitorCommand("1.2.3.4");
 
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
-    expect(output).toContain('unexpected string error');
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("unexpected string error");
   });
 
-  it('should handle Error exception in catch block', async () => {
+  it("should handle Error exception in catch block", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServer.mockReturnValue(sampleServer);
-    mockedSsh.sshExec.mockRejectedValueOnce(new Error('SSH connection failed'));
+    mockedSsh.sshExec.mockRejectedValueOnce(new Error("SSH connection failed"));
 
-    await monitorCommand('1.2.3.4');
+    await monitorCommand("1.2.3.4");
 
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
-    expect(output).toContain('SSH connection failed');
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("SSH connection failed");
   });
 
-  it('should handle SSH failure without stderr', async () => {
+  it("should handle SSH failure without stderr", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServer.mockReturnValue(sampleServer);
-    mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: '', stderr: '' });
+    mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "" });
 
-    await monitorCommand('1.2.3.4');
+    await monitorCommand("1.2.3.4");
 
     expect(mockedSsh.sshExec).toHaveBeenCalled();
   });
 
-  it('should handle containers option with insufficient sections', async () => {
+  it("should handle containers option with insufficient sections", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServer.mockReturnValue(sampleServer);
     const combined = `${sampleTopOutput}\n---SEPARATOR---\n${sampleFreeOutput}\n---SEPARATOR---\n${sampleDfOutput}`;
-    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: combined, stderr: '' });
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: combined, stderr: "" });
 
-    await monitorCommand('1.2.3.4', { containers: true });
+    await monitorCommand("1.2.3.4", { containers: true });
 
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
-    expect(output).not.toContain('Docker Containers');
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).not.toContain("Docker Containers");
   });
 });

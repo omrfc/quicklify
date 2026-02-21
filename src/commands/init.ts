@@ -18,8 +18,49 @@ import { logger, createSpinner } from "../utils/logger.js";
 import { findLocalSshKey, generateSshKey, getSshKeyName } from "../utils/sshKey.js";
 import { firewallSetup } from "./firewall.js";
 import { secureSetup } from "./secure.js";
+import { loadYamlConfig } from "../utils/yamlConfig.js";
+import { mergeConfig } from "../utils/configMerge.js";
+import { getTemplate, getTemplateDefaults, VALID_TEMPLATE_NAMES } from "../utils/templates.js";
 
 export async function initCommand(options: InitOptions = {}): Promise<void> {
+  // Load YAML config if --config flag provided
+  if (options.config) {
+    const { config: yamlConfig, warnings } = loadYamlConfig(options.config);
+    for (const w of warnings) {
+      logger.warning(w);
+    }
+    const merged = mergeConfig(options, yamlConfig);
+    // Apply merged values back to options
+    if (merged.provider && !options.provider) options.provider = merged.provider;
+    if (merged.region && !options.region) options.region = merged.region;
+    if (merged.size && !options.size) options.size = merged.size;
+    if (merged.name && !options.name) options.name = merged.name;
+    if (merged.fullSetup !== undefined && options.fullSetup === undefined)
+      options.fullSetup = merged.fullSetup;
+  } else if (options.template) {
+    // Template-only mode (no YAML file)
+    const merged = mergeConfig(options);
+    if (merged.provider && !options.provider) options.provider = merged.provider;
+    if (merged.region && !options.region) options.region = merged.region;
+    if (merged.size && !options.size) options.size = merged.size;
+    if (merged.name && !options.name) options.name = merged.name;
+    if (merged.fullSetup !== undefined && options.fullSetup === undefined)
+      options.fullSetup = merged.fullSetup;
+  }
+
+  // Validate --template flag
+  if (options.template) {
+    const tmpl = getTemplate(options.template);
+    if (!tmpl) {
+      logger.error(
+        `Invalid template: "${options.template}". Valid templates: ${VALID_TEMPLATE_NAMES.join(", ")}`,
+      );
+      process.exit(1);
+      return;
+    }
+    logger.info(`Using template: ${tmpl.name} - ${tmpl.description}`);
+  }
+
   const isNonInteractive = options.provider !== undefined;
 
   logger.title("Quicklify - Deploy Coolify in minutes");
@@ -45,19 +86,25 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
   const provider = createProvider(providerChoice);
   logger.info(`Using ${provider.displayName}`);
 
-  // Step 2: Get API token (flag > env var > interactive prompt)
+  // Apply template defaults now that provider is known (handles interactive provider selection)
+  if (options.template) {
+    const tmplDefaults = getTemplateDefaults(options.template, providerChoice);
+    if (tmplDefaults) {
+      if (!options.region) options.region = tmplDefaults.region;
+      if (!options.size) options.size = tmplDefaults.size;
+    }
+  }
+
+  // Step 2: Get API token (env var > interactive prompt)
   if (options.token) {
     apiToken = options.token;
+    logger.warning(
+      "Token passed via --token flag is visible in shell history. Use environment variables instead: export HETZNER_TOKEN=...",
+    );
   } else if (providerChoice === "hetzner" && process.env.HETZNER_TOKEN) {
     apiToken = process.env.HETZNER_TOKEN;
   } else if (providerChoice === "digitalocean" && process.env.DIGITALOCEAN_TOKEN) {
     apiToken = process.env.DIGITALOCEAN_TOKEN;
-  } else if (isNonInteractive) {
-    logger.error(
-      "API token required. Use --token or set HETZNER_TOKEN/DIGITALOCEAN_TOKEN env var",
-    );
-    process.exit(1);
-    return;
   } else {
     const config = await getDeploymentConfig(provider);
     apiToken = config.apiToken;
@@ -184,9 +231,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
   );
 }
 
-async function uploadSshKeyToProvider(
-  provider: CloudProvider,
-): Promise<string[]> {
+async function uploadSshKeyToProvider(provider: CloudProvider): Promise<string[]> {
   let publicKey = findLocalSshKey();
   if (!publicKey) {
     logger.info("No SSH key found. Generating one...");
@@ -363,12 +408,16 @@ async function deployServer(
       try {
         await firewallSetup(server.ip, serverName, false);
       } catch (error: unknown) {
-        logger.warning(`Firewall setup failed: ${error instanceof Error ? error.message : String(error)}`);
+        logger.warning(
+          `Firewall setup failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
       try {
         await secureSetup(server.ip, serverName, undefined, false, true);
       } catch (error: unknown) {
-        logger.warning(`Security setup failed: ${error instanceof Error ? error.message : String(error)}`);
+        logger.warning(
+          `Security setup failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     } else if (fullSetup && !ready) {
       logger.warning("Skipping full setup: Coolify is not ready yet.");
@@ -387,10 +436,30 @@ async function deployServer(
       logger.warning("Coolify did not respond yet. Please check in a few minutes.");
       logger.info(`You can check status later with: quicklify status ${server.ip}`);
     }
+
+    // Onboarding: next steps
     if (!fullSetup) {
-      logger.warning("Set up a domain and enable SSL in Coolify for production use.");
+      console.log();
+      logger.title("Recommended Next Steps:");
+      logger.info(`  1. Set up firewall:     quicklify firewall setup ${serverName}`);
+      logger.info(
+        `  2. Add a domain:        quicklify domain add ${serverName} --domain example.com`,
+      );
+      logger.info(`  3. Harden SSH:          quicklify secure setup ${serverName}`);
+      logger.info(`  4. Create a backup:     quicklify backup ${serverName}`);
+      logger.info("  Or do it all at once:   quicklify init --full-setup");
+    } else {
+      console.log();
+      logger.title("Next Steps:");
+      logger.info(
+        `  1. Add a domain:        quicklify domain add ${serverName} --domain example.com`,
+      );
+      logger.info(`  2. Create a backup:     quicklify backup ${serverName}`);
     }
+
     logger.info("Server saved to local config. Use 'quicklify list' to see all servers.");
+    console.log();
+    console.log("  \u2b50 Love Quicklify? Give us a star: https://github.com/omrfc/quicklify \u2b50");
     console.log();
   } catch (error: unknown) {
     logger.error(`Deployment failed: ${error instanceof Error ? error.message : String(error)}`);

@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2026-02-21
+
+### Added
+- **`--config <path>`** flag on `quicklify init` - Load deployment parameters from a YAML config file
+  - Supports all init options: provider, region, size, name, fullSetup, template, domain
+  - Validates config with detailed warnings for invalid values
+  - Security: detects and warns about token fields in config files
+  - Handles missing files and invalid YAML syntax gracefully
+- **`--template <name>`** flag on `quicklify init` - Use predefined server templates
+  - `starter` - Minimal setup (cheapest option, no hardening)
+  - `production` - Production-ready (larger server, auto firewall + SSH hardening)
+  - `dev` - Development/testing (cheap, no hardening)
+  - Per-provider defaults: Hetzner and DigitalOcean have optimized region/size pairs
+- **Config merge system** with priority: CLI flags > YAML config > template defaults > interactive prompts
+- `QuicklifyYamlConfig`, `TemplateName`, `TemplateDefinition` TypeScript interfaces
+- `src/utils/templates.ts` - Template definitions with per-provider defaults
+- `src/utils/yamlConfig.ts` - YAML config loader with validation and security checks
+- `src/utils/configMerge.ts` - Multi-source config merge logic
+- 106 new tests across 4 new test files (templates, yamlConfig, configMerge, init-config E2E)
+
+### Changed
+- `InitOptions` interface extended with `config` and `template` fields
+- `initCommand()` now processes YAML config and template before main flow
+- Total commands: 19 (unchanged)
+- Test count: 636 → 742
+- Test suites: 36 → 40
+- Coverage: 98%+ statements, 91%+ branches, 98%+ functions
+
+### Dependencies
+- Added `js-yaml` (runtime) + `@types/js-yaml` (dev) - YAML parsing
+
 ## [0.8.0] - 2026-02-21
 
 ### Added

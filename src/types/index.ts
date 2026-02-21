@@ -52,6 +52,34 @@ export interface InitOptions {
   size?: string;
   name?: string;
   fullSetup?: boolean;
+  config?: string;
+  template?: string;
+}
+
+// Templates
+export type TemplateName = "starter" | "production" | "dev";
+
+export interface TemplateProviderDefaults {
+  region: string;
+  size: string;
+}
+
+export interface TemplateDefinition {
+  name: TemplateName;
+  description: string;
+  defaults: Record<string, TemplateProviderDefaults>;
+  fullSetup: boolean;
+}
+
+// YAML Config
+export interface QuicklifyYamlConfig {
+  template?: TemplateName;
+  provider?: string;
+  region?: string;
+  size?: string;
+  name?: string;
+  fullSetup?: boolean;
+  domain?: string;
 }
 
 export interface QuicklifyConfig {

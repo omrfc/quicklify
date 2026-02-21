@@ -102,16 +102,12 @@ export class HetznerProvider implements CloudProvider {
       if (config.sshKeyIds?.length) {
         body.ssh_keys = config.sshKeyIds.map(Number);
       }
-      const response = await axios.post(
-        `${this.baseUrl}/servers`,
-        body,
-        {
-          headers: {
-            Authorization: `Bearer ${this.apiToken}`,
-            "Content-Type": "application/json",
-          },
+      const response = await axios.post(`${this.baseUrl}/servers`, body, {
+        headers: {
+          Authorization: `Bearer ${this.apiToken}`,
+          "Content-Type": "application/json",
         },
-      );
+      });
 
       return {
         id: response.data.server.id.toString(),
