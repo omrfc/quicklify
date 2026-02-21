@@ -89,18 +89,20 @@ export function buildHardeningCommand(options?: { port?: number }): string {
 }
 
 export function buildFail2banCommand(): string {
+  const jailContent = [
+    "[sshd]",
+    "enabled = true",
+    "port = ssh",
+    "filter = sshd",
+    "backend = systemd",
+    "maxretry = 5",
+    "bantime = 3600",
+    "findtime = 600",
+  ].join("\\n");
+
   return [
-    "apt-get install -y fail2ban",
-    `cat > /etc/fail2ban/jail.local << 'JAIL'
-[sshd]
-enabled = true
-port = ssh
-filter = sshd
-backend = systemd
-maxretry = 5
-bantime = 3600
-findtime = 600
-JAIL`,
+    "apt-get install -y fail2ban python3-systemd",
+    `printf '${jailContent}\\n' > /etc/fail2ban/jail.local`,
     "systemctl enable fail2ban",
     "systemctl restart fail2ban",
   ].join(" && ");
