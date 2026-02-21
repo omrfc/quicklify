@@ -45,7 +45,7 @@ npx quicklify init
 - ✨ **Dynamic Server Types** - Only shows compatible types for selected location
 - 🔥 **Auto Firewall** - Ports 8000, 22, 80, 443 configured automatically
 - 🚀 **Zero SSH Required** - Opens directly in browser after deployment
-- 📋 **Server Management** - List, status check, destroy, restart commands
+- 📋 **Server Management** - List, status check, destroy, restart, backup, restore commands
 - 🔧 **Default Config** - Set defaults to skip repetitive prompts
 - 🔑 **SSH Access** - Connect to servers or run remote commands
 - 🔄 **Coolify Update** - Update Coolify with one command
@@ -57,7 +57,10 @@ npx quicklify init
 - 🔥 **Firewall Management** - UFW setup, add/remove ports, protected port safety
 - 🌐 **Domain Management** - Bind domains, DNS check, auto SSL via Coolify
 - 🛡️ **SSH Hardening** - Disable password auth, fail2ban, security audit with score
-- 🧪 **Dry-Run Mode** - Preview commands on firewall/domain/secure before executing
+- 🧪 **Dry-Run Mode** - Preview commands on firewall/domain/secure/backup/restore before executing
+- 💾 **Backup & Restore** - Database + config backup with SCP download, restore with double confirmation
+- 📦 **Export/Import** - Transfer server list between machines as JSON
+- ⚡ **Full Setup** - `--full-setup` flag auto-configures firewall + SSH hardening after deploy
 - 🤖 **Non-Interactive Mode** - CI/CD friendly with `--provider --token --region --size --name` flags
 
 ## 📦 Installation
@@ -124,12 +127,14 @@ Visit the URL, create your admin account, and start deploying!
 **Important:** Port 8000 is publicly accessible after deployment.
 
 **Recommended next steps:**
-1. **Setup firewall:** `quicklify firewall setup my-server`
-2. **Add a domain:** `quicklify domain add my-server --domain example.com`
-3. **Harden SSH:** `quicklify secure setup my-server`
-4. **Run security audit:** `quicklify secure audit my-server`
-5. Set a **strong password** on first login
-6. Consider **Cloudflare** for DDoS protection
+1. **One-command setup:** `quicklify init --full-setup` (auto-configures firewall + SSH hardening)
+2. **Or manually:** `quicklify firewall setup my-server`
+3. **Add a domain:** `quicklify domain add my-server --domain example.com`
+4. **Harden SSH:** `quicklify secure setup my-server`
+5. **Run security audit:** `quicklify secure audit my-server`
+6. **Create a backup:** `quicklify backup my-server`
+7. Set a **strong password** on first login
+8. Consider **Cloudflare** for DDoS protection
 
 ## 🌐 Supported Providers
 
@@ -169,6 +174,14 @@ Visit the URL, create your admin account, and start deploying!
 **Savings: ~$180-240/year per project!** 💰
 
 ## 📋 Recent Updates
+
+### v0.8.0 (2026-02-21)
+- **New commands:** `quicklify backup`, `quicklify restore`, `quicklify export`, `quicklify import`
+- **Backup:** pg_dump + config tarball, SCP download to `~/.quicklify/backups/`, manifest.json metadata
+- **Restore:** Upload backup to server, stop/start Coolify, restore DB + config, double confirmation safety
+- **Export/Import:** Transfer `servers.json` between machines, duplicate detection, format validation
+- **`--full-setup` flag:** `quicklify init --full-setup` auto-configures firewall + SSH hardening after deploy
+- Zero new dependencies, 636 tests with 98%+ statement coverage
 
 ### v0.7.0 (2026-02-20)
 - **New commands:** `quicklify firewall`, `quicklify domain`, `quicklify secure`
@@ -277,10 +290,18 @@ Visit the URL, create your admin account, and start deploying!
 - [x] SSH hardening - Password disable, fail2ban, security audit (`quicklify secure`)
 - [x] Dry-run mode for all security commands
 
+### v0.8.0 (Completed)
+
+- [x] Backup Coolify database + config (`quicklify backup`)
+- [x] Restore from backup with double confirmation (`quicklify restore`)
+- [x] Export/Import server list (`quicklify export`, `quicklify import`)
+- [x] `--full-setup` flag for auto firewall + SSH hardening on init
+
 ### Future
 - [ ] Vultr support
 - [ ] Linode / AWS Lightsail support
-- [ ] Backup/restore commands
+- [ ] Config file (`quicklify.yml`) for one-command full setup
+- [ ] Template system (`--template starter|production|dev`)
 - [ ] Interactive TUI dashboard
 
 ## 🛠️ Tech Stack
@@ -305,6 +326,9 @@ quicklify init
 
 # Deploy non-interactively (CI/CD friendly)
 quicklify init --provider hetzner --token YOUR_TOKEN --region nbg1 --size cax11 --name my-server
+
+# Deploy with auto firewall + SSH hardening
+quicklify init --full-setup
 
 # List all registered servers
 quicklify list
@@ -379,6 +403,20 @@ quicklify secure audit my-server             # Security score (0-4)
 quicklify secure setup my-server             # Harden SSH + install fail2ban
 quicklify secure setup my-server --port 2222  # Change SSH port
 quicklify secure setup my-server --dry-run    # Preview without executing
+
+# Backup Coolify database and config
+quicklify backup my-server                   # Full backup (pg_dump + config)
+quicklify backup my-server --dry-run         # Preview backup steps
+
+# Restore from a backup
+quicklify restore my-server                  # Interactive backup selection
+quicklify restore my-server --backup 2026-02-21_15-30-45-123  # Specific backup
+quicklify restore my-server --dry-run        # Preview restore steps
+
+# Export/Import server list
+quicklify export                             # Export to ./quicklify-export.json
+quicklify export /path/to/file.json          # Export to custom path
+quicklify import /path/to/file.json          # Import servers (skips duplicates)
 
 # Show version
 quicklify --version
@@ -474,6 +512,10 @@ tests/
 │   ├── providerFactory.test.ts # Provider factory tests
 │   ├── restart.test.ts         # Restart command tests
 │   ├── secure.test.ts           # Secure command tests
+│   ├── backup.test.ts           # Backup command tests
+│   ├── restore.test.ts          # Restore command tests
+│   ├── transfer.test.ts         # Export/Import command tests
+│   ├── init-fullsetup.test.ts   # Init --full-setup tests
 │   ├── serverSelect.test.ts    # Server selection utility tests
 │   ├── ssh-command.test.ts     # SSH command tests
 │   ├── ssh-utils.test.ts       # SSH helper tests
@@ -499,7 +541,7 @@ Tests run automatically on every push/PR via GitHub Actions across:
 
 ### Coverage
 
-Current coverage: **97%+ statements/lines**, **85%+ branches**, **96%+ functions**. 494 tests across 32 test suites.
+Current coverage: **98%+ statements/lines**, **90%+ branches**, **98%+ functions**. 636 tests across 36 test suites.
 
 ## 🔧 Troubleshooting
 

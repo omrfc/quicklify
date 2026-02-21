@@ -3,6 +3,7 @@ import * as sshUtils from '../../src/utils/ssh';
 import inquirer from 'inquirer';
 import {
   secureCommand,
+  secureSetup,
   parseSshdConfig,
   parseAuditResult,
   buildHardeningCommand,
@@ -492,6 +493,21 @@ describe('secure', () => {
 
       await secureCommand('audit', '1.2.3.4');
       expect(mockedSsh.sshExec).toHaveBeenCalled();
+    });
+
+    it('should skip prompts when force=true (via secureSetup)', async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedSsh.sshExec
+        .mockResolvedValueOnce({ code: 0, stdout: '2', stderr: '' }) // key check
+        .mockResolvedValueOnce({ code: 0, stdout: '', stderr: '' }) // hardening
+        .mockResolvedValueOnce({ code: 0, stdout: '', stderr: '' }); // fail2ban
+
+      await secureSetup('1.2.3.4', 'coolify-test', undefined, false, true);
+
+      // inquirer.prompt should NOT have been called
+      expect(mockedInquirer.prompt).not.toHaveBeenCalled();
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+      expect(output).toContain('Security setup complete');
     });
 
     it('should default to status subcommand', async () => {

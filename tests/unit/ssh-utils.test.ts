@@ -191,5 +191,18 @@ describe('ssh utils', () => {
         expect.objectContaining({ stdio: ['inherit', 'pipe', 'pipe'] }),
       );
     });
+
+    it('should default to code 1 when close code is null', async () => {
+      const mockCp = new EventEmitter() as any;
+      mockCp.stdout = new EventEmitter();
+      mockCp.stderr = new EventEmitter();
+      mockedSpawn.mockReturnValue(mockCp);
+
+      const promise = sshExec('1.2.3.4', 'test-cmd');
+      process.nextTick(() => mockCp.emit('close', null));
+
+      const result = await promise;
+      expect(result.code).toBe(1);
+    });
   });
 });

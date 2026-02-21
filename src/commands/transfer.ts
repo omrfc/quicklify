@@ -1,0 +1,101 @@
+import { readFileSync, writeFileSync } from "fs";
+import { resolve } from "path";
+import { getServers, saveServer } from "../utils/config.js";
+import { logger } from "../utils/logger.js";
+import type { ServerRecord } from "../types/index.js";
+
+const REQUIRED_FIELDS: (keyof ServerRecord)[] = ["id", "name", "provider", "ip", "region", "size", "createdAt"];
+
+export function validateServerRecords(data: unknown): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (!Array.isArray(data)) {
+    return { valid: false, errors: ["Data must be a JSON array"] };
+  }
+
+  for (let i = 0; i < data.length; i++) {
+    const item = data[i];
+    if (typeof item !== "object" || item === null) {
+      errors.push(`Item [${i}]: must be an object`);
+      continue;
+    }
+    for (const field of REQUIRED_FIELDS) {
+      if (typeof (item as Record<string, unknown>)[field] !== "string") {
+        errors.push(`Item [${i}]: missing or invalid field "${field}"`);
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+export async function exportCommand(filePath?: string): Promise<void> {
+  const servers = getServers();
+
+  if (servers.length === 0) {
+    logger.info("No servers to export. Deploy one with: quicklify init");
+    return;
+  }
+
+  const outPath = resolve(filePath || "quicklify-export.json");
+
+  try {
+    writeFileSync(outPath, JSON.stringify(servers, null, 2), "utf-8");
+    logger.success(`Exported ${servers.length} server(s) to ${outPath}`);
+  } catch (error: unknown) {
+    logger.error(`Failed to write export file: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+export async function importCommand(filePath: string): Promise<void> {
+  if (!filePath) {
+    logger.error("Usage: quicklify import <path>");
+    return;
+  }
+
+  const inPath = resolve(filePath);
+  let raw: string;
+
+  try {
+    raw = readFileSync(inPath, "utf-8");
+  } catch (error: unknown) {
+    logger.error(`Failed to read file: ${error instanceof Error ? error.message : String(error)}`);
+    return;
+  }
+
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    logger.error("File is not valid JSON");
+    return;
+  }
+
+  const validation = validateServerRecords(data);
+  if (!validation.valid) {
+    logger.error("Invalid server data:");
+    for (const err of validation.errors) {
+      logger.step(err);
+    }
+    return;
+  }
+
+  const incoming = data as ServerRecord[];
+  const existing = getServers();
+  const existingIds = new Set(existing.map((s) => s.id));
+
+  let imported = 0;
+  let skipped = 0;
+
+  for (const server of incoming) {
+    if (existingIds.has(server.id)) {
+      skipped++;
+      continue;
+    }
+    saveServer(server);
+    existingIds.add(server.id);
+    imported++;
+  }
+
+  logger.success(`Imported ${imported} server(s), skipped ${skipped} duplicate(s)`);
+}

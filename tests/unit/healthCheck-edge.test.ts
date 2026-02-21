@@ -86,4 +86,13 @@ describe('waitForCoolify edge cases', () => {
     expect(result).toBe(true);
     expect(mockedAxios.get).toHaveBeenCalledTimes(2);
   });
+
+  it('should use default pollIntervalMs and maxAttempts when not provided', async () => {
+    mockedAxios.get.mockResolvedValueOnce({ status: 200 });
+
+    const result = await waitForCoolify('1.2.3.4', 0);
+
+    expect(result).toBe(true);
+    expect(mockedAxios.get).toHaveBeenCalledTimes(1);
+  });
 });

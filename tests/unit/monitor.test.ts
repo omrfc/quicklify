@@ -75,6 +75,33 @@ describe('monitorCommand', () => {
       expect(metrics.ramUsed).toBe('N/A');
       expect(metrics.diskUsed).toBe('N/A');
     });
+
+    it('should handle CPU line without idle match', () => {
+      const input = '%Cpu(s): no-data-here\n---SEPARATOR---\n---SEPARATOR---\n';
+      const metrics = parseMetrics(input);
+      expect(metrics.cpu).toBe('N/A');
+    });
+
+    it('should handle Mem line with insufficient parts', () => {
+      const input = `---SEPARATOR---\nMem:\n---SEPARATOR---\n`;
+      const metrics = parseMetrics(input);
+      expect(metrics.ramUsed).toBe('N/A');
+      expect(metrics.ramTotal).toBe('N/A');
+    });
+
+    it('should handle disk line with insufficient parts', () => {
+      const input = `---SEPARATOR---\n---SEPARATOR---\n/dev/sda1 40G`;
+      const metrics = parseMetrics(input);
+      expect(metrics.diskUsed).toBe('N/A');
+    });
+
+    it('should parse /dev/ disk line and prefer total', () => {
+      const input = `---SEPARATOR---\n---SEPARATOR---\n/dev/sda1      40G   20G   18G  53% /\ntotal          40G   20G   18G  53% -`;
+      const metrics = parseMetrics(input);
+      expect(metrics.diskTotal).toBe('40G');
+      expect(metrics.diskUsed).toBe('20G');
+      expect(metrics.diskPercent).toBe('53%');
+    });
   });
 
   it('should show error when SSH not available', async () => {
@@ -128,5 +155,49 @@ describe('monitorCommand', () => {
 
     // spinner.fail is called but not visible in consoleSpy (ora mock)
     expect(mockedSsh.sshExec).toHaveBeenCalled();
+  });
+
+  it('should handle non-Error exception in catch block', async () => {
+    mockedSsh.checkSshAvailable.mockReturnValue(true);
+    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedSsh.sshExec.mockRejectedValueOnce('unexpected string error');
+
+    await monitorCommand('1.2.3.4');
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(output).toContain('unexpected string error');
+  });
+
+  it('should handle Error exception in catch block', async () => {
+    mockedSsh.checkSshAvailable.mockReturnValue(true);
+    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedSsh.sshExec.mockRejectedValueOnce(new Error('SSH connection failed'));
+
+    await monitorCommand('1.2.3.4');
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(output).toContain('SSH connection failed');
+  });
+
+  it('should handle SSH failure without stderr', async () => {
+    mockedSsh.checkSshAvailable.mockReturnValue(true);
+    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: '', stderr: '' });
+
+    await monitorCommand('1.2.3.4');
+
+    expect(mockedSsh.sshExec).toHaveBeenCalled();
+  });
+
+  it('should handle containers option with insufficient sections', async () => {
+    mockedSsh.checkSshAvailable.mockReturnValue(true);
+    mockedConfig.findServer.mockReturnValue(sampleServer);
+    const combined = `${sampleTopOutput}\n---SEPARATOR---\n${sampleFreeOutput}\n---SEPARATOR---\n${sampleDfOutput}`;
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: combined, stderr: '' });
+
+    await monitorCommand('1.2.3.4', { containers: true });
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(output).not.toContain('Docker Containers');
   });
 });

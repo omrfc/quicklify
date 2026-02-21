@@ -19,6 +19,9 @@ import { doctorCommand } from "./commands/doctor.js";
 import { firewallCommand } from "./commands/firewall.js";
 import { domainCommand } from "./commands/domain.js";
 import { secureCommand } from "./commands/secure.js";
+import { backupCommand } from "./commands/backup.js";
+import { restoreCommand } from "./commands/restore.js";
+import { exportCommand, importCommand } from "./commands/transfer.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -39,6 +42,7 @@ program
   .option("--region <region>", "Server region")
   .option("--size <size>", "Server size")
   .option("--name <name>", "Server name")
+  .option("--full-setup", "Auto-configure firewall and SSH hardening after deploy")
   .action(initCommand);
 
 program.command("list").description("List all registered servers").action(listCommand);
@@ -132,5 +136,34 @@ program
     (subcommand?: string, query?: string, options?: { port?: string; dryRun?: boolean }) =>
       secureCommand(subcommand, query, options),
   );
+
+program
+  .command("backup [query]")
+  .description("Backup Coolify database and config files")
+  .option("--dry-run", "Show commands without executing")
+  .action(
+    (query?: string, options?: { dryRun?: boolean }) =>
+      backupCommand(query, options),
+  );
+
+program
+  .command("restore [query]")
+  .description("Restore Coolify from a backup")
+  .option("--backup <backup>", "Backup timestamp to restore (skip selection prompt)")
+  .option("--dry-run", "Show commands without executing")
+  .action(
+    (query?: string, options?: { backup?: string; dryRun?: boolean }) =>
+      restoreCommand(query, options),
+  );
+
+program
+  .command("export [path]")
+  .description("Export server list to a JSON file")
+  .action((path?: string) => exportCommand(path));
+
+program
+  .command("import <path>")
+  .description("Import servers from a JSON file")
+  .action((path: string) => importCommand(path));
 
 program.parse();

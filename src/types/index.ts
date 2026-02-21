@@ -51,6 +51,7 @@ export interface InitOptions {
   region?: string;
   size?: string;
   name?: string;
+  fullSetup?: boolean;
 }
 
 export interface QuicklifyConfig {
@@ -84,4 +85,14 @@ export interface SecureAuditResult {
   rootLogin: SshdSetting;
   fail2ban: { installed: boolean; active: boolean };
   sshPort: number;
+}
+
+// Backup
+export interface BackupManifest {
+  serverName: string;
+  serverIp: string;
+  provider: string;
+  timestamp: string;
+  coolifyVersion: string;
+  files: string[];
 }

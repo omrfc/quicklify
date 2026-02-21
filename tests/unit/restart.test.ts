@@ -95,4 +95,23 @@ describe('restartCommand', () => {
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
     expect(output).toContain('Failed to reboot');
   });
+
+  it('should show timeout warning when server does not come back', async () => {
+    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ confirm: true })
+      .mockResolvedValueOnce({ apiToken: 'test-token' });
+
+    // validateToken
+    mockedAxios.get.mockResolvedValueOnce({ data: { servers: [] } });
+    // rebootServer success
+    mockedAxios.post.mockResolvedValueOnce({ data: { action: { id: 1 } } });
+    // All polling attempts return non-running status
+    mockedAxios.get.mockResolvedValue({ data: { server: { status: 'off' } } });
+
+    await restartCommand('1.2.3.4');
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(output).toContain('may still be rebooting');
+    expect(output).toContain('Check status later');
+  });
 });

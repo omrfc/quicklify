@@ -283,6 +283,82 @@ describe('DigitalOceanProvider', () => {
     });
   });
 
+  describe('uploadSshKey', () => {
+    it('should upload SSH key and return ID', async () => {
+      mockedAxios.post.mockResolvedValueOnce({
+        data: { ssh_key: { id: 98765 } },
+      });
+
+      const result = await provider.uploadSshKey('my-key', 'ssh-rsa AAAA...');
+
+      expect(result).toBe('98765');
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        'https://api.digitalocean.com/v2/account/keys',
+        { name: 'my-key', public_key: 'ssh-rsa AAAA...' },
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-do-token',
+          }),
+        }),
+      );
+    });
+
+    it('should find existing key on 422 conflict', async () => {
+      const axiosError = {
+        response: { status: 422, data: { message: 'SSH Key is already in use' } },
+        message: 'Unprocessable Entity',
+      };
+      mockedAxios.post.mockRejectedValueOnce(axiosError);
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          ssh_keys: [
+            { id: 111, public_key: 'ssh-rsa OTHER...' },
+            { id: 333, public_key: 'ssh-rsa MATCH' },
+          ],
+        },
+      });
+
+      const result = await provider.uploadSshKey('my-key', 'ssh-rsa MATCH');
+
+      expect(result).toBe('333');
+    });
+
+    it('should throw when 422 conflict but key not found in list', async () => {
+      const axiosError = {
+        response: { status: 422, data: {} },
+        message: 'Unprocessable Entity',
+      };
+      mockedAxios.post.mockRejectedValueOnce(axiosError);
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { ssh_keys: [{ id: 111, public_key: 'ssh-rsa OTHER...' }] },
+      });
+
+      await expect(provider.uploadSshKey('my-key', 'ssh-rsa NOMATCH')).rejects.toThrow(
+        'Failed to upload SSH key',
+      );
+    });
+
+    it('should throw on non-422 error', async () => {
+      const axiosError = {
+        response: { status: 500, data: { message: 'Internal' } },
+        message: 'Server Error',
+      };
+      mockedAxios.post.mockRejectedValueOnce(axiosError);
+
+      await expect(provider.uploadSshKey('my-key', 'ssh-rsa AAA')).rejects.toThrow(
+        'Failed to upload SSH key',
+      );
+    });
+
+    it('should handle non-Error thrown values', async () => {
+      mockedAxios.post.mockRejectedValueOnce('unexpected string');
+
+      await expect(provider.uploadSshKey('my-key', 'ssh-rsa AAA')).rejects.toThrow(
+        'Failed to upload SSH key: unexpected string',
+      );
+    });
+  });
+
   describe('createServer', () => {
     const serverConfig = {
       name: 'test-droplet',
@@ -396,6 +472,28 @@ describe('DigitalOceanProvider', () => {
 
       await expect(provider.createServer(serverConfig)).rejects.toThrow(
         'Failed to create server: unexpected string error'
+      );
+    });
+
+    it('should include ssh_keys in body when sshKeyIds provided', async () => {
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          droplet: {
+            id: 1,
+            networks: { v4: [{ type: 'public', ip_address: '10.0.0.1' }] },
+            status: 'new',
+          },
+        },
+      });
+
+      await provider.createServer({ ...serverConfig, sshKeyIds: ['111', '222'] });
+
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        'https://api.digitalocean.com/v2/droplets',
+        expect.objectContaining({
+          ssh_keys: [111, 222],
+        }),
+        expect.anything(),
       );
     });
   });
@@ -528,6 +626,49 @@ describe('DigitalOceanProvider', () => {
 
       await expect(provider.destroyServer('12345')).rejects.toThrow(
         'Failed to destroy server: unexpected',
+      );
+    });
+  });
+
+  describe('rebootServer', () => {
+    it('should reboot droplet successfully', async () => {
+      mockedAxios.post.mockResolvedValueOnce({
+        data: { action: { id: 1, status: 'in-progress' } },
+      });
+
+      await provider.rebootServer('12345');
+
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        'https://api.digitalocean.com/v2/droplets/12345/actions',
+        { type: 'reboot' },
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-do-token',
+          }),
+        }),
+      );
+    });
+
+    it('should throw with API error message on axios error', async () => {
+      mockedAxios.post.mockRejectedValueOnce({
+        response: {
+          data: {
+            message: 'The resource you requested could not be found.',
+          },
+        },
+        message: 'Not Found',
+      });
+
+      await expect(provider.rebootServer('99999')).rejects.toThrow(
+        'Failed to reboot server: The resource you requested could not be found.',
+      );
+    });
+
+    it('should throw with generic message on non-axios error', async () => {
+      mockedAxios.post.mockRejectedValueOnce('unexpected string');
+
+      await expect(provider.rebootServer('12345')).rejects.toThrow(
+        'Failed to reboot server: unexpected string',
       );
     });
   });

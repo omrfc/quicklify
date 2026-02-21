@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2026-02-21
+
+### Added
+- **`quicklify backup [query]`** command - Backup Coolify database and config files
+  - `pg_dump` + gzip for PostgreSQL database backup
+  - Config tarball (`.env`, `docker-compose.yml`, `docker-compose.prod.yml`)
+  - SCP download to `~/.quicklify/backups/{server-name}/{timestamp}/`
+  - `manifest.json` with server info, Coolify version, file list
+  - `--dry-run` flag to preview backup steps
+- **`quicklify restore [query]`** command - Restore Coolify from a backup
+  - Interactive backup selection from available backups
+  - `--backup <timestamp>` flag to skip selection prompt
+  - Double confirmation safety (confirm + type server name)
+  - Full restore flow: upload → stop Coolify → start DB → restore DB → restore config → start Coolify
+  - `--dry-run` flag to preview restore steps
+- **`quicklify export [path]`** command - Export server list to JSON file
+  - Default path: `./quicklify-export.json`
+  - Custom path: `quicklify export /path/to/file.json`
+- **`quicklify import <path>`** command - Import servers from JSON file
+  - Format validation with field-level checking
+  - Duplicate detection by server ID (skips existing)
+- **`--full-setup` flag** on `quicklify init` - Auto-configure firewall + SSH hardening after deploy
+  - Runs `firewallSetup()` + `secureSetup(force=true)` after Coolify health check
+  - Skips interactive confirmations in automated mode
+- `BackupManifest` TypeScript interface
+- `BACKUPS_DIR` config constant (`~/.quicklify/backups/`)
+- `validateServerRecords()` pure function for import validation
+- `scpDownload()` and `scpUpload()` SCP helpers using `spawn`
+- `loadManifest()` and `listBackups()` backup utility functions
+- Pure command builder functions for all backup/restore SSH operations
+- 137 new tests across 4 new test files + 6 enhanced test files
+- Provider test coverage: uploadSshKey, rebootServer, createServer with sshKeyIds
+- Doctor, monitor, restart, status, healthCheck, ssh edge case coverage
+
+### Changed
+- `firewallSetup()` now exported from `firewall.ts` (was private)
+- `secureSetup()` now exported from `secure.ts` with `force` parameter to skip prompts
+- Total commands: 15 → 19 (backup, restore, export, import)
+- Test count: 499 → 636
+- Test suites: 32 → 36
+- Coverage: 98%+ statements, 90%+ branches, 98%+ functions
+- Zero new npm dependencies added
+
 ## [0.7.2] - 2026-02-21
 
 ### Added

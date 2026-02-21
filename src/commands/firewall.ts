@@ -102,7 +102,7 @@ export async function firewallCommand(
   }
 }
 
-async function firewallSetup(ip: string, name: string, dryRun: boolean): Promise<void> {
+export async function firewallSetup(ip: string, name: string, dryRun: boolean): Promise<void> {
   const command = buildFirewallSetupCommand();
 
   if (dryRun) {

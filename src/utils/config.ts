@@ -5,6 +5,7 @@ import type { ServerRecord } from "../types/index.js";
 
 const CONFIG_DIR = join(homedir(), ".quicklify");
 const SERVERS_FILE = join(CONFIG_DIR, "servers.json");
+const BACKUPS_DIR = join(CONFIG_DIR, "backups");
 
 function ensureConfigDir(): void {
   if (!existsSync(CONFIG_DIR)) {
@@ -53,4 +54,4 @@ export function findServer(query: string): ServerRecord | undefined {
 }
 
 // Exported for testing
-export { CONFIG_DIR, SERVERS_FILE };
+export { CONFIG_DIR, SERVERS_FILE, BACKUPS_DIR };

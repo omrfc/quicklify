@@ -1,3 +1,4 @@
+import { execSync } from "child_process";
 import type { CloudProvider } from "../providers/base.js";
 import type { InitOptions } from "../types/index.js";
 import { createProvider, createProviderWithToken } from "../utils/providerFactory.js";
@@ -15,6 +16,8 @@ import {
 import { getCoolifyCloudInit } from "../utils/cloudInit.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { findLocalSshKey, generateSshKey, getSshKeyName } from "../utils/sshKey.js";
+import { firewallSetup } from "./firewall.js";
+import { secureSetup } from "./secure.js";
 
 export async function initCommand(options: InitOptions = {}): Promise<void> {
   const isNonInteractive = options.provider !== undefined;
@@ -146,6 +149,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
       region,
       serverSize,
       serverName,
+      options.fullSetup,
     );
   }
 
@@ -176,6 +180,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     region,
     serverSize,
     serverName,
+    options.fullSetup,
   );
 }
 
@@ -214,6 +219,7 @@ async function deployServer(
   region: string,
   serverSize: string,
   serverName: string,
+  fullSetup?: boolean,
 ): Promise<void> {
   try {
     // Upload SSH key before creating server
@@ -344,6 +350,31 @@ async function deployServer(
       createdAt: new Date().toISOString(),
     });
 
+    // Full setup: auto-configure firewall + SSH hardening
+    if (fullSetup && ready) {
+      // Clear stale known_hosts entry (cloud providers reuse IPs)
+      try {
+        execSync(`ssh-keygen -R ${server.ip}`, { stdio: "ignore" });
+      } catch {
+        // ssh-keygen not available or no entry — harmless
+      }
+
+      logger.title("Running full setup (firewall + security)...");
+      try {
+        await firewallSetup(server.ip, serverName, false);
+      } catch (error: unknown) {
+        logger.warning(`Firewall setup failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      try {
+        await secureSetup(server.ip, serverName, undefined, false, true);
+      } catch (error: unknown) {
+        logger.warning(`Security setup failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    } else if (fullSetup && !ready) {
+      logger.warning("Skipping full setup: Coolify is not ready yet.");
+      logger.info("Run manually later: quicklify firewall setup && quicklify secure setup");
+    }
+
     // Success message
     logger.title("Deployment Successful!");
     console.log();
@@ -356,7 +387,9 @@ async function deployServer(
       logger.warning("Coolify did not respond yet. Please check in a few minutes.");
       logger.info(`You can check status later with: quicklify status ${server.ip}`);
     }
-    logger.warning("Set up a domain and enable SSL in Coolify for production use.");
+    if (!fullSetup) {
+      logger.warning("Set up a domain and enable SSL in Coolify for production use.");
+    }
     logger.info("Server saved to local config. Use 'quicklify list' to see all servers.");
     console.log();
   } catch (error: unknown) {

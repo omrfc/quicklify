@@ -360,6 +360,82 @@ describe('HetznerProvider', () => {
     });
   });
 
+  describe('uploadSshKey', () => {
+    it('should upload SSH key and return ID', async () => {
+      mockedAxios.post.mockResolvedValueOnce({
+        data: { ssh_key: { id: 12345 } },
+      });
+
+      const result = await provider.uploadSshKey('my-key', 'ssh-rsa AAAA...');
+
+      expect(result).toBe('12345');
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        'https://api.hetzner.cloud/v1/ssh_keys',
+        { name: 'my-key', public_key: 'ssh-rsa AAAA...' },
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-api-token',
+          }),
+        }),
+      );
+    });
+
+    it('should find existing key on 409 conflict', async () => {
+      const axiosError = {
+        response: { status: 409, data: { error: { message: 'SSH key already exists' } } },
+        message: 'Conflict',
+      };
+      mockedAxios.post.mockRejectedValueOnce(axiosError);
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          ssh_keys: [
+            { id: 111, public_key: 'ssh-rsa OTHER...' },
+            { id: 222, public_key: 'ssh-rsa MATCH' },
+          ],
+        },
+      });
+
+      const result = await provider.uploadSshKey('my-key', 'ssh-rsa MATCH');
+
+      expect(result).toBe('222');
+    });
+
+    it('should throw when 409 conflict but key not found in list', async () => {
+      const axiosError = {
+        response: { status: 409, data: {} },
+        message: 'Conflict',
+      };
+      mockedAxios.post.mockRejectedValueOnce(axiosError);
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { ssh_keys: [{ id: 111, public_key: 'ssh-rsa OTHER...' }] },
+      });
+
+      await expect(provider.uploadSshKey('my-key', 'ssh-rsa NOMATCH')).rejects.toThrow(
+        'Failed to upload SSH key',
+      );
+    });
+
+    it('should throw on non-409 error', async () => {
+      const axiosError = {
+        response: { status: 500, data: { error: { message: 'Internal' } } },
+        message: 'Server Error',
+      };
+      mockedAxios.post.mockRejectedValueOnce(axiosError);
+
+      await expect(provider.uploadSshKey('my-key', 'ssh-rsa AAA')).rejects.toThrow(
+        'Failed to upload SSH key',
+      );
+    });
+
+    it('should handle non-Error thrown values', async () => {
+      mockedAxios.post.mockRejectedValueOnce('unexpected string');
+
+      await expect(provider.uploadSshKey('my-key', 'ssh-rsa AAA')).rejects.toThrow(
+        'Failed to upload SSH key: unexpected string',
+      );
+    });
+  });
+
   describe('createServer', () => {
     const serverConfig = {
       name: 'test-server',
@@ -465,6 +541,28 @@ describe('HetznerProvider', () => {
 
       await expect(provider.createServer(serverConfig)).rejects.toThrow(
         'Failed to create server: unexpected string error'
+      );
+    });
+
+    it('should include ssh_keys in body when sshKeyIds provided', async () => {
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          server: {
+            id: 1,
+            public_net: { ipv4: { ip: '10.0.0.1' } },
+            status: 'initializing',
+          },
+        },
+      });
+
+      await provider.createServer({ ...serverConfig, sshKeyIds: ['111', '222'] });
+
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        'https://api.hetzner.cloud/v1/servers',
+        expect.objectContaining({
+          ssh_keys: [111, 222],
+        }),
+        expect.anything(),
       );
     });
   });
@@ -575,6 +673,49 @@ describe('HetznerProvider', () => {
 
       await expect(provider.destroyServer('12345')).rejects.toThrow(
         'Failed to destroy server: unexpected',
+      );
+    });
+  });
+
+  describe('rebootServer', () => {
+    it('should reboot server successfully', async () => {
+      mockedAxios.post.mockResolvedValueOnce({
+        data: { action: { id: 1, status: 'running' } },
+      });
+
+      await provider.rebootServer('12345');
+
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        'https://api.hetzner.cloud/v1/servers/12345/actions/reboot',
+        {},
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-api-token',
+          }),
+        }),
+      );
+    });
+
+    it('should throw with API error message on axios error', async () => {
+      mockedAxios.post.mockRejectedValueOnce({
+        response: {
+          data: {
+            error: { message: 'server not found' },
+          },
+        },
+        message: 'Not Found',
+      });
+
+      await expect(provider.rebootServer('99999')).rejects.toThrow(
+        'Failed to reboot server: server not found',
+      );
+    });
+
+    it('should throw with generic message on non-axios error', async () => {
+      mockedAxios.post.mockRejectedValueOnce('unexpected string');
+
+      await expect(provider.rebootServer('12345')).rejects.toThrow(
+        'Failed to reboot server: unexpected string',
       );
     });
   });

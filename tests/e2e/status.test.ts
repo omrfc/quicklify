@@ -95,4 +95,47 @@ describe('statusCommand E2E', () => {
     expect(output).toContain('Size:');
     expect(output).toContain('cax11');
   });
+
+  it('should pass validateStatus that always returns true', async () => {
+    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: 'test-token' });
+
+    mockedAxios.get
+      .mockResolvedValueOnce({ data: { server: { status: 'running' } } })
+      .mockResolvedValueOnce({ status: 200 });
+
+    await statusCommand('1.2.3.4');
+
+    // Extract the Coolify health check call (2nd call)
+    const healthCall = mockedAxios.get.mock.calls[1];
+    const config = healthCall[1] as { validateStatus?: (s: number) => boolean };
+    expect(config?.validateStatus?.(404)).toBe(true);
+    expect(config?.validateStatus?.(500)).toBe(true);
+  });
+
+  it('should handle Error exception in outer catch', async () => {
+    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: 'test-token' });
+
+    // getServerStatus rejects with Error → provider re-throws as Error
+    mockedAxios.get.mockRejectedValueOnce(new Error('Network Error'));
+
+    await statusCommand('1.2.3.4');
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(output).toContain('Failed to get server status');
+  });
+
+  it('should handle non-Error exception in outer catch', async () => {
+    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: 'test-token' });
+
+    // getServerStatus rejects with non-Error value
+    mockedAxios.get.mockRejectedValueOnce('unexpected api failure');
+
+    await statusCommand('1.2.3.4');
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(output).toContain('unexpected api failure');
+  });
 });

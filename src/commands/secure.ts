@@ -141,7 +141,7 @@ export async function secureCommand(
 
   switch (sub) {
     case "setup":
-      await secureSetup(server.ip, server.name, options, dryRun);
+      await secureSetup(server.ip, server.name, options, dryRun, false);
       break;
     case "status":
       await secureStatus(server.ip, server.name);
@@ -152,11 +152,12 @@ export async function secureCommand(
   }
 }
 
-async function secureSetup(
+export async function secureSetup(
   ip: string,
   name: string,
   options?: { port?: string },
   dryRun?: boolean,
+  force?: boolean,
 ): Promise<void> {
   // Step 1: Check SSH keys exist
   const keyCheckResult = await sshExec(ip, buildKeyCheckCommand());
@@ -197,32 +198,34 @@ async function secureSetup(
     return;
   }
 
-  // Double confirmation (like destroy command)
-  const { confirm } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "confirm",
-      message: `This will harden SSH on "${name}" (${ip}). Password login will be DISABLED. Continue?`,
-      default: false,
-    },
-  ]);
+  // Double confirmation (skip if force=true, e.g. from --full-setup)
+  if (!force) {
+    const { confirm } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "confirm",
+        message: `This will harden SSH on "${name}" (${ip}). Password login will be DISABLED. Continue?`,
+        default: false,
+      },
+    ]);
 
-  if (!confirm) {
-    logger.info("Security setup cancelled.");
-    return;
-  }
+    if (!confirm) {
+      logger.info("Security setup cancelled.");
+      return;
+    }
 
-  const { confirmName } = await inquirer.prompt([
-    {
-      type: "input",
-      name: "confirmName",
-      message: `Type the server name "${name}" to confirm:`,
-    },
-  ]);
+    const { confirmName } = await inquirer.prompt([
+      {
+        type: "input",
+        name: "confirmName",
+        message: `Type the server name "${name}" to confirm:`,
+      },
+    ]);
 
-  if (confirmName.trim() !== name) {
-    logger.error("Server name does not match. Setup cancelled.");
-    return;
+    if (confirmName.trim() !== name) {
+      logger.error("Server name does not match. Setup cancelled.");
+      return;
+    }
   }
 
   // Step 2: Apply SSH hardening

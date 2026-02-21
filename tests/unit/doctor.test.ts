@@ -175,4 +175,69 @@ describe('doctorCommand', () => {
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
     expect(output).toContain('Token validation');
   });
+
+  it('should fail Node.js check when version < 20', () => {
+    const original = process.version;
+    Object.defineProperty(process, 'version', { value: 'v18.0.0', configurable: true });
+
+    mockedExecSync.mockReturnValue(Buffer.from('10.0.0'));
+    mockedCheckSsh.mockReturnValue(true);
+    mockedExistsSync.mockReturnValue(true);
+    mockedAccessSync.mockImplementation(() => {});
+
+    const results = runDoctorChecks('0.6.0');
+    const nodeCheck = results.find((r) => r.name === 'Node.js');
+    expect(nodeCheck?.status).toBe('fail');
+    expect(nodeCheck?.detail).toContain('requires >= 20');
+
+    Object.defineProperty(process, 'version', { value: original, configurable: true });
+  });
+
+  it('should pass servers check when servers registered', () => {
+    mockedExecSync.mockReturnValue(Buffer.from('10.0.0'));
+    mockedCheckSsh.mockReturnValue(true);
+    mockedExistsSync.mockReturnValue(true);
+    mockedAccessSync.mockImplementation(() => {});
+
+    const fs = require('fs');
+    fs.readFileSync.mockReturnValueOnce(JSON.stringify([
+      { id: '1', name: 'test', provider: 'hetzner', ip: '1.2.3.4', region: 'nbg1', size: 'cax11', createdAt: '2026-01-01' },
+    ]));
+
+    const results = runDoctorChecks('0.6.0');
+    const serversCheck = results.find((r) => r.name === 'Servers');
+    expect(serversCheck?.status).toBe('pass');
+    expect(serversCheck?.detail).toContain('1 registered');
+  });
+
+  it('should show error summary when failures exist', async () => {
+    mockedExecSync.mockReturnValue(Buffer.from('10.0.0'));
+    mockedCheckSsh.mockReturnValue(true);
+    mockedExistsSync.mockReturnValue(true);
+    mockedAccessSync.mockImplementation(() => {
+      throw new Error('EACCES');
+    });
+
+    await doctorCommand(undefined, '0.6.0');
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(output).toContain('check(s) failed');
+  });
+
+  it('should show all-pass message when no failures and no warnings', async () => {
+    mockedExecSync.mockReturnValue(Buffer.from('10.0.0'));
+    mockedCheckSsh.mockReturnValue(true);
+    mockedExistsSync.mockReturnValue(true);
+    mockedAccessSync.mockImplementation(() => {});
+
+    const fs = require('fs');
+    fs.readFileSync.mockReturnValueOnce(JSON.stringify([
+      { id: '1', name: 'test', provider: 'hetzner', ip: '1.2.3.4', region: 'nbg1', size: 'cax11', createdAt: '2026-01-01' },
+    ]));
+
+    await doctorCommand(undefined, '0.6.0');
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(output).toContain('All checks passed!');
+  });
 });
