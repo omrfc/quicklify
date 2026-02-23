@@ -1,5 +1,7 @@
 # quicklify
 
+> English | [Türkçe](README.tr.md)
+
 ![Tests](https://github.com/omrfc/quicklify/actions/workflows/ci.yml/badge.svg)
 [![Coverage](https://codecov.io/gh/omrfc/quicklify/branch/main/graph/badge.svg)](https://codecov.io/gh/omrfc/quicklify)
 ![npm](https://img.shields.io/npm/v/quicklify)
