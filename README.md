@@ -8,11 +8,11 @@
 ![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
 [![Socket Badge](https://socket.dev/api/badge/npm/package/quicklify)](https://socket.dev/npm/package/quicklify)
 
-> Deploy Coolify to any cloud VPS with one command
+> Deploy Coolify to a cloud VPS with one command
 
 ## 🚀 What is Quicklify?
 
-Quicklify is a CLI tool that automates Coolify installation on cloud VPS providers. One command to deploy your self-hosted PaaS platform.
+Quicklify is a CLI tool that automates [Coolify](https://coolify.io/) deployment on cloud VPS providers. Coolify is an open-source, self-hosted alternative to Vercel/Netlify/Heroku — and Quicklify gets it running on your VPS with one command.
 
 **Before Quicklify:**
 
@@ -29,7 +29,7 @@ Total: ~30 minutes + manual work
 
 ```bash
 npx quicklify init
-# Hetzner: ~4 minutes | DigitalOcean: ~6 minutes
+# Hetzner: ~4 min | DigitalOcean: ~6 min | Vultr: ~5 min | Linode: ~6 min
 # Zero manual work ✨
 ```
 
@@ -38,10 +38,10 @@ npx quicklify init
 - 🎯 **One Command Deploy** - VPS + Coolify with a single command
 - 💰 **Cost Savings** - $50-200/mo (Vercel/Netlify) → €3.79/mo
 - 🔒 **Secure by Default** - Automated security setup
-- 🌍 **Multi-Cloud** - Hetzner Cloud + DigitalOcean
+- 🌍 **Multi-Cloud** - Hetzner Cloud, DigitalOcean, Vultr, Linode
 - 💻 **Beautiful CLI** - Interactive prompts with validation
 - 🎨 **ARM64 Ready** - Support for cost-effective ARM servers
-- ⚡ **Fast Setup** - Hetzner ~4 min, DigitalOcean ~6 min
+- ⚡ **Fast Setup** - Hetzner ~4 min, DigitalOcean ~6 min, Vultr ~5 min, Linode ~6 min
 - ✨ **Dynamic Server Types** - Only shows compatible types for selected location
 - 🔥 **Auto Firewall** - Ports 8000, 22, 80, 443 configured automatically
 - 🚀 **Zero SSH Required** - Opens directly in browser after deployment
@@ -64,6 +64,69 @@ npx quicklify init
 - 📄 **YAML Config** - `quicklify init --config quicklify.yml` for one-command deploy
 - 📋 **Templates** - `--template starter|production|dev` with per-provider defaults
 - 🤖 **Non-Interactive Mode** - CI/CD friendly with `--provider --token --region --size --name` flags
+- ➕ **Add Existing Servers** - `quicklify add` to register existing Coolify servers
+- 🔄 **Bulk Operations** - `--all` flag for status, update, backup across all servers
+- 🔁 **Auto-Restart** - `status --autostart` restarts Coolify if server is running but Coolify is down
+- 🔧 **Full Maintenance** - `quicklify maintain` runs status, update, health check, reboot in sequence
+
+## 🎯 What Can You Do with Quicklify?
+
+### Deploy a Coolify Server in Minutes
+
+```bash
+npx quicklify init                              # Interactive setup
+npx quicklify init --provider hetzner --full-setup  # With auto firewall + SSH hardening
+npx quicklify init --template production         # Production-ready defaults
+npx quicklify init --config quicklify.yml        # From YAML config file
+```
+
+### Manage Your Servers
+
+```bash
+quicklify list                    # List all registered servers
+quicklify status my-server        # Check server + Coolify status
+quicklify status --all            # Check all servers at once
+quicklify ssh my-server           # SSH into a server
+quicklify ssh my-server -c "uptime"  # Run a remote command
+```
+
+### Keep Everything Updated & Healthy
+
+```bash
+quicklify update my-server        # Update Coolify to latest version
+quicklify restart my-server       # Reboot the server
+quicklify maintain my-server      # Full maintenance: status → update → health → reboot
+quicklify maintain --all          # Maintain all servers sequentially
+quicklify health                  # Quick health check for all servers
+```
+
+### Backup & Restore
+
+```bash
+quicklify backup my-server        # Backup database + config files
+quicklify backup --all            # Backup all servers
+quicklify restore my-server       # Restore from a backup
+quicklify export servers.json     # Export server list
+quicklify import servers.json     # Import on another machine
+```
+
+### Security & Networking
+
+```bash
+quicklify firewall setup my-server    # Configure UFW with Coolify ports
+quicklify domain add my-server --domain coolify.example.com  # Bind domain + SSL
+quicklify secure setup my-server      # SSH hardening + fail2ban
+quicklify secure audit my-server      # Security audit with score (0-4)
+```
+
+### Monitoring & Diagnostics
+
+```bash
+quicklify monitor my-server       # Live CPU/RAM/Disk usage
+quicklify logs my-server -f       # Follow Coolify logs in real-time
+quicklify doctor                  # Check local environment
+quicklify status my-server --autostart  # Auto-restart Coolify if down
+```
 
 ## 📦 Installation
 
@@ -99,6 +162,18 @@ quicklify init
 2. Generate New Token with **Read & Write** scope
 3. Copy the token
 
+**Vultr:**
+
+1. Visit [Vultr API](https://my.vultr.com/settings/#settingsapi)
+2. Enable API and copy the API Key
+3. Whitelist your IP address
+
+**Linode (Akamai):**
+
+1. Visit [Linode API Tokens](https://cloud.linode.com/profile/tokens)
+2. Create a Personal Access Token with **Read/Write** scope
+3. Copy the token
+
 ### Step 2: Deploy Coolify
 
 ```bash
@@ -114,7 +189,7 @@ You'll be prompted for:
 
 ### Step 3: Access Coolify
 
-After deployment (Hetzner ~4 min, DigitalOcean ~6 min):
+After deployment (Hetzner ~4 min, DigitalOcean ~6 min, Vultr ~5 min, Linode ~6 min):
 
 ```
 ✅ Deployment Successful!
@@ -144,8 +219,8 @@ Visit the URL, create your admin account, and start deploying!
 |----------|--------|----------------|--------------|
 | **Hetzner Cloud** | ✅ Available | €3.79/mo | ARM64 + x86 |
 | **DigitalOcean** | ✅ Available | $12/mo | x86 |
-| **Vultr** | 📋 Planned | $2.50/mo | x86 |
-| **Linode** | 📋 Planned | $5/mo | x86 |
+| **Vultr** | ✅ Available | $6/mo | x86 |
+| **Linode (Akamai)** | ✅ Available | $12/mo | x86 |
 
 ## 💡 Use Cases
 
@@ -171,11 +246,22 @@ Visit the URL, create your admin account, and start deploying!
 | Netlify (Pro) | $19+ | 5 min | Easy |
 | **Quicklify + Hetzner** | **€3.79** | **~4 min** | **Easy** |
 | **Quicklify + DigitalOcean** | **$12** | **~6 min** | **Easy** |
+| **Quicklify + Vultr** | **$6** | **~5 min** | **Easy** |
+| **Quicklify + Linode** | **$12** | **~6 min** | **Easy** |
 | Manual VPS + Coolify | €3.79 | 30+ min | Hard |
 
 **Savings: ~$180-240/year per project!** 💰
 
 ## 📋 Recent Updates
+
+### v1.0.0 (2026-02-23)
+- **New providers:** Vultr and Linode (Akamai) — 4 cloud providers now supported
+- **New command:** `quicklify add` — register existing Coolify servers to Quicklify management
+- **New command:** `quicklify maintain` — full maintenance cycle (status, update, health, reboot)
+- **Bulk operations:** `--all` flag on `status`, `update`, `backup` — operate on all servers at once
+- **Auto-restart:** `status --autostart` — restarts Coolify if server is running but Coolify is down
+- **`collectProviderTokens()`** — asks for each provider's token only once across all servers
+- 937 tests across 44 suites with 98%+ statement coverage, zero new dependencies
 
 ### v0.9.0 (2026-02-21)
 - **YAML Config:** `quicklify init --config quicklify.yml` - deploy from a config file
@@ -312,9 +398,18 @@ Visit the URL, create your admin account, and start deploying!
 - [x] Template system (`--template starter|production|dev`)
 - [x] Config merge with priority: CLI > YAML > template > interactive
 
+### v1.0.0 (Completed)
+
+- [x] Vultr provider support
+- [x] Linode (Akamai) provider support
+- [x] `quicklify add` — register existing Coolify servers
+- [x] `quicklify maintain` — full maintenance cycle
+- [x] `--all` flag for status, update, backup
+- [x] `status --autostart` — auto-restart Coolify when down
+
 ### Future
-- [ ] Vultr support
-- [ ] Linode / AWS Lightsail support
+- [ ] `quicklify snapshot` — automated VPS snapshots before maintenance
+- [ ] `init --mode production` — 2 server deploy (Coolify + worker)
 - [ ] Interactive TUI dashboard
 
 ## 🛠️ Tech Stack
@@ -326,7 +421,7 @@ Visit the URL, create your admin account, and start deploying!
 - **Styling:** Chalk (colors) + Ora (spinners)
 - **HTTP Client:** Axios
 - **YAML Parser:** js-yaml
-- **Cloud APIs:** Hetzner Cloud API v1, DigitalOcean API v2
+- **Cloud APIs:** Hetzner Cloud API v1, DigitalOcean API v2, Vultr API v2, Linode API v4
 - **Linting:** ESLint 10 + typescript-eslint
 - **Formatting:** Prettier
 
@@ -357,10 +452,16 @@ quicklify list
 # Check server and Coolify status
 quicklify status 123.45.67.89
 quicklify status my-server
+quicklify status --all                   # Check all servers at once
+quicklify status my-server --autostart   # Restart Coolify if it's down
 
 # Destroy a server (with double confirmation)
 quicklify destroy 123.45.67.89
 quicklify destroy my-server
+
+# Remove a server from local config (without destroying cloud server)
+quicklify remove my-server
+quicklify remove 123.45.67.89
 
 # Manage default configuration
 quicklify config set provider hetzner
@@ -375,6 +476,7 @@ quicklify ssh 123.45.67.89 -c "docker ps"
 
 # Update Coolify on a server
 quicklify update my-server
+quicklify update --all                   # Update all servers sequentially
 
 # Restart a server
 quicklify restart my-server
@@ -427,6 +529,7 @@ quicklify secure setup my-server --dry-run    # Preview without executing
 
 # Backup Coolify database and config
 quicklify backup my-server                   # Full backup (pg_dump + config)
+quicklify backup --all                       # Backup all servers sequentially
 quicklify backup my-server --dry-run         # Preview backup steps
 
 # Restore from a backup
@@ -438,6 +541,17 @@ quicklify restore my-server --dry-run        # Preview restore steps
 quicklify export                             # Export to ./quicklify-export.json
 quicklify export /path/to/file.json          # Export to custom path
 quicklify import /path/to/file.json          # Import servers (skips duplicates)
+
+# Add existing Coolify server to management
+quicklify add                                # Interactive (provider, token, IP, verify)
+quicklify add --provider hetzner --ip 1.2.3.4 --name my-server  # Non-interactive
+quicklify add --provider vultr --ip 1.2.3.4 --skip-verify       # Skip Coolify check
+
+# Run full maintenance cycle
+quicklify maintain my-server                 # Status → Update → Health → Reboot
+quicklify maintain my-server --skip-reboot   # Skip the reboot step
+quicklify maintain --all                     # Maintain all servers sequentially
+quicklify maintain my-server --dry-run       # Preview maintenance steps
 
 # Show version
 quicklify --version
@@ -455,6 +569,10 @@ Set your API token as an environment variable, then pass all options as flags:
 export HETZNER_TOKEN="your-api-token"
 # or
 export DIGITALOCEAN_TOKEN="your-api-token"
+# or
+export VULTR_TOKEN="your-api-token"
+# or
+export LINODE_TOKEN="your-api-token"
 
 # Deploy non-interactively
 quicklify init \
@@ -497,11 +615,11 @@ quicklify init --config quicklify.yml
 
 Templates provide sensible defaults per provider:
 
-| Template | Hetzner | DigitalOcean | Full Setup |
-|----------|---------|--------------|------------|
-| `starter` | nbg1 / cax11 (€3.79) | fra1 / s-2vcpu-2gb ($12) | No |
-| `production` | nbg1 / cx33 (€5.49) | fra1 / s-2vcpu-4gb ($24) | Yes |
-| `dev` | nbg1 / cax11 (€3.79) | fra1 / s-2vcpu-2gb ($12) | No |
+| Template | Hetzner | DigitalOcean | Vultr | Linode | Full Setup |
+|----------|---------|--------------|-------|--------|------------|
+| `starter` | nbg1 / cax11 (€3.79) | fra1 / s-2vcpu-2gb ($12) | ewr / vc2-2c-4gb ($24) | us-east / g6-standard-2 ($12) | No |
+| `production` | nbg1 / cx33 (€5.49) | fra1 / s-2vcpu-4gb ($24) | ewr / vc2-4c-8gb ($48) | us-east / g6-standard-4 ($36) | Yes |
+| `dev` | nbg1 / cax11 (€3.79) | fra1 / s-2vcpu-2gb ($12) | ewr / vc2-2c-4gb ($24) | us-east / g6-standard-2 ($12) | No |
 
 ```bash
 # Quick production deploy
@@ -515,7 +633,7 @@ quicklify init --template starter --provider digitalocean --name test-server
 
 ### Interactive Prompts
 
-1. **Provider Selection** - Choose Hetzner Cloud or DigitalOcean
+1. **Provider Selection** - Choose Hetzner Cloud, DigitalOcean, Vultr, or Linode
 2. **API Token** - Validated before proceeding
 3. **Region Selection** - Choose your preferred datacenter
 4. **Server Size** - Filtered by Coolify requirements (2GB RAM, 2 vCPU)
@@ -583,10 +701,14 @@ tests/
 │   ├── ssh-utils.test.ts       # SSH helper tests
 │   ├── status.test.ts          # Status command unit tests
 │   ├── update.test.ts          # Update command tests
+│   ├── add.test.ts             # Add command tests
+│   ├── maintain.test.ts        # Maintain command tests
 │   └── validators.test.ts
 ├── integration/            # Integration tests (provider API calls)
 │   ├── hetzner.test.ts         # Including destroyServer tests
-│   └── digitalocean.test.ts    # Including destroyServer tests
+│   ├── digitalocean.test.ts    # Including destroyServer tests
+│   ├── vultr.test.ts           # Vultr provider tests
+│   └── linode.test.ts          # Linode provider tests
 └── e2e/                    # End-to-end tests (full command flows)
     ├── init.test.ts
     ├── init-noninteractive.test.ts  # Non-interactive mode E2E
@@ -604,7 +726,7 @@ Tests run automatically on every push/PR via GitHub Actions across:
 
 ### Coverage
 
-Current coverage: **98%+ statements/lines**, **91%+ branches**, **98%+ functions**. 742 tests across 40 test suites.
+Current coverage: **98%+ statements/lines**, **91%+ branches**, **98%+ functions**. 937 tests across 44 test suites.
 
 ## 🔧 Troubleshooting
 
@@ -648,6 +770,9 @@ See [LICENSE](LICENSE) file for details.
 
 - [Coolify](https://coolify.io/) - The amazing open-source PaaS
 - [Hetzner](https://www.hetzner.com/) - Affordable, reliable cloud infrastructure
+- [DigitalOcean](https://www.digitalocean.com/) - Developer-friendly cloud platform
+- [Vultr](https://www.vultr.com/) - High-performance cloud compute
+- [Linode](https://www.linode.com/) - Simple, affordable cloud computing
 - All contributors and users!
 
 ## 💬 Support & Community

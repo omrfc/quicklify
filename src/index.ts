@@ -22,6 +22,9 @@ import { secureCommand } from "./commands/secure.js";
 import { backupCommand } from "./commands/backup.js";
 import { restoreCommand } from "./commands/restore.js";
 import { exportCommand, importCommand } from "./commands/transfer.js";
+import { addCommand } from "./commands/add.js";
+import { removeCommand } from "./commands/remove.js";
+import { maintainCommand } from "./commands/maintain.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -37,8 +40,11 @@ program
 program
   .command("init")
   .description("Deploy a new Coolify instance on a cloud provider")
-  .option("--provider <provider>", "Cloud provider (hetzner, digitalocean)")
-  .option("--token <token>", "API token (or set HETZNER_TOKEN / DIGITALOCEAN_TOKEN env var)")
+  .option("--provider <provider>", "Cloud provider (hetzner, digitalocean, vultr, linode)")
+  .option(
+    "--token <token>",
+    "API token (or set HETZNER_TOKEN / DIGITALOCEAN_TOKEN / VULTR_TOKEN / LINODE_TOKEN env var)",
+  )
   .option("--region <region>", "Server region")
   .option("--size <size>", "Server size")
   .option("--name <name>", "Server name")
@@ -52,7 +58,11 @@ program.command("list").description("List all registered servers").action(listCo
 program
   .command("status [query]")
   .description("Check server and Coolify status")
-  .action(statusCommand);
+  .option("--all", "Check status of all servers")
+  .option("--autostart", "Restart Coolify if server is running but Coolify is down")
+  .action((query?: string, options?: { all?: boolean; autostart?: boolean }) =>
+    statusCommand(query, options),
+  );
 
 program
   .command("destroy [query]")
@@ -73,7 +83,8 @@ program
 program
   .command("update [query]")
   .description("Update Coolify on a registered server")
-  .action(updateCommand);
+  .option("--all", "Update Coolify on all servers")
+  .action((query?: string, options?: { all?: boolean }) => updateCommand(query, options));
 
 program
   .command("restart [query]")
@@ -148,7 +159,10 @@ program
   .command("backup [query]")
   .description("Backup Coolify database and config files")
   .option("--dry-run", "Show commands without executing")
-  .action((query?: string, options?: { dryRun?: boolean }) => backupCommand(query, options));
+  .option("--all", "Backup all servers")
+  .action((query?: string, options?: { dryRun?: boolean; all?: boolean }) =>
+    backupCommand(query, options),
+  );
 
 program
   .command("restore [query]")
@@ -168,5 +182,31 @@ program
   .command("import <path>")
   .description("Import servers from a JSON file")
   .action((path: string) => importCommand(path));
+
+program
+  .command("add")
+  .description("Add an existing Coolify server to Quicklify management")
+  .option("--provider <provider>", "Cloud provider (hetzner, digitalocean, vultr, linode)")
+  .option("--ip <ip>", "Server IP address")
+  .option("--name <name>", "Server name")
+  .option("--skip-verify", "Skip Coolify installation verification")
+  .action((options?: { provider?: string; ip?: string; name?: string; skipVerify?: boolean }) =>
+    addCommand(options),
+  );
+
+program
+  .command("remove [query]")
+  .description("Remove a server from local config (does not destroy the cloud server)")
+  .action(removeCommand);
+
+program
+  .command("maintain [query]")
+  .description("Run full maintenance cycle (status, update, health, reboot)")
+  .option("--skip-reboot", "Skip the reboot step")
+  .option("--all", "Maintain all servers sequentially")
+  .option("--dry-run", "Show steps without executing")
+  .action((query?: string, options?: { skipReboot?: boolean; all?: boolean; dryRun?: boolean }) =>
+    maintainCommand(query, options),
+  );
 
 program.parse();

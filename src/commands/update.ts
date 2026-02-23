@@ -1,12 +1,111 @@
 import inquirer from "inquirer";
-import { resolveServer, promptApiToken } from "../utils/serverSelect.js";
+import { getServers } from "../utils/config.js";
+import { resolveServer, promptApiToken, collectProviderTokens } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
 import { logger, createSpinner } from "../utils/logger.js";
 
 const COOLIFY_UPDATE_CMD = "curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash";
 
-export async function updateCommand(query?: string): Promise<void> {
+interface UpdateOptions {
+  all?: boolean;
+}
+
+async function updateSingleServer(
+  serverName: string,
+  serverIp: string,
+  serverId: string,
+  provider: string,
+  apiToken: string,
+): Promise<boolean> {
+  const spinner = createSpinner(`Validating ${serverName}...`);
+  spinner.start();
+
+  if (serverId.startsWith("manual-")) {
+    spinner.succeed(`${serverName}: Manually added server — skipping API check`);
+  } else {
+    try {
+      const providerInstance = createProviderWithToken(provider, apiToken);
+      const status = await providerInstance.getServerStatus(serverId);
+      if (status !== "running") {
+        spinner.fail(`${serverName}: Server is not running (status: ${status})`);
+        return false;
+      }
+      spinner.succeed(`${serverName}: Server verified`);
+    } catch (error: unknown) {
+      spinner.fail(`${serverName}: Failed to verify server`);
+      logger.error(error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
+
+  logger.info(`Updating Coolify on ${serverName} (${serverIp})...`);
+
+  const result = await sshExec(serverIp, COOLIFY_UPDATE_CMD);
+
+  if (result.stdout) console.log(result.stdout);
+  if (result.stderr) console.error(result.stderr);
+
+  if (result.code === 0) {
+    logger.success(`${serverName}: Coolify update completed!`);
+    return true;
+  } else {
+    logger.error(`${serverName}: Update failed with exit code ${result.code}`);
+    return false;
+  }
+}
+
+async function updateAll(): Promise<void> {
+  if (!checkSshAvailable()) {
+    logger.error("SSH client not found. Required for Coolify update.");
+    return;
+  }
+
+  const servers = getServers();
+  if (servers.length === 0) {
+    logger.info("No servers found. Deploy one with: quicklify init");
+    return;
+  }
+
+  const { confirm } = await inquirer.prompt([
+    {
+      type: "confirm",
+      name: "confirm",
+      message: `Update Coolify on all ${servers.length} server(s)? This may cause brief downtime.`,
+      default: false,
+    },
+  ]);
+
+  if (!confirm) {
+    logger.info("Update cancelled.");
+    return;
+  }
+
+  const tokenMap = await collectProviderTokens(servers);
+
+  let succeeded = 0;
+  let failed = 0;
+
+  for (const server of servers) {
+    const token = tokenMap.get(server.provider)!;
+    const ok = await updateSingleServer(server.name, server.ip, server.id, server.provider, token);
+    if (ok) succeeded++;
+    else failed++;
+    console.log();
+  }
+
+  if (failed === 0) {
+    logger.success(`All ${succeeded} server(s) updated successfully!`);
+  } else {
+    logger.warning(`${succeeded} succeeded, ${failed} failed`);
+  }
+}
+
+export async function updateCommand(query?: string, options?: UpdateOptions): Promise<void> {
+  if (options?.all) {
+    return updateAll();
+  }
+
   if (!checkSshAvailable()) {
     logger.error("SSH client not found. Required for Coolify update.");
     logger.info("Windows: Settings > Apps > Optional Features > OpenSSH Client");
@@ -31,22 +130,27 @@ export async function updateCommand(query?: string): Promise<void> {
     return;
   }
 
-  const apiToken = await promptApiToken(server.provider);
+  const apiToken = server.id.startsWith("manual-") ? "" : await promptApiToken(server.provider);
+
   const spinner = createSpinner("Validating access...");
   spinner.start();
 
-  try {
-    const provider = createProviderWithToken(server.provider, apiToken);
-    const status = await provider.getServerStatus(server.id);
-    if (status !== "running") {
-      spinner.fail(`Server is not running (status: ${status})`);
+  if (server.id.startsWith("manual-")) {
+    spinner.succeed("Manually added server — skipping API check");
+  } else {
+    try {
+      const provider = createProviderWithToken(server.provider, apiToken);
+      const status = await provider.getServerStatus(server.id);
+      if (status !== "running") {
+        spinner.fail(`Server is not running (status: ${status})`);
+        return;
+      }
+      spinner.succeed("Server verified");
+    } catch (error: unknown) {
+      spinner.fail("Failed to verify server");
+      logger.error(error instanceof Error ? error.message : String(error));
       return;
     }
-    spinner.succeed("Server verified");
-  } catch (error: unknown) {
-    spinner.fail("Failed to verify server");
-    logger.error(error instanceof Error ? error.message : String(error));
-    return;
   }
 
   logger.info("Running Coolify update script...");

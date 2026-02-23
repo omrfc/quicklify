@@ -53,5 +53,12 @@ export function findServer(query: string): ServerRecord | undefined {
   return servers.find((s) => s.ip === query) || servers.find((s) => s.name === query);
 }
 
+export function findServers(query: string): ServerRecord[] {
+  const servers = getServers();
+  const byIp = servers.filter((s) => s.ip === query);
+  if (byIp.length > 0) return byIp;
+  return servers.filter((s) => s.name === query);
+}
+
 // Exported for testing
 export { CONFIG_DIR, SERVERS_FILE, BACKUPS_DIR };

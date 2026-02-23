@@ -39,7 +39,7 @@ describe("restartCommand", () => {
   });
 
   it("should return when no server found", async () => {
-    mockedConfig.findServer.mockReturnValue(undefined);
+    mockedConfig.findServers.mockReturnValue([]);
     await restartCommand("nonexistent");
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("Server not found");
@@ -53,7 +53,7 @@ describe("restartCommand", () => {
   });
 
   it("should cancel when user declines", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedInquirer.prompt.mockResolvedValueOnce({ confirm: false });
 
     await restartCommand("1.2.3.4");
@@ -62,7 +62,7 @@ describe("restartCommand", () => {
   });
 
   it("should reboot server successfully", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedInquirer.prompt
       .mockResolvedValueOnce({ confirm: true })
       .mockResolvedValueOnce({ apiToken: "test-token" });
@@ -80,7 +80,7 @@ describe("restartCommand", () => {
   });
 
   it("should handle reboot API error", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedInquirer.prompt
       .mockResolvedValueOnce({ confirm: true })
       .mockResolvedValueOnce({ apiToken: "test-token" });
@@ -96,7 +96,7 @@ describe("restartCommand", () => {
   });
 
   it("should show timeout warning when server does not come back", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedInquirer.prompt
       .mockResolvedValueOnce({ confirm: true })
       .mockResolvedValueOnce({ apiToken: "test-token" });

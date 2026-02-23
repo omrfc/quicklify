@@ -19,7 +19,7 @@ export function buildStartCoolifyCommand(): string {
 }
 
 export function buildStartDbCommand(): string {
-  return "cd /data/coolify/source && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d coolify-db && sleep 3";
+  return "cd /data/coolify/source && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d postgres && sleep 3";
 }
 
 export function buildRestoreDbCommand(): string {

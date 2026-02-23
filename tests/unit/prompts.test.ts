@@ -69,10 +69,10 @@ describe("getProviderConfig", () => {
     const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
     expect(promptConfig[0].type).toBe("list");
     expect(promptConfig[0].name).toBe("provider");
-    expect(promptConfig[0].choices).toHaveLength(2);
+    expect(promptConfig[0].choices).toHaveLength(4);
   });
 
-  it("should have Hetzner and DigitalOcean as choices", async () => {
+  it("should have Hetzner, DigitalOcean, Vultr, and Linode as choices", async () => {
     mockedInquirer.prompt.mockResolvedValueOnce({ provider: "hetzner" });
 
     await getProviderConfig();
@@ -83,6 +83,10 @@ describe("getProviderConfig", () => {
     expect(choices[0].name).toBe("Hetzner Cloud");
     expect(choices[1].value).toBe("digitalocean");
     expect(choices[1].name).toBe("DigitalOcean");
+    expect(choices[2].value).toBe("vultr");
+    expect(choices[2].name).toBe("Vultr");
+    expect(choices[3].value).toBe("linode");
+    expect(choices[3].name).toBe("Linode (Akamai)");
   });
 });
 

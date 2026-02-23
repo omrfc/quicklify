@@ -32,7 +32,7 @@ describe("destroyCommand", () => {
   });
 
   it("should show error when server not found by query", async () => {
-    mockedConfig.findServer.mockReturnValue(undefined);
+    mockedConfig.findServers.mockReturnValue([]);
 
     await destroyCommand("nonexistent");
 
@@ -50,7 +50,7 @@ describe("destroyCommand", () => {
   });
 
   it("should cancel when user declines first confirmation", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     mockedInquirer.prompt.mockResolvedValueOnce({ confirm: false });
 
@@ -62,7 +62,7 @@ describe("destroyCommand", () => {
   });
 
   it("should cancel when server name does not match", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     mockedInquirer.prompt
       .mockResolvedValueOnce({ confirm: true })
@@ -76,7 +76,7 @@ describe("destroyCommand", () => {
   });
 
   it("should destroy server successfully", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedConfig.removeServer.mockReturnValue(true);
 
     mockedInquirer.prompt
@@ -96,7 +96,7 @@ describe("destroyCommand", () => {
   });
 
   it("should handle API error during destroy", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     mockedInquirer.prompt
       .mockResolvedValueOnce({ confirm: true })
@@ -113,7 +113,7 @@ describe("destroyCommand", () => {
   });
 
   it("should remove from local config when user confirms after API error", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedConfig.removeServer.mockReturnValue(true);
 
     mockedInquirer.prompt
@@ -132,7 +132,7 @@ describe("destroyCommand", () => {
   });
 
   it("should remove from local config when server not found on provider", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedConfig.removeServer.mockReturnValue(true);
 
     mockedInquirer.prompt

@@ -214,7 +214,7 @@ describe("firewall", () => {
 
     it("should return when no server found", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(undefined);
+      mockedConfig.findServers.mockReturnValue([]);
       await firewallCommand("status", "nonexistent");
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("Server not found");
@@ -223,7 +223,7 @@ describe("firewall", () => {
     // setup subcommand
     it("should setup firewall successfully", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
 
       await firewallCommand("setup", "1.2.3.4");
@@ -232,7 +232,7 @@ describe("firewall", () => {
 
     it("should show dry-run for setup", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       await firewallCommand("setup", "1.2.3.4", { dryRun: true });
 
@@ -244,7 +244,7 @@ describe("firewall", () => {
 
     it("should handle setup failure", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "permission denied" });
 
       await firewallCommand("setup", "1.2.3.4");
@@ -255,7 +255,7 @@ describe("firewall", () => {
     // add subcommand
     it("should add port successfully", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
 
       await firewallCommand("add", "1.2.3.4", { port: "3000", protocol: "tcp" });
@@ -265,7 +265,7 @@ describe("firewall", () => {
 
     it("should error on missing port for add", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       await firewallCommand("add", "1.2.3.4", {});
 
@@ -275,7 +275,7 @@ describe("firewall", () => {
 
     it("should error on invalid port for add", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       await firewallCommand("add", "1.2.3.4", { port: "99999" });
 
@@ -285,7 +285,7 @@ describe("firewall", () => {
 
     it("should error on invalid protocol", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       await firewallCommand("add", "1.2.3.4", { port: "80", protocol: "icmp" });
 
@@ -295,7 +295,7 @@ describe("firewall", () => {
 
     it("should show dry-run for add", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       await firewallCommand("add", "1.2.3.4", { port: "3000", dryRun: true });
 
@@ -307,7 +307,7 @@ describe("firewall", () => {
     // remove subcommand
     it("should block removing protected port 22", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       await firewallCommand("remove", "1.2.3.4", { port: "22" });
 
@@ -318,7 +318,7 @@ describe("firewall", () => {
 
     it("should warn when removing Coolify port", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: false }) as any;
 
       await firewallCommand("remove", "1.2.3.4", { port: "8000" });
@@ -329,7 +329,7 @@ describe("firewall", () => {
 
     it("should remove non-protected port", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
 
       await firewallCommand("remove", "1.2.3.4", { port: "3000" });
@@ -339,7 +339,7 @@ describe("firewall", () => {
 
     it("should error on missing port for remove", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       await firewallCommand("remove", "1.2.3.4", {});
 
@@ -350,7 +350,7 @@ describe("firewall", () => {
     // list subcommand
     it("should list firewall rules", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({
         code: 0,
         stdout: `Status: active
@@ -370,7 +370,7 @@ describe("firewall", () => {
 
     it("should show warning when UFW inactive on list", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({
         code: 0,
         stdout: "Status: inactive",
@@ -386,7 +386,7 @@ describe("firewall", () => {
     // status subcommand
     it("should show active UFW status", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({
         code: 0,
         stdout: "Status: active",
@@ -400,7 +400,7 @@ describe("firewall", () => {
 
     it("should show inactive UFW status", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({
         code: 0,
         stdout: "Status: inactive",
@@ -413,7 +413,7 @@ describe("firewall", () => {
 
     it("should handle setup exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockRejectedValue(new Error("Connection timeout"));
 
       await firewallCommand("setup", "1.2.3.4");
@@ -423,7 +423,7 @@ describe("firewall", () => {
 
     it("should handle add failure", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "error" });
 
       await firewallCommand("add", "1.2.3.4", { port: "3000" });
@@ -432,7 +432,7 @@ describe("firewall", () => {
 
     it("should handle add exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockRejectedValue(new Error("fail"));
 
       await firewallCommand("add", "1.2.3.4", { port: "3000" });
@@ -441,7 +441,7 @@ describe("firewall", () => {
 
     it("should handle remove failure", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "error" });
 
       await firewallCommand("remove", "1.2.3.4", { port: "3000" });
@@ -450,7 +450,7 @@ describe("firewall", () => {
 
     it("should handle remove exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockRejectedValue(new Error("fail"));
 
       await firewallCommand("remove", "1.2.3.4", { port: "3000" });
@@ -459,7 +459,7 @@ describe("firewall", () => {
 
     it("should handle list failure", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "error" });
 
       await firewallCommand("list", "1.2.3.4");
@@ -468,7 +468,7 @@ describe("firewall", () => {
 
     it("should handle list exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockRejectedValue(new Error("fail"));
 
       await firewallCommand("list", "1.2.3.4");
@@ -477,7 +477,7 @@ describe("firewall", () => {
 
     it("should handle status check failure", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "error" });
 
       await firewallCommand("status", "1.2.3.4");
@@ -486,7 +486,7 @@ describe("firewall", () => {
 
     it("should handle status check exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockRejectedValue(new Error("fail"));
 
       await firewallCommand("status", "1.2.3.4");
@@ -495,7 +495,7 @@ describe("firewall", () => {
 
     it("should show dry-run for remove", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       await firewallCommand("remove", "1.2.3.4", { port: "3000", dryRun: true });
 
@@ -506,7 +506,7 @@ describe("firewall", () => {
 
     it("should default protocol to tcp for remove", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
 
       await firewallCommand("remove", "1.2.3.4", { port: "3000" });
@@ -516,7 +516,7 @@ describe("firewall", () => {
 
     it("should error on invalid protocol for remove", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       await firewallCommand("remove", "1.2.3.4", { port: "3000", protocol: "icmp" });
 
@@ -526,7 +526,7 @@ describe("firewall", () => {
 
     it("should show no rules message when list returns active but empty", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({
         code: 0,
         stdout:
@@ -542,7 +542,7 @@ describe("firewall", () => {
 
     it("should remove Coolify port when confirmed", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: true }) as any;
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
 

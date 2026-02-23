@@ -50,6 +50,18 @@ describe("yamlConfig", () => {
       expect(result.warnings).toHaveLength(0);
     });
 
+    it("should accept valid provider: vultr", () => {
+      const result = validateYamlConfig({ provider: "vultr" });
+      expect(result.config.provider).toBe("vultr");
+      expect(result.warnings).toHaveLength(0);
+    });
+
+    it("should accept valid provider: linode", () => {
+      const result = validateYamlConfig({ provider: "linode" });
+      expect(result.config.provider).toBe("linode");
+      expect(result.warnings).toHaveLength(0);
+    });
+
     it("should warn for invalid provider string", () => {
       const result = validateYamlConfig({ provider: "aws" });
       expect(result.config.provider).toBeUndefined();
@@ -60,6 +72,11 @@ describe("yamlConfig", () => {
       const result = validateYamlConfig({ provider: 123 });
       expect(result.config.provider).toBeUndefined();
       expect(result.warnings[0]).toContain("must be a string");
+    });
+
+    it("should include linode in invalid provider message", () => {
+      const result = validateYamlConfig({ provider: "aws" });
+      expect(result.warnings[0]).toContain("linode");
     });
 
     // Template validation

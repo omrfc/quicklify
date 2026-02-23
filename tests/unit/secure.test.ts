@@ -238,7 +238,7 @@ describe("secure", () => {
 
     it("should return when no server found", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(undefined);
+      mockedConfig.findServers.mockReturnValue([]);
       await secureCommand("status", "nonexistent");
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("Server not found");
@@ -247,7 +247,7 @@ describe("secure", () => {
     // setup subcommand
     it("should reject setup when no SSH keys found", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "0", stderr: "" });
 
       await secureCommand("setup", "1.2.3.4");
@@ -258,7 +258,7 @@ describe("secure", () => {
 
     it("should show dry-run for setup", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "2", stderr: "" });
 
       await secureCommand("setup", "1.2.3.4", { dryRun: true });
@@ -270,7 +270,7 @@ describe("secure", () => {
 
     it("should cancel setup when first confirm is false", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "2", stderr: "" });
       mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: false }) as any;
 
@@ -282,7 +282,7 @@ describe("secure", () => {
 
     it("should cancel setup when name does not match", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "2", stderr: "" });
       mockedInquirer.prompt = jest
         .fn()
@@ -297,7 +297,7 @@ describe("secure", () => {
 
     it("should run full setup when confirmed", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" }) // key check
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // hardening
@@ -315,7 +315,7 @@ describe("secure", () => {
 
     it("should handle hardening failure", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" })
         .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "error" });
@@ -331,7 +331,7 @@ describe("secure", () => {
 
     it("should handle hardening exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" })
         .mockRejectedValueOnce(new Error("fail"));
@@ -346,7 +346,7 @@ describe("secure", () => {
 
     it("should handle fail2ban failure gracefully (non-fatal)", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" })
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
@@ -364,7 +364,7 @@ describe("secure", () => {
 
     it("should handle fail2ban exception gracefully", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" })
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
@@ -382,7 +382,7 @@ describe("secure", () => {
 
     it("should error on invalid port", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "2", stderr: "" });
 
       await secureCommand("setup", "1.2.3.4", { port: "abc" });
@@ -393,7 +393,7 @@ describe("secure", () => {
 
     it("should warn about port change", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" })
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
@@ -412,7 +412,7 @@ describe("secure", () => {
     // status subcommand
     it("should show security status", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({
         code: 0,
         stdout: `${sampleSshdConfig}\n---SEPARATOR---\n● fail2ban.service\n   Active: active (running)`,
@@ -430,7 +430,7 @@ describe("secure", () => {
 
     it("should handle status failure", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "error" });
 
       await secureCommand("status", "1.2.3.4");
@@ -439,7 +439,7 @@ describe("secure", () => {
 
     it("should handle status exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockRejectedValue(new Error("fail"));
 
       await secureCommand("status", "1.2.3.4");
@@ -449,7 +449,7 @@ describe("secure", () => {
     // audit subcommand
     it("should show security audit with score", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({
         code: 0,
         stdout: `${sampleSecureSshdConfig}\n---SEPARATOR---\n● fail2ban.service\n   Active: active (running)`,
@@ -464,7 +464,7 @@ describe("secure", () => {
 
     it("should show improvement suggestions for low score", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({
         code: 0,
         stdout: `${sampleSshdConfig}\n---SEPARATOR---\nUnit fail2ban.service could not be found.`,
@@ -479,7 +479,7 @@ describe("secure", () => {
 
     it("should handle audit failure", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "error" });
 
       await secureCommand("audit", "1.2.3.4");
@@ -488,7 +488,7 @@ describe("secure", () => {
 
     it("should handle audit exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockRejectedValue(new Error("fail"));
 
       await secureCommand("audit", "1.2.3.4");
@@ -512,7 +512,7 @@ describe("secure", () => {
 
     it("should default to status subcommand", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({
         code: 0,
         stdout: `${sampleSshdConfig}\n---SEPARATOR---\n`,

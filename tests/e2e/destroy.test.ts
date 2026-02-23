@@ -32,7 +32,7 @@ describe("destroyCommand E2E", () => {
   });
 
   it("should complete full destroy flow with Hetzner", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedConfig.removeServer.mockReturnValue(true);
 
     mockedInquirer.prompt
@@ -64,7 +64,7 @@ describe("destroyCommand E2E", () => {
       ip: "10.20.30.40",
       name: "do-server",
     };
-    mockedConfig.findServer.mockReturnValue(doServer);
+    mockedConfig.findServers.mockReturnValue([doServer]);
     mockedConfig.removeServer.mockReturnValue(true);
 
     mockedInquirer.prompt
@@ -85,7 +85,7 @@ describe("destroyCommand E2E", () => {
   });
 
   it("should abort on first confirmation decline", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     mockedInquirer.prompt.mockResolvedValueOnce({ confirm: false });
 
@@ -97,7 +97,7 @@ describe("destroyCommand E2E", () => {
   });
 
   it("should abort when typed name does not match", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     mockedInquirer.prompt
       .mockResolvedValueOnce({ confirm: true })
@@ -111,7 +111,7 @@ describe("destroyCommand E2E", () => {
   });
 
   it("should handle Hetzner API error on destroy", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     mockedInquirer.prompt
       .mockResolvedValueOnce({ confirm: true })
@@ -128,7 +128,7 @@ describe("destroyCommand E2E", () => {
   });
 
   it("should remove from local config when server already deleted from provider", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedConfig.removeServer.mockReturnValue(true);
 
     mockedInquirer.prompt
@@ -148,7 +148,7 @@ describe("destroyCommand E2E", () => {
   });
 
   it("should find server by name", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedConfig.removeServer.mockReturnValue(true);
 
     mockedInquirer.prompt
@@ -160,7 +160,7 @@ describe("destroyCommand E2E", () => {
 
     await destroyCommand("coolify-test");
 
-    expect(mockedConfig.findServer).toHaveBeenCalledWith("coolify-test");
+    expect(mockedConfig.findServers).toHaveBeenCalledWith("coolify-test");
     expect(mockedAxios.delete).toHaveBeenCalled();
   });
 });

@@ -113,7 +113,7 @@ describe("monitorCommand", () => {
 
   it("should return when no server found", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(undefined);
+    mockedConfig.findServers.mockReturnValue([]);
     await monitorCommand("nonexistent");
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("Server not found");
@@ -121,7 +121,7 @@ describe("monitorCommand", () => {
 
   it("should display metrics on success", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     const combined = `${sampleTopOutput}\n---SEPARATOR---\n${sampleFreeOutput}\n---SEPARATOR---\n${sampleDfOutput}`;
     mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: combined, stderr: "" });
 
@@ -135,7 +135,7 @@ describe("monitorCommand", () => {
 
   it("should display containers when --containers flag used", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     const combined = `${sampleTopOutput}\n---SEPARATOR---\n${sampleFreeOutput}\n---SEPARATOR---\n${sampleDfOutput}\n---SEPARATOR---\n${sampleDockerPs}`;
     mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: combined, stderr: "" });
 
@@ -148,7 +148,7 @@ describe("monitorCommand", () => {
 
   it("should handle SSH failure gracefully", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedSsh.sshExec.mockResolvedValue({ code: 255, stdout: "", stderr: "Connection refused" });
 
     await monitorCommand("1.2.3.4");
@@ -159,7 +159,7 @@ describe("monitorCommand", () => {
 
   it("should handle non-Error exception in catch block", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedSsh.sshExec.mockRejectedValueOnce("unexpected string error");
 
     await monitorCommand("1.2.3.4");
@@ -170,7 +170,7 @@ describe("monitorCommand", () => {
 
   it("should handle Error exception in catch block", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedSsh.sshExec.mockRejectedValueOnce(new Error("SSH connection failed"));
 
     await monitorCommand("1.2.3.4");
@@ -181,7 +181,7 @@ describe("monitorCommand", () => {
 
   it("should handle SSH failure without stderr", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "" });
 
     await monitorCommand("1.2.3.4");
@@ -191,7 +191,7 @@ describe("monitorCommand", () => {
 
   it("should handle containers option with insufficient sections", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     const combined = `${sampleTopOutput}\n---SEPARATOR---\n${sampleFreeOutput}\n---SEPARATOR---\n${sampleDfOutput}`;
     mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: combined, stderr: "" });
 

@@ -3,6 +3,7 @@ import { spawn } from "child_process";
 import { EventEmitter } from "events";
 import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
+import * as serverSelect from "../../src/utils/serverSelect";
 import {
   backupCommand,
   formatTimestamp,
@@ -28,9 +29,11 @@ jest.mock("child_process", () => ({
 }));
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");
+jest.mock("../../src/utils/serverSelect");
 
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
+const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockedReaddirSync = readdirSync as jest.MockedFunction<typeof readdirSync>;
 const mockedWriteFileSync = writeFileSync as jest.MockedFunction<typeof writeFileSync>;
@@ -44,6 +47,16 @@ const sampleServer = {
   region: "nbg1",
   size: "cax11",
   createdAt: "2026-01-01T00:00:00.000Z",
+};
+
+const sampleServer2 = {
+  id: "456",
+  name: "coolify-prod",
+  provider: "digitalocean",
+  ip: "5.6.7.8",
+  region: "nyc1",
+  size: "s-2vcpu-4gb",
+  createdAt: "2026-02-21T00:00:00Z",
 };
 
 function createMockProcess(code: number = 0, stderrData: string = "") {
@@ -131,9 +144,9 @@ describe("backup", () => {
   });
 
   describe("buildCoolifyVersionCommand", () => {
-    it("should cat version file with fallback", () => {
+    it("should use docker inspect with fallback", () => {
       const cmd = buildCoolifyVersionCommand();
-      expect(cmd).toContain(".version");
+      expect(cmd).toContain("docker inspect coolify");
       expect(cmd).toContain("unknown");
     });
   });
@@ -227,15 +240,17 @@ describe("backup", () => {
 
     it("should return when no server found", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(undefined);
+      mockedServerSelect.resolveServer.mockResolvedValue(undefined);
       await backupCommand("nonexistent");
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("Server not found");
+      expect(mockedServerSelect.resolveServer).toHaveBeenCalledWith(
+        "nonexistent",
+        "Select a server to backup:",
+      );
     });
 
     it("should show dry-run output", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
 
       await backupCommand("1.2.3.4", { dryRun: true });
 
@@ -247,7 +262,7 @@ describe("backup", () => {
 
     it("should handle database backup failure with stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
         .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "pg_dump error" });
@@ -258,7 +273,7 @@ describe("backup", () => {
 
     it("should handle database backup failure without stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
         .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "" });
@@ -269,7 +284,7 @@ describe("backup", () => {
 
     it("should handle database backup exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
         .mockRejectedValueOnce(new Error("Connection lost"));
@@ -282,7 +297,7 @@ describe("backup", () => {
 
     it("should handle config backup failure with stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
@@ -294,7 +309,7 @@ describe("backup", () => {
 
     it("should handle config backup failure without stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
@@ -306,7 +321,7 @@ describe("backup", () => {
 
     it("should handle config backup exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
@@ -318,7 +333,7 @@ describe("backup", () => {
 
     it("should complete full backup successfully", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" }) // version
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // pg_dump
@@ -339,7 +354,7 @@ describe("backup", () => {
 
     it("should handle SCP db download failure with stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
@@ -352,7 +367,7 @@ describe("backup", () => {
 
     it("should handle SCP db download failure without stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
@@ -365,7 +380,7 @@ describe("backup", () => {
 
     it("should handle SCP config download failure with stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
@@ -380,7 +395,7 @@ describe("backup", () => {
 
     it("should handle SCP config download failure without stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
@@ -395,7 +410,7 @@ describe("backup", () => {
 
     it("should handle SCP download exception via error event", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
@@ -414,12 +429,12 @@ describe("backup", () => {
 
     it("should handle SCP download exception via synchronous throw", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
-      // spawn throws synchronously → Promise rejects → catch block triggered
+      // spawn throws synchronously
       mockedSpawn.mockImplementationOnce(() => {
         throw new Error("ENOMEM");
       });
@@ -430,7 +445,7 @@ describe("backup", () => {
 
     it("should handle version check failure gracefully", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "" }) // version fails
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // pg_dump
@@ -444,6 +459,118 @@ describe("backup", () => {
 
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("unknown");
+    });
+  });
+
+  // ---- --all mode tests ----
+
+  describe("backupCommand --all mode", () => {
+    it("should show error when SSH not available", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(false);
+
+      await backupCommand(undefined, { all: true });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("SSH client not found");
+    });
+
+    it("should show info when no servers exist", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.getServers.mockReturnValue([]);
+
+      await backupCommand(undefined, { all: true });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("No servers found");
+    });
+
+    it("should backup all servers sequentially", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.getServers.mockReturnValue([sampleServer, sampleServer2]);
+
+      // Each server: version + pg_dump + config tar + cleanup = 4 sshExec calls
+      mockedSsh.sshExec
+        // Server 1
+        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
+        // Server 2
+        .mockResolvedValueOnce({ code: 0, stdout: "4.1.0", stderr: "" })
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
+
+      // SCP downloads for both servers
+      mockedSpawn
+        .mockReturnValueOnce(createMockProcess(0)) // s1 db
+        .mockReturnValueOnce(createMockProcess(0)) // s1 config
+        .mockReturnValueOnce(createMockProcess(0)) // s2 db
+        .mockReturnValueOnce(createMockProcess(0)); // s2 config
+
+      await backupCommand(undefined, { all: true });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("All 2 server(s) backed up successfully");
+      expect(mockedWriteFileSync).toHaveBeenCalledTimes(2); // manifest per server
+    });
+
+    it("should report mixed results when some servers fail", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.getServers.mockReturnValue([sampleServer, sampleServer2]);
+
+      mockedSsh.sshExec
+        // Server 1: success
+        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
+        // Server 2: db backup fails
+        .mockResolvedValueOnce({ code: 0, stdout: "4.1.0", stderr: "" })
+        .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "pg_dump error" });
+
+      // SCP downloads for server 1 only
+      mockedSpawn
+        .mockReturnValueOnce(createMockProcess(0))
+        .mockReturnValueOnce(createMockProcess(0));
+
+      await backupCommand(undefined, { all: true });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("1 succeeded");
+      expect(output).toContain("1 failed");
+    });
+
+    it("should pass dryRun flag to each server backup", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+
+      await backupCommand(undefined, { all: true, dryRun: true });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      // In --all dry-run, backupSingleServer logs dry-run message per server
+      expect(output).toContain("Dry run");
+      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+    });
+
+    it("should handle single server backup in --all", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+
+      mockedSsh.sshExec
+        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
+
+      mockedSpawn
+        .mockReturnValueOnce(createMockProcess(0))
+        .mockReturnValueOnce(createMockProcess(0));
+
+      await backupCommand(undefined, { all: true });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("All 1 server(s) backed up successfully");
     });
   });
 });

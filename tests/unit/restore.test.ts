@@ -106,9 +106,9 @@ describe("restore", () => {
   });
 
   describe("buildStartDbCommand", () => {
-    it("should start only coolify-db", () => {
+    it("should start only postgres service", () => {
       const cmd = buildStartDbCommand();
-      expect(cmd).toContain("up -d coolify-db");
+      expect(cmd).toContain("up -d postgres");
       expect(cmd).toContain("sleep 3");
     });
   });
@@ -204,7 +204,7 @@ describe("restore", () => {
 
     it("should return when no server found", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(undefined);
+      mockedConfig.findServers.mockReturnValue([]);
       await restoreCommand("nonexistent");
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("Server not found");
@@ -212,7 +212,7 @@ describe("restore", () => {
 
     it("should show info when no backups exist", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedBackup.listBackups.mockReturnValue([]);
 
       await restoreCommand("1.2.3.4");
@@ -223,7 +223,7 @@ describe("restore", () => {
 
     it("should show error for invalid manifest", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(false);
 
       await restoreCommand("1.2.3.4", { backup: "bad-backup" });
@@ -234,7 +234,7 @@ describe("restore", () => {
 
     it("should show error for missing backup file", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockImplementation((p) => {
         const path = String(p);
         if (path.includes("manifest.json")) return true;
@@ -251,7 +251,7 @@ describe("restore", () => {
 
     it("should show dry-run output", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
 
@@ -265,7 +265,7 @@ describe("restore", () => {
 
     it("should cancel when first confirm is false", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: false }) as any;
@@ -278,7 +278,7 @@ describe("restore", () => {
 
     it("should cancel when name does not match", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -294,7 +294,7 @@ describe("restore", () => {
 
     it("should select backup from prompt when not specified", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedBackup.listBackups.mockReturnValue(["2026-02-21_15-30-45-123"]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
@@ -311,7 +311,7 @@ describe("restore", () => {
 
     it("should handle SCP upload failure", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -328,7 +328,7 @@ describe("restore", () => {
 
     it("should handle SCP config upload failure with stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -345,7 +345,7 @@ describe("restore", () => {
 
     it("should handle SCP config upload failure without stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -362,7 +362,7 @@ describe("restore", () => {
 
     it("should handle stop Coolify failure", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -380,7 +380,7 @@ describe("restore", () => {
 
     it("should complete full restore successfully", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -409,7 +409,7 @@ describe("restore", () => {
 
     it("should handle db start failure with stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -429,7 +429,7 @@ describe("restore", () => {
 
     it("should handle db start failure without stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -449,7 +449,7 @@ describe("restore", () => {
 
     it("should handle db restore failure with stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -470,7 +470,7 @@ describe("restore", () => {
 
     it("should handle db restore failure without stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -491,7 +491,7 @@ describe("restore", () => {
 
     it("should handle config restore failure with stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -513,7 +513,7 @@ describe("restore", () => {
 
     it("should handle config restore failure without stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -535,7 +535,7 @@ describe("restore", () => {
 
     it("should handle start Coolify failure with stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -558,7 +558,7 @@ describe("restore", () => {
 
     it("should handle start Coolify failure without stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -581,7 +581,7 @@ describe("restore", () => {
 
     it("should handle SCP upload exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -599,7 +599,7 @@ describe("restore", () => {
 
     it("should handle stop exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -617,7 +617,7 @@ describe("restore", () => {
 
     it("should handle db start exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -637,7 +637,7 @@ describe("restore", () => {
 
     it("should handle db restore exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -658,7 +658,7 @@ describe("restore", () => {
 
     it("should handle config restore exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -680,7 +680,7 @@ describe("restore", () => {
 
     it("should handle start Coolify exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -703,7 +703,7 @@ describe("restore", () => {
 
     it("should handle SCP db upload failure without stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest
@@ -718,7 +718,7 @@ describe("restore", () => {
 
     it("should handle stop failure without stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
       mockedInquirer.prompt = jest

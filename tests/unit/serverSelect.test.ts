@@ -1,6 +1,11 @@
 import inquirer from "inquirer";
 import * as config from "../../src/utils/config";
-import { selectServer, resolveServer, promptApiToken } from "../../src/utils/serverSelect";
+import {
+  selectServer,
+  resolveServer,
+  promptApiToken,
+  collectProviderTokens,
+} from "../../src/utils/serverSelect";
 import type { ServerRecord } from "../../src/types/index";
 
 jest.mock("../../src/utils/config");
@@ -66,15 +71,25 @@ describe("serverSelect", () => {
 
   describe("resolveServer", () => {
     it("should find server by query", async () => {
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       const result = await resolveServer("1.2.3.4");
       expect(result).toEqual(sampleServer);
     });
 
     it("should return undefined when query not found", async () => {
-      mockedConfig.findServer.mockReturnValue(undefined);
+      mockedConfig.findServers.mockReturnValue([]);
       const result = await resolveServer("nonexistent");
       expect(result).toBeUndefined();
+    });
+
+    it("should prompt when multiple servers match query", async () => {
+      const server2: ServerRecord = { ...sampleServer, id: "456", ip: "5.6.7.8" };
+      mockedConfig.findServers.mockReturnValue([sampleServer, server2]);
+      mockedInquirer.prompt.mockResolvedValueOnce({ serverId: "456" });
+
+      const result = await resolveServer("coolify-test");
+      expect(result).toEqual(server2);
+      expect(mockedInquirer.prompt).toHaveBeenCalledTimes(1);
     });
 
     it("should fall back to selectServer when no query", async () => {
@@ -120,12 +135,157 @@ describe("serverSelect", () => {
       expect(mockedInquirer.prompt).not.toHaveBeenCalled();
     });
 
+    it("should use VULTR_TOKEN env var", async () => {
+      process.env.VULTR_TOKEN = "vultr-token";
+      const token = await promptApiToken("vultr");
+      expect(token).toBe("vultr-token");
+      expect(mockedInquirer.prompt).not.toHaveBeenCalled();
+    });
+
+    it("should use LINODE_TOKEN env var", async () => {
+      process.env.LINODE_TOKEN = "linode-token";
+      const token = await promptApiToken("linode");
+      expect(token).toBe("linode-token");
+      expect(mockedInquirer.prompt).not.toHaveBeenCalled();
+    });
+
     it("should prompt when env var not set", async () => {
       delete process.env.HETZNER_TOKEN;
       mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "  user-token  " });
 
       const token = await promptApiToken("hetzner");
       expect(token).toBe("user-token");
+    });
+
+    it("should prompt for unknown provider (no env key mapping)", async () => {
+      mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "manual-token" });
+
+      const token = await promptApiToken("unknown-provider");
+      expect(token).toBe("manual-token");
+      expect(mockedInquirer.prompt).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("collectProviderTokens", () => {
+    const originalEnv = process.env;
+
+    beforeEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    afterEach(() => {
+      process.env = originalEnv;
+    });
+
+    it("should return empty map for empty server list", async () => {
+      const result = await collectProviderTokens([]);
+      expect(result).toBeInstanceOf(Map);
+      expect(result.size).toBe(0);
+    });
+
+    it("should collect token for a single provider", async () => {
+      process.env.HETZNER_TOKEN = "h-token";
+
+      const result = await collectProviderTokens([sampleServer]);
+
+      expect(result.size).toBe(1);
+      expect(result.get("hetzner")).toBe("h-token");
+    });
+
+    it("should collect tokens for multiple unique providers", async () => {
+      process.env.HETZNER_TOKEN = "h-token";
+      process.env.DIGITALOCEAN_TOKEN = "do-token";
+
+      const doServer: ServerRecord = {
+        id: "456",
+        name: "coolify-prod",
+        provider: "digitalocean",
+        ip: "5.6.7.8",
+        region: "nyc1",
+        size: "s-2vcpu-4gb",
+        createdAt: "2026-02-21T00:00:00Z",
+      };
+
+      const result = await collectProviderTokens([sampleServer, doServer]);
+
+      expect(result.size).toBe(2);
+      expect(result.get("hetzner")).toBe("h-token");
+      expect(result.get("digitalocean")).toBe("do-token");
+    });
+
+    it("should ask for token only once per provider", async () => {
+      process.env.HETZNER_TOKEN = "h-token";
+
+      const server2: ServerRecord = {
+        ...sampleServer,
+        id: "789",
+        name: "coolify-staging",
+      };
+
+      const result = await collectProviderTokens([sampleServer, server2]);
+
+      // Both servers are hetzner, so only one token in the map
+      expect(result.size).toBe(1);
+      expect(result.get("hetzner")).toBe("h-token");
+      // promptApiToken should only be called once (env var used, no inquirer prompt)
+      expect(mockedInquirer.prompt).not.toHaveBeenCalled();
+    });
+
+    it("should prompt for token when env var not set", async () => {
+      delete process.env.HETZNER_TOKEN;
+      mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "prompted-token" });
+
+      const result = await collectProviderTokens([sampleServer]);
+
+      expect(result.size).toBe(1);
+      expect(result.get("hetzner")).toBe("prompted-token");
+      expect(mockedInquirer.prompt).toHaveBeenCalledTimes(1);
+    });
+
+    it("should deduplicate providers across many servers", async () => {
+      process.env.HETZNER_TOKEN = "h-token";
+      process.env.DIGITALOCEAN_TOKEN = "do-token";
+
+      const servers: ServerRecord[] = [
+        sampleServer,
+        { ...sampleServer, id: "2", name: "s2" },
+        {
+          ...sampleServer,
+          id: "3",
+          name: "s3",
+          provider: "digitalocean",
+        },
+        {
+          ...sampleServer,
+          id: "4",
+          name: "s4",
+          provider: "digitalocean",
+        },
+        { ...sampleServer, id: "5", name: "s5" },
+      ];
+
+      const result = await collectProviderTokens(servers);
+
+      // 5 servers but only 2 unique providers
+      expect(result.size).toBe(2);
+      expect(result.get("hetzner")).toBe("h-token");
+      expect(result.get("digitalocean")).toBe("do-token");
+    });
+
+    it("should skip manual servers when collecting tokens", async () => {
+      process.env.HETZNER_TOKEN = "h-token";
+
+      const manualServer: ServerRecord = {
+        ...sampleServer,
+        id: "manual-123",
+        name: "manual-test",
+      };
+
+      const result = await collectProviderTokens([sampleServer, manualServer]);
+
+      // Only 1 token (hetzner), manual server skipped
+      expect(result.size).toBe(1);
+      expect(result.get("hetzner")).toBe("h-token");
     });
   });
 });

@@ -2,15 +2,22 @@ import inquirer from "inquirer";
 import axios from "axios";
 import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
+import * as serverSelect from "../../src/utils/serverSelect";
+import * as providerFactory from "../../src/utils/providerFactory";
 import { updateCommand } from "../../src/commands/update";
+import type { CloudProvider } from "../../src/providers/base";
 
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");
+jest.mock("../../src/utils/serverSelect");
+jest.mock("../../src/utils/providerFactory");
 
 const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
+const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
+const mockedProviderFactory = providerFactory as jest.Mocked<typeof providerFactory>;
 
 const sampleServer = {
   id: "123",
@@ -20,6 +27,32 @@ const sampleServer = {
   region: "nbg1",
   size: "cax11",
   createdAt: "2026-01-01T00:00:00.000Z",
+};
+
+const sampleServer2 = {
+  id: "456",
+  name: "coolify-prod",
+  provider: "digitalocean",
+  ip: "5.6.7.8",
+  region: "nyc1",
+  size: "s-2vcpu-4gb",
+  createdAt: "2026-02-21T00:00:00Z",
+};
+
+const mockProvider: CloudProvider = {
+  name: "hetzner",
+  displayName: "Hetzner Cloud",
+  validateToken: jest.fn().mockResolvedValue(true),
+  getRegions: jest.fn().mockReturnValue([]),
+  getServerSizes: jest.fn().mockReturnValue([]),
+  getAvailableLocations: jest.fn().mockResolvedValue([]),
+  getAvailableServerTypes: jest.fn().mockResolvedValue([]),
+  uploadSshKey: jest.fn(),
+  createServer: jest.fn(),
+  getServerStatus: jest.fn(),
+  getServerDetails: jest.fn(),
+  destroyServer: jest.fn(),
+  rebootServer: jest.fn(),
 };
 
 describe("updateCommand", () => {
@@ -37,6 +70,8 @@ describe("updateCommand", () => {
     consoleErrorSpy.mockRestore();
   });
 
+  // ---- Existing single-server tests (adapted for module mocks) ----
+
   it("should show error when SSH not available", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(false);
     await updateCommand();
@@ -46,15 +81,17 @@ describe("updateCommand", () => {
 
   it("should return when no server found", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(undefined);
+    mockedServerSelect.resolveServer.mockResolvedValue(undefined);
     await updateCommand("nonexistent");
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("Server not found");
+    expect(mockedServerSelect.resolveServer).toHaveBeenCalledWith(
+      "nonexistent",
+      "Select a server to update:",
+    );
   });
 
   it("should cancel when user declines", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
     mockedInquirer.prompt.mockResolvedValueOnce({ confirm: false });
 
     await updateCommand("1.2.3.4");
@@ -64,29 +101,23 @@ describe("updateCommand", () => {
 
   it("should fail when server not running", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
-    mockedInquirer.prompt
-      .mockResolvedValueOnce({ confirm: true })
-      .mockResolvedValueOnce({ apiToken: "test-token" });
-
-    // getServerStatus returns "off" (no validateToken call in updateCommand)
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "off" } } });
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+    (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("off");
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
 
     await updateCommand("1.2.3.4");
-    // spinner.fail output is not in console.log (ora mock)
-    // verify sshExec was NOT called (early return)
     expect(mockedSsh.sshExec).not.toHaveBeenCalled();
   });
 
   it("should update successfully", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
-    mockedInquirer.prompt
-      .mockResolvedValueOnce({ confirm: true })
-      .mockResolvedValueOnce({ apiToken: "test-token" });
-
-    // getServerStatus returns "running"
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+    (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
 
     mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "Coolify updated", stderr: "" });
 
@@ -97,13 +128,11 @@ describe("updateCommand", () => {
 
   it("should handle update failure", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
-    mockedInquirer.prompt
-      .mockResolvedValueOnce({ confirm: true })
-      .mockResolvedValueOnce({ apiToken: "test-token" });
-
-    // getServerStatus returns "running"
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+    (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
 
     mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "connection refused" });
 
@@ -114,18 +143,142 @@ describe("updateCommand", () => {
 
   it("should handle verify server error", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
-    mockedInquirer.prompt
-      .mockResolvedValueOnce({ confirm: true })
-      .mockResolvedValueOnce({ apiToken: "bad-token" });
-
-    // getServerStatus throws
-    mockedAxios.get.mockRejectedValueOnce(new Error("Unauthorized"));
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedServerSelect.promptApiToken.mockResolvedValue("bad-token");
+    (mockProvider.getServerStatus as jest.Mock).mockRejectedValue(new Error("Unauthorized"));
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
 
     await updateCommand("1.2.3.4");
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    // Error comes from provider.getServerStatus wrapper
     expect(output).toContain("Unauthorized");
     expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+  });
+
+  // ---- --all mode tests ----
+
+  describe("--all mode", () => {
+    it("should show error when SSH not available", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(false);
+
+      await updateCommand(undefined, { all: true });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("SSH client not found");
+    });
+
+    it("should show info when no servers exist", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.getServers.mockReturnValue([]);
+
+      await updateCommand(undefined, { all: true });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("No servers found");
+    });
+
+    it("should cancel when user declines confirmation", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+      mockedInquirer.prompt.mockResolvedValueOnce({ confirm: false });
+
+      await updateCommand(undefined, { all: true });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Update cancelled");
+      expect(mockedServerSelect.collectProviderTokens).not.toHaveBeenCalled();
+    });
+
+    it("should update all servers sequentially on confirm", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.getServers.mockReturnValue([sampleServer, sampleServer2]);
+      mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+      mockedServerSelect.collectProviderTokens.mockResolvedValue(
+        new Map([
+          ["hetzner", "h-token"],
+          ["digitalocean", "do-token"],
+        ]),
+      );
+      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+      mockedSsh.sshExec.mockResolvedValue({
+        code: 0,
+        stdout: "Updated",
+        stderr: "",
+      });
+
+      await updateCommand(undefined, { all: true });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      // sshExec called once per server
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(2);
+      expect(output).toContain("All 2 server(s) updated successfully");
+    });
+
+    it("should report mixed results when some servers fail", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.getServers.mockReturnValue([sampleServer, sampleServer2]);
+      mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+      mockedServerSelect.collectProviderTokens.mockResolvedValue(
+        new Map([
+          ["hetzner", "h-token"],
+          ["digitalocean", "do-token"],
+        ]),
+      );
+
+      // First server: running, update succeeds
+      const successProvider: CloudProvider = {
+        ...mockProvider,
+        getServerStatus: jest.fn().mockResolvedValue("running"),
+      };
+      // Second server: running but update fails
+      const failProvider: CloudProvider = {
+        ...mockProvider,
+        getServerStatus: jest.fn().mockResolvedValue("running"),
+      };
+
+      mockedProviderFactory.createProviderWithToken
+        .mockReturnValueOnce(successProvider)
+        .mockReturnValueOnce(failProvider);
+
+      mockedSsh.sshExec
+        .mockResolvedValueOnce({ code: 0, stdout: "OK", stderr: "" })
+        .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "fail" });
+
+      await updateCommand(undefined, { all: true });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("1 succeeded");
+      expect(output).toContain("1 failed");
+    });
+
+    it("should skip servers that are not running", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+      mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+      mockedServerSelect.collectProviderTokens.mockResolvedValue(new Map([["hetzner", "h-token"]]));
+      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("off");
+      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+
+      await updateCommand(undefined, { all: true });
+
+      // sshExec should NOT be called because server is "off"
+      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+    });
+
+    it("should handle server verification error in --all", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+      mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+      mockedServerSelect.collectProviderTokens.mockResolvedValue(new Map([["hetzner", "h-token"]]));
+      (mockProvider.getServerStatus as jest.Mock).mockRejectedValue(new Error("API down"));
+      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+
+      await updateCommand(undefined, { all: true });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("API down");
+      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+    });
   });
 });

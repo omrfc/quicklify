@@ -2,6 +2,54 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0] - 2026-02-23
+
+### Added
+- **Vultr provider** (`src/providers/vultr.ts`) - Full Vultr API v2 integration
+  - Base64-encoded user_data for cloud-init
+  - SSH key upload with HTTP 409 conflict handling
+  - OS: Ubuntu 24.04 (os_id: 2284)
+  - Power status normalization (running/stopped)
+- **Linode (Akamai) provider** (`src/providers/linode.ts`) - Full Linode API v4 integration
+  - Auto-generated root_pass via `crypto.randomBytes()`
+  - SSH key upload via `/profile/sshkeys`
+  - Metadata user_data for cloud-init (base64)
+  - Disk size conversion (MB → GB)
+- **`quicklify add`** command - Register existing Coolify servers to Quicklify management
+  - Interactive flow: provider → token → IP → verify Coolify → save
+  - Non-interactive: `--provider`, `--ip`, `--name`, `--skip-verify` flags
+  - Coolify verification via SSH (health check or `docker ps`)
+  - Duplicate detection by IP address
+- **`quicklify maintain [query]`** command - Full maintenance cycle
+  - 6-step flow: snapshot warning → status check → Coolify update → health check → reboot → final check
+  - `--skip-reboot` to skip the reboot step
+  - `--all` to maintain all servers sequentially
+  - `--dry-run` to preview maintenance steps
+- **`quicklify remove [query]`** command - Remove a server from local config without destroying the cloud server
+  - Accepts server name or IP address
+  - Confirmation prompt before removal
+- **`--all` flag** on `status`, `update`, `backup` commands
+  - `status --all`: parallel status check with table output (Promise.all)
+  - `update --all`: sequential update with single confirmation prompt
+  - `backup --all`: sequential backup across all servers
+- **`status --autostart`** flag - Restarts Coolify via SSH if server is running but Coolify is down
+  - Uses `docker compose restart coolify` command
+  - Waits 5 seconds and verifies Coolify came back up
+- **`collectProviderTokens()`** utility - Deduplicates token prompts per unique provider across servers
+- `VULTR_TOKEN` and `LINODE_TOKEN` environment variable support
+- Vultr and Linode defaults in all 3 templates (starter, production, dev)
+- `"vultr"` and `"linode"` in YAML config validation
+- 195 new tests across 6 new test files + enhanced existing test files
+
+### Changed
+- Provider selection now shows 4 choices: Hetzner Cloud, DigitalOcean, Vultr, Linode (Akamai)
+- Provider factory supports `"vultr"` and `"linode"` cases
+- Total commands: 19 → 23 (add, maintain, remove + maintain --all)
+- Test count: 742 → 937
+- Test suites: 40 → 44
+- Coverage: 98%+ statements, 91%+ branches, 98%+ functions
+- Zero new npm dependencies added
+
 ## [0.9.0] - 2026-02-21
 
 ### Added

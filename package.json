@@ -1,6 +1,6 @@
 {
   "name": "quicklify",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "description": "Automate Coolify deployment on cloud providers",
   "type": "module",
   "main": "dist/index.js",
@@ -31,6 +31,8 @@
     "deployment",
     "hetzner",
     "digitalocean",
+    "vultr",
+    "linode",
     "droplet",
     "cli",
     "vps",

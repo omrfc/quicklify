@@ -32,6 +32,8 @@ describe("templates", () => {
       expect(t.fullSetup).toBe(false);
       expect(t.defaults.hetzner).toEqual({ region: "nbg1", size: "cax11" });
       expect(t.defaults.digitalocean).toEqual({ region: "fra1", size: "s-2vcpu-2gb" });
+      expect(t.defaults.vultr).toEqual({ region: "ewr", size: "vc2-1c-2gb" });
+      expect(t.defaults.linode).toEqual({ region: "us-east", size: "g6-standard-2" });
     });
 
     it("production template should have correct properties", () => {
@@ -41,6 +43,8 @@ describe("templates", () => {
       expect(t.fullSetup).toBe(true);
       expect(t.defaults.hetzner).toEqual({ region: "nbg1", size: "cx33" });
       expect(t.defaults.digitalocean).toEqual({ region: "fra1", size: "s-2vcpu-4gb" });
+      expect(t.defaults.vultr).toEqual({ region: "ewr", size: "vc2-2c-4gb" });
+      expect(t.defaults.linode).toEqual({ region: "us-east", size: "g6-standard-4" });
     });
 
     it("dev template should have correct properties", () => {
@@ -50,16 +54,24 @@ describe("templates", () => {
       expect(t.fullSetup).toBe(false);
       expect(t.defaults.hetzner).toEqual({ region: "nbg1", size: "cax11" });
       expect(t.defaults.digitalocean).toEqual({ region: "fra1", size: "s-2vcpu-2gb" });
+      expect(t.defaults.vultr).toEqual({ region: "ewr", size: "vc2-1c-2gb" });
+      expect(t.defaults.linode).toEqual({ region: "us-east", size: "g6-standard-2" });
     });
 
-    it("each template should have defaults for both providers", () => {
+    it("each template should have defaults for all providers", () => {
       for (const name of VALID_TEMPLATE_NAMES) {
         expect(TEMPLATES[name].defaults.hetzner).toBeDefined();
         expect(TEMPLATES[name].defaults.digitalocean).toBeDefined();
+        expect(TEMPLATES[name].defaults.vultr).toBeDefined();
+        expect(TEMPLATES[name].defaults.linode).toBeDefined();
         expect(TEMPLATES[name].defaults.hetzner.region).toBeTruthy();
         expect(TEMPLATES[name].defaults.hetzner.size).toBeTruthy();
         expect(TEMPLATES[name].defaults.digitalocean.region).toBeTruthy();
         expect(TEMPLATES[name].defaults.digitalocean.size).toBeTruthy();
+        expect(TEMPLATES[name].defaults.vultr.region).toBeTruthy();
+        expect(TEMPLATES[name].defaults.vultr.size).toBeTruthy();
+        expect(TEMPLATES[name].defaults.linode.region).toBeTruthy();
+        expect(TEMPLATES[name].defaults.linode.size).toBeTruthy();
       }
     });
   });
@@ -110,6 +122,36 @@ describe("templates", () => {
 
     it("should return undefined for unknown template", () => {
       expect(getTemplateDefaults("unknown", "hetzner")).toBeUndefined();
+    });
+
+    it("should return vultr defaults for starter", () => {
+      const d = getTemplateDefaults("starter", "vultr");
+      expect(d).toEqual({ region: "ewr", size: "vc2-1c-2gb" });
+    });
+
+    it("should return vultr defaults for production", () => {
+      const d = getTemplateDefaults("production", "vultr");
+      expect(d).toEqual({ region: "ewr", size: "vc2-2c-4gb" });
+    });
+
+    it("should return vultr defaults for dev", () => {
+      const d = getTemplateDefaults("dev", "vultr");
+      expect(d).toEqual({ region: "ewr", size: "vc2-1c-2gb" });
+    });
+
+    it("should return linode defaults for starter", () => {
+      const d = getTemplateDefaults("starter", "linode");
+      expect(d).toEqual({ region: "us-east", size: "g6-standard-2" });
+    });
+
+    it("should return linode defaults for production", () => {
+      const d = getTemplateDefaults("production", "linode");
+      expect(d).toEqual({ region: "us-east", size: "g6-standard-4" });
+    });
+
+    it("should return linode defaults for dev", () => {
+      const d = getTemplateDefaults("dev", "linode");
+      expect(d).toEqual({ region: "us-east", size: "g6-standard-2" });
     });
 
     it("should return undefined for unknown provider in valid template", () => {

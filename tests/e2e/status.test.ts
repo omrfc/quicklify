@@ -32,7 +32,7 @@ describe("statusCommand E2E", () => {
   });
 
   it("should show Coolify running status with access URL", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "test-token" });
 
     mockedAxios.get
@@ -47,7 +47,7 @@ describe("statusCommand E2E", () => {
   });
 
   it("should show warning when Coolify is not reachable", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "test-token" });
 
     mockedAxios.get
@@ -63,7 +63,7 @@ describe("statusCommand E2E", () => {
 
   it("should work with DigitalOcean provider", async () => {
     const doServer = { ...sampleServer, provider: "digitalocean", id: "555", ip: "10.20.30.40" };
-    mockedConfig.findServer.mockReturnValue(doServer);
+    mockedConfig.findServers.mockReturnValue([doServer]);
     mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "do-token" });
 
     mockedAxios.get
@@ -78,7 +78,7 @@ describe("statusCommand E2E", () => {
   });
 
   it("should show server details (name, region, size)", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "test-token" });
 
     mockedAxios.get
@@ -97,7 +97,7 @@ describe("statusCommand E2E", () => {
   });
 
   it("should pass validateStatus that always returns true", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "test-token" });
 
     mockedAxios.get
@@ -114,7 +114,7 @@ describe("statusCommand E2E", () => {
   });
 
   it("should handle Error exception in outer catch", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "test-token" });
 
     // getServerStatus rejects with Error → provider re-throws as Error
@@ -127,7 +127,7 @@ describe("statusCommand E2E", () => {
   });
 
   it("should handle non-Error exception in outer catch", async () => {
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "test-token" });
 
     // getServerStatus rejects with non-Error value

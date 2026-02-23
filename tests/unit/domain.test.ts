@@ -185,7 +185,7 @@ describe("domain", () => {
 
     it("should return when no server found", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(undefined);
+      mockedConfig.findServers.mockReturnValue([]);
       await domainCommand("list", "nonexistent");
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("Server not found");
@@ -194,7 +194,7 @@ describe("domain", () => {
     // add subcommand
     it("should error on missing domain for add", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       await domainCommand("add", "1.2.3.4", {});
 
@@ -204,7 +204,7 @@ describe("domain", () => {
 
     it("should error on invalid domain", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       await domainCommand("add", "1.2.3.4", { domain: "-invalid" });
 
@@ -214,7 +214,7 @@ describe("domain", () => {
 
     it("should add domain successfully", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "coolify-db", stderr: "" }) // container check
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }); // psql update + restart
@@ -227,7 +227,7 @@ describe("domain", () => {
 
     it("should error when Coolify DB container not found", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
 
       await domainCommand("add", "1.2.3.4", { domain: "example.com" });
@@ -238,7 +238,7 @@ describe("domain", () => {
 
     it("should show dry-run for add", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       await domainCommand("add", "1.2.3.4", { domain: "example.com", dryRun: true });
 
@@ -249,7 +249,7 @@ describe("domain", () => {
 
     it("should handle add failure", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "coolify-db", stderr: "" })
         .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "error" });
@@ -260,7 +260,7 @@ describe("domain", () => {
 
     it("should handle add exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "coolify-db", stderr: "" })
         .mockRejectedValueOnce(new Error("fail"));
@@ -271,7 +271,7 @@ describe("domain", () => {
 
     it("should sanitize domain before adding", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "coolify-db", stderr: "" })
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
@@ -284,7 +284,7 @@ describe("domain", () => {
 
     it("should add domain with SSL disabled", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "coolify-db", stderr: "" })
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
@@ -298,7 +298,7 @@ describe("domain", () => {
     // remove subcommand
     it("should remove domain successfully", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
 
       await domainCommand("remove", "1.2.3.4");
@@ -309,7 +309,7 @@ describe("domain", () => {
 
     it("should show dry-run for remove", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       await domainCommand("remove", "1.2.3.4", { dryRun: true });
 
@@ -319,7 +319,7 @@ describe("domain", () => {
 
     it("should handle remove failure", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "error" });
 
       await domainCommand("remove", "1.2.3.4");
@@ -328,7 +328,7 @@ describe("domain", () => {
 
     it("should handle remove exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockRejectedValue(new Error("fail"));
 
       await domainCommand("remove", "1.2.3.4");
@@ -338,7 +338,7 @@ describe("domain", () => {
     // check subcommand
     it("should error on missing domain for check", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       await domainCommand("check", "1.2.3.4", {});
 
@@ -348,7 +348,7 @@ describe("domain", () => {
 
     it("should error on invalid domain for check", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       await domainCommand("check", "1.2.3.4", { domain: "not valid" });
 
@@ -358,7 +358,7 @@ describe("domain", () => {
 
     it("should show DNS match", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "1.2.3.4\n", stderr: "" });
 
       await domainCommand("check", "1.2.3.4", { domain: "example.com" });
@@ -368,7 +368,7 @@ describe("domain", () => {
 
     it("should show DNS mismatch", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "5.6.7.8\n", stderr: "" });
 
       await domainCommand("check", "1.2.3.4", { domain: "example.com" });
@@ -378,7 +378,7 @@ describe("domain", () => {
 
     it("should show no DNS record", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
 
       await domainCommand("check", "1.2.3.4", { domain: "example.com" });
@@ -388,7 +388,7 @@ describe("domain", () => {
 
     it("should handle check exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockRejectedValue(new Error("fail"));
 
       await domainCommand("check", "1.2.3.4", { domain: "example.com" });
@@ -398,7 +398,7 @@ describe("domain", () => {
     // list subcommand
     it("should list current domain from psql", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({
         code: 0,
         stdout: " https://example.com\n",
@@ -413,7 +413,7 @@ describe("domain", () => {
 
     it("should show default when no domain set", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({
         code: 0,
         stdout: "  \n",
@@ -428,7 +428,7 @@ describe("domain", () => {
 
     it("should handle list failure", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "error" });
 
       await domainCommand("list", "1.2.3.4");
@@ -437,7 +437,7 @@ describe("domain", () => {
 
     it("should handle list exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockRejectedValue(new Error("fail"));
 
       await domainCommand("list", "1.2.3.4");
@@ -446,7 +446,7 @@ describe("domain", () => {
 
     it("should default to list subcommand", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({
         code: 0,
         stdout: " https://example.com\n",

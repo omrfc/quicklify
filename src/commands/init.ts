@@ -73,8 +73,10 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
 
   // Step 1: Select cloud provider
   if (options.provider) {
-    if (!["hetzner", "digitalocean"].includes(options.provider)) {
-      logger.error(`Invalid provider: ${options.provider}. Use "hetzner" or "digitalocean".`);
+    if (!["hetzner", "digitalocean", "vultr", "linode"].includes(options.provider)) {
+      logger.error(
+        `Invalid provider: ${options.provider}. Use "hetzner", "digitalocean", "vultr", or "linode".`,
+      );
       process.exit(1);
       return;
     }
@@ -105,6 +107,10 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     apiToken = process.env.HETZNER_TOKEN;
   } else if (providerChoice === "digitalocean" && process.env.DIGITALOCEAN_TOKEN) {
     apiToken = process.env.DIGITALOCEAN_TOKEN;
+  } else if (providerChoice === "vultr" && process.env.VULTR_TOKEN) {
+    apiToken = process.env.VULTR_TOKEN;
+  } else if (providerChoice === "linode" && process.env.LINODE_TOKEN) {
+    apiToken = process.env.LINODE_TOKEN;
   } else {
     const config = await getDeploymentConfig(provider);
     apiToken = config.apiToken;
@@ -373,10 +379,18 @@ async function deployServer(
 
     statusSpinner.succeed("Server is running");
 
-    // Refresh server details to get final IP (DO assigns IP after boot)
-    if (server.ip === "pending") {
-      const details = await providerWithToken.getServerDetails(server.id);
-      server.ip = details.ip;
+    // Refresh server details to get final IP (DO/Vultr assign IP after boot)
+    if (server.ip === "pending" || server.ip === "0.0.0.0") {
+      let refreshAttempts = 0;
+      while (refreshAttempts < 10) {
+        const details = await providerWithToken.getServerDetails(server.id);
+        if (details.ip && details.ip !== "0.0.0.0" && details.ip !== "pending") {
+          server.ip = details.ip;
+          break;
+        }
+        refreshAttempts++;
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
     }
 
     // Health check polling instead of blind wait
@@ -459,7 +473,9 @@ async function deployServer(
 
     logger.info("Server saved to local config. Use 'quicklify list' to see all servers.");
     console.log();
-    console.log("  \u2b50 Love Quicklify? Give us a star: https://github.com/omrfc/quicklify \u2b50");
+    console.log(
+      "  \u2b50 Love Quicklify? Give us a star: https://github.com/omrfc/quicklify \u2b50",
+    );
     console.log();
   } catch (error: unknown) {
     logger.error(`Deployment failed: ${error instanceof Error ? error.message : String(error)}`);

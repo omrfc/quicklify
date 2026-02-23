@@ -7,6 +7,8 @@ export const TEMPLATES: Record<TemplateName, TemplateDefinition> = {
     defaults: {
       hetzner: { region: "nbg1", size: "cax11" },
       digitalocean: { region: "fra1", size: "s-2vcpu-2gb" },
+      vultr: { region: "ewr", size: "vc2-1c-2gb" },
+      linode: { region: "us-east", size: "g6-standard-2" },
     },
     fullSetup: false,
   },
@@ -16,6 +18,8 @@ export const TEMPLATES: Record<TemplateName, TemplateDefinition> = {
     defaults: {
       hetzner: { region: "nbg1", size: "cx33" },
       digitalocean: { region: "fra1", size: "s-2vcpu-4gb" },
+      vultr: { region: "ewr", size: "vc2-2c-4gb" },
+      linode: { region: "us-east", size: "g6-standard-4" },
     },
     fullSetup: true,
   },
@@ -25,6 +29,8 @@ export const TEMPLATES: Record<TemplateName, TemplateDefinition> = {
     defaults: {
       hetzner: { region: "nbg1", size: "cax11" },
       digitalocean: { region: "fra1", size: "s-2vcpu-2gb" },
+      vultr: { region: "ewr", size: "vc2-1c-2gb" },
+      linode: { region: "us-east", size: "g6-standard-2" },
     },
     fullSetup: false,
   },

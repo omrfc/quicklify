@@ -13,6 +13,8 @@ export async function getProviderConfig(): Promise<{ provider: string }> {
       choices: [
         { name: "Hetzner Cloud", value: "hetzner" },
         { name: "DigitalOcean", value: "digitalocean" },
+        { name: "Vultr", value: "vultr" },
+        { name: "Linode (Akamai)", value: "linode" },
       ],
     },
   ]);

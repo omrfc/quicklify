@@ -27,6 +27,12 @@ export async function restartCommand(query?: string): Promise<void> {
   spinner.start();
 
   try {
+    if (server.id.startsWith("manual-")) {
+      spinner.fail(
+        "Cannot reboot manually added server via API. Use SSH: ssh root@" + server.ip + " reboot",
+      );
+      return;
+    }
     const provider = createProviderWithToken(server.provider, apiToken);
     await provider.rebootServer(server.id);
     spinner.succeed("Reboot initiated");

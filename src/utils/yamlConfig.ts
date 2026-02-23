@@ -55,9 +55,13 @@ export function validateYamlConfig(raw: unknown): YamlLoadResult {
   // provider
   if (obj.provider !== undefined) {
     if (typeof obj.provider !== "string") {
-      warnings.push('Invalid provider: must be a string ("hetzner" or "digitalocean")');
-    } else if (!["hetzner", "digitalocean"].includes(obj.provider)) {
-      warnings.push(`Invalid provider: "${obj.provider}". Use "hetzner" or "digitalocean".`);
+      warnings.push(
+        'Invalid provider: must be a string ("hetzner", "digitalocean", "vultr", or "linode")',
+      );
+    } else if (!["hetzner", "digitalocean", "vultr", "linode"].includes(obj.provider)) {
+      warnings.push(
+        `Invalid provider: "${obj.provider}". Use "hetzner", "digitalocean", "vultr", or "linode".`,
+      );
     } else {
       config.provider = obj.provider;
     }

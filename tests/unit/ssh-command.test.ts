@@ -44,7 +44,7 @@ describe("sshCommand", () => {
 
   it("should return when no server found", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(undefined);
+    mockedConfig.findServers.mockReturnValue([]);
     await sshCommand("nonexistent");
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("Server not found");
@@ -52,7 +52,7 @@ describe("sshCommand", () => {
 
   it("should connect interactively", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedSsh.sshConnect.mockResolvedValue(0);
 
     await sshCommand("1.2.3.4");
@@ -64,7 +64,7 @@ describe("sshCommand", () => {
 
   it("should show warning for non-zero exit code", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedSsh.sshConnect.mockResolvedValue(255);
 
     await sshCommand("1.2.3.4");
@@ -74,7 +74,7 @@ describe("sshCommand", () => {
 
   it("should execute single command with --command", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "CONTAINER ID", stderr: "" });
 
     await sshCommand("1.2.3.4", { command: "docker ps" });
@@ -86,7 +86,7 @@ describe("sshCommand", () => {
 
   it("should show stderr from command", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "error message" });
 
     await sshCommand("1.2.3.4", { command: "bad-cmd" });

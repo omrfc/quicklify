@@ -1,7 +1,18 @@
 import inquirer from "inquirer";
-import { getServers, findServer } from "./config.js";
+import { getServers, findServers } from "./config.js";
 import { logger } from "./logger.js";
 import type { ServerRecord } from "../types/index.js";
+
+export async function collectProviderTokens(servers: ServerRecord[]): Promise<Map<string, string>> {
+  const tokenMap = new Map<string, string>();
+  const nonManualServers = servers.filter((s) => !s.id.startsWith("manual-"));
+  const providers = [...new Set(nonManualServers.map((s) => s.provider))];
+  for (const providerName of providers) {
+    const token = await promptApiToken(providerName);
+    tokenMap.set(providerName, token);
+  }
+  return tokenMap;
+}
 
 export async function selectServer(promptMessage?: string): Promise<ServerRecord | undefined> {
   const servers = getServers();
@@ -31,19 +42,40 @@ export async function resolveServer(
   promptMessage?: string,
 ): Promise<ServerRecord | undefined> {
   if (query) {
-    const server = findServer(query);
-    if (!server) {
+    const matches = findServers(query);
+    if (matches.length === 0) {
       logger.error(`Server not found: ${query}`);
       return undefined;
     }
-    return server;
+    if (matches.length === 1) {
+      return matches[0];
+    }
+    // Multiple matches — let user pick
+    const { serverId } = await inquirer.prompt([
+      {
+        type: "list",
+        name: "serverId",
+        message: `Multiple servers found for "${query}". Select one:`,
+        choices: matches.map((s) => ({
+          name: `${s.name} (${s.ip}) - ${s.provider} [${s.id}]`,
+          value: s.id,
+        })),
+      },
+    ]);
+    return matches.find((s) => s.id === serverId);
   }
   return selectServer(promptMessage);
 }
 
 export async function promptApiToken(providerName: string): Promise<string> {
-  const envKey = providerName === "hetzner" ? "HETZNER_TOKEN" : "DIGITALOCEAN_TOKEN";
-  if (process.env[envKey]) {
+  const envKeys: Record<string, string> = {
+    hetzner: "HETZNER_TOKEN",
+    digitalocean: "DIGITALOCEAN_TOKEN",
+    vultr: "VULTR_TOKEN",
+    linode: "LINODE_TOKEN",
+  };
+  const envKey = envKeys[providerName];
+  if (envKey && process.env[envKey]) {
     return process.env[envKey]!;
   }
 

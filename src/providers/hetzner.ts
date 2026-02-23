@@ -111,7 +111,7 @@ export class HetznerProvider implements CloudProvider {
 
       return {
         id: response.data.server.id.toString(),
-        ip: response.data.server.public_net.ipv4.ip,
+        ip: response.data.server?.public_net?.ipv4?.ip || "pending",
         status: response.data.server.status,
       };
     } catch (error: unknown) {
@@ -134,7 +134,7 @@ export class HetznerProvider implements CloudProvider {
     });
     return {
       id: response.data.server.id.toString(),
-      ip: response.data.server.public_net.ipv4.ip,
+      ip: response.data.server?.public_net?.ipv4?.ip || "pending",
       status: response.data.server.status,
     };
   }

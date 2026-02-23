@@ -60,7 +60,7 @@ describe("logsCommand", () => {
 
   it("should return when no server found", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(undefined);
+    mockedConfig.findServers.mockReturnValue([]);
     await logsCommand("nonexistent");
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("Server not found");
@@ -68,7 +68,7 @@ describe("logsCommand", () => {
 
   it("should show error for invalid --lines value", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     await logsCommand("1.2.3.4", { lines: "abc" });
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("Invalid --lines");
@@ -76,7 +76,7 @@ describe("logsCommand", () => {
 
   it("should show error for invalid service", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     await logsCommand("1.2.3.4", { service: "invalid" });
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("Invalid service");
@@ -84,7 +84,7 @@ describe("logsCommand", () => {
 
   it("should use sshExec for non-follow mode", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedSsh.sshExec.mockResolvedValue({
       code: 0,
       stdout: "log line 1\nlog line 2",
@@ -100,7 +100,7 @@ describe("logsCommand", () => {
 
   it("should use sshStream for follow mode", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedSsh.sshStream.mockResolvedValue(0);
 
     await logsCommand("1.2.3.4", { follow: true });
@@ -113,7 +113,7 @@ describe("logsCommand", () => {
 
   it("should show error on non-zero sshExec exit code", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "error" });
 
     await logsCommand("1.2.3.4");
@@ -124,7 +124,7 @@ describe("logsCommand", () => {
 
   it("should show error on non-zero sshStream exit code", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedSsh.sshStream.mockResolvedValue(1);
 
     await logsCommand("1.2.3.4", { follow: true });

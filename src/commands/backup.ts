@@ -1,11 +1,12 @@
 import { mkdirSync, existsSync, writeFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { spawn } from "child_process";
+import { getServers } from "../utils/config.js";
 import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { BACKUPS_DIR } from "../utils/config.js";
 import { logger, createSpinner } from "../utils/logger.js";
-import type { BackupManifest } from "../types/index.js";
+import type { BackupManifest, ServerRecord } from "../types/index.js";
 
 // Pure functions (testable)
 
@@ -30,7 +31,7 @@ export function buildCleanupCommand(): string {
 }
 
 export function buildCoolifyVersionCommand(): string {
-  return "docker exec coolify cat /var/www/html/.version 2>/dev/null || echo unknown";
+  return "docker inspect coolify --format '{{.Config.Image}}' 2>/dev/null | sed 's/.*://' || echo unknown";
 }
 
 export function scpDownload(
@@ -66,9 +67,133 @@ export function listBackups(serverName: string): string[] {
   }
 }
 
+// Single server backup (extracted for reuse)
+
+async function backupSingleServer(server: ServerRecord, dryRun: boolean): Promise<boolean> {
+  const timestamp = formatTimestamp(new Date());
+  const backupPath = join(getBackupDir(server.name), timestamp);
+
+  if (dryRun) {
+    logger.info(`[${server.name}] Dry run - would backup to: ${backupPath}`);
+    return true;
+  }
+
+  const versionResult = await sshExec(server.ip, buildCoolifyVersionCommand());
+  const coolifyVersion = versionResult.code === 0 ? versionResult.stdout.trim() : "unknown";
+
+  const dbSpinner = createSpinner(`[${server.name}] Creating database backup...`);
+  dbSpinner.start();
+  try {
+    const dbResult = await sshExec(server.ip, buildPgDumpCommand());
+    if (dbResult.code !== 0) {
+      dbSpinner.fail(`[${server.name}] Database backup failed`);
+      return false;
+    }
+    dbSpinner.succeed(`[${server.name}] Database backup created`);
+  } catch {
+    dbSpinner.fail(`[${server.name}] Database backup failed`);
+    return false;
+  }
+
+  const configSpinner = createSpinner(`[${server.name}] Creating config backup...`);
+  configSpinner.start();
+  try {
+    const configResult = await sshExec(server.ip, buildConfigTarCommand());
+    if (configResult.code !== 0) {
+      configSpinner.fail(`[${server.name}] Config backup failed`);
+      return false;
+    }
+    configSpinner.succeed(`[${server.name}] Config backup created`);
+  } catch {
+    configSpinner.fail(`[${server.name}] Config backup failed`);
+    return false;
+  }
+
+  mkdirSync(backupPath, { recursive: true });
+
+  const dlSpinner = createSpinner(`[${server.name}] Downloading backup files...`);
+  dlSpinner.start();
+  try {
+    const dbDl = await scpDownload(
+      server.ip,
+      "/tmp/coolify-backup.sql.gz",
+      join(backupPath, "coolify-backup.sql.gz"),
+    );
+    if (dbDl.code !== 0) {
+      dlSpinner.fail(`[${server.name}] Download failed`);
+      return false;
+    }
+    const configDl = await scpDownload(
+      server.ip,
+      "/tmp/coolify-config.tar.gz",
+      join(backupPath, "coolify-config.tar.gz"),
+    );
+    if (configDl.code !== 0) {
+      dlSpinner.fail(`[${server.name}] Download failed`);
+      return false;
+    }
+    dlSpinner.succeed(`[${server.name}] Backup files downloaded`);
+  } catch {
+    dlSpinner.fail(`[${server.name}] Download failed`);
+    return false;
+  }
+
+  const manifest: BackupManifest = {
+    serverName: server.name,
+    serverIp: server.ip,
+    provider: server.provider,
+    timestamp,
+    coolifyVersion,
+    files: ["coolify-backup.sql.gz", "coolify-config.tar.gz"],
+  };
+  writeFileSync(join(backupPath, "manifest.json"), JSON.stringify(manifest, null, 2));
+  await sshExec(server.ip, buildCleanupCommand()).catch(() => {});
+
+  logger.success(`[${server.name}] Backup saved to ${backupPath}`);
+  return true;
+}
+
+async function backupAll(dryRun: boolean): Promise<void> {
+  if (!checkSshAvailable()) {
+    logger.error("SSH client not found. Please install OpenSSH.");
+    return;
+  }
+
+  const servers = getServers();
+  if (servers.length === 0) {
+    logger.info("No servers found. Deploy one with: quicklify init");
+    return;
+  }
+
+  logger.title(`Backing up ${servers.length} server(s)...`);
+
+  let succeeded = 0;
+  let failed = 0;
+
+  for (const server of servers) {
+    const ok = await backupSingleServer(server, dryRun);
+    if (ok) succeeded++;
+    else failed++;
+    console.log();
+  }
+
+  if (failed === 0) {
+    logger.success(`All ${succeeded} server(s) backed up successfully!`);
+  } else {
+    logger.warning(`${succeeded} succeeded, ${failed} failed`);
+  }
+}
+
 // Command
 
-export async function backupCommand(query?: string, options?: { dryRun?: boolean }): Promise<void> {
+export async function backupCommand(
+  query?: string,
+  options?: { dryRun?: boolean; all?: boolean },
+): Promise<void> {
+  if (options?.all) {
+    return backupAll(options?.dryRun || false);
+  }
+
   if (!checkSshAvailable()) {
     logger.error("SSH client not found. Please install OpenSSH.");
     return;
