@@ -170,7 +170,7 @@ quicklify init
 2. API'yi etkinleştirin ve API Key'i kopyalayın
 3. IP adresinizi beyaz listeye ekleyin
 
-**Linode (Akamai):**
+**Linode (Akamai):** ⚠️ *Beta — henüz gerçek deployment ile test edilmedi*
 
 1. [Linode API Tokens](https://cloud.linode.com/profile/tokens) sayfasını ziyaret edin
 2. **Read/Write** kapsamında Personal Access Token oluşturun
@@ -222,7 +222,9 @@ URL'yi ziyaret edin, admin hesabınızı oluşturun ve deploy etmeye başlayın!
 | **Hetzner Cloud** | ✅ Mevcut | €3.79/ay | ARM64 + x86 |
 | **DigitalOcean** | ✅ Mevcut | $12/ay | x86 |
 | **Vultr** | ✅ Mevcut | $6/ay | x86 |
-| **Linode (Akamai)** | ✅ Mevcut | $12/ay | x86 |
+| **Linode (Akamai)** | ⚠️ Beta | $12/ay | x86 |
+
+> **Not:** Linode desteği **beta** aşamasındadır — henüz gerçek deployment ile test edilmemiştir. Sorun bildirmek için [issue açın](https://github.com/omrfrkcpr/quicklify/issues).
 
 ## 💡 Kullanım Senaryoları
 
@@ -263,7 +265,7 @@ URL'yi ziyaret edin, admin hesabınızı oluşturun ve deploy etmeye başlayın!
 - **Toplu işlemler:** `--all` bayrağı `status`, `update`, `backup` komutlarında — tüm sunucularda aynı anda çalıştırın
 - **Otomatik yeniden başlatma:** `status --autostart` — sunucu çalışıyor ama Coolify kapalıysa yeniden başlatır
 - **`collectProviderTokens()`** — her sağlayıcının token'ını tüm sunucular boyunca yalnızca bir kez sorar
-- 44 test paketi genelinde 937 test, %98+ statement coverage, sıfır yeni bağımlılık
+- 45 test paketi genelinde 947 test, %98+ statement coverage, sıfır yeni bağımlılık
 
 ### v0.9.0 (2026-02-21)
 - **YAML Yapılandırma:** `quicklify init --config quicklify.yml` - yapılandırma dosyasından deploy
@@ -728,7 +730,7 @@ Testler her push/PR'da GitHub Actions aracılığıyla otomatik çalışır:
 
 ### Coverage
 
-Mevcut coverage: **%98+ statements/lines**, **%91+ branches**, **%98+ functions**. 44 test paketi genelinde 937 test.
+Mevcut coverage: **%98+ statements/lines**, **%91+ branches**, **%98+ functions**. 45 test paketi genelinde 947 test.
 
 ## 🔧 Sorun Giderme
 

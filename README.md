@@ -168,7 +168,7 @@ quicklify init
 2. Enable API and copy the API Key
 3. Whitelist your IP address
 
-**Linode (Akamai):**
+**Linode (Akamai):** ⚠️ *Beta — not yet tested with real deployments*
 
 1. Visit [Linode API Tokens](https://cloud.linode.com/profile/tokens)
 2. Create a Personal Access Token with **Read/Write** scope
@@ -220,7 +220,9 @@ Visit the URL, create your admin account, and start deploying!
 | **Hetzner Cloud** | ✅ Available | €3.79/mo | ARM64 + x86 |
 | **DigitalOcean** | ✅ Available | $12/mo | x86 |
 | **Vultr** | ✅ Available | $6/mo | x86 |
-| **Linode (Akamai)** | ✅ Available | $12/mo | x86 |
+| **Linode (Akamai)** | ⚠️ Beta | $12/mo | x86 |
+
+> **Note:** Linode support is in **beta** — it has not been tested with real deployments yet. Please [report any issues](https://github.com/omrfrkcpr/quicklify/issues).
 
 ## 💡 Use Cases
 
@@ -261,7 +263,7 @@ Visit the URL, create your admin account, and start deploying!
 - **Bulk operations:** `--all` flag on `status`, `update`, `backup` — operate on all servers at once
 - **Auto-restart:** `status --autostart` — restarts Coolify if server is running but Coolify is down
 - **`collectProviderTokens()`** — asks for each provider's token only once across all servers
-- 937 tests across 44 suites with 98%+ statement coverage, zero new dependencies
+- 947 tests across 45 suites with 98%+ statement coverage, zero new dependencies
 
 ### v0.9.0 (2026-02-21)
 - **YAML Config:** `quicklify init --config quicklify.yml` - deploy from a config file
@@ -726,7 +728,7 @@ Tests run automatically on every push/PR via GitHub Actions across:
 
 ### Coverage
 
-Current coverage: **98%+ statements/lines**, **91%+ branches**, **98%+ functions**. 937 tests across 44 test suites.
+Current coverage: **98%+ statements/lines**, **91%+ branches**, **98%+ functions**. 947 tests across 45 test suites.
 
 ## 🔧 Troubleshooting
 
