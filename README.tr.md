@@ -10,9 +10,21 @@
 ![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
 [![Socket Badge](https://socket.dev/api/badge/npm/package/quicklify)](https://socket.dev/npm/package/quicklify)
 
-**Coolify'i tek komutla bulut VPS'inize kurun.**
+**Production-ready Coolify altyapısı. Tek komut uzağınızda.**
 
-Quicklify, [Coolify](https://coolify.io)'i bulut sunucunuza yaklaşık 4 dakikada kurar, yapılandırır ve yönetir. Verilerinizi yedekleyin, güvenliği sıkılaştırın, domain yönetin ve her şeyi güncel tutun — hepsi terminalden.
+Coolify sunucularınızı deploy edin, güvence altına alın, yedekleyin, snapshot alın ve bakımını yapın — güvenle.
+
+## Quicklify Neden Var?
+
+Self-hosted Coolify sunucularının çoğu şu nedenlerle çöker:
+
+- Yedekleme disiplini yok
+- Güncelleme stratejisi yok
+- Güvenlik sıkılaştırması yok
+- İzleme yok
+- Snapshot rutini yok
+
+Coolify sunucunuza çocuk bakıcılığı yapmayı bırakın. Quicklify bunu çözmek için yapıldı.
 
 ## Hızlı Başlangıç
 
@@ -25,6 +37,17 @@ npx quicklify init
 ```
 
 Hepsi bu kadar. Quicklify sunucu oluşturma, SSH anahtar kurulumu, güvenlik duvarı yapılandırması ve Coolify kurulumunu otomatik yapar.
+
+## Quicklify'ı Farklı Kılan Ne?
+
+| Problem | Çözüm |
+|---------|-------|
+| Güncelleme sunucuyu bozdu mu? | `maintain` ile güncelleme öncesi snapshot koruması |
+| Sunucunuz sağlıklı mı bilmiyor musunuz? | Yerleşik izleme, sağlık kontrolleri ve `doctor` tanılama |
+| Güvenlik sonradan mı düşünülüyor? | Güvenlik duvarı, SSH sıkılaştırma, SSL ve güvenlik denetimi hazır |
+| Yedekleme? Belki bir gün... | Tek komutla yedekleme ve geri yükleme, manifest takibiyle |
+| Birden fazla sunucu mu yönetiyorsunuz? | Yedekleme, bakım, durum ve sağlıkta `--all` desteği |
+| Mevcut sunucu takip dışı mı? | `quicklify add` ile her Coolify sunucusunu yönetime alın |
 
 ## Neler Yapabilirsiniz?
 
@@ -43,8 +66,12 @@ quicklify status sunucum        # Sunucu ve Coolify durumu
 quicklify status --all          # Tüm sunucuları kontrol et
 quicklify ssh sunucum           # Sunucuya SSH bağlantısı
 quicklify restart sunucum       # Sunucuyu yeniden başlat
+quicklify destroy sunucum       # Bulut sunucusunu tamamen sil
 quicklify add                   # Mevcut Coolify sunucusu ekle
 quicklify remove sunucum        # Yerel yapılandırmadan kaldır
+quicklify config set key value  # Varsayılan yapılandırma yönet
+quicklify export                # Sunucu listesini JSON'a aktar
+quicklify import servers.json   # JSON'dan sunucuları içe aktar
 ```
 
 ### Güncelleme ve Bakım
@@ -91,12 +118,12 @@ quicklify doctor                       # Yerel ortam kontrolü
 
 | Sağlayıcı | Durum | Bölgeler | Başlangıç Fiyatı |
 |-----------|-------|----------|------------------|
-| [Hetzner Cloud](https://hetzner.cloud) | Kararlı | Avrupa, ABD | €3,49/ay |
-| [DigitalOcean](https://digitalocean.com) | Kararlı | Küresel | $12/ay |
-| [Vultr](https://vultr.com) | Kararlı | Küresel | $10/ay |
-| [Linode (Akamai)](https://linode.com) | Beta | Küresel | $12/ay |
+| [Hetzner Cloud](https://hetzner.cloud) | Kararlı | Avrupa, ABD | ~€4/ay |
+| [DigitalOcean](https://digitalocean.com) | Kararlı | Küresel | ~$18/ay |
+| [Vultr](https://vultr.com) | Kararlı | Küresel | ~$10/ay |
+| [Linode (Akamai)](https://linode.com) | Beta | Küresel | ~$24/ay |
 
-> **Not:** Linode desteği beta aşamasındadır — topluluk testleri memnuniyetle karşılanır.
+> Fiyatlar provider başına varsayılan starter şablonunu yansıtır. Kurulum sırasında farklı boyut seçebilirsiniz. Linode desteği beta aşamasındadır — topluluk testleri memnuniyetle karşılanır.
 
 ## YAML Yapılandırması
 
@@ -120,9 +147,9 @@ quicklify init --config quicklify.yml
 
 | Şablon | Kullanım Alanı | İçerik |
 |--------|---------------|--------|
-| `starter` | Test, yan projeler | En küçük sunucu |
-| `production` | Canlı uygulamalar | 4+ vCPU, 8+ GB RAM |
-| `dev` | Geliştirme ve CI/CD | Dengeli kaynaklar |
+| `starter` | Test, yan projeler | 1–2 vCPU, 2–4 GB RAM |
+| `production` | Canlı uygulamalar | 2–4 vCPU, 4–8 GB RAM, tam sıkılaştırma |
+| `dev` | Geliştirme ve CI/CD | Starter ile aynı, sıkılaştırma yok |
 
 ```bash
 quicklify init --template production --provider hetzner
@@ -130,11 +157,16 @@ quicklify init --template production --provider hetzner
 
 ## Güvenlik
 
+Quicklify güvenlik öncelikli olarak geliştirilmektedir — 52 test suite'inde **1.200+ test**, özel güvenlik test suite'leri dahil.
+
 - API token'ları asla diske kaydedilmez — çalışma zamanında sorulur veya ortam değişkenlerinden alınır
 - SSH anahtarları gerekirse otomatik oluşturulur (Ed25519)
+- Tüm SSH bağlantıları `StrictHostKeyChecking=accept-new` ile IP doğrulama ve ortam filtreleme kullanır
+- Tüm kullanıcı girdilerinde shell injection koruması
+- Provider hata mesajları token sızıntısını önlemek için temizlenir
+- Yapılandırma dosyasında token tespiti (22+ anahtar pattern, büyük/küçük harf duyarsız, iç içe yapılar)
+- İçe/dışa aktarma işlemleri hassas alanları temizler ve dosya izinlerini sıkılaştırır
 - `--full-setup` güvenlik duvarı ve SSH sıkılaştırmasını otomatik etkinleştirir
-- Tüm SSH bağlantıları `StrictHostKeyChecking=accept-new` kullanır
-- Yapılandırma dosyasında token tespiti, YAML'da gizli bilgi saklamaya karşı uyarır
 
 ## Kurulum
 
@@ -166,7 +198,15 @@ Geliştirme ortamı kurulumu, test ve katkı rehberi için [CONTRIBUTING.md](CON
 
 ## Gelecek Planlar
 
-- Sunucu yönetimi için interaktif TUI arayüzü
+- Zamanlanmış bakım (cron tabanlı otomatik bakım)
+- Genel sunucu yönetimi (Coolify olmayan sunucular)
+- İnteraktif TUI arayüzü
+
+## Felsefe
+
+> Altyapı sıkıcı, öngörülebilir ve güvenli olmalıdır.
+
+Quicklify bir script değildir. Coolify için DevOps güvenlik katmanınızdır.
 
 ## Lisans
 
@@ -174,5 +214,9 @@ MIT — [LICENSE](LICENSE) dosyasına bakın
 
 ## Destek
 
-- [GitHub Issues](https://github.com/omrfrkcpr/quicklify/issues) — Hata bildirimleri ve özellik istekleri
+- [GitHub Issues](https://github.com/omrfc/quicklify/issues) — Hata bildirimleri ve özellik istekleri
 - [Changelog](CHANGELOG.md) — Sürüm geçmişi
+
+---
+
+[@omrfc](https://github.com/omrfc) tarafından geliştirilmektedir.

@@ -10,9 +10,21 @@
 ![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
 [![Socket Badge](https://socket.dev/api/badge/npm/package/quicklify)](https://socket.dev/npm/package/quicklify)
 
-**Deploy Coolify to a cloud VPS with one command.**
+**Production-ready Coolify infrastructure. One command away.**
 
-Quicklify installs, configures, and manages [Coolify](https://coolify.io) on your cloud server in about 4 minutes. Back up your data, harden security, manage domains, and keep everything updated — all from the terminal.
+Deploy, secure, back up, snapshot, and maintain your Coolify servers with confidence.
+
+## Why Quicklify Exists
+
+Most self-hosted Coolify servers break because:
+
+- No backup discipline
+- No update strategy
+- No security hardening
+- No monitoring
+- No snapshot routine
+
+Stop babysitting your Coolify server. Quicklify was built to fix that.
 
 ## Quick Start
 
@@ -25,6 +37,17 @@ npx quicklify init
 ```
 
 That's it. Quicklify handles server provisioning, SSH key setup, firewall configuration, and Coolify installation automatically.
+
+## What Makes Quicklify Different?
+
+| Problem | Solution |
+|---------|----------|
+| Broke your server with an update? | Pre-update snapshot protection via `maintain` |
+| No idea if your server is healthy? | Built-in monitoring, health checks, and `doctor` diagnostics |
+| Security is an afterthought? | Firewall, SSH hardening, SSL, and security audits built-in |
+| Backups? Maybe someday... | One-command backup & restore with manifest tracking |
+| Managing multiple servers? | `--all` flag across backup, maintain, status, and health |
+| Existing server not tracked? | `quicklify add` brings any Coolify server under management |
 
 ## What Can You Do?
 
@@ -43,8 +66,12 @@ quicklify status my-server      # Check server & Coolify status
 quicklify status --all          # Check all servers
 quicklify ssh my-server         # SSH into server
 quicklify restart my-server     # Restart server
+quicklify destroy my-server     # Destroy cloud server entirely
 quicklify add                   # Add existing Coolify server
 quicklify remove my-server      # Remove from local config
+quicklify config set key value  # Manage default configuration
+quicklify export                # Export server list to JSON
+quicklify import servers.json   # Import servers from JSON
 ```
 
 ### Update & Maintain
@@ -91,12 +118,12 @@ quicklify doctor                         # Check local environment
 
 | Provider | Status | Regions | Starting Price |
 |----------|--------|---------|---------------|
-| [Hetzner Cloud](https://hetzner.cloud) | Stable | EU, US | €3.49/mo |
-| [DigitalOcean](https://digitalocean.com) | Stable | Global | $12/mo |
-| [Vultr](https://vultr.com) | Stable | Global | $10/mo |
-| [Linode (Akamai)](https://linode.com) | Beta | Global | $12/mo |
+| [Hetzner Cloud](https://hetzner.cloud) | Stable | EU, US | ~€4/mo |
+| [DigitalOcean](https://digitalocean.com) | Stable | Global | ~$18/mo |
+| [Vultr](https://vultr.com) | Stable | Global | ~$10/mo |
+| [Linode (Akamai)](https://linode.com) | Beta | Global | ~$24/mo |
 
-> **Note:** Linode support is in beta — community testing welcome.
+> Prices reflect the default starter template per provider. You can choose a different size during setup. Linode support is in beta — community testing welcome.
 
 ## YAML Config
 
@@ -120,9 +147,9 @@ quicklify init --config quicklify.yml
 
 | Template | Best For | Includes |
 |----------|----------|----------|
-| `starter` | Testing, side projects | Smallest instance |
-| `production` | Live applications | 4+ vCPU, 8+ GB RAM |
-| `dev` | Development & CI/CD | Balanced resources |
+| `starter` | Testing, side projects | 1–2 vCPU, 2–4 GB RAM |
+| `production` | Live applications | 2–4 vCPU, 4–8 GB RAM, full hardening |
+| `dev` | Development & CI/CD | Same as starter, no hardening |
 
 ```bash
 quicklify init --template production --provider hetzner
@@ -130,11 +157,16 @@ quicklify init --template production --provider hetzner
 
 ## Security
 
+Quicklify is built with security as a priority — **1,200+ tests** across 52 suites, including dedicated security test suites.
+
 - API tokens are never stored on disk — prompted at runtime or via environment variables
 - SSH keys are auto-generated if needed (Ed25519)
+- All SSH connections use `StrictHostKeyChecking=accept-new` with IP validation and environment filtering
+- Shell injection protection on all user-facing inputs
+- Provider error messages are sanitized to prevent token leakage
+- Config file token detection (22+ key patterns, case-insensitive, nested)
+- Import/export operations strip sensitive fields and enforce strict file permissions
 - `--full-setup` enables UFW firewall and SSH hardening automatically
-- All SSH connections use `StrictHostKeyChecking=accept-new`
-- Config file token detection warns against storing secrets in YAML
 
 ## Installation
 
@@ -166,7 +198,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and contr
 
 ## What's Next
 
-- Interactive TUI dashboard for server management
+- Scheduled maintenance (cron-based automatic upkeep)
+- Generic server management (non-Coolify servers)
+- Interactive TUI dashboard
+
+## Philosophy
+
+> Infrastructure should be boring, predictable, and safe.
+
+Quicklify is not a script. It's your DevOps safety layer for Coolify.
 
 ## License
 
@@ -174,5 +214,9 @@ MIT — see [LICENSE](LICENSE)
 
 ## Support
 
-- [GitHub Issues](https://github.com/omrfrkcpr/quicklify/issues) — Bug reports and feature requests
+- [GitHub Issues](https://github.com/omrfc/quicklify/issues) — Bug reports and feature requests
 - [Changelog](CHANGELOG.md) — Version history
+
+---
+
+Built by [@omrfc](https://github.com/omrfc)
