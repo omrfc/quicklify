@@ -115,6 +115,17 @@ export interface SecureAuditResult {
   sshPort: number;
 }
 
+// Snapshot
+export interface SnapshotInfo {
+  id: string;
+  serverId: string;
+  name: string;
+  status: string;
+  sizeGb: number;
+  createdAt: string;
+  costPerMonth: string;
+}
+
 // Backup
 export interface BackupManifest {
   serverName: string;

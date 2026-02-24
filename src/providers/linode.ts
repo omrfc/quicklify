@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import axios from "axios";
 import type { CloudProvider } from "./base.js";
-import type { Region, ServerSize, ServerConfig, ServerResult } from "../types/index.js";
+import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo } from "../types/index.js";
 
 interface LinodeType {
   id: string;
@@ -255,6 +255,122 @@ export class LinodeProvider implements CloudProvider {
       }));
     } catch {
       return this.getServerSizes();
+    }
+  }
+
+  async createSnapshot(serverId: string, name: string): Promise<SnapshotInfo> {
+    try {
+      // Get the first disk to create image from
+      const disksResponse = await axios.get(
+        `${this.baseUrl}/linode/instances/${serverId}/disks`,
+        { headers: { Authorization: `Bearer ${this.apiToken}` } },
+      );
+      const disks = disksResponse.data.data;
+      if (!disks || disks.length === 0) {
+        throw new Error("No disks found on this instance");
+      }
+      // Use the largest disk
+      const disk = disks.sort((a: { size: number }, b: { size: number }) => b.size - a.size)[0];
+
+      const response = await axios.post(
+        `${this.baseUrl}/images`,
+        { disk_id: disk.id, label: name },
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiToken}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      const image = response.data;
+      return {
+        id: image.id,
+        serverId,
+        name: image.label || name,
+        status: image.status,
+        sizeGb: image.size ? image.size / 1024 : 0,
+        createdAt: image.created,
+        costPerMonth: `$${(image.size ? (image.size / 1024) * 0.004 : 0).toFixed(2)}/mo`,
+      };
+    } catch (error: unknown) {
+      if (axios.isAxiosError<LinodeErrorResponse>(error)) {
+        const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
+        throw new Error(`Failed to create snapshot: ${reasons || error.message}`, { cause: error });
+      }
+      throw new Error(
+        `Failed to create snapshot: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  async listSnapshots(serverId: string): Promise<SnapshotInfo[]> {
+    try {
+      const response = await axios.get(
+        `${this.baseUrl}/images?page=1&page_size=100`,
+        { headers: { Authorization: `Bearer ${this.apiToken}` } },
+      );
+      const images = response.data.data.filter(
+        (img: { type: string; label: string }) =>
+          img.type === "manual" && img.label && img.label.startsWith("quicklify-"),
+      );
+      return images.map(
+        (img: { id: string; label: string; status: string; size: number; created: string }) => ({
+          id: img.id,
+          serverId,
+          name: img.label || "",
+          status: img.status,
+          sizeGb: img.size ? img.size / 1024 : 0,
+          createdAt: img.created,
+          costPerMonth: `$${(img.size ? (img.size / 1024) * 0.004 : 0).toFixed(2)}/mo`,
+        }),
+      );
+    } catch (error: unknown) {
+      if (axios.isAxiosError<LinodeErrorResponse>(error)) {
+        const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
+        throw new Error(`Failed to list snapshots: ${reasons || error.message}`, { cause: error });
+      }
+      throw new Error(
+        `Failed to list snapshots: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  async deleteSnapshot(snapshotId: string): Promise<void> {
+    try {
+      await axios.delete(`${this.baseUrl}/images/${snapshotId}`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+    } catch (error: unknown) {
+      if (axios.isAxiosError<LinodeErrorResponse>(error)) {
+        const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
+        throw new Error(`Failed to delete snapshot: ${reasons || error.message}`, { cause: error });
+      }
+      throw new Error(
+        `Failed to delete snapshot: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  async getSnapshotCostEstimate(serverId: string): Promise<string> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/linode/instances/${serverId}`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+      const diskMb = response.data.specs?.disk || response.data.disk || 0;
+      const diskGb = diskMb / 1024;
+      return `$${(diskGb * 0.004).toFixed(2)}/mo`;
+    } catch (error: unknown) {
+      if (axios.isAxiosError<LinodeErrorResponse>(error)) {
+        const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
+        throw new Error(`Failed to get snapshot cost: ${reasons || error.message}`, { cause: error });
+      }
+      throw new Error(
+        `Failed to get snapshot cost: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
     }
   }
 }

@@ -276,6 +276,82 @@ describe("yamlConfig", () => {
       });
     });
 
+    // Expanded security keys
+    it('should warn about "password" key', () => {
+      const { warnings } = validateYamlConfig({ password: "secret123" });
+      expect(warnings.some((w: string) => w.includes('"password"'))).toBe(true);
+    });
+
+    it('should warn about "passwd" key', () => {
+      const { warnings } = validateYamlConfig({ passwd: "secret123" });
+      expect(warnings.some((w: string) => w.includes('"passwd"'))).toBe(true);
+    });
+
+    it('should warn about "pwd" key', () => {
+      const { warnings } = validateYamlConfig({ pwd: "secret123" });
+      expect(warnings.some((w: string) => w.includes('"pwd"'))).toBe(true);
+    });
+
+    it('should warn about "credential" key', () => {
+      const { warnings } = validateYamlConfig({ credential: "secret123" });
+      expect(warnings.some((w: string) => w.includes('"credential"'))).toBe(true);
+    });
+
+    it('should warn about "credentials" key', () => {
+      const { warnings } = validateYamlConfig({ credentials: "secret123" });
+      expect(warnings.some((w: string) => w.includes('"credentials"'))).toBe(true);
+    });
+
+    it('should warn about "auth" key', () => {
+      const { warnings } = validateYamlConfig({ auth: "secret123" });
+      expect(warnings.some((w: string) => w.includes('"auth"'))).toBe(true);
+    });
+
+    it('should warn about "authorization" key', () => {
+      const { warnings } = validateYamlConfig({ authorization: "secret123" });
+      expect(warnings.some((w: string) => w.includes('"authorization"'))).toBe(true);
+    });
+
+    it('should warn about "bearer" key', () => {
+      const { warnings } = validateYamlConfig({ bearer: "secret123" });
+      expect(warnings.some((w: string) => w.includes('"bearer"'))).toBe(true);
+    });
+
+    it('should warn about "jwt" key', () => {
+      const { warnings } = validateYamlConfig({ jwt: "secret123" });
+      expect(warnings.some((w: string) => w.includes('"jwt"'))).toBe(true);
+    });
+
+    it('should warn about "privateKey" key', () => {
+      const { warnings } = validateYamlConfig({ privateKey: "secret123" });
+      expect(warnings.some((w: string) => w.includes('"privateKey"'))).toBe(true);
+    });
+
+    it('should warn about "private_key" key', () => {
+      const { warnings } = validateYamlConfig({ private_key: "secret123" });
+      expect(warnings.some((w: string) => w.includes('"private_key"'))).toBe(true);
+    });
+
+    it('should warn about "accessKey" key', () => {
+      const { warnings } = validateYamlConfig({ accessKey: "secret123" });
+      expect(warnings.some((w: string) => w.includes('"accessKey"'))).toBe(true);
+    });
+
+    it('should warn about "access_key" key', () => {
+      const { warnings } = validateYamlConfig({ access_key: "secret123" });
+      expect(warnings.some((w: string) => w.includes('"access_key"'))).toBe(true);
+    });
+
+    it('should warn about "secretKey" key', () => {
+      const { warnings } = validateYamlConfig({ secretKey: "secret123" });
+      expect(warnings.some((w: string) => w.includes('"secretKey"'))).toBe(true);
+    });
+
+    it('should warn about "secret_key" key', () => {
+      const { warnings } = validateYamlConfig({ secret_key: "secret123" });
+      expect(warnings.some((w: string) => w.includes('"secret_key"'))).toBe(true);
+    });
+
     // Multiple warnings
     it("should collect multiple warnings", () => {
       const result = validateYamlConfig({

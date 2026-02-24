@@ -843,4 +843,200 @@ describe("LinodeProvider", () => {
       expect(types[0].disk).toBe(80); // 81920 MB → 80 GB
     });
   });
+
+  describe("createSnapshot", () => {
+    it("should create a snapshot successfully", async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          data: [
+            { id: 101, size: 81920 },
+            { id: 102, size: 512 },
+          ],
+        },
+      });
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          id: "private/12345",
+          label: "quicklify-test",
+          status: "creating",
+          size: 81920,
+          created: "2026-02-24T00:00:00",
+        },
+      });
+
+      const result = await provider.createSnapshot("12345678", "quicklify-test");
+
+      expect(result.id).toBe("private/12345");
+      expect(result.name).toBe("quicklify-test");
+      expect(result.status).toBe("creating");
+      expect(result.sizeGb).toBe(80);
+      expect(result.costPerMonth).toBe("$0.32/mo");
+      expect(mockedAxios.get).toHaveBeenCalledWith(
+        "https://api.linode.com/v4/linode/instances/12345678/disks",
+        expect.objectContaining({
+          headers: { Authorization: "Bearer test-api-token" },
+        }),
+      );
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        "https://api.linode.com/v4/images",
+        { disk_id: 101, label: "quicklify-test" },
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Bearer test-api-token",
+          }),
+        }),
+      );
+    });
+
+    it("should throw when no disks found", async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { data: [] },
+      });
+
+      await expect(provider.createSnapshot("12345678", "test")).rejects.toThrow(
+        "Failed to create snapshot: No disks found on this instance",
+      );
+    });
+
+    it("should throw on API error", async () => {
+      mockedAxios.get.mockRejectedValueOnce({
+        response: {
+          data: { errors: [{ reason: "Linode not found" }] },
+        },
+      });
+
+      await expect(provider.createSnapshot("12345678", "test")).rejects.toThrow(
+        "Failed to create snapshot: Linode not found",
+      );
+    });
+
+    it("should handle non-Error thrown values", async () => {
+      mockedAxios.get.mockRejectedValueOnce("unexpected string");
+
+      await expect(provider.createSnapshot("12345678", "test")).rejects.toThrow(
+        "Failed to create snapshot: unexpected string",
+      );
+    });
+  });
+
+  describe("listSnapshots", () => {
+    it("should return filtered snapshot list", async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          data: [
+            {
+              id: "private/100",
+              label: "quicklify-test",
+              type: "manual",
+              status: "available",
+              size: 81920,
+              created: "2026-02-24T00:00:00",
+            },
+            {
+              id: "private/101",
+              label: "other-image",
+              type: "manual",
+              status: "available",
+              size: 40960,
+              created: "2026-02-24T00:00:00",
+            },
+            {
+              id: "linode/ubuntu22.04",
+              label: "Ubuntu 22.04",
+              type: "automatic",
+              status: "available",
+              size: 2500,
+              created: "2026-01-01T00:00:00",
+            },
+          ],
+        },
+      });
+
+      const result = await provider.listSnapshots("12345678");
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("private/100");
+      expect(result[0].name).toBe("quicklify-test");
+      expect(result[0].sizeGb).toBe(80);
+    });
+
+    it("should throw on API error", async () => {
+      mockedAxios.get.mockRejectedValueOnce({
+        response: {
+          data: { errors: [{ reason: "Unauthorized" }] },
+        },
+      });
+
+      await expect(provider.listSnapshots("12345678")).rejects.toThrow("Failed to list snapshots");
+    });
+  });
+
+  describe("deleteSnapshot", () => {
+    it("should delete snapshot successfully", async () => {
+      mockedAxios.delete.mockResolvedValueOnce({});
+
+      await expect(provider.deleteSnapshot("private/100")).resolves.toBeUndefined();
+
+      expect(mockedAxios.delete).toHaveBeenCalledWith(
+        "https://api.linode.com/v4/images/private/100",
+        expect.objectContaining({
+          headers: { Authorization: "Bearer test-api-token" },
+        }),
+      );
+    });
+
+    it("should throw on delete error", async () => {
+      mockedAxios.delete.mockRejectedValueOnce({
+        response: {
+          data: { errors: [{ reason: "Image not found" }] },
+        },
+      });
+
+      await expect(provider.deleteSnapshot("private/100")).rejects.toThrow(
+        "Failed to delete snapshot",
+      );
+    });
+
+    it("should handle non-Error thrown values", async () => {
+      mockedAxios.delete.mockRejectedValueOnce("unexpected");
+
+      await expect(provider.deleteSnapshot("private/100")).rejects.toThrow(
+        "Failed to delete snapshot: unexpected",
+      );
+    });
+  });
+
+  describe("getSnapshotCostEstimate", () => {
+    it("should return cost estimate using specs.disk", async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { specs: { disk: 81920 } },
+      });
+
+      const result = await provider.getSnapshotCostEstimate("12345678");
+
+      expect(result).toBe("$0.32/mo");
+    });
+
+    it("should fallback to data.disk when specs is undefined", async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { disk: 81920 },
+      });
+
+      const result = await provider.getSnapshotCostEstimate("12345678");
+
+      expect(result).toBe("$0.32/mo");
+    });
+
+    it("should throw on API error", async () => {
+      mockedAxios.get.mockRejectedValueOnce({
+        response: {
+          data: { errors: [{ reason: "Linode not found" }] },
+        },
+      });
+
+      await expect(provider.getSnapshotCostEstimate("12345678")).rejects.toThrow(
+        "Failed to get snapshot cost",
+      );
+    });
+  });
 });

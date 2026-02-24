@@ -106,6 +106,8 @@ describe("maintainCommand", () => {
     const inquirer = await import("inquirer");
     (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
+    // Step 0: snapshot cost estimate (fails -> skipped)
+    mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // getServerStatus returns "off"
     mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "off" } } });
 
@@ -122,6 +124,8 @@ describe("maintainCommand", () => {
     const inquirer = await import("inquirer");
     (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
+    // Step 0: snapshot cost estimate (fails -> skipped)
+    mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // getServerStatus throws
     mockedAxios.get.mockRejectedValueOnce(new Error("Unauthorized"));
 
@@ -139,6 +143,8 @@ describe("maintainCommand", () => {
     const inquirer = await import("inquirer");
     (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
+    // Step 0: snapshot cost estimate (fails -> skipped)
+    mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // getServerStatus returns "running"
     mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
 
@@ -158,6 +164,8 @@ describe("maintainCommand", () => {
     const inquirer = await import("inquirer");
     (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
+    // Step 0: snapshot cost estimate (fails -> skipped)
+    mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // getServerStatus returns "running"
     mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
 
@@ -177,6 +185,8 @@ describe("maintainCommand", () => {
     const inquirer = await import("inquirer");
     (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
+    // Step 0: snapshot cost estimate (fails -> skipped)
+    mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: getServerStatus returns "running"
     mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
 
@@ -199,6 +209,8 @@ describe("maintainCommand", () => {
     const inquirer = await import("inquirer");
     (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
+    // Step 0: snapshot cost estimate (fails -> skipped)
+    mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: getServerStatus "running"
     mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
 
@@ -235,6 +247,8 @@ describe("maintainCommand", () => {
     const inquirer = await import("inquirer");
     (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
+    // Step 0: snapshot cost estimate (fails -> skipped)
+    mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: getServerStatus "running"
     mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
 
@@ -261,6 +275,8 @@ describe("maintainCommand", () => {
     const inquirer = await import("inquirer");
     (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
+    // Step 0: snapshot cost estimate (fails -> skipped)
+    mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: running
     mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
     // Step 2: update OK
@@ -284,6 +300,8 @@ describe("maintainCommand", () => {
     const inquirer = await import("inquirer");
     (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
+    // Step 0: snapshot cost estimate (fails -> skipped)
+    mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: running
     mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
     // Step 2: update OK
@@ -308,6 +326,8 @@ describe("maintainCommand", () => {
     const inquirer = await import("inquirer");
     (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
+    // Step 0: snapshot cost estimate (fails -> skipped)
+    mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: running
     mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
     // Step 2: update OK
@@ -330,13 +350,15 @@ describe("maintainCommand", () => {
     expect(output).toContain("reboot OK");
   });
 
-  it("should show snapshot warning", async () => {
+  it("should show snapshot step 0 message", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     const inquirer = await import("inquirer");
     (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
+    // Step 0: snapshot cost estimate (fails -> skipped)
+    mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Fail at step 1 to keep test short
     mockedAxios.get.mockRejectedValueOnce(new Error("fail"));
 
@@ -344,7 +366,7 @@ describe("maintainCommand", () => {
 
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("snapshot");
-    expect(output).toContain("provider dashboard");
+    expect(output).toContain("Could not estimate snapshot cost");
   });
 
   // --all tests
@@ -443,6 +465,8 @@ describe("maintainCommand", () => {
     const inquirer = await import("inquirer");
     (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
+    // Step 0: snapshot cost estimate (fails -> skipped)
+    mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: running
     mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
     // Step 2: update OK
@@ -468,6 +492,8 @@ describe("maintainCommand", () => {
     const inquirer = await import("inquirer");
     (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
+    // Step 0: snapshot cost estimate (fails -> skipped)
+    mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: not running
     mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "off" } } });
 
@@ -493,6 +519,8 @@ describe("maintainCommand", () => {
     const inquirer = await import("inquirer");
     (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
+    // Step 0: snapshot cost estimate (fails -> skipped)
+    mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: running
     mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
     // Step 2: update fails with stderr

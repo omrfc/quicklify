@@ -25,6 +25,7 @@ import { exportCommand, importCommand } from "./commands/transfer.js";
 import { addCommand } from "./commands/add.js";
 import { removeCommand } from "./commands/remove.js";
 import { maintainCommand } from "./commands/maintain.js";
+import { snapshotCommand } from "./commands/snapshot.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -207,6 +208,20 @@ program
   .option("--dry-run", "Show steps without executing")
   .action((query?: string, options?: { skipReboot?: boolean; all?: boolean; dryRun?: boolean }) =>
     maintainCommand(query, options),
+  );
+
+program
+  .command("snapshot [subcommand] [query]")
+  .description("Manage server snapshots (create, list, delete)")
+  .option("--all", "List snapshots across all servers")
+  .option("--dry-run", "Show what would happen without executing")
+  .option("--force", "Skip confirmation prompts")
+  .action(
+    (
+      subcommand?: string,
+      query?: string,
+      options?: { all?: boolean; dryRun?: boolean; force?: boolean },
+    ) => snapshotCommand(subcommand, query, options),
   );
 
 program.parse();

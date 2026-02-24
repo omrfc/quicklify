@@ -733,5 +733,29 @@ describe("restore", () => {
       await restoreCommand("1.2.3.4", { backup: "my-backup" });
       expect(mockedSsh.sshExec).toHaveBeenCalledTimes(1);
     });
+
+    describe("path traversal protection", () => {
+      it("should strip directory traversal from --backup option", async () => {
+        mockedSsh.checkSshAvailable.mockReturnValue(true);
+        mockedConfig.findServers.mockReturnValue([sampleServer]);
+        mockedExistsSync.mockReturnValue(false);
+
+        await restoreCommand("1.2.3.4", { backup: "../../etc/passwd" });
+
+        const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+        expect(output).toContain("Invalid backup");
+      });
+
+      it("should strip absolute path from --backup option", async () => {
+        mockedSsh.checkSshAvailable.mockReturnValue(true);
+        mockedConfig.findServers.mockReturnValue([sampleServer]);
+        mockedExistsSync.mockReturnValue(false);
+
+        await restoreCommand("1.2.3.4", { backup: "/tmp/evil/my-backup" });
+
+        const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+        expect(output).toContain("Invalid backup");
+      });
+    });
   });
 });

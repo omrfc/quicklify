@@ -672,4 +672,141 @@ describe("DigitalOceanProvider", () => {
       );
     });
   });
+
+  describe("createSnapshot", () => {
+    it("should create a snapshot and return pending info", async () => {
+      mockedAxios.post.mockResolvedValueOnce({
+        data: { action: { id: 1, status: "in-progress" } },
+      });
+
+      const result = await provider.createSnapshot("12345", "quicklify-test");
+
+      expect(result.id).toBe("pending");
+      expect(result.serverId).toBe("12345");
+      expect(result.name).toBe("quicklify-test");
+      expect(result.status).toBe("pending");
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        "https://api.digitalocean.com/v2/droplets/12345/actions",
+        { type: "snapshot", name: "quicklify-test" },
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Bearer test-do-token",
+          }),
+        }),
+      );
+    });
+
+    it("should throw on API error", async () => {
+      mockedAxios.post.mockRejectedValueOnce({
+        response: {
+          data: { message: "Droplet not found" },
+        },
+      });
+
+      await expect(provider.createSnapshot("12345", "test")).rejects.toThrow(
+        "Failed to create snapshot: Droplet not found",
+      );
+    });
+
+    it("should handle non-Error thrown values", async () => {
+      mockedAxios.post.mockRejectedValueOnce("unexpected string");
+
+      await expect(provider.createSnapshot("12345", "test")).rejects.toThrow(
+        "Failed to create snapshot: unexpected string",
+      );
+    });
+  });
+
+  describe("listSnapshots", () => {
+    it("should return snapshot list", async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          snapshots: [
+            {
+              id: 100,
+              name: "quicklify-test",
+              size_gigabytes: 25,
+              created_at: "2026-02-24T00:00:00Z",
+            },
+          ],
+        },
+      });
+
+      const result = await provider.listSnapshots("12345");
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("100");
+      expect(result[0].name).toBe("quicklify-test");
+      expect(result[0].status).toBe("available");
+      expect(result[0].sizeGb).toBe(25);
+      expect(result[0].costPerMonth).toBe("$1.50/mo");
+    });
+
+    it("should throw on API error", async () => {
+      mockedAxios.get.mockRejectedValueOnce({
+        response: {
+          data: { message: "Droplet not found" },
+        },
+      });
+
+      await expect(provider.listSnapshots("12345")).rejects.toThrow("Failed to list snapshots");
+    });
+  });
+
+  describe("deleteSnapshot", () => {
+    it("should delete snapshot successfully", async () => {
+      mockedAxios.delete.mockResolvedValueOnce({});
+
+      await expect(provider.deleteSnapshot("100")).resolves.toBeUndefined();
+
+      expect(mockedAxios.delete).toHaveBeenCalledWith(
+        "https://api.digitalocean.com/v2/snapshots/100",
+        expect.objectContaining({
+          headers: { Authorization: "Bearer test-do-token" },
+        }),
+      );
+    });
+
+    it("should throw on delete error", async () => {
+      mockedAxios.delete.mockRejectedValueOnce({
+        response: {
+          data: { message: "Snapshot not found" },
+        },
+      });
+
+      await expect(provider.deleteSnapshot("100")).rejects.toThrow("Failed to delete snapshot");
+    });
+
+    it("should handle non-Error thrown values", async () => {
+      mockedAxios.delete.mockRejectedValueOnce("unexpected");
+
+      await expect(provider.deleteSnapshot("100")).rejects.toThrow(
+        "Failed to delete snapshot: unexpected",
+      );
+    });
+  });
+
+  describe("getSnapshotCostEstimate", () => {
+    it("should return cost estimate based on disk size", async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { droplet: { disk: 60 } },
+      });
+
+      const result = await provider.getSnapshotCostEstimate("12345");
+
+      expect(result).toBe("$3.60/mo");
+    });
+
+    it("should throw on API error", async () => {
+      mockedAxios.get.mockRejectedValueOnce({
+        response: {
+          data: { message: "Droplet not found" },
+        },
+      });
+
+      await expect(provider.getSnapshotCostEstimate("12345")).rejects.toThrow(
+        "Failed to get snapshot cost",
+      );
+    });
+  });
 });

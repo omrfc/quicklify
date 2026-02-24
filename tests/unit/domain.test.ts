@@ -4,6 +4,7 @@ import {
   domainCommand,
   isValidDomain,
   sanitizeDomain,
+  escapePsqlString,
   buildSetFqdnCommand,
   buildGetFqdnCommand,
   buildCoolifyCheckCommand,
@@ -85,6 +86,28 @@ describe("domain", () => {
     });
   });
 
+  describe("escapePsqlString", () => {
+    it("should return normal string unchanged", () => {
+      expect(escapePsqlString("https://example.com")).toBe("https://example.com");
+    });
+
+    it("should escape single quotes", () => {
+      expect(escapePsqlString("it's")).toBe("it''s");
+    });
+
+    it("should escape multiple single quotes", () => {
+      expect(escapePsqlString("it's a 'test'")).toBe("it''s a ''test''");
+    });
+
+    it("should handle empty string", () => {
+      expect(escapePsqlString("")).toBe("");
+    });
+
+    it("should handle string with only quotes", () => {
+      expect(escapePsqlString("'''")).toBe("''''''");
+    });
+  });
+
   describe("buildSetFqdnCommand", () => {
     it("should build HTTPS psql update + restart command", () => {
       const cmd = buildSetFqdnCommand("example.com", true);
@@ -103,6 +126,11 @@ describe("domain", () => {
     it("should chain commands with &&", () => {
       const cmd = buildSetFqdnCommand("example.com", true);
       expect(cmd).toContain(" && ");
+    });
+
+    it("should escape single quotes in domain", () => {
+      const cmd = buildSetFqdnCommand("exam'ple.com", true);
+      expect(cmd).toContain("fqdn='https://exam''ple.com'");
     });
   });
 

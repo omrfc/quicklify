@@ -1,4 +1,4 @@
-import type { Region, ServerSize, ServerConfig, ServerResult } from "../types/index.js";
+import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo } from "../types/index.js";
 
 export interface CloudProvider {
   name: string;
@@ -14,4 +14,8 @@ export interface CloudProvider {
   getServerDetails(serverId: string): Promise<ServerResult>;
   destroyServer(serverId: string): Promise<void>;
   rebootServer(serverId: string): Promise<void>;
+  createSnapshot(serverId: string, name: string): Promise<SnapshotInfo>;
+  listSnapshots(serverId: string): Promise<SnapshotInfo[]>;
+  deleteSnapshot(snapshotId: string): Promise<void>;
+  getSnapshotCostEstimate(serverId: string): Promise<string>;
 }

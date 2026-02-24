@@ -1,6 +1,6 @@
 import axios from "axios";
 import type { CloudProvider } from "./base.js";
-import type { Region, ServerSize, ServerConfig, ServerResult } from "../types/index.js";
+import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo } from "../types/index.js";
 
 interface DORegion {
   slug: string;
@@ -261,6 +261,113 @@ export class DigitalOceanProvider implements CloudProvider {
       }));
     } catch {
       return this.getServerSizes();
+    }
+  }
+
+  async createSnapshot(serverId: string, name: string): Promise<SnapshotInfo> {
+    try {
+      await axios.post(
+        `${this.baseUrl}/droplets/${serverId}/actions`,
+        { type: "snapshot", name },
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiToken}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      // DO snapshot creation is async; return a pending snapshot info
+      return {
+        id: "pending",
+        serverId,
+        name,
+        status: "pending",
+        sizeGb: 0,
+        createdAt: new Date().toISOString(),
+        costPerMonth: "pending",
+      };
+    } catch (error: unknown) {
+      if (axios.isAxiosError<DOErrorResponse>(error)) {
+        throw new Error(
+          `Failed to create snapshot: ${error.response?.data?.message || error.message}`,
+          { cause: error },
+        );
+      }
+      throw new Error(
+        `Failed to create snapshot: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  async listSnapshots(serverId: string): Promise<SnapshotInfo[]> {
+    try {
+      const response = await axios.get(
+        `${this.baseUrl}/droplets/${serverId}/snapshots?per_page=100`,
+        { headers: { Authorization: `Bearer ${this.apiToken}` } },
+      );
+      return response.data.snapshots.map(
+        (snap: { id: number; name: string; size_gigabytes: number; created_at: string }) => ({
+          id: snap.id.toString(),
+          serverId,
+          name: snap.name,
+          status: "available",
+          sizeGb: snap.size_gigabytes,
+          createdAt: snap.created_at,
+          costPerMonth: `$${(snap.size_gigabytes * 0.06).toFixed(2)}/mo`,
+        }),
+      );
+    } catch (error: unknown) {
+      if (axios.isAxiosError<DOErrorResponse>(error)) {
+        throw new Error(
+          `Failed to list snapshots: ${error.response?.data?.message || error.message}`,
+          { cause: error },
+        );
+      }
+      throw new Error(
+        `Failed to list snapshots: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  async deleteSnapshot(snapshotId: string): Promise<void> {
+    try {
+      await axios.delete(`${this.baseUrl}/snapshots/${snapshotId}`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+    } catch (error: unknown) {
+      if (axios.isAxiosError<DOErrorResponse>(error)) {
+        throw new Error(
+          `Failed to delete snapshot: ${error.response?.data?.message || error.message}`,
+          { cause: error },
+        );
+      }
+      throw new Error(
+        `Failed to delete snapshot: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  async getSnapshotCostEstimate(serverId: string): Promise<string> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/droplets/${serverId}`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+      const diskGb = response.data.droplet.disk;
+      return `$${(diskGb * 0.06).toFixed(2)}/mo`;
+    } catch (error: unknown) {
+      if (axios.isAxiosError<DOErrorResponse>(error)) {
+        throw new Error(
+          `Failed to get snapshot cost: ${error.response?.data?.message || error.message}`,
+          { cause: error },
+        );
+      }
+      throw new Error(
+        `Failed to get snapshot cost: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
     }
   }
 }

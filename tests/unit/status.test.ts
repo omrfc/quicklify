@@ -51,6 +51,10 @@ const mockProvider: CloudProvider = {
   getServerDetails: jest.fn(),
   destroyServer: jest.fn(),
   rebootServer: jest.fn(),
+  createSnapshot: jest.fn(),
+  listSnapshots: jest.fn(),
+  deleteSnapshot: jest.fn(),
+  getSnapshotCostEstimate: jest.fn(),
 };
 
 describe("statusCommand", () => {

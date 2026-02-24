@@ -14,7 +14,12 @@ const KNOWN_KEYS = new Set([
   "domain",
 ]);
 
-const SECURITY_KEYS = new Set(["token", "apiToken", "api_token", "apiKey", "api_key", "secret"]);
+const SECURITY_KEYS = new Set([
+  "token", "apiToken", "api_token", "apiKey", "api_key", "secret",
+  "password", "passwd", "pwd", "credential", "credentials",
+  "auth", "authorization", "bearer", "jwt",
+  "privateKey", "private_key", "accessKey", "access_key", "secretKey", "secret_key",
+]);
 
 export interface YamlLoadResult {
   config: QuicklifyYamlConfig;

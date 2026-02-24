@@ -705,4 +705,159 @@ describe("HetznerProvider", () => {
       );
     });
   });
+
+  describe("createSnapshot", () => {
+    it("should create a snapshot successfully", async () => {
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          image: {
+            id: 100,
+            description: "quicklify-test",
+            status: "creating",
+            image_size: 5.2,
+            created: "2026-02-24T00:00:00+00:00",
+          },
+        },
+      });
+
+      const result = await provider.createSnapshot("123", "quicklify-test");
+
+      expect(result.id).toBe("100");
+      expect(result.name).toBe("quicklify-test");
+      expect(result.status).toBe("creating");
+      expect(result.sizeGb).toBe(5.2);
+      expect(result.costPerMonth).toBe("€0.03/mo");
+    });
+
+    it("should throw on API error", async () => {
+      const axiosError = new Error("API Error") as any;
+      axiosError.isAxiosError = true;
+      axiosError.response = { status: 500, data: { error: { message: "Server error" } } };
+      mockedAxios.post.mockRejectedValueOnce(axiosError);
+
+      await expect(provider.createSnapshot("123", "test")).rejects.toThrow(
+        "Failed to create snapshot",
+      );
+    });
+
+    it("should handle non-Error thrown values", async () => {
+      mockedAxios.post.mockRejectedValueOnce("unexpected string");
+
+      await expect(provider.createSnapshot("123", "test")).rejects.toThrow(
+        "Failed to create snapshot: unexpected string",
+      );
+    });
+  });
+
+  describe("listSnapshots", () => {
+    it("should return snapshot list", async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          images: [
+            {
+              id: 100,
+              description: "test",
+              status: "available",
+              image_size: 5.2,
+              created: "2026-02-24T00:00:00+00:00",
+              created_from: { id: 123 },
+            },
+          ],
+        },
+      });
+
+      const result = await provider.listSnapshots("123");
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("100");
+      expect(result[0].name).toBe("test");
+      expect(result[0].status).toBe("available");
+    });
+
+    it("should filter by serverId", async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          images: [
+            {
+              id: 100,
+              description: "test",
+              status: "available",
+              image_size: 5.2,
+              created: "2026-02-24T00:00:00+00:00",
+              created_from: { id: 123 },
+            },
+            {
+              id: 101,
+              description: "other",
+              status: "available",
+              image_size: 3.1,
+              created: "2026-02-24T00:00:00+00:00",
+              created_from: { id: 456 },
+            },
+          ],
+        },
+      });
+
+      const result = await provider.listSnapshots("123");
+
+      expect(result).toHaveLength(1);
+    });
+
+    it("should throw on API error", async () => {
+      const axiosError = new Error("API Error") as any;
+      axiosError.isAxiosError = true;
+      axiosError.response = { status: 500, data: { error: { message: "Server error" } } };
+      mockedAxios.get.mockRejectedValueOnce(axiosError);
+
+      await expect(provider.listSnapshots("123")).rejects.toThrow("Failed to list snapshots");
+    });
+  });
+
+  describe("deleteSnapshot", () => {
+    it("should delete snapshot successfully", async () => {
+      mockedAxios.delete.mockResolvedValueOnce({});
+
+      await expect(provider.deleteSnapshot("100")).resolves.toBeUndefined();
+    });
+
+    it("should throw on delete error", async () => {
+      const axiosError = new Error("API Error") as any;
+      axiosError.isAxiosError = true;
+      axiosError.response = { status: 404, data: { error: { message: "Not found" } } };
+      mockedAxios.delete.mockRejectedValueOnce(axiosError);
+
+      await expect(provider.deleteSnapshot("100")).rejects.toThrow("Failed to delete snapshot");
+    });
+
+    it("should handle non-Error thrown values", async () => {
+      mockedAxios.delete.mockRejectedValueOnce("unexpected");
+
+      await expect(provider.deleteSnapshot("100")).rejects.toThrow(
+        "Failed to delete snapshot: unexpected",
+      );
+    });
+  });
+
+  describe("getSnapshotCostEstimate", () => {
+    it("should return cost estimate", async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { server: { server_type: { disk: 40 } } },
+      });
+
+      const result = await provider.getSnapshotCostEstimate("123");
+
+      expect(result).toBe("€0.24/mo");
+    });
+
+    it("should throw on API error", async () => {
+      const axiosError = new Error("API Error") as any;
+      axiosError.isAxiosError = true;
+      axiosError.response = { status: 500, data: { error: { message: "Server error" } } };
+      mockedAxios.get.mockRejectedValueOnce(axiosError);
+
+      await expect(provider.getSnapshotCostEstimate("123")).rejects.toThrow(
+        "Failed to get snapshot cost",
+      );
+    });
+  });
 });

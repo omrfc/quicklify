@@ -1,3 +1,4 @@
+import inquirer from "inquirer";
 import axios from "axios";
 import { getServers } from "../utils/config.js";
 import { resolveServer, promptApiToken, collectProviderTokens } from "../utils/serverSelect.js";
@@ -12,6 +13,7 @@ interface MaintainOptions {
   skipReboot?: boolean;
   all?: boolean;
   dryRun?: boolean;
+  skipSnapshot?: boolean;
 }
 
 interface MaintainResult {
@@ -54,7 +56,7 @@ function showDryRun(server: ServerRecord, skipReboot: boolean): void {
   logger.title("Dry Run: Maintenance Steps");
   logger.step(`Target: ${server.name} (${server.ip})`);
   console.log();
-  logger.step("Step 0: Snapshot warning (recommend manual snapshot via provider dashboard)");
+  logger.step("Step 0: Offer snapshot creation (cost estimate from API)");
   logger.step("Step 1: Check server status via provider API");
   logger.step("Step 2: Update Coolify via SSH (curl install script)");
   logger.step("Step 3: Health check — poll http://<ip>:8000");
@@ -87,8 +89,39 @@ async function maintainSingleServer(
 
   const provider = createProviderWithToken(server.provider, apiToken);
 
-  // Step 0: Snapshot warning
-  logger.warning("We recommend taking a snapshot via your provider dashboard before maintenance.");
+  // Step 0: Offer snapshot creation
+  if (!options.skipSnapshot && !server.id.startsWith("manual-")) {
+    try {
+      const costEstimate = await provider.getSnapshotCostEstimate(server.id);
+      const { createSnap } = await inquirer.prompt([
+        {
+          type: "confirm",
+          name: "createSnap",
+          message: `Create snapshot before maintenance? (Estimated cost: ${costEstimate})`,
+          default: true,
+        },
+      ]);
+
+      if (createSnap) {
+        const snapSpinner = createSpinner("Step 0: Creating snapshot...");
+        snapSpinner.start();
+        try {
+          const snapshotName = `quicklify-maintain-${Date.now()}`;
+          await provider.createSnapshot(server.id, snapshotName);
+          snapSpinner.succeed(`Step 0: Snapshot created (${snapshotName})`);
+        } catch (error: unknown) {
+          snapSpinner.warn("Step 0: Snapshot failed — continuing maintenance");
+          logger.error(error instanceof Error ? error.message : String(error));
+        }
+      } else {
+        logger.info("Step 0: Snapshot skipped");
+      }
+    } catch {
+      logger.info("Step 0: Could not estimate snapshot cost — skipping");
+    }
+  } else if (server.id.startsWith("manual-")) {
+    logger.info("Step 0: Manual server — snapshot skipped");
+  }
   console.log();
 
   // Step 1: Status check
@@ -267,7 +300,7 @@ async function maintainAll(options: MaintainOptions): Promise<void> {
       continue;
     }
 
-    const result = await maintainSingleServer(server, token, options);
+    const result = await maintainSingleServer(server, token, { ...options, skipSnapshot: true });
     results.push(result);
     console.log();
   }

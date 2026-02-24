@@ -1,5 +1,5 @@
 import { readFileSync, existsSync } from "fs";
-import { join } from "path";
+import { join, basename } from "path";
 import { spawn } from "child_process";
 import inquirer from "inquirer";
 import { resolveServer } from "../utils/serverSelect.js";
@@ -84,7 +84,7 @@ export async function restoreCommand(
   let selectedBackup: string;
 
   if (options?.backup) {
-    selectedBackup = options.backup;
+    selectedBackup = basename(options.backup);
   } else {
     const backups = listBackups(server.name);
     if (backups.length === 0) {

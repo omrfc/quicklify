@@ -1,6 +1,6 @@
 import axios from "axios";
 import type { CloudProvider } from "./base.js";
-import type { Region, ServerSize, ServerConfig, ServerResult } from "../types/index.js";
+import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo } from "../types/index.js";
 
 interface HetznerLocation {
   name: string;
@@ -276,6 +276,117 @@ export class HetznerProvider implements CloudProvider {
       });
     } catch {
       return this.getServerSizes();
+    }
+  }
+
+  async createSnapshot(serverId: string, name: string): Promise<SnapshotInfo> {
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/servers/${serverId}/actions/create_image`,
+        { type: "snapshot", description: name },
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiToken}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      const image = response.data.image;
+      return {
+        id: image.id.toString(),
+        serverId,
+        name: image.description || name,
+        status: image.status,
+        sizeGb: image.image_size || 0,
+        createdAt: image.created,
+        costPerMonth: `€${((image.image_size || 0) * 0.006).toFixed(2)}/mo`,
+      };
+    } catch (error: unknown) {
+      if (axios.isAxiosError<HetznerErrorResponse>(error)) {
+        throw new Error(
+          `Failed to create snapshot: ${error.response?.data?.error?.message || error.message}`,
+          { cause: error },
+        );
+      }
+      throw new Error(
+        `Failed to create snapshot: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  async listSnapshots(serverId: string): Promise<SnapshotInfo[]> {
+    try {
+      const response = await axios.get(
+        `${this.baseUrl}/images?type=snapshot&sort=created:desc&per_page=100`,
+        { headers: { Authorization: `Bearer ${this.apiToken}` } },
+      );
+      const images = response.data.images.filter(
+        (img: { created_from: { id: number } }) =>
+          img.created_from && img.created_from.id === Number(serverId),
+      );
+      return images.map(
+        (img: { id: number; description: string; status: string; image_size: number; created: string }) => ({
+          id: img.id.toString(),
+          serverId,
+          name: img.description || "",
+          status: img.status,
+          sizeGb: img.image_size || 0,
+          createdAt: img.created,
+          costPerMonth: `€${((img.image_size || 0) * 0.006).toFixed(2)}/mo`,
+        }),
+      );
+    } catch (error: unknown) {
+      if (axios.isAxiosError<HetznerErrorResponse>(error)) {
+        throw new Error(
+          `Failed to list snapshots: ${error.response?.data?.error?.message || error.message}`,
+          { cause: error },
+        );
+      }
+      throw new Error(
+        `Failed to list snapshots: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  async deleteSnapshot(snapshotId: string): Promise<void> {
+    try {
+      await axios.delete(`${this.baseUrl}/images/${snapshotId}`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+    } catch (error: unknown) {
+      if (axios.isAxiosError<HetznerErrorResponse>(error)) {
+        throw new Error(
+          `Failed to delete snapshot: ${error.response?.data?.error?.message || error.message}`,
+          { cause: error },
+        );
+      }
+      throw new Error(
+        `Failed to delete snapshot: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  async getSnapshotCostEstimate(serverId: string): Promise<string> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/servers/${serverId}`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+      const diskGb = response.data.server.server_type.disk;
+      return `€${(diskGb * 0.006).toFixed(2)}/mo`;
+    } catch (error: unknown) {
+      if (axios.isAxiosError<HetznerErrorResponse>(error)) {
+        throw new Error(
+          `Failed to get snapshot cost: ${error.response?.data?.error?.message || error.message}`,
+          { cause: error },
+        );
+      }
+      throw new Error(
+        `Failed to get snapshot cost: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
     }
   }
 }

@@ -24,9 +24,13 @@ export function sanitizeDomain(input: string): string {
   return domain;
 }
 
+export function escapePsqlString(input: string): string {
+  return input.replace(/'/g, "''");
+}
+
 export function buildSetFqdnCommand(domain: string, ssl: boolean): string {
   const protocol = ssl ? "https" : "http";
-  const url = `${protocol}://${domain}`;
+  const url = escapePsqlString(`${protocol}://${domain}`);
   return [
     `docker exec ${COOLIFY_DB_CONTAINER} psql -U ${COOLIFY_DB_USER} -d ${COOLIFY_DB_NAME} -c "UPDATE instance_settings SET fqdn='${url}' WHERE id=0;"`,
     `cd ${COOLIFY_SOURCE_DIR} && docker compose -f docker-compose.yml -f docker-compose.prod.yml restart coolify`,

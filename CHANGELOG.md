@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] - 2026-02-24
+
+### Added
+- `quicklify snapshot create/list/delete` — VPS snapshot management with cost estimates
+- Maintain integration: automatic snapshot offer before maintenance (with cost estimate)
+- `sshKey.test.ts` — dedicated tests for SSH key utilities (13 tests)
+- Provider snapshot support for Hetzner, DigitalOcean, Vultr, and Linode
+
+### Fixed
+- **domain.ts**: SQL escape for FQDN values (defense-in-depth against SQL injection)
+- **restore.ts**: Path traversal protection with `basename()` for `--backup` flag
+- **yamlConfig.ts**: Expanded security key detection (6 → 21 patterns including password, credential, jwt, bearer, etc.)
+
 ## [1.0.0] - 2026-02-23
 
 ### Added

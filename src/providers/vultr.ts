@@ -1,6 +1,6 @@
 import axios from "axios";
 import type { CloudProvider } from "./base.js";
-import type { Region, ServerSize, ServerConfig, ServerResult } from "../types/index.js";
+import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo } from "../types/index.js";
 
 interface VultrPlan {
   id: string;
@@ -244,6 +244,115 @@ export class VultrProvider implements CloudProvider {
       }));
     } catch {
       return this.getServerSizes();
+    }
+  }
+
+  async createSnapshot(serverId: string, name: string): Promise<SnapshotInfo> {
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/snapshots`,
+        { instance_id: serverId, description: name },
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiToken}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      const snap = response.data.snapshot;
+      return {
+        id: snap.id,
+        serverId,
+        name: snap.description || name,
+        status: snap.status,
+        sizeGb: snap.size ? snap.size / (1024 * 1024 * 1024) : 0,
+        createdAt: snap.date_created,
+        costPerMonth: `$${(snap.size ? (snap.size / (1024 * 1024 * 1024)) * 0.05 : 0).toFixed(2)}/mo`,
+      };
+    } catch (error: unknown) {
+      if (axios.isAxiosError<VultrErrorResponse>(error)) {
+        throw new Error(
+          `Failed to create snapshot: ${error.response?.data?.error || error.message}`,
+          { cause: error },
+        );
+      }
+      throw new Error(
+        `Failed to create snapshot: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  async listSnapshots(serverId: string): Promise<SnapshotInfo[]> {
+    try {
+      // Vultr API does not return instance_id in snapshot list,
+      // so we return all account snapshots (they are account-wide, not per-instance).
+      const response = await axios.get(`${this.baseUrl}/snapshots`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+      const snapshots = response.data.snapshots || [];
+      return snapshots.map(
+        (s: { id: string; description: string; status: string; size: number; date_created: string }) => ({
+          id: s.id,
+          serverId,
+          name: s.description || "",
+          status: s.status,
+          sizeGb: s.size ? s.size / (1024 * 1024 * 1024) : 0,
+          createdAt: s.date_created,
+          costPerMonth: `$${(s.size ? (s.size / (1024 * 1024 * 1024)) * 0.05 : 0).toFixed(2)}/mo`,
+        }),
+      );
+    } catch (error: unknown) {
+      if (axios.isAxiosError<VultrErrorResponse>(error)) {
+        throw new Error(
+          `Failed to list snapshots: ${error.response?.data?.error || error.message}`,
+          { cause: error },
+        );
+      }
+      throw new Error(
+        `Failed to list snapshots: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  async deleteSnapshot(snapshotId: string): Promise<void> {
+    try {
+      await axios.delete(`${this.baseUrl}/snapshots/${snapshotId}`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+    } catch (error: unknown) {
+      if (axios.isAxiosError<VultrErrorResponse>(error)) {
+        throw new Error(
+          `Failed to delete snapshot: ${error.response?.data?.error || error.message}`,
+          { cause: error },
+        );
+      }
+      throw new Error(
+        `Failed to delete snapshot: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  async getSnapshotCostEstimate(serverId: string): Promise<string> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/instances/${serverId}`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+      const diskGb = response.data.instance?.disk || 0;
+      return `$${(diskGb * 0.05).toFixed(2)}/mo`;
+    } catch (error: unknown) {
+      if (axios.isAxiosError<VultrErrorResponse>(error)) {
+        throw new Error(
+          `Failed to get snapshot cost: ${error.response?.data?.error || error.message}`,
+          { cause: error },
+        );
+      }
+      throw new Error(
+        `Failed to get snapshot cost: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
     }
   }
 }

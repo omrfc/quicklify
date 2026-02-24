@@ -708,4 +708,185 @@ describe("VultrProvider", () => {
       );
     });
   });
+
+  describe("createSnapshot", () => {
+    it("should create a snapshot successfully", async () => {
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          snapshot: {
+            id: "snap-abc-123",
+            description: "quicklify-test",
+            status: "pending",
+            size: 5368709120,
+            date_created: "2026-02-24T00:00:00+00:00",
+          },
+        },
+      });
+
+      const result = await provider.createSnapshot("inst-abc-123", "quicklify-test");
+
+      expect(result.id).toBe("snap-abc-123");
+      expect(result.name).toBe("quicklify-test");
+      expect(result.status).toBe("pending");
+      expect(result.sizeGb).toBe(5);
+      expect(result.costPerMonth).toBe("$0.25/mo");
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        "https://api.vultr.com/v2/snapshots",
+        { instance_id: "inst-abc-123", description: "quicklify-test" },
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Bearer test-api-token",
+          }),
+        }),
+      );
+    });
+
+    it("should throw on API error", async () => {
+      mockedAxios.post.mockRejectedValueOnce({
+        response: {
+          data: { error: "Instance not found" },
+        },
+      });
+
+      await expect(provider.createSnapshot("inst-abc-123", "test")).rejects.toThrow(
+        "Failed to create snapshot: Instance not found",
+      );
+    });
+
+    it("should handle non-Error thrown values", async () => {
+      mockedAxios.post.mockRejectedValueOnce("unexpected string");
+
+      await expect(provider.createSnapshot("inst-abc-123", "test")).rejects.toThrow(
+        "Failed to create snapshot: unexpected string",
+      );
+    });
+
+    it("should handle snapshot with zero size", async () => {
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          snapshot: {
+            id: "snap-abc-123",
+            description: "test",
+            status: "pending",
+            size: 0,
+            date_created: "2026-02-24T00:00:00+00:00",
+          },
+        },
+      });
+
+      const result = await provider.createSnapshot("inst-abc-123", "test");
+
+      expect(result.sizeGb).toBe(0);
+    });
+  });
+
+  describe("listSnapshots", () => {
+    it("should return snapshot list filtered by serverId", async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          snapshots: [
+            {
+              id: "snap-1",
+              description: "test-1",
+              status: "complete",
+              size: 5368709120,
+              date_created: "2026-02-24T00:00:00+00:00",
+              instance_id: "inst-abc-123",
+            },
+            {
+              id: "snap-2",
+              description: "test-2",
+              status: "complete",
+              size: 3221225472,
+              date_created: "2026-02-24T00:00:00+00:00",
+              instance_id: "inst-other",
+            },
+          ],
+        },
+      });
+
+      const result = await provider.listSnapshots("inst-abc-123");
+
+      // Vultr API does not return instance_id, so all account snapshots are returned
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe("snap-1");
+      expect(result[0].costPerMonth).toBe("$0.25/mo");
+      expect(result[1].id).toBe("snap-2");
+    });
+
+    it("should throw on API error", async () => {
+      mockedAxios.get.mockRejectedValueOnce({
+        response: {
+          data: { error: "Unauthorized" },
+        },
+      });
+
+      await expect(provider.listSnapshots("inst-abc-123")).rejects.toThrow(
+        "Failed to list snapshots",
+      );
+    });
+  });
+
+  describe("deleteSnapshot", () => {
+    it("should delete snapshot successfully", async () => {
+      mockedAxios.delete.mockResolvedValueOnce({});
+
+      await expect(provider.deleteSnapshot("snap-abc-123")).resolves.toBeUndefined();
+
+      expect(mockedAxios.delete).toHaveBeenCalledWith(
+        "https://api.vultr.com/v2/snapshots/snap-abc-123",
+        expect.objectContaining({
+          headers: { Authorization: "Bearer test-api-token" },
+        }),
+      );
+    });
+
+    it("should throw on delete error", async () => {
+      mockedAxios.delete.mockRejectedValueOnce({
+        response: {
+          data: { error: "Snapshot not found" },
+        },
+      });
+
+      await expect(provider.deleteSnapshot("snap-abc-123")).rejects.toThrow(
+        "Failed to delete snapshot",
+      );
+    });
+
+    it("should handle non-Error thrown values", async () => {
+      mockedAxios.delete.mockRejectedValueOnce("unexpected");
+
+      await expect(provider.deleteSnapshot("snap-abc-123")).rejects.toThrow(
+        "Failed to delete snapshot: unexpected",
+      );
+    });
+  });
+
+  describe("getSnapshotCostEstimate", () => {
+    it("should return cost based on disk size from API", async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { instance: { disk: 55 } },
+      });
+
+      const result = await provider.getSnapshotCostEstimate("inst-abc-123");
+
+      expect(result).toBe("$2.75/mo");
+      expect(mockedAxios.get).toHaveBeenCalledWith(
+        "https://api.vultr.com/v2/instances/inst-abc-123",
+        expect.objectContaining({
+          headers: { Authorization: "Bearer test-api-token" },
+        }),
+      );
+    });
+
+    it("should throw on API error", async () => {
+      mockedAxios.get.mockRejectedValueOnce({
+        response: { data: { error: "Not found" } },
+      });
+
+      await expect(provider.getSnapshotCostEstimate("inst-abc-123")).rejects.toThrow(
+        "Failed to get snapshot cost",
+      );
+    });
+  });
 });
