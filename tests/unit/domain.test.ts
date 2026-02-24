@@ -128,9 +128,34 @@ describe("domain", () => {
       expect(cmd).toContain(" && ");
     });
 
-    it("should escape single quotes in domain", () => {
-      const cmd = buildSetFqdnCommand("exam'ple.com", true);
-      expect(cmd).toContain("fqdn='https://exam''ple.com'");
+    it("should throw error for invalid domain characters", () => {
+      expect(() => buildSetFqdnCommand("exam'ple.com", true)).toThrow(
+        "Invalid domain for FQDN command",
+      );
+    });
+
+    it("should throw for semicolon injection", () => {
+      expect(() => buildSetFqdnCommand("example.com; rm -rf /", true)).toThrow(
+        "Invalid domain for FQDN command",
+      );
+    });
+
+    it("should throw for pipe injection", () => {
+      expect(() => buildSetFqdnCommand("example.com | cat /etc/passwd", true)).toThrow(
+        "Invalid domain for FQDN command",
+      );
+    });
+
+    it("should throw for backtick injection", () => {
+      expect(() => buildSetFqdnCommand("example.com`whoami`", true)).toThrow(
+        "Invalid domain for FQDN command",
+      );
+    });
+
+    it("should throw for dollar sign injection", () => {
+      expect(() => buildSetFqdnCommand("example.com$(id)", true)).toThrow(
+        "Invalid domain for FQDN command",
+      );
     });
   });
 
@@ -157,6 +182,17 @@ describe("domain", () => {
       expect(cmd).toContain("dig");
       expect(cmd).toContain("getent ahosts");
       expect(cmd).toContain("example.com");
+    });
+
+    it("should strip special characters from domain", () => {
+      const cmd = buildDnsCheckCommand("example.com;rm -rf /");
+      expect(cmd).toContain("example.comrm-rf");
+      expect(cmd).not.toContain(";");
+    });
+
+    it("should preserve valid domain characters", () => {
+      const cmd = buildDnsCheckCommand("sub.example.com");
+      expect(cmd).toContain("sub.example.com");
     });
   });
 

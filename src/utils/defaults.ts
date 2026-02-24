@@ -30,8 +30,8 @@ export function setDefault(key: string, value: string): void {
   if (!VALID_KEYS.includes(key)) {
     throw new Error(`Invalid config key: ${key}. Valid keys: ${VALID_KEYS.join(", ")}`);
   }
-  if (key === "provider" && !["hetzner", "digitalocean"].includes(value)) {
-    throw new Error(`Invalid provider: ${value}. Use "hetzner" or "digitalocean".`);
+  if (key === "provider" && !["hetzner", "digitalocean", "vultr", "linode"].includes(value)) {
+    throw new Error(`Invalid provider: ${value}. Use "hetzner", "digitalocean", "vultr", or "linode".`);
   }
   ensureConfigDir();
   const config = getDefaults();

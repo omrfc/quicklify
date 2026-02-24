@@ -29,6 +29,9 @@ export function escapePsqlString(input: string): string {
 }
 
 export function buildSetFqdnCommand(domain: string, ssl: boolean): string {
+  if (/[^a-zA-Z0-9.:_-]/.test(domain)) {
+    throw new Error(`Invalid domain for FQDN command: ${domain}`);
+  }
   const protocol = ssl ? "https" : "http";
   const url = escapePsqlString(`${protocol}://${domain}`);
   return [
@@ -46,8 +49,8 @@ export function buildCoolifyCheckCommand(): string {
 }
 
 export function buildDnsCheckCommand(domain: string): string {
-  // dig first, fallback to getent ahosts (always available on Linux)
-  return `dig +short A ${domain} 2>/dev/null || getent ahosts ${domain} 2>/dev/null | head -1 | awk '{print $1}'`;
+  const safeDomain = domain.replace(/[^a-zA-Z0-9.-]/g, "");
+  return `dig +short A ${safeDomain} 2>/dev/null || getent ahosts ${safeDomain} 2>/dev/null | head -1 | awk '{print $1}'`;
 }
 
 export function parseDnsResult(stdout: string): string | null {

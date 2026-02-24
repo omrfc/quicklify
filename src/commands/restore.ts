@@ -3,7 +3,7 @@ import { join, basename } from "path";
 import { spawn } from "child_process";
 import inquirer from "inquirer";
 import { resolveServer } from "../utils/serverSelect.js";
-import { checkSshAvailable, sshExec } from "../utils/ssh.js";
+import { checkSshAvailable, sshExec, sanitizedEnv } from "../utils/ssh.js";
 import { listBackups, getBackupDir } from "./backup.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import type { BackupManifest } from "../types/index.js";
@@ -43,7 +43,7 @@ export function scpUpload(
     const child = spawn(
       "scp",
       ["-o", "StrictHostKeyChecking=accept-new", localPath, `root@${ip}:${remotePath}`],
-      { stdio: ["inherit", "pipe", "pipe"] },
+      { stdio: ["inherit", "pipe", "pipe"], env: sanitizedEnv() },
     );
     let stderr = "";
     child.stderr?.on("data", (data: Buffer) => {

@@ -102,7 +102,7 @@ describe("transfer", () => {
       expect(mockedWriteFileSync).toHaveBeenCalledWith(
         expect.stringContaining("quicklify-export.json"),
         JSON.stringify([sampleServer], null, 2),
-        "utf-8",
+        { encoding: "utf-8", mode: 0o600 },
       );
     });
 
@@ -114,7 +114,7 @@ describe("transfer", () => {
       expect(mockedWriteFileSync).toHaveBeenCalledWith(
         expect.stringContaining("my-export.json"),
         expect.any(String),
-        "utf-8",
+        { encoding: "utf-8", mode: 0o600 },
       );
     });
 
@@ -139,6 +139,16 @@ describe("transfer", () => {
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("Failed to write");
     });
+
+    it("should show security warning after export", async () => {
+      mockedWriteFileSync.mockReset();
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+
+      await exportCommand();
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Store it securely");
+    });
   });
 
   describe("importCommand", () => {
@@ -148,7 +158,16 @@ describe("transfer", () => {
 
       await importCommand("/tmp/export.json");
 
-      expect(mockedConfig.saveServer).toHaveBeenCalledWith(sampleServer);
+      // saveServer should be called with sanitized fields only
+      expect(mockedConfig.saveServer).toHaveBeenCalledWith({
+        id: sampleServer.id,
+        name: sampleServer.name,
+        provider: sampleServer.provider,
+        ip: sampleServer.ip,
+        region: sampleServer.region,
+        size: sampleServer.size,
+        createdAt: sampleServer.createdAt,
+      });
     });
 
     it("should skip duplicate servers by ID", async () => {
@@ -158,7 +177,16 @@ describe("transfer", () => {
       await importCommand("/tmp/export.json");
 
       expect(mockedConfig.saveServer).toHaveBeenCalledTimes(1);
-      expect(mockedConfig.saveServer).toHaveBeenCalledWith(sampleServer2);
+      // saveServer should be called with sanitized fields only
+      expect(mockedConfig.saveServer).toHaveBeenCalledWith({
+        id: sampleServer2.id,
+        name: sampleServer2.name,
+        provider: sampleServer2.provider,
+        ip: sampleServer2.ip,
+        region: sampleServer2.region,
+        size: sampleServer2.size,
+        createdAt: sampleServer2.createdAt,
+      });
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("Imported 1");
       expect(output).toContain("skipped 1");
@@ -210,6 +238,24 @@ describe("transfer", () => {
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("Imported 0");
       expect(output).toContain("skipped 1");
+    });
+
+    it("should strip extra fields from imported servers", async () => {
+      const serverWithExtras = {
+        ...sampleServer,
+        extraField: "should-be-removed",
+        apiToken: "secret-token",
+      };
+      mockedReadFileSync.mockReturnValue(JSON.stringify([serverWithExtras]));
+      mockedConfig.getServers.mockReturnValue([]);
+
+      await importCommand("/tmp/export.json");
+
+      const savedServer = mockedConfig.saveServer.mock.calls[0][0];
+      expect(savedServer).not.toHaveProperty("extraField");
+      expect(savedServer).not.toHaveProperty("apiToken");
+      expect(savedServer).toHaveProperty("id", sampleServer.id);
+      expect(savedServer).toHaveProperty("name", sampleServer.name);
     });
   });
 });

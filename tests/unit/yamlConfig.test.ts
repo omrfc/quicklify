@@ -352,6 +352,88 @@ describe("yamlConfig", () => {
       expect(warnings.some((w: string) => w.includes('"secret_key"'))).toBe(true);
     });
 
+    // Case-insensitive security key detection
+    it("should detect security keys case-insensitively (TOKEN)", () => {
+      const { warnings } = validateYamlConfig({ TOKEN: "secret123" });
+      expect(warnings.some((w: string) => w.includes("Security warning"))).toBe(true);
+      expect(warnings.some((w: string) => w.includes('"TOKEN"'))).toBe(true);
+    });
+
+    it("should detect security keys case-insensitively (ApiToken)", () => {
+      const { warnings } = validateYamlConfig({ ApiToken: "secret123" });
+      expect(warnings.some((w: string) => w.includes("Security warning"))).toBe(true);
+    });
+
+    it("should detect security keys case-insensitively (PASSWORD)", () => {
+      const { warnings } = validateYamlConfig({ PASSWORD: "secret123" });
+      expect(warnings.some((w: string) => w.includes("Security warning"))).toBe(true);
+    });
+
+    // Nested security key detection
+    it("should detect security keys in nested objects", () => {
+      const { warnings } = validateYamlConfig({
+        database: {
+          password: "secret123",
+        },
+      });
+      expect(warnings.some((w: string) => w.includes("Security warning"))).toBe(true);
+      expect(warnings.some((w: string) => w.includes('"database.password"'))).toBe(true);
+    });
+
+    it("should detect deeply nested security keys", () => {
+      const { warnings } = validateYamlConfig({
+        services: {
+          api: {
+            credentials: {
+              token: "secret123",
+            },
+          },
+        },
+      });
+      // Should detect both "credentials" and "token"
+      expect(warnings.filter((w: string) => w.includes("Security warning")).length).toBeGreaterThanOrEqual(2);
+      expect(warnings.some((w: string) => w.includes("services.api.credentials"))).toBe(true);
+      expect(warnings.some((w: string) => w.includes("services.api.credentials.token"))).toBe(true);
+    });
+
+    it("should detect case-insensitive nested security keys", () => {
+      const { warnings } = validateYamlConfig({
+        Config: {
+          API_KEY: "secret123",
+        },
+      });
+      expect(warnings.some((w: string) => w.includes("Security warning"))).toBe(true);
+      expect(warnings.some((w: string) => w.includes('"Config.API_KEY"'))).toBe(true);
+    });
+
+    // Newly added security keys (pass, cred, connection_string, dsn)
+    it('should warn about "pass" key', () => {
+      const { warnings } = validateYamlConfig({ db_pass: "hidden" });
+      // "pass" is in SECURITY_KEYS, but key is "db_pass" — only exact match (lowercased)
+      // db_pass.toLowerCase() = "db_pass" which is NOT in SECURITY_KEYS
+      expect(warnings.some((w: string) => w.includes("Security warning") && w.includes('"db_pass"'))).toBe(false);
+    });
+
+    it('should warn about exact "pass" key', () => {
+      const { warnings } = validateYamlConfig({ pass: "secret" });
+      expect(warnings.some((w: string) => w.includes("Security warning"))).toBe(true);
+    });
+
+    it('should warn about "cred" key', () => {
+      const { warnings } = validateYamlConfig({ cred: "value" });
+      expect(warnings.some((w: string) => w.includes("Security warning"))).toBe(true);
+    });
+
+    it('should warn about "connection_string" key', () => {
+      const { warnings } = validateYamlConfig({ connection_string: "postgres://..." });
+      expect(warnings.some((w: string) => w.includes("Security warning"))).toBe(true);
+    });
+
+    it('should warn about "dsn" key', () => {
+      const { warnings } = validateYamlConfig({ dsn: "mysql://..." });
+      expect(warnings.some((w: string) => w.includes("Security warning"))).toBe(true);
+    });
+
     // Multiple warnings
     it("should collect multiple warnings", () => {
       const result = validateYamlConfig({

@@ -6,7 +6,13 @@ jest.mock("child_process", () => ({
 }));
 
 import { spawn, execSync } from "child_process";
-import { checkSshAvailable, sshConnect, sshExec, sshStream } from "../../src/utils/ssh";
+import {
+  checkSshAvailable,
+  sshConnect,
+  sshExec,
+  sshStream,
+  sanitizedEnv,
+} from "../../src/utils/ssh";
 
 const mockedSpawn = spawn as jest.MockedFunction<typeof spawn>;
 const mockedExecSync = execSync as jest.MockedFunction<typeof execSync>;
@@ -45,7 +51,11 @@ describe("ssh utils", () => {
 
       const code = await sshConnect("1.2.3.4");
       expect(code).toBe(0);
-      expect(mockedSpawn).toHaveBeenCalledWith("ssh", ["root@1.2.3.4"], { stdio: "inherit" });
+      expect(mockedSpawn).toHaveBeenCalledWith(
+        "ssh",
+        ["-o", "StrictHostKeyChecking=accept-new", "root@1.2.3.4"],
+        expect.objectContaining({ stdio: "inherit" }),
+      );
     });
 
     it("should return non-zero exit code", async () => {
@@ -79,6 +89,12 @@ describe("ssh utils", () => {
       const code = await promise;
       expect(code).toBe(0);
     });
+
+    it("should throw error for invalid IP address", () => {
+      expect(() => sshConnect("invalid-ip")).toThrow("Invalid IP address");
+      expect(() => sshConnect("1.2.3.4.5")).toThrow("Invalid IP address");
+      expect(() => sshConnect("example.com")).toThrow("Invalid IP address");
+    });
   });
 
   describe("sshStream", () => {
@@ -91,7 +107,7 @@ describe("ssh utils", () => {
       expect(mockedSpawn).toHaveBeenCalledWith(
         "ssh",
         ["-o", "StrictHostKeyChecking=accept-new", "root@1.2.3.4", "docker logs coolify --follow"],
-        { stdio: "inherit" },
+        expect.objectContaining({ stdio: "inherit" }),
       );
     });
 
@@ -125,6 +141,10 @@ describe("ssh utils", () => {
       process.nextTick(() => mockCp.emit("close", null));
       const code = await promise;
       expect(code).toBe(0);
+    });
+
+    it("should throw error for invalid IP address", () => {
+      expect(() => sshStream("not-an-ip", "uptime")).toThrow("Invalid IP address");
     });
   });
 
@@ -203,6 +223,50 @@ describe("ssh utils", () => {
 
       const result = await promise;
       expect(result.code).toBe(1);
+    });
+
+    it("should throw error for invalid IP address", () => {
+      expect(() => sshExec("localhost", "uptime")).toThrow("Invalid IP address");
+    });
+  });
+
+  describe("sanitizedEnv", () => {
+    it("should remove sensitive environment variables", () => {
+      const originalEnv = process.env;
+      process.env = {
+        ...originalEnv,
+        PATH: "/usr/bin",
+        HOME: "/home/user",
+        HETZNER_TOKEN: "secret-token",
+        DIGITALOCEAN_TOKEN: "do-secret",
+        MY_SECRET: "hidden",
+        DB_PASSWORD: "dbpass",
+        API_CREDENTIAL: "cred",
+      };
+
+      const env = sanitizedEnv();
+
+      expect(env.PATH).toBe("/usr/bin");
+      expect(env.HOME).toBe("/home/user");
+      expect(env.HETZNER_TOKEN).toBeUndefined();
+      expect(env.DIGITALOCEAN_TOKEN).toBeUndefined();
+      expect(env.MY_SECRET).toBeUndefined();
+      expect(env.DB_PASSWORD).toBeUndefined();
+      expect(env.API_CREDENTIAL).toBeUndefined();
+
+      process.env = originalEnv;
+    });
+
+    it("should return a copy of process.env without modifying original", () => {
+      const originalEnv = process.env;
+      process.env = { ...originalEnv, TEST_TOKEN: "value" };
+
+      const env = sanitizedEnv();
+
+      expect(env.TEST_TOKEN).toBeUndefined();
+      expect(process.env.TEST_TOKEN).toBe("value");
+
+      process.env = originalEnv;
     });
   });
 });

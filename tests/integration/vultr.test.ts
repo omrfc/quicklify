@@ -889,4 +889,38 @@ describe("VultrProvider", () => {
       );
     });
   });
+
+  describe("cause chain sanitization", () => {
+    it("should not leak API token in error cause chain", async () => {
+      const axiosError = new Error("Request failed") as any;
+      axiosError.isAxiosError = true;
+      axiosError.response = { status: 401, data: { error: "unauthorized" } };
+      axiosError.config = { headers: { Authorization: "Bearer test-api-token" }, data: "secret" };
+      axiosError.request = { sensitive: "data" };
+      axiosError.code = "ERR_BAD_REQUEST";
+      axiosError.message = "Request failed with status code 401";
+
+      mockedAxios.post.mockRejectedValue(axiosError);
+
+      try {
+        await provider.createServer({
+          name: "test",
+          region: "ewr",
+          size: "vc2-1c-2gb",
+          cloudInit: "#!/bin/bash",
+          sshKeyIds: [],
+        });
+      } catch (error: unknown) {
+        const err = error as Error;
+        const cause = err.cause as Record<string, unknown>;
+        // Sensitive data should be stripped from the cause chain
+        expect((cause as any).config?.headers).toBeUndefined();
+        expect((cause as any).config?.data).toBeUndefined();
+        expect((cause as any).request).toBeUndefined();
+        // Error properties should still be present
+        expect(cause).toHaveProperty("response");
+        expect(cause).toHaveProperty("message");
+      }
+    });
+  });
 });

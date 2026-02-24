@@ -860,4 +860,38 @@ describe("HetznerProvider", () => {
       );
     });
   });
+
+  describe("cause chain sanitization", () => {
+    it("should not leak API token in error cause chain", async () => {
+      const axiosError = new Error("Request failed") as any;
+      axiosError.isAxiosError = true;
+      axiosError.response = { status: 401, data: { error: { message: "unauthorized" } } };
+      axiosError.config = { headers: { Authorization: "Bearer test-api-token" }, data: "sensitive" };
+      axiosError.request = { sensitive: "data" };
+      axiosError.code = "ERR_BAD_REQUEST";
+      axiosError.message = "Request failed with status code 401";
+
+      mockedAxios.post.mockRejectedValue(axiosError);
+
+      try {
+        await provider.createServer({
+          name: "test",
+          region: "nbg1",
+          size: "cax11",
+          cloudInit: "#!/bin/bash",
+          sshKeyIds: [],
+        });
+      } catch (error: unknown) {
+        const err = error as Error;
+        const cause = err.cause as any;
+        // Sensitive data should be stripped (set to undefined)
+        expect(cause.config.headers).toBeUndefined();
+        expect(cause.config.data).toBeUndefined();
+        expect(cause.request).toBeUndefined();
+        // Non-sensitive data should be preserved
+        expect(cause.response.status).toBe(401);
+        expect(cause.message).toBe("Request failed with status code 401");
+      }
+    });
+  });
 });

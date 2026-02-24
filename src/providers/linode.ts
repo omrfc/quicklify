@@ -3,6 +3,16 @@ import axios from "axios";
 import type { CloudProvider } from "./base.js";
 import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo } from "../types/index.js";
 
+function stripSensitiveData(error: unknown): void {
+  if (axios.isAxiosError(error)) {
+    if (error.config) {
+      error.config.headers = undefined as unknown as typeof error.config.headers;
+      error.config.data = undefined;
+    }
+    (error as unknown as Record<string, unknown>).request = undefined;
+  }
+}
+
 interface LinodeType {
   id: string;
   label: string;
@@ -59,6 +69,7 @@ export class LinodeProvider implements CloudProvider {
       );
       return response.data.id.toString();
     } catch (error: unknown) {
+      stripSensitiveData(error);
       // Key already exists → find by matching public key
       if (axios.isAxiosError(error) && error.response?.status === 400) {
         const listResponse = await axios.get(`${this.baseUrl}/profile/sshkeys`, {
@@ -118,6 +129,7 @@ export class LinodeProvider implements CloudProvider {
         status: instance.status === "provisioning" ? "initializing" : instance.status,
       };
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<LinodeErrorResponse>(error)) {
         const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
         throw new Error(`Failed to create server: ${reasons || error.message}`, { cause: error });
@@ -130,15 +142,23 @@ export class LinodeProvider implements CloudProvider {
   }
 
   async getServerDetails(serverId: string): Promise<ServerResult> {
-    const response = await axios.get(`${this.baseUrl}/linode/instances/${serverId}`, {
-      headers: { Authorization: `Bearer ${this.apiToken}` },
-    });
-    const instance = response.data;
-    return {
-      id: instance.id.toString(),
-      ip: instance.ipv4?.[0] || "pending",
-      status: instance.status === "running" ? "running" : instance.status,
-    };
+    try {
+      const response = await axios.get(`${this.baseUrl}/linode/instances/${serverId}`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+      const instance = response.data;
+      return {
+        id: instance.id.toString(),
+        ip: instance.ipv4?.[0] || "pending",
+        status: instance.status === "running" ? "running" : instance.status,
+      };
+    } catch (error: unknown) {
+      stripSensitiveData(error);
+      throw new Error(
+        `Failed to get server details: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
   }
 
   async getServerStatus(serverId: string): Promise<string> {
@@ -148,6 +168,7 @@ export class LinodeProvider implements CloudProvider {
       });
       return response.data.status;
     } catch (error: unknown) {
+      stripSensitiveData(error);
       throw new Error(
         `Failed to get server status: ${error instanceof Error ? error.message : String(error)}`,
         { cause: error },
@@ -161,6 +182,7 @@ export class LinodeProvider implements CloudProvider {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<LinodeErrorResponse>(error)) {
         const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
         throw new Error(`Failed to destroy server: ${reasons || error.message}`, { cause: error });
@@ -185,6 +207,7 @@ export class LinodeProvider implements CloudProvider {
         },
       );
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<LinodeErrorResponse>(error)) {
         const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
         throw new Error(`Failed to reboot server: ${reasons || error.message}`, { cause: error });
@@ -225,7 +248,8 @@ export class LinodeProvider implements CloudProvider {
           name: r.label,
           location: r.country,
         }));
-    } catch {
+    } catch (error: unknown) {
+      stripSensitiveData(error);
       return this.getRegions();
     }
   }
@@ -253,7 +277,8 @@ export class LinodeProvider implements CloudProvider {
         disk: Math.round(t.disk / 1024),
         price: `$${t.price.monthly.toFixed(2)}/mo`,
       }));
-    } catch {
+    } catch (error: unknown) {
+      stripSensitiveData(error);
       return this.getServerSizes();
     }
   }
@@ -293,6 +318,7 @@ export class LinodeProvider implements CloudProvider {
         costPerMonth: `$${(image.size ? (image.size / 1024) * 0.004 : 0).toFixed(2)}/mo`,
       };
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<LinodeErrorResponse>(error)) {
         const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
         throw new Error(`Failed to create snapshot: ${reasons || error.message}`, { cause: error });
@@ -326,6 +352,7 @@ export class LinodeProvider implements CloudProvider {
         }),
       );
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<LinodeErrorResponse>(error)) {
         const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
         throw new Error(`Failed to list snapshots: ${reasons || error.message}`, { cause: error });
@@ -343,6 +370,7 @@ export class LinodeProvider implements CloudProvider {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<LinodeErrorResponse>(error)) {
         const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
         throw new Error(`Failed to delete snapshot: ${reasons || error.message}`, { cause: error });
@@ -363,6 +391,7 @@ export class LinodeProvider implements CloudProvider {
       const diskGb = diskMb / 1024;
       return `$${(diskGb * 0.004).toFixed(2)}/mo`;
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<LinodeErrorResponse>(error)) {
         const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
         throw new Error(`Failed to get snapshot cost: ${reasons || error.message}`, { cause: error });

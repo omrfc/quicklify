@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2026-02-24
+
+### Security
+- Sanitize error cause chains to prevent API token leakage in all provider errors
+- Mask process title when `--token` flag is used
+- Replace `execSync` with `spawnSync` for ssh-keygen (prevent shell injection)
+- Add shell-safe assertions to domain FQDN and DNS check commands
+- Case-insensitive + nested security key detection in YAML config
+- Strip unknown fields from imported server data
+- Add IP address format validation to all SSH functions
+- Filter sensitive environment variables from child processes
+- Add `StrictHostKeyChecking` to interactive SSH connections
+- Set file permissions (`0o600`) on export files
+- Set directory permissions (`0o700`) on backup directories
+- Add Vultr and Linode to default provider validation
+- Clear `error.config.data` on Linode API failures (rootPass protection)
+
 ## [1.0.1] - 2026-02-24
 
 ### Added

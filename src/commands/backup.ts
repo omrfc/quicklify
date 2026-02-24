@@ -3,7 +3,7 @@ import { join } from "path";
 import { spawn } from "child_process";
 import { getServers } from "../utils/config.js";
 import { resolveServer } from "../utils/serverSelect.js";
-import { checkSshAvailable, sshExec } from "../utils/ssh.js";
+import { checkSshAvailable, sshExec, sanitizedEnv } from "../utils/ssh.js";
 import { BACKUPS_DIR } from "../utils/config.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import type { BackupManifest, ServerRecord } from "../types/index.js";
@@ -43,7 +43,7 @@ export function scpDownload(
     const child = spawn(
       "scp",
       ["-o", "StrictHostKeyChecking=accept-new", `root@${ip}:${remotePath}`, localPath],
-      { stdio: ["inherit", "pipe", "pipe"] },
+      { stdio: ["inherit", "pipe", "pipe"], env: sanitizedEnv() },
     );
     let stderr = "";
     child.stderr?.on("data", (data: Buffer) => {
@@ -109,7 +109,7 @@ async function backupSingleServer(server: ServerRecord, dryRun: boolean): Promis
     return false;
   }
 
-  mkdirSync(backupPath, { recursive: true });
+  mkdirSync(backupPath, { recursive: true, mode: 0o700 });
 
   const dlSpinner = createSpinner(`[${server.name}] Downloading backup files...`);
   dlSpinner.start();
@@ -263,7 +263,7 @@ export async function backupCommand(
   }
 
   // Step 4: Download to local
-  mkdirSync(backupPath, { recursive: true });
+  mkdirSync(backupPath, { recursive: true, mode: 0o700 });
 
   const dlSpinner = createSpinner("Downloading backup files...");
   dlSpinner.start();

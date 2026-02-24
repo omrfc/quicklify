@@ -15,11 +15,26 @@ const KNOWN_KEYS = new Set([
 ]);
 
 const SECURITY_KEYS = new Set([
-  "token", "apiToken", "api_token", "apiKey", "api_key", "secret",
-  "password", "passwd", "pwd", "credential", "credentials",
+  "token", "apitoken", "api_token", "apikey", "api_key", "secret",
+  "password", "passwd", "pwd", "pass", "credential", "credentials", "cred",
   "auth", "authorization", "bearer", "jwt",
-  "privateKey", "private_key", "accessKey", "access_key", "secretKey", "secret_key",
+  "privatekey", "private_key", "accesskey", "access_key", "secretkey", "secret_key",
+  "connection_string", "connectionstring", "dsn",
 ]);
+
+function checkSecurityKeys(obj: Record<string, unknown>, warnings: string[], path = ""): void {
+  for (const [key, value] of Object.entries(obj)) {
+    const fullPath = path ? `${path}.${key}` : key;
+    if (SECURITY_KEYS.has(key.toLowerCase())) {
+      warnings.push(
+        `Security warning: "${fullPath}" found in config file. Tokens should NEVER be stored in config files. Use --token flag or environment variables instead.`,
+      );
+    }
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      checkSecurityKeys(value as Record<string, unknown>, warnings, fullPath);
+    }
+  }
+}
 
 export interface YamlLoadResult {
   config: QuicklifyYamlConfig;
@@ -41,18 +56,12 @@ export function validateYamlConfig(raw: unknown): YamlLoadResult {
 
   const obj = raw as Record<string, unknown>;
 
-  // Security check: token fields
-  for (const key of Object.keys(obj)) {
-    if (SECURITY_KEYS.has(key)) {
-      warnings.push(
-        `Security warning: "${key}" found in config file. Tokens should NEVER be stored in config files. Use --token flag or environment variables instead.`,
-      );
-    }
-  }
+  // Security check: token fields (case-insensitive + nested)
+  checkSecurityKeys(obj, warnings);
 
   // Unknown keys
   for (const key of Object.keys(obj)) {
-    if (!KNOWN_KEYS.has(key) && !SECURITY_KEYS.has(key)) {
+    if (!KNOWN_KEYS.has(key) && !SECURITY_KEYS.has(key.toLowerCase())) {
       warnings.push(`Unknown config key: "${key}"`);
     }
   }

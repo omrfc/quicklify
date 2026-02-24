@@ -2,6 +2,16 @@ import axios from "axios";
 import type { CloudProvider } from "./base.js";
 import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo } from "../types/index.js";
 
+function stripSensitiveData(error: unknown): void {
+  if (axios.isAxiosError(error)) {
+    if (error.config) {
+      error.config.headers = undefined as unknown as typeof error.config.headers;
+      error.config.data = undefined;
+    }
+    (error as unknown as Record<string, unknown>).request = undefined;
+  }
+}
+
 interface HetznerLocation {
   name: string;
   city: string;
@@ -73,6 +83,7 @@ export class HetznerProvider implements CloudProvider {
       );
       return response.data.ssh_key.id.toString();
     } catch (error: unknown) {
+      stripSensitiveData(error);
       // Key already exists → find by matching public key
       if (axios.isAxiosError(error) && error.response?.status === 409) {
         const listResponse = await axios.get(`${this.baseUrl}/ssh_keys?per_page=200`, {
@@ -115,6 +126,7 @@ export class HetznerProvider implements CloudProvider {
         status: response.data.server.status,
       };
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<HetznerErrorResponse>(error)) {
         throw new Error(
           `Failed to create server: ${error.response?.data?.error?.message || error.message}`,
@@ -129,14 +141,22 @@ export class HetznerProvider implements CloudProvider {
   }
 
   async getServerDetails(serverId: string): Promise<ServerResult> {
-    const response = await axios.get(`${this.baseUrl}/servers/${serverId}`, {
-      headers: { Authorization: `Bearer ${this.apiToken}` },
-    });
-    return {
-      id: response.data.server.id.toString(),
-      ip: response.data.server?.public_net?.ipv4?.ip || "pending",
-      status: response.data.server.status,
-    };
+    try {
+      const response = await axios.get(`${this.baseUrl}/servers/${serverId}`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+      return {
+        id: response.data.server.id.toString(),
+        ip: response.data.server?.public_net?.ipv4?.ip || "pending",
+        status: response.data.server.status,
+      };
+    } catch (error: unknown) {
+      stripSensitiveData(error);
+      throw new Error(
+        `Failed to get server details: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
   }
 
   async getServerStatus(serverId: string): Promise<string> {
@@ -146,6 +166,7 @@ export class HetznerProvider implements CloudProvider {
       });
       return response.data.server.status;
     } catch (error: unknown) {
+      stripSensitiveData(error);
       throw new Error(
         `Failed to get server status: ${error instanceof Error ? error.message : String(error)}`,
         { cause: error },
@@ -159,6 +180,7 @@ export class HetznerProvider implements CloudProvider {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<HetznerErrorResponse>(error)) {
         throw new Error(
           `Failed to destroy server: ${error.response?.data?.error?.message || error.message}`,
@@ -185,6 +207,7 @@ export class HetznerProvider implements CloudProvider {
         },
       );
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<HetznerErrorResponse>(error)) {
         throw new Error(
           `Failed to reboot server: ${error.response?.data?.error?.message || error.message}`,
@@ -226,7 +249,8 @@ export class HetznerProvider implements CloudProvider {
         name: loc.city,
         location: loc.country,
       }));
-    } catch {
+    } catch (error: unknown) {
+      stripSensitiveData(error);
       return this.getRegions();
     }
   }
@@ -274,7 +298,8 @@ export class HetznerProvider implements CloudProvider {
           price: `€${priceMonthly}/mo`,
         };
       });
-    } catch {
+    } catch (error: unknown) {
+      stripSensitiveData(error);
       return this.getServerSizes();
     }
   }
@@ -302,6 +327,7 @@ export class HetznerProvider implements CloudProvider {
         costPerMonth: `€${((image.image_size || 0) * 0.006).toFixed(2)}/mo`,
       };
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<HetznerErrorResponse>(error)) {
         throw new Error(
           `Failed to create snapshot: ${error.response?.data?.error?.message || error.message}`,
@@ -337,6 +363,7 @@ export class HetznerProvider implements CloudProvider {
         }),
       );
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<HetznerErrorResponse>(error)) {
         throw new Error(
           `Failed to list snapshots: ${error.response?.data?.error?.message || error.message}`,
@@ -356,6 +383,7 @@ export class HetznerProvider implements CloudProvider {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<HetznerErrorResponse>(error)) {
         throw new Error(
           `Failed to delete snapshot: ${error.response?.data?.error?.message || error.message}`,
@@ -377,6 +405,7 @@ export class HetznerProvider implements CloudProvider {
       const diskGb = response.data.server.server_type.disk;
       return `€${(diskGb * 0.006).toFixed(2)}/mo`;
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<HetznerErrorResponse>(error)) {
         throw new Error(
           `Failed to get snapshot cost: ${error.response?.data?.error?.message || error.message}`,

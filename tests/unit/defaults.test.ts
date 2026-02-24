@@ -89,6 +89,16 @@ describe("defaults", () => {
       }
     });
 
+    it("should accept vultr as valid provider", () => {
+      mockedExistsSync.mockReturnValue(false);
+      expect(() => setDefault("provider", "vultr")).not.toThrow();
+    });
+
+    it("should accept linode as valid provider", () => {
+      mockedExistsSync.mockReturnValue(false);
+      expect(() => setDefault("provider", "linode")).not.toThrow();
+    });
+
     it("should merge with existing config", () => {
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue('{"provider":"hetzner"}');

@@ -1,5 +1,5 @@
 import { readFileSync, existsSync, mkdirSync } from "fs";
-import { execSync } from "child_process";
+import { spawnSync } from "child_process";
 import { homedir } from "os";
 import { join } from "path";
 
@@ -34,7 +34,7 @@ export function generateSshKey(): string | null {
     }
 
     // Generate key with no passphrase
-    execSync(`ssh-keygen -t ed25519 -f "${keyPath}" -N "" -C "quicklify"`, {
+    spawnSync("ssh-keygen", ["-t", "ed25519", "-f", keyPath, "-N", "", "-C", "quicklify"], {
       stdio: "pipe",
     });
 

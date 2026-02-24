@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { spawnSync } from "child_process";
 import type { CloudProvider } from "../providers/base.js";
 import type { InitOptions } from "../types/index.js";
 import { createProvider, createProviderWithToken } from "../utils/providerFactory.js";
@@ -103,6 +103,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     logger.warning(
       "Token passed via --token flag is visible in shell history. Use environment variables instead: export HETZNER_TOKEN=...",
     );
+    process.title = "quicklify";
   } else if (providerChoice === "hetzner" && process.env.HETZNER_TOKEN) {
     apiToken = process.env.HETZNER_TOKEN;
   } else if (providerChoice === "digitalocean" && process.env.DIGITALOCEAN_TOKEN) {
@@ -413,7 +414,7 @@ async function deployServer(
     if (fullSetup && ready) {
       // Clear stale known_hosts entry (cloud providers reuse IPs)
       try {
-        execSync(`ssh-keygen -R ${server.ip}`, { stdio: "ignore" });
+        spawnSync("ssh-keygen", ["-R", server.ip], { stdio: "ignore" });
       } catch {
         // ssh-keygen not available or no entry — harmless
       }

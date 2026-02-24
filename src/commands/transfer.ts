@@ -48,8 +48,9 @@ export async function exportCommand(filePath?: string): Promise<void> {
   const outPath = resolve(filePath || "quicklify-export.json");
 
   try {
-    writeFileSync(outPath, JSON.stringify(servers, null, 2), "utf-8");
+    writeFileSync(outPath, JSON.stringify(servers, null, 2), { encoding: "utf-8", mode: 0o600 });
     logger.success(`Exported ${servers.length} server(s) to ${outPath}`);
+    logger.warning("This file contains server information. Store it securely.");
   } catch (error: unknown) {
     logger.error(
       `Failed to write export file: ${error instanceof Error ? error.message : String(error)}`,
@@ -102,7 +103,16 @@ export async function importCommand(filePath: string): Promise<void> {
       skipped++;
       continue;
     }
-    saveServer(server);
+    const sanitized: ServerRecord = {
+      id: server.id,
+      name: server.name,
+      provider: server.provider,
+      ip: server.ip,
+      region: server.region,
+      size: server.size,
+      createdAt: server.createdAt,
+    };
+    saveServer(sanitized);
     existingIds.add(server.id);
     imported++;
   }

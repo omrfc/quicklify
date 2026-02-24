@@ -1039,4 +1039,65 @@ describe("LinodeProvider", () => {
       );
     });
   });
+
+  describe("cause chain sanitization", () => {
+    it("should not leak API token in error cause chain", async () => {
+      const axiosError = new Error("Request failed") as any;
+      axiosError.isAxiosError = true;
+      axiosError.response = { status: 401, data: { errors: [{ reason: "unauthorized" }] } };
+      axiosError.config = { headers: { Authorization: "Bearer test-api-token" }, data: '{"root_pass":"secret"}' };
+      axiosError.request = { some: "request data" };
+      axiosError.code = "ERR_BAD_REQUEST";
+      axiosError.message = "Request failed with status code 401";
+
+      mockedAxios.post.mockRejectedValue(axiosError);
+
+      try {
+        await provider.createServer({
+          name: "test",
+          region: "us-east",
+          size: "g6-standard-2",
+          cloudInit: "#!/bin/bash",
+          sshKeyIds: [],
+        });
+      } catch (error: unknown) {
+        const err = error as Error;
+        const cause = err.cause as Record<string, unknown>;
+        // The original error is preserved as cause (ESLint preserve-caught-error rule)
+        // but sensitive data is stripped (headers, data, request set to undefined)
+        expect(cause).toHaveProperty("isAxiosError", true);
+        expect(cause).toHaveProperty("message", "Request failed with status code 401");
+        // Config exists but headers and data are undefined
+        const config = (cause as any).config;
+        expect(config.headers).toBeUndefined();
+        expect(config.data).toBeUndefined();
+        // Request is stripped
+        expect(cause.request).toBeUndefined();
+      }
+    });
+
+    it("should clear error.config.data on createServer failure (rootPass protection)", async () => {
+      const axiosError = new Error("Request failed") as any;
+      axiosError.isAxiosError = true;
+      axiosError.response = { status: 400, data: { errors: [{ reason: "bad request" }] } };
+      axiosError.config = { data: '{"root_pass":"Ql1!supersecretpass"}' };
+      axiosError.code = "ERR_BAD_REQUEST";
+      axiosError.message = "Request failed";
+
+      mockedAxios.post.mockRejectedValue(axiosError);
+
+      try {
+        await provider.createServer({
+          name: "test",
+          region: "us-east",
+          size: "g6-standard-2",
+          cloudInit: "#!/bin/bash",
+          sshKeyIds: [],
+        });
+      } catch {
+        // After the error is thrown, config.data should have been deleted
+        expect(axiosError.config.data).toBeUndefined();
+      }
+    });
+  });
 });

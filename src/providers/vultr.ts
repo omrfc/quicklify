@@ -2,6 +2,16 @@ import axios from "axios";
 import type { CloudProvider } from "./base.js";
 import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo } from "../types/index.js";
 
+function stripSensitiveData(error: unknown): void {
+  if (axios.isAxiosError(error)) {
+    if (error.config) {
+      error.config.headers = undefined as unknown as typeof error.config.headers;
+      error.config.data = undefined;
+    }
+    (error as unknown as Record<string, unknown>).request = undefined;
+  }
+}
+
 interface VultrPlan {
   id: string;
   vcpu_count: number;
@@ -58,6 +68,7 @@ export class VultrProvider implements CloudProvider {
       );
       return response.data.ssh_key.id;
     } catch (error: unknown) {
+      stripSensitiveData(error);
       // Key already exists -> find by matching public key
       if (axios.isAxiosError(error) && error.response?.status === 409) {
         const listResponse = await axios.get(`${this.baseUrl}/ssh-keys`, {
@@ -101,6 +112,7 @@ export class VultrProvider implements CloudProvider {
         status: instance.power_status,
       };
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<VultrErrorResponse>(error)) {
         throw new Error(
           `Failed to create server: ${error.response?.data?.error || error.message}`,
@@ -115,15 +127,23 @@ export class VultrProvider implements CloudProvider {
   }
 
   async getServerDetails(serverId: string): Promise<ServerResult> {
-    const response = await axios.get(`${this.baseUrl}/instances/${serverId}`, {
-      headers: { Authorization: `Bearer ${this.apiToken}` },
-    });
-    const instance = response.data.instance;
-    return {
-      id: instance.id,
-      ip: instance.main_ip,
-      status: instance.power_status === "running" ? "running" : instance.power_status,
-    };
+    try {
+      const response = await axios.get(`${this.baseUrl}/instances/${serverId}`, {
+        headers: { Authorization: `Bearer ${this.apiToken}` },
+      });
+      const instance = response.data.instance;
+      return {
+        id: instance.id,
+        ip: instance.main_ip,
+        status: instance.power_status === "running" ? "running" : instance.power_status,
+      };
+    } catch (error: unknown) {
+      stripSensitiveData(error);
+      throw new Error(
+        `Failed to get server details: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
   }
 
   async getServerStatus(serverId: string): Promise<string> {
@@ -133,6 +153,7 @@ export class VultrProvider implements CloudProvider {
       });
       return response.data.instance.power_status;
     } catch (error: unknown) {
+      stripSensitiveData(error);
       throw new Error(
         `Failed to get server status: ${error instanceof Error ? error.message : String(error)}`,
         { cause: error },
@@ -146,6 +167,7 @@ export class VultrProvider implements CloudProvider {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<VultrErrorResponse>(error)) {
         throw new Error(
           `Failed to destroy server: ${error.response?.data?.error || error.message}`,
@@ -172,6 +194,7 @@ export class VultrProvider implements CloudProvider {
         },
       );
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<VultrErrorResponse>(error)) {
         throw new Error(
           `Failed to reboot server: ${error.response?.data?.error || error.message}`,
@@ -214,7 +237,8 @@ export class VultrProvider implements CloudProvider {
           name: r.city,
           location: r.country,
         }));
-    } catch {
+    } catch (error: unknown) {
+      stripSensitiveData(error);
       return this.getRegions();
     }
   }
@@ -242,7 +266,8 @@ export class VultrProvider implements CloudProvider {
         disk: p.disk,
         price: `$${p.monthly_cost.toFixed(2)}/mo`,
       }));
-    } catch {
+    } catch (error: unknown) {
+      stripSensitiveData(error);
       return this.getServerSizes();
     }
   }
@@ -270,6 +295,7 @@ export class VultrProvider implements CloudProvider {
         costPerMonth: `$${(snap.size ? (snap.size / (1024 * 1024 * 1024)) * 0.05 : 0).toFixed(2)}/mo`,
       };
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<VultrErrorResponse>(error)) {
         throw new Error(
           `Failed to create snapshot: ${error.response?.data?.error || error.message}`,
@@ -303,6 +329,7 @@ export class VultrProvider implements CloudProvider {
         }),
       );
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<VultrErrorResponse>(error)) {
         throw new Error(
           `Failed to list snapshots: ${error.response?.data?.error || error.message}`,
@@ -322,6 +349,7 @@ export class VultrProvider implements CloudProvider {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<VultrErrorResponse>(error)) {
         throw new Error(
           `Failed to delete snapshot: ${error.response?.data?.error || error.message}`,
@@ -343,6 +371,7 @@ export class VultrProvider implements CloudProvider {
       const diskGb = response.data.instance?.disk || 0;
       return `$${(diskGb * 0.05).toFixed(2)}/mo`;
     } catch (error: unknown) {
+      stripSensitiveData(error);
       if (axios.isAxiosError<VultrErrorResponse>(error)) {
         throw new Error(
           `Failed to get snapshot cost: ${error.response?.data?.error || error.message}`,

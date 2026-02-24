@@ -352,6 +352,27 @@ describe("backup", () => {
       expect(mockedWriteFileSync).toHaveBeenCalled(); // manifest written
     });
 
+    it("should create backup directory with mode 0o700", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+      mockedSsh.sshExec
+        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
+      mockedSpawn
+        .mockReturnValueOnce(createMockProcess(0))
+        .mockReturnValueOnce(createMockProcess(0));
+
+      await backupCommand("1.2.3.4");
+
+      const mkdirSyncMock = mkdirSync as jest.MockedFunction<typeof mkdirSync>;
+      expect(mkdirSyncMock).toHaveBeenCalledWith(
+        expect.any(String),
+        { recursive: true, mode: 0o700 },
+      );
+    });
+
     it("should handle SCP db download failure with stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);

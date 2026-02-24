@@ -1,5 +1,5 @@
 import { readFileSync, existsSync, mkdirSync } from "fs";
-import { execSync } from "child_process";
+import { spawnSync } from "child_process";
 import { findLocalSshKey, generateSshKey, getSshKeyName } from "../../src/utils/sshKey";
 
 jest.mock("fs", () => ({
@@ -8,7 +8,7 @@ jest.mock("fs", () => ({
   mkdirSync: jest.fn(),
 }));
 jest.mock("child_process", () => ({
-  execSync: jest.fn(),
+  spawnSync: jest.fn(),
 }));
 jest.mock("os", () => ({
   homedir: jest.fn().mockReturnValue("/home/testuser"),
@@ -17,7 +17,7 @@ jest.mock("os", () => ({
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;
 const mockedMkdirSync = mkdirSync as jest.MockedFunction<typeof mkdirSync>;
-const mockedExecSync = execSync as jest.MockedFunction<typeof execSync>;
+const mockedSpawnSync = spawnSync as jest.MockedFunction<typeof spawnSync>;
 
 describe("sshKey", () => {
   beforeEach(() => {
@@ -40,8 +40,6 @@ describe("sshKey", () => {
     it("should find ecdsa key when others not present", () => {
       mockedExistsSync.mockImplementation((p) => String(p).includes("id_ecdsa.pub"));
       mockedReadFileSync.mockReturnValue("ssh-ecdsa AAAAE2VjZHNh user@host");
-      // Note: real ecdsa keys start with "ecdsa-sha2-" not "ssh-ecdsa"
-      // but some do start with "ssh-", so we test the "ssh-" prefix path
       expect(findLocalSshKey()).toBe("ssh-ecdsa AAAAE2VjZHNh user@host");
     });
 
@@ -66,16 +64,17 @@ describe("sshKey", () => {
   });
 
   describe("generateSshKey", () => {
-    it("should generate key successfully", () => {
+    it("should generate key successfully with spawnSync", () => {
       mockedExistsSync
         .mockReturnValueOnce(true) // sshDir exists
         .mockReturnValueOnce(true); // pubkey exists
       mockedReadFileSync.mockReturnValue("ssh-ed25519 AAAAC3Nz quicklify");
       const result = generateSshKey();
       expect(result).toBe("ssh-ed25519 AAAAC3Nz quicklify");
-      expect(mockedExecSync).toHaveBeenCalledWith(
-        expect.stringContaining("ssh-keygen"),
-        expect.any(Object),
+      expect(mockedSpawnSync).toHaveBeenCalledWith(
+        "ssh-keygen",
+        ["-t", "ed25519", "-f", expect.stringContaining("id_ed25519"), "-N", "", "-C", "quicklify"],
+        expect.objectContaining({ stdio: "pipe" }),
       );
     });
 
@@ -91,9 +90,9 @@ describe("sshKey", () => {
       );
     });
 
-    it("should return null when execSync fails", () => {
+    it("should return null when spawnSync fails", () => {
       mockedExistsSync.mockReturnValue(true);
-      mockedExecSync.mockImplementation(() => {
+      mockedSpawnSync.mockImplementation(() => {
         throw new Error("ssh-keygen not found");
       });
       expect(generateSshKey()).toBeNull();
@@ -104,6 +103,18 @@ describe("sshKey", () => {
         .mockReturnValueOnce(true) // sshDir exists
         .mockReturnValueOnce(false); // pubkey doesn't exist
       expect(generateSshKey()).toBeNull();
+    });
+
+    it("should use argument array instead of string interpolation", () => {
+      mockedExistsSync
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(true);
+      mockedReadFileSync.mockReturnValue("ssh-ed25519 AAAAC3Nz quicklify");
+      generateSshKey();
+      // Verify spawnSync is called with array args (not string command)
+      const args = mockedSpawnSync.mock.calls[0];
+      expect(args[0]).toBe("ssh-keygen");
+      expect(Array.isArray(args[1])).toBe(true);
     });
   });
 
