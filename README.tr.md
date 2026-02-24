@@ -3,8 +3,9 @@
 > [English](README.md) | Türkçe
 
 ![Tests](https://github.com/omrfc/quicklify/actions/workflows/ci.yml/badge.svg)
+[![Coverage](https://codecov.io/gh/omrfc/quicklify/branch/main/graph/badge.svg)](https://codecov.io/gh/omrfc/quicklify)
 ![npm](https://img.shields.io/npm/v/quicklify)
-![Downloads](https://img.shields.io/npm/dw/quicklify)
+![Downloads](https://img.shields.io/npm/dt/quicklify)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
 [![Socket Badge](https://socket.dev/api/badge/npm/package/quicklify)](https://socket.dev/npm/package/quicklify)
