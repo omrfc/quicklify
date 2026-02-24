@@ -2,10 +2,12 @@
 
 > English | [Türkçe](README.tr.md)
 
-[![npm version](https://img.shields.io/npm/v/quicklify.svg)](https://www.npmjs.com/package/quicklify)
-[![CI](https://github.com/omrfrkcpr/quicklify/actions/workflows/ci.yml/badge.svg)](https://github.com/omrfrkcpr/quicklify/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](https://nodejs.org/)
+![Tests](https://github.com/omrfc/quicklify/actions/workflows/ci.yml/badge.svg)
+![npm](https://img.shields.io/npm/v/quicklify)
+![Downloads](https://img.shields.io/npm/dw/quicklify)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
+[![Socket Badge](https://socket.dev/api/badge/npm/package/quicklify)](https://socket.dev/npm/package/quicklify)
 
 **Deploy Coolify to a cloud VPS with one command.**
 
