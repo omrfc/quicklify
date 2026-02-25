@@ -26,7 +26,7 @@ npm run dev -- init
 4. **Run Tests**
 
 ```bash
-npm test                # Run all tests
+npm test                # Run all tests (1,241 tests, 52 suites)
 npm run test:watch      # Watch mode
 npm run test:coverage   # Coverage report
 ```
@@ -43,18 +43,50 @@ npm run build
 src/
 ├── index.ts              # CLI entry point (Commander.js)
 ├── commands/
-│   └── init.ts           # Main deploy command
+│   ├── init.ts           # Deploy a new Coolify instance
+│   ├── list.ts           # List all registered servers
+│   ├── status.ts         # Check server and Coolify status
+│   ├── destroy.ts        # Destroy a cloud server
+│   ├── config.ts         # Manage default configuration
+│   ├── ssh.ts            # SSH into a server
+│   ├── update.ts         # Update Coolify on a server
+│   ├── restart.ts        # Restart a server
+│   ├── logs.ts           # View server logs
+│   ├── monitor.ts        # Show server resource usage
+│   ├── health.ts         # Health check all servers
+│   ├── doctor.ts         # Check local environment
+│   ├── firewall.ts       # Manage server firewall (UFW)
+│   ├── domain.ts         # Manage server domain and SSL
+│   ├── secure.ts         # SSH hardening and fail2ban
+│   ├── backup.ts         # Backup Coolify database and config
+│   ├── restore.ts        # Restore from a backup
+│   ├── transfer.ts       # Export/import server list (JSON)
+│   ├── add.ts            # Add an existing Coolify server
+│   ├── remove.ts         # Remove server from local config
+│   ├── maintain.ts       # Full maintenance cycle
+│   └── snapshot.ts       # Manage VPS snapshots
 ├── providers/
 │   ├── base.ts           # CloudProvider interface
 │   ├── hetzner.ts        # Hetzner Cloud implementation
-│   └── digitalocean.ts   # DigitalOcean (coming soon)
+│   ├── digitalocean.ts   # DigitalOcean implementation
+│   ├── vultr.ts          # Vultr implementation
+│   └── linode.ts         # Linode (Akamai) implementation (Beta)
 ├── types/
-│   └── index.ts          # Shared TypeScript types
+│   └── index.ts          # Shared TypeScript types and interfaces
 └── utils/
     ├── cloudInit.ts      # Cloud-init script generator
-    ├── logger.ts         # Chalk-based logging
-    ├── prompts.ts        # Inquirer.js prompts
-    └── validators.ts     # Input validation
+    ├── config.ts         # Server record CRUD (~/.quicklify/)
+    ├── configMerge.ts    # Multi-source config merge logic
+    ├── defaults.ts       # Default config management
+    ├── healthCheck.ts    # Coolify health check polling
+    ├── logger.ts         # Chalk-based logging + spinner
+    ├── prompts.ts        # Inquirer.js prompts with back navigation
+    ├── providerFactory.ts # Provider factory (create by name)
+    ├── serverSelect.ts   # Shared server selection + token prompts
+    ├── ssh.ts            # SSH helpers (connect, exec, stream)
+    ├── sshKey.ts         # SSH key detection + generation
+    ├── templates.ts      # Template definitions (starter, production, dev)
+    └── yamlConfig.ts     # YAML config loader with security checks
 
 tests/
 ├── __mocks__/            # Module mocks (axios, inquirer, ora, chalk)
@@ -63,12 +95,34 @@ tests/
 └── e2e/                  # Full flow tests
 ```
 
+## Environment Variables
+
+| Variable | Provider | Description |
+|----------|----------|-------------|
+| `HETZNER_TOKEN` | Hetzner Cloud | API token (Read & Write) |
+| `DIGITALOCEAN_TOKEN` | DigitalOcean | Personal access token |
+| `VULTR_TOKEN` | Vultr | API key |
+| `LINODE_TOKEN` | Linode (Akamai) | Personal access token |
+
+Tokens are never stored on disk. They are prompted at runtime or read from environment variables.
+
 ## Adding a New Cloud Provider
 
-1. Create `src/providers/yourprovider.ts` implementing `CloudProvider` interface
-2. Add provider regions, server sizes, and API calls
-3. Write tests in `tests/integration/yourprovider.test.ts`
-4. Add provider selection to `src/commands/init.ts`
+1. Create `src/providers/yourprovider.ts` implementing `CloudProvider` interface from `base.ts`
+2. Add provider regions, server sizes, and all API calls (validate, create, destroy, reboot, snapshot)
+3. Add `stripSensitiveData()` to all catch blocks (prevent token leakage)
+4. Write tests in `tests/unit/yourprovider.test.ts` and `tests/integration/yourprovider.test.ts`
+5. Add provider selection to `src/utils/prompts.ts` and `src/utils/providerFactory.ts`
+6. Add template defaults to `src/utils/templates.ts`
+7. Add environment variable support to `src/commands/init.ts`
+8. Update README.md and README.tr.md
+
+## Adding a New Command
+
+1. Create `src/commands/yourcommand.ts` with the command function
+2. Register it in `src/index.ts` with Commander.js
+3. Write tests in `tests/unit/yourcommand.test.ts`
+4. Update README.md, README.tr.md, and CHANGELOG.md
 
 ## Pull Request Process
 
@@ -79,7 +133,7 @@ git checkout -b feature/your-feature
 ```
 
 2. Make your changes following existing code style
-3. Write/update tests - we maintain **100% coverage**
+3. Write/update tests — we maintain high coverage (~97% statements)
 4. Ensure all tests pass
 
 ```bash
@@ -92,7 +146,13 @@ npm test
 npx tsc --noEmit
 ```
 
-6. Commit with a descriptive message
+6. Ensure linting passes
+
+```bash
+npm run lint
+```
+
+7. Commit with a descriptive message
 
 ```bash
 git commit -m "feat: add awesome feature"
@@ -107,23 +167,28 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `refactor:` code refactoring
 - `chore:` maintenance
 
-7. Push and open a PR against `main`
+8. Push and open a PR against `main`
 
 ## Code Guidelines
 
 - TypeScript strict mode is enabled
-- No `any` types - use proper interfaces
+- No `any` types — use proper interfaces
+- `catch (error: unknown)` with type guards, never `catch (error: any)`
 - All user input must be validated
-- Keep dependencies minimal
+- Keep dependencies minimal (zero runtime deps beyond core 6)
 - Test edge cases (network errors, invalid input, timeouts)
+- All SSH connections must use `assertValidIp()` and `sanitizedEnv()`
+- Provider errors must call `stripSensitiveData()` before rethrowing
+- Shell commands must use `spawnSync` (not `execSync`) for user-facing inputs
 
 ## Areas for Contribution
 
-- New cloud provider integrations (DigitalOcean, Vultr, Linode)
+- Better error messages and UX improvements
+- New cloud provider integrations
 - CLI improvements and new commands
-- Better error messages and UX
 - Documentation and examples
-- Bug fixes
+- Bug fixes and security improvements
+- Performance optimizations
 
 ## Questions?
 
