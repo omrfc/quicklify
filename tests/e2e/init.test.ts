@@ -20,6 +20,10 @@ jest.mock("../../src/utils/sshKey", () => ({
   getSshKeyName: jest.fn().mockReturnValue("quicklify-test"),
 }));
 
+jest.mock("../../src/utils/openBrowser", () => ({
+  openBrowser: jest.fn(),
+}));
+
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
 

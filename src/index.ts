@@ -4,6 +4,7 @@ import { Command } from "commander";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { checkForUpdate } from "./utils/updateCheck.js";
 import { initCommand } from "./commands/init.js";
 import { listCommand } from "./commands/list.js";
 import { statusCommand } from "./commands/status.js";
@@ -52,6 +53,7 @@ program
   .option("--full-setup", "Auto-configure firewall and SSH hardening after deploy")
   .option("--config <path>", "Load deployment config from a YAML file (quicklify.yml)")
   .option("--template <template>", "Use a predefined template (starter, production, dev)")
+  .option("--no-open", "Do not open browser after deployment")
   .action(initCommand);
 
 program.command("list").description("List all registered servers").action(listCommand);
@@ -224,4 +226,5 @@ program
     ) => snapshotCommand(subcommand, query, options),
   );
 
-program.parse();
+await program.parseAsync();
+checkForUpdate(pkg.version).catch(() => {});

@@ -19,6 +19,10 @@ jest.mock("../../src/utils/sshKey", () => ({
   getSshKeyName: jest.fn().mockReturnValue("quicklify-test"),
 }));
 
+jest.mock("../../src/utils/openBrowser", () => ({
+  openBrowser: jest.fn(),
+}));
+
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
 
@@ -420,7 +424,7 @@ describe("initCommand Non-Interactive", () => {
     });
 
     const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(allOutput).toContain("Recommended Next Steps");
+    expect(allOutput).toContain("What's Next?");
     expect(allOutput).toContain("firewall setup");
     expect(allOutput).toContain("domain add");
     expect(allOutput).toContain("secure setup");

@@ -23,6 +23,11 @@ jest.mock("../../src/utils/sshKey", () => ({
 jest.mock("child_process", () => ({
   spawnSync: jest.fn().mockReturnValue({ status: 0 }),
   execSync: jest.fn(),
+  exec: jest.fn(),
+}));
+
+jest.mock("../../src/utils/openBrowser", () => ({
+  openBrowser: jest.fn(),
 }));
 
 jest.mock("../../src/commands/firewall", () => ({

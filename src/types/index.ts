@@ -54,6 +54,7 @@ export interface InitOptions {
   fullSetup?: boolean;
   config?: string;
   template?: string;
+  noOpen?: boolean;
 }
 
 // Templates

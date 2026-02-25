@@ -16,6 +16,7 @@ import {
 import { getCoolifyCloudInit } from "../utils/cloudInit.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { mapProviderError } from "../utils/errorMapper.js";
+import { openBrowser } from "../utils/openBrowser.js";
 import { findLocalSshKey, generateSshKey, getSshKeyName } from "../utils/sshKey.js";
 import { firewallSetup } from "./firewall.js";
 import { secureSetup } from "./secure.js";
@@ -205,6 +206,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
       serverSize,
       serverName,
       options.fullSetup,
+      options.noOpen,
     );
   }
 
@@ -236,6 +238,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     serverSize,
     serverName,
     options.fullSetup,
+    options.noOpen,
   );
 }
 
@@ -273,6 +276,7 @@ async function deployServer(
   serverSize: string,
   serverName: string,
   fullSetup?: boolean,
+  noOpen?: boolean,
 ): Promise<void> {
   try {
     // Upload SSH key before creating server
@@ -448,33 +452,44 @@ async function deployServer(
     console.log();
     if (ready) {
       logger.info("Coolify is ready! Open the URL above to get started.");
+      if (!noOpen) {
+        openBrowser(`http://${server.ip}:8000`);
+      }
     } else {
       logger.warning("Coolify did not respond yet. Please check in a few minutes.");
       logger.info(`You can check status later with: quicklify status ${server.ip}`);
     }
 
     // Onboarding: next steps
-    if (!fullSetup) {
-      console.log();
-      logger.title("Recommended Next Steps:");
-      logger.info(`  1. Set up firewall:     quicklify firewall setup ${serverName}`);
-      logger.info(
-        `  2. Add a domain:        quicklify domain add ${serverName} --domain example.com`,
-      );
-      logger.info(`  3. Harden SSH:          quicklify secure setup ${serverName}`);
-      logger.info(`  4. Create a backup:     quicklify backup ${serverName}`);
-      logger.info("  Or do it all at once:   quicklify init --full-setup");
-    } else {
-      console.log();
-      logger.title("Next Steps:");
-      logger.info(
-        `  1. Add a domain:        quicklify domain add ${serverName} --domain example.com`,
-      );
-      logger.info(`  2. Create a backup:     quicklify backup ${serverName}`);
-    }
-
-    logger.info("Server saved to local config. Use 'quicklify list' to see all servers.");
     console.log();
+    logger.title("What's Next?");
+    if (!fullSetup) {
+      logger.info("  1. Secure your server:");
+      logger.step(`     quicklify firewall setup ${serverName}`);
+      logger.step(`     quicklify secure setup ${serverName}`);
+      console.log();
+      logger.info("  2. Add a domain with SSL:");
+      logger.step(`     quicklify domain add ${serverName} --domain example.com`);
+      console.log();
+      logger.info("  3. Create your first backup:");
+      logger.step(`     quicklify backup ${serverName}`);
+      console.log();
+      logger.info("  Tip: Do steps 1-3 automatically next time:");
+      logger.step("     quicklify init --full-setup");
+    } else {
+      logger.info("  1. Add a domain with SSL:");
+      logger.step(`     quicklify domain add ${serverName} --domain example.com`);
+      console.log();
+      logger.info("  2. Create your first backup:");
+      logger.step(`     quicklify backup ${serverName}`);
+    }
+    console.log();
+    logger.info("  Check your environment anytime:");
+    logger.step("     quicklify doctor");
+    console.log();
+    logger.info("  Server saved to local config. Use 'quicklify list' to see all servers.");
+    console.log();
+    logger.info("  Docs: https://github.com/omrfc/quicklify");
     console.log(
       "  \u2b50 Love Quicklify? Give us a star: https://github.com/omrfc/quicklify \u2b50",
     );

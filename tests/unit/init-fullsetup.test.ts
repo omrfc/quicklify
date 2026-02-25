@@ -30,6 +30,10 @@ jest.mock("../../src/commands/secure", () => ({
   secureSetup: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock("../../src/utils/openBrowser", () => ({
+  openBrowser: jest.fn(),
+}));
+
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedFirewallSetup = firewallModule.firewallSetup as jest.MockedFunction<
   typeof firewallModule.firewallSetup

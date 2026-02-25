@@ -26,6 +26,11 @@ jest.mock("fs");
 
 jest.mock("child_process", () => ({
   execSync: jest.fn(),
+  exec: jest.fn(),
+}));
+
+jest.mock("../../src/utils/openBrowser", () => ({
+  openBrowser: jest.fn(),
 }));
 
 jest.mock("../../src/commands/firewall", () => ({
