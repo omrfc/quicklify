@@ -344,7 +344,7 @@ describe("secure", () => {
       expect(mockedSsh.sshExec).toHaveBeenCalledTimes(2);
     });
 
-    it("should handle fail2ban failure gracefully (non-fatal)", async () => {
+    it("should show partially complete when fail2ban fails (non-zero code)", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec
@@ -359,10 +359,11 @@ describe("secure", () => {
       await secureCommand("setup", "1.2.3.4");
 
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("Security setup complete");
+      expect(output).toContain("partially complete");
+      expect(output).toContain("fail2ban is not active");
     });
 
-    it("should handle fail2ban exception gracefully", async () => {
+    it("should show partially complete when fail2ban throws exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec
@@ -377,7 +378,8 @@ describe("secure", () => {
       await secureCommand("setup", "1.2.3.4");
 
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("Security setup complete");
+      expect(output).toContain("partially complete");
+      expect(output).toContain("fail2ban is not active");
     });
 
     it("should error on invalid port", async () => {

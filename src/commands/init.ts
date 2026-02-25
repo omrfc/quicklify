@@ -252,6 +252,7 @@ async function uploadSshKeyToProvider(provider: CloudProvider): Promise<string[]
     } else {
       logger.warning("Could not generate SSH key — falling back to password auth");
       logger.info("Server will require password change on first SSH login");
+      logger.warning("Run 'quicklify secure setup' after deployment to harden SSH access");
       return [];
     }
   }
@@ -265,6 +266,7 @@ async function uploadSshKeyToProvider(provider: CloudProvider): Promise<string[]
   } catch (error: unknown) {
     spinner.fail("SSH key upload failed — falling back to password auth");
     logger.warning(error instanceof Error ? error.message : String(error));
+    logger.warning("Run 'quicklify secure setup' after deployment to harden SSH access");
     return [];
   }
 }

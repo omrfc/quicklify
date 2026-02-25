@@ -64,6 +64,15 @@ export function loadManifest(backupPath: string): BackupManifest | undefined {
   }
 }
 
+export async function tryRestartCoolify(ip: string): Promise<void> {
+  logger.warning("Attempting to restart Coolify...");
+  try {
+    await sshExec(ip, buildStartCoolifyCommand());
+  } catch {
+    // Best-effort — swallow errors
+  }
+}
+
 // Command
 
 export async function restoreCommand(
@@ -226,12 +235,14 @@ export async function restoreCommand(
     if (dbStartResult.code !== 0) {
       dbStartSpinner.fail("Failed to start database");
       if (dbStartResult.stderr) logger.error(dbStartResult.stderr);
+      await tryRestartCoolify(server.ip);
       return;
     }
     dbStartSpinner.succeed("Database started");
   } catch (error: unknown) {
     dbStartSpinner.fail("Failed to start database");
     logger.error(error instanceof Error ? error.message : String(error));
+    await tryRestartCoolify(server.ip);
     return;
   }
 
@@ -244,12 +255,14 @@ export async function restoreCommand(
     if (restoreResult.code !== 0) {
       restoreDbSpinner.fail("Database restore failed");
       if (restoreResult.stderr) logger.error(restoreResult.stderr);
+      await tryRestartCoolify(server.ip);
       return;
     }
     restoreDbSpinner.succeed("Database restored");
   } catch (error: unknown) {
     restoreDbSpinner.fail("Database restore failed");
     logger.error(error instanceof Error ? error.message : String(error));
+    await tryRestartCoolify(server.ip);
     return;
   }
 
@@ -262,12 +275,14 @@ export async function restoreCommand(
     if (configResult.code !== 0) {
       restoreConfigSpinner.fail("Config restore failed");
       if (configResult.stderr) logger.error(configResult.stderr);
+      await tryRestartCoolify(server.ip);
       return;
     }
     restoreConfigSpinner.succeed("Config files restored");
   } catch (error: unknown) {
     restoreConfigSpinner.fail("Config restore failed");
     logger.error(error instanceof Error ? error.message : String(error));
+    await tryRestartCoolify(server.ip);
     return;
   }
 

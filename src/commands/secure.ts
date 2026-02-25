@@ -248,6 +248,7 @@ export async function secureSetup(
   }
 
   // Step 3: Install fail2ban
+  let fail2banOk = true;
   const f2bSpinner = createSpinner("Installing fail2ban...");
   f2bSpinner.start();
 
@@ -256,15 +257,23 @@ export async function secureSetup(
     if (f2bResult.code !== 0) {
       f2bSpinner.warn("Fail2ban installation had issues (non-fatal)");
       if (f2bResult.stderr) logger.warning(f2bResult.stderr);
+      fail2banOk = false;
     } else {
       f2bSpinner.succeed("Fail2ban installed and configured");
     }
   } catch (error: unknown) {
     f2bSpinner.warn("Fail2ban installation failed (non-fatal)");
     logger.warning(error instanceof Error ? error.message : String(error));
+    fail2banOk = false;
   }
 
-  logger.success(`Security setup complete for ${name}`);
+  if (fail2banOk) {
+    logger.success(`Security setup complete for ${name}`);
+  } else {
+    logger.warning(
+      `Security setup partially complete for ${name} — fail2ban is not active. Retry with: quicklify secure setup ${name}`,
+    );
+  }
   if (port && port !== 22) {
     logger.warning(`SSH port changed to ${port}. Use: ssh -p ${port} root@${ip}`);
   }
