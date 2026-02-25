@@ -10,9 +10,9 @@
 ![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
 [![Socket Badge](https://socket.dev/api/badge/npm/package/quicklify)](https://socket.dev/npm/package/quicklify)
 
-**Production-ready Coolify infrastructure. One command away.**
+**Self-hosting made simple.**
 
-Deploy, secure, back up, snapshot, and maintain your Coolify servers with confidence.
+Deploy, secure, back up, snapshot, and maintain your servers with confidence.
 
 ## Why Quicklify Exists
 

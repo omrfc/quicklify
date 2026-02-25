@@ -10,9 +10,9 @@
 ![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
 [![Socket Badge](https://socket.dev/api/badge/npm/package/quicklify)](https://socket.dev/npm/package/quicklify)
 
-**Production-ready Coolify altyapısı. Tek komut uzağınızda.**
+**Self-hosting basitleştirildi.**
 
-Coolify sunucularınızı deploy edin, güvence altına alın, yedekleyin, snapshot alın ve bakımını yapın — güvenle.
+Sunucularınızı deploy edin, güvence altına alın, yedekleyin, snapshot alın ve bakımını yapın — güvenle.
 
 ## Quicklify Neden Var?
 
