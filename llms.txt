@@ -1,0 +1,127 @@
+# Quicklify
+
+> Self-hosting made simple. Deploy and manage your self-hosted infrastructure with one command.
+
+Quicklify is an open-source CLI tool that automates the deployment, security, backup, and maintenance of self-hosted platforms (currently Coolify) on cloud VPS providers.
+
+## Installation
+
+```bash
+npx quicklify <command>
+# or
+npm install -g quicklify
+```
+
+Requires Node.js 20+.
+
+## Commands (23 total)
+
+### Deploy
+- `quicklify init` — Deploy a new Coolify instance (interactive or non-interactive)
+  - `--provider <name>` — hetzner, digitalocean, vultr, linode
+  - `--config <path>` — Load from YAML config file
+  - `--template <name>` — starter, production, dev
+  - `--full-setup` — Auto-configure firewall + SSH hardening
+
+### Server Management
+- `quicklify list` — List all registered servers
+- `quicklify status [query]` — Check server and Coolify status (`--all`, `--autostart`)
+- `quicklify ssh [query]` — SSH into a server (`-c <command>`)
+- `quicklify restart [query]` — Restart a server via provider API
+- `quicklify destroy [query]` — Destroy a cloud server (with confirmation)
+- `quicklify add` — Add an existing Coolify server (`--skip-verify`)
+- `quicklify remove [query]` — Remove from local config (no cloud action)
+- `quicklify config [subcommand]` — Manage default configuration
+- `quicklify export [path]` — Export server list to JSON
+- `quicklify import <path>` — Import servers from JSON
+
+### Update & Maintain
+- `quicklify update [query]` — Update Coolify (`--all`)
+- `quicklify maintain [query]` — Full maintenance cycle: snapshot → status → update → health → reboot (`--all`, `--skip-reboot`, `--dry-run`)
+
+### Backup & Restore
+- `quicklify backup [query]` — Backup DB + config via SCP (`--all`, `--dry-run`)
+- `quicklify restore [query]` — Restore from backup (`--backup <timestamp>`, `--dry-run`)
+
+### Snapshots
+- `quicklify snapshot create [query]` — Create VPS snapshot with cost estimate
+- `quicklify snapshot list [query]` — List snapshots (`--all`)
+- `quicklify snapshot delete [query]` — Delete a snapshot
+
+### Security
+- `quicklify firewall <subcommand> [query]` — Manage UFW (setup, add, remove, list, status)
+- `quicklify domain <subcommand> [query]` — Manage domain + SSL (add, remove, check, list)
+- `quicklify secure <subcommand> [query]` — SSH hardening + fail2ban (setup, status, audit)
+
+### Diagnostics
+- `quicklify monitor [query]` — CPU, RAM, disk usage (`--containers`)
+- `quicklify logs [query]` — View logs (`-f` follow, `-s` service, `-n` lines)
+- `quicklify health` — Health check all servers
+- `quicklify doctor` — Check local environment (`--check-tokens`)
+
+## Supported Providers
+
+| Provider | Status | Env Variable |
+|----------|--------|-------------|
+| Hetzner Cloud | Stable | `HETZNER_TOKEN` |
+| DigitalOcean | Stable | `DIGITALOCEAN_TOKEN` |
+| Vultr | Stable | `VULTR_TOKEN` |
+| Linode (Akamai) | Beta | `LINODE_TOKEN` |
+
+## Architecture
+
+- **Runtime**: Node.js 20+ (ESM)
+- **CLI Framework**: Commander.js
+- **Prompts**: Inquirer.js (interactive mode with back navigation)
+- **HTTP**: Axios (provider API calls)
+- **Logging**: Chalk + Ora (spinners)
+- **Config**: YAML (js-yaml) + JSON
+- **Config Storage**: `~/.quicklify/` (servers.json, config.json, backups/)
+- **Testing**: Jest (1,241 tests, 52 suites, ~97% coverage)
+- **Linting**: ESLint 10 + typescript-eslint + Prettier
+
+## Typical Workflows
+
+### First-time deployment
+```bash
+export HETZNER_TOKEN=your-token
+npx quicklify init --provider hetzner --template production --full-setup
+```
+
+### Daily operations
+```bash
+quicklify status --all          # Check all servers
+quicklify backup --all          # Backup all servers
+quicklify maintain my-server    # Full maintenance cycle
+```
+
+### Security hardening
+```bash
+quicklify firewall setup my-server
+quicklify secure setup my-server
+quicklify domain add my-server --domain example.com
+quicklify secure audit my-server
+```
+
+### Disaster recovery
+```bash
+quicklify backup my-server
+quicklify snapshot create my-server
+quicklify restore my-server --backup 2026-02-25T10-00-00
+```
+
+## Security Model
+
+- API tokens are NEVER stored on disk — runtime prompt or env vars only
+- SSH: IP validation, env filtering, StrictHostKeyChecking
+- Shell injection protection on all user inputs (spawnSync)
+- Provider errors sanitized (stripSensitiveData) — no token leakage
+- YAML config: 22+ security key patterns detected and warned
+- Import/export: sensitive field stripping + strict file permissions
+
+## Links
+
+- Repository: https://github.com/omrfc/quicklify
+- npm: https://www.npmjs.com/package/quicklify
+- Issues: https://github.com/omrfc/quicklify/issues
+- License: MIT
