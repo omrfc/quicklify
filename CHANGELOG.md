@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.3] - 2026-02-25
+
+### Added
+- `doctor --check-tokens` — Validate provider API tokens from environment variables against live APIs (Hetzner, DigitalOcean, Vultr, Linode)
+- Update notification — Check npm registry for newer versions (24h cache, non-blocking)
+- Auto-open browser — Automatically open Coolify dashboard after successful `init` deployment (platform-aware, `--no-open` to disable)
+- Error mapper — Actionable error messages with provider-specific URLs for billing, token management, and troubleshooting
+
+### Changed
+- Init onboarding — Improved post-deployment "What's Next?" guide with numbered steps and copy-paste commands
+- README slogan updated to "Self-hosting made simple" (platform-agnostic)
+- CONTRIBUTING.md completely rewritten to reflect current project state (22 commands, 5 providers, 13 utils)
+
+### Documentation
+- `llms.txt` — AI-friendly project documentation with architecture, commands, and workflows
+
 ## [1.0.2] - 2026-02-24
 
 ### Security

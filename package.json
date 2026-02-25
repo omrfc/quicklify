@@ -1,6 +1,6 @@
 {
   "name": "quicklify",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Automate Coolify deployment on cloud providers",
   "type": "module",
   "main": "dist/index.js",

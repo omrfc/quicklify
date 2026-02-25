@@ -157,7 +157,7 @@ quicklify init --template production --provider hetzner
 
 ## Güvenlik
 
-Quicklify güvenlik öncelikli olarak geliştirilmektedir — 52 test suite'inde **1.200+ test**, özel güvenlik test suite'leri dahil.
+Quicklify güvenlik öncelikli olarak geliştirilmektedir — 55 test suite'inde **1.300+ test**, özel güvenlik test suite'leri dahil.
 
 - API token'ları asla diske kaydedilmez — çalışma zamanında sorulur veya ortam değişkenlerinden alınır
 - SSH anahtarları gerekirse otomatik oluşturulur (Ed25519)

@@ -19,9 +19,14 @@ Requires Node.js 20+.
 ### Deploy
 - `quicklify init` — Deploy a new Coolify instance (interactive or non-interactive)
   - `--provider <name>` — hetzner, digitalocean, vultr, linode
+  - `--token <token>` — API token (or use env vars: HETZNER_TOKEN, DIGITALOCEAN_TOKEN, etc.)
+  - `--region <region>` — Server region
+  - `--size <size>` — Server size
+  - `--name <name>` — Server name
   - `--config <path>` — Load from YAML config file
   - `--template <name>` — starter, production, dev
   - `--full-setup` — Auto-configure firewall + SSH hardening
+  - `--no-open` — Do not open browser after deployment
 
 ### Server Management
 - `quicklify list` — List all registered servers
@@ -77,7 +82,7 @@ Requires Node.js 20+.
 - **Logging**: Chalk + Ora (spinners)
 - **Config**: YAML (js-yaml) + JSON
 - **Config Storage**: `~/.quicklify/` (servers.json, config.json, backups/)
-- **Testing**: Jest (1,241 tests, 52 suites, ~97% coverage)
+- **Testing**: Jest (1,326 tests, 55 suites, ~97% coverage)
 - **Linting**: ESLint 10 + typescript-eslint + Prettier
 
 ## Typical Workflows
