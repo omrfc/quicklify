@@ -2,12 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.0.3] - 2026-02-25
+## [1.0.4] - 2026-02-25
 
 ### Security
 - Restore rollback: automatically restart Coolify if restore steps 3-5 fail after Coolify was stopped
 - Fail2ban warning: show "partially complete" instead of misleading "complete" when fail2ban fails
 - SSH key warnings: stronger guidance to run `quicklify secure setup` when key generation/upload fails
+
+## [1.0.3] - 2026-02-25
 
 ### Added
 - `doctor --check-tokens` — Validate provider API tokens from environment variables against live APIs (Hetzner, DigitalOcean, Vultr, Linode)
