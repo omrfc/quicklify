@@ -1,9 +1,90 @@
 import { execSync } from "child_process";
 import { existsSync, accessSync, constants } from "fs";
+import axios from "axios";
 import { getServers } from "../utils/config.js";
 import { checkSshAvailable } from "../utils/ssh.js";
 import { logger } from "../utils/logger.js";
 import { CONFIG_DIR } from "../utils/config.js";
+
+const PROVIDER_CONFIG: Record<
+  string,
+  { envVar: string; displayName: string; validateUrl: string }
+> = {
+  hetzner: {
+    envVar: "HETZNER_TOKEN",
+    displayName: "Hetzner",
+    validateUrl: "https://api.hetzner.cloud/v1/servers?per_page=1",
+  },
+  digitalocean: {
+    envVar: "DIGITALOCEAN_TOKEN",
+    displayName: "DigitalOcean",
+    validateUrl: "https://api.digitalocean.com/v2/account",
+  },
+  vultr: {
+    envVar: "VULTR_TOKEN",
+    displayName: "Vultr",
+    validateUrl: "https://api.vultr.com/v2/account",
+  },
+  linode: {
+    envVar: "LINODE_TOKEN",
+    displayName: "Linode",
+    validateUrl: "https://api.linode.com/v4/profile",
+  },
+};
+
+async function validateToken(provider: string, token: string): Promise<boolean> {
+  const config = PROVIDER_CONFIG[provider];
+  if (!config) {
+    return false;
+  }
+
+  try {
+    await axios.get(config.validateUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 10000,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function checkProviderTokens(): Promise<void> {
+  const servers = getServers();
+
+  if (servers.length === 0) {
+    logger.info("No servers registered. Token check skipped.");
+    return;
+  }
+
+  // Get unique providers from registered servers
+  const providers = [...new Set(servers.map((s) => s.provider))];
+
+  console.log();
+  logger.title("Provider Token Validation");
+
+  for (const provider of providers) {
+    const config = PROVIDER_CONFIG[provider];
+    if (!config) {
+      logger.warning(`${provider}: Unknown provider, skipping token check`);
+      continue;
+    }
+
+    const token = process.env[config.envVar];
+
+    if (!token) {
+      logger.warning(`${config.displayName}: ${config.envVar} not set in environment`);
+      continue;
+    }
+
+    const isValid = await validateToken(provider, token);
+    if (isValid) {
+      logger.success(`${config.displayName}: Token is valid`);
+    } else {
+      logger.error(`${config.displayName}: Token is invalid or expired`);
+    }
+  }
+}
 
 export interface CheckResult {
   name: string;
@@ -109,6 +190,6 @@ export async function doctorCommand(
   }
 
   if (options?.checkTokens) {
-    logger.info("Token validation is not yet implemented.");
+    await checkProviderTokens();
   }
 }
