@@ -3,6 +3,7 @@ import { getServers } from "../utils/config.js";
 import { resolveServer, promptApiToken, collectProviderTokens } from "../utils/serverSelect.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { mapProviderError } from "../utils/errorMapper.js";
 
 interface SnapshotOptions {
   all?: boolean;
@@ -68,6 +69,10 @@ async function snapshotCreate(
   } catch (error: unknown) {
     spinner.fail("Failed to create snapshot");
     logger.error(error instanceof Error ? error.message : String(error));
+    const hint = mapProviderError(error, server.provider);
+    if (hint) {
+      logger.info(hint);
+    }
   }
 }
 

@@ -3,6 +3,7 @@ import { removeServer } from "../utils/config.js";
 import { resolveServer, promptApiToken } from "../utils/serverSelect.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { mapProviderError } from "../utils/errorMapper.js";
 
 export async function destroyCommand(query?: string): Promise<void> {
   const server = await resolveServer(query, "Select a server to destroy:");
@@ -61,6 +62,10 @@ export async function destroyCommand(query?: string): Promise<void> {
     } else {
       spinner.fail("Failed to destroy server");
       logger.error(message);
+      const hint = mapProviderError(error, server.provider);
+      if (hint) {
+        logger.info(hint);
+      }
 
       const { removeLocal } = await inquirer.prompt([
         {

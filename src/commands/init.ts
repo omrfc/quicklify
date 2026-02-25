@@ -15,6 +15,7 @@ import {
 } from "../utils/prompts.js";
 import { getCoolifyCloudInit } from "../utils/cloudInit.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { mapProviderError } from "../utils/errorMapper.js";
 import { findLocalSshKey, generateSshKey, getSshKeyName } from "../utils/sshKey.js";
 import { firewallSetup } from "./firewall.js";
 import { secureSetup } from "./secure.js";
@@ -480,6 +481,10 @@ async function deployServer(
     console.log();
   } catch (error: unknown) {
     logger.error(`Deployment failed: ${error instanceof Error ? error.message : String(error)}`);
+    const hint = mapProviderError(error, providerChoice);
+    if (hint) {
+      logger.info(hint);
+    }
     process.exit(1);
   }
 }
