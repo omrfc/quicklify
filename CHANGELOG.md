@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.5] - 2026-02-26
+
+### Added
+- `mapSshError` — 10 SSH error patterns mapped to actionable hints (connection refused, permission denied, host key, timeout, reset, hostname, command not found, disk full, broken pipe)
+- `mapFileSystemError` — 4 filesystem error codes mapped to hints (ENOENT, EACCES, EPERM, ENOSPC)
+- `getErrorMessage` — DRY helper replacing `error instanceof Error ? error.message : String(error)` across 15 command files
+
+### Changed
+- All 53 catch blocks now use appropriate error mappers: Provider API → `mapProviderError`, SSH → `mapSshError`, Filesystem → `mapFileSystemError`
+- `mapProviderError` spread to 5 additional files (restart, maintain, status, update, snapshot)
+- 3 silent catches in backup.ts now log error messages and provide SSH hints
+- Test count: 1334 → 1369 (+35 new error hint integration tests)
+
 ## [1.0.4] - 2026-02-25
 
 ### Security
