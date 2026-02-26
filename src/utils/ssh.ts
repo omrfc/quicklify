@@ -9,7 +9,7 @@ export function checkSshAvailable(): boolean {
   }
 }
 
-function assertValidIp(ip: string): void {
+export function assertValidIp(ip: string): void {
   if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) {
     throw new Error(`Invalid IP address: ${ip}`);
   }

@@ -157,7 +157,7 @@ quicklify init --template production --provider hetzner
 
 ## Güvenlik
 
-Quicklify güvenlik öncelikli olarak geliştirilmektedir — 55 test suite'inde **1.300+ test**, özel güvenlik test suite'leri dahil.
+Quicklify güvenlik öncelikli olarak geliştirilmektedir — 58 test suite'inde **1.400+ test**, özel güvenlik test suite'leri dahil.
 
 - API token'ları asla diske kaydedilmez — çalışma zamanında sorulur veya ortam değişkenlerinden alınır
 - SSH anahtarları gerekirse otomatik oluşturulur (Ed25519)
@@ -196,8 +196,36 @@ Durumu kontrol edip gerekirse otomatik yeniden başlatmak için `quicklify statu
 
 Geliştirme ortamı kurulumu, test ve katkı rehberi için [CONTRIBUTING.md](CONTRIBUTING.md) dosyasına bakın.
 
+## MCP Sunucusu (Yapay Zeka Entegrasyonu)
+
+Quicklify, yapay zeka destekli sunucu yönetimi için yerleşik bir [Model Context Protocol](https://modelcontextprotocol.io/) sunucusu içerir. Claude Code, Cursor, Windsurf ve diğer MCP uyumlu istemcilerle çalışır.
+
+```json
+{
+  "mcpServers": {
+    "quicklify": {
+      "command": "npx",
+      "args": ["-y", "quicklify", "--mcp"],
+      "env": {
+        "HETZNER_TOKEN": "token-buraya",
+        "DIGITALOCEAN_TOKEN": "token-buraya"
+      }
+    }
+  }
+}
+```
+
+Mevcut araçlar:
+
+| Araç | Eylemler | Açıklama |
+|------|----------|----------|
+| `server_info` | list, status, health | Sunucu bilgilerini sorgula, bulut sağlayıcı ve Coolify durumunu kontrol et |
+
+> Yakında daha fazla araç: `server_provision`, `server_manage`, `server_logs`, `server_secure`, `server_backup`, `server_maintain`.
+
 ## Gelecek Planlar
 
+- Tam yapay zeka destekli sunucu yönetimi için daha fazla MCP aracı
 - Zamanlanmış bakım (cron tabanlı otomatik bakım)
 - Genel sunucu yönetimi (Coolify olmayan sunucular)
 - İnteraktif TUI arayüzü

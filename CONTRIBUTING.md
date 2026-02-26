@@ -26,7 +26,7 @@ npm run dev -- init
 4. **Run Tests**
 
 ```bash
-npm test                # Run all tests (1,334 tests, 55 suites)
+npm test                # Run all tests (1,415 tests, 58 suites)
 npm run test:watch      # Watch mode
 npm run test:coverage   # Coverage report
 ```
@@ -65,6 +65,14 @@ src/
 │   ├── remove.ts         # Remove server from local config
 │   ├── maintain.ts       # Full maintenance cycle
 │   └── snapshot.ts       # Manage VPS snapshots
+├── core/                   # Pure business logic (no CLI dependencies)
+│   ├── status.ts          # Server & Coolify status checks
+│   └── tokens.ts          # Non-interactive token resolution from env vars
+├── mcp/                    # MCP (Model Context Protocol) server
+│   ├── index.ts           # MCP stdio transport entry point
+│   ├── server.ts          # MCP server setup + tool registration
+│   └── tools/
+│       └── serverInfo.ts  # server_info tool handler (list/status/health)
 ├── providers/
 │   ├── base.ts           # CloudProvider interface
 │   ├── hetzner.ts        # Hetzner Cloud implementation
@@ -78,14 +86,17 @@ src/
     ├── config.ts         # Server record CRUD (~/.quicklify/)
     ├── configMerge.ts    # Multi-source config merge logic
     ├── defaults.ts       # Default config management
+    ├── errorMapper.ts    # Provider/SSH/FS error → actionable hints
     ├── healthCheck.ts    # Coolify health check polling
     ├── logger.ts         # Chalk-based logging + spinner
+    ├── openBrowser.ts    # Platform-aware browser open
     ├── prompts.ts        # Inquirer.js prompts with back navigation
     ├── providerFactory.ts # Provider factory (create by name)
     ├── serverSelect.ts   # Shared server selection + token prompts
     ├── ssh.ts            # SSH helpers (connect, exec, stream)
     ├── sshKey.ts         # SSH key detection + generation
     ├── templates.ts      # Template definitions (starter, production, dev)
+    ├── updateCheck.ts    # npm registry update check (24h cache)
     └── yamlConfig.ts     # YAML config loader with security checks
 
 tests/

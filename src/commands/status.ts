@@ -1,11 +1,15 @@
-import axios from "axios";
 import { getServers } from "../utils/config.js";
 import { resolveServer, promptApiToken, collectProviderTokens } from "../utils/serverSelect.js";
-import { createProviderWithToken } from "../utils/providerFactory.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapProviderError, mapSshError } from "../utils/errorMapper.js";
+import {
+  getCloudServerStatus,
+  checkAllServersStatus,
+  checkCoolifyHealth,
+} from "../core/status.js";
 import type { ServerRecord } from "../types/index.js";
+import type { StatusResult } from "../core/status.js";
 
 const COOLIFY_RESTART_CMD =
   "cd /data/coolify/source && docker compose -f docker-compose.yml -f docker-compose.prod.yml restart coolify";
@@ -15,42 +19,27 @@ interface StatusOptions {
   autostart?: boolean;
 }
 
-interface StatusResult {
-  server: ServerRecord;
-  serverStatus: string;
-  coolifyStatus: string;
-  error?: string;
+function printStatusTable(results: StatusResult[]): void {
+  const header = `${"Name".padEnd(20)} ${"IP".padEnd(16)} ${"Provider".padEnd(14)} ${"Server".padEnd(12)} ${"Coolify".padEnd(14)}`;
+  console.log(header);
+  console.log("─".repeat(header.length));
+
+  for (const r of results) {
+    const serverStr = r.error ? "error" : r.serverStatus;
+    const coolifyStr = r.coolifyStatus;
+    console.log(
+      `${r.server.name.padEnd(20)} ${r.server.ip.padEnd(16)} ${r.server.provider.padEnd(14)} ${serverStr.padEnd(12)} ${coolifyStr.padEnd(14)}`,
+    );
+  }
 }
 
-async function checkSingleServer(server: ServerRecord, apiToken: string): Promise<StatusResult> {
-  try {
-    let serverStatus: string;
-    if (server.id.startsWith("manual-")) {
-      serverStatus = "unknown (manual)";
-    } else {
-      const provider = createProviderWithToken(server.provider, apiToken);
-      serverStatus = await provider.getServerStatus(server.id);
-    }
-
-    let coolifyStatus = "unknown";
-    try {
-      await axios.get(`http://${server.ip}:8000`, {
-        timeout: 5000,
-        validateStatus: () => true,
-      });
-      coolifyStatus = "running";
-    } catch {
-      coolifyStatus = "not reachable";
-    }
-
-    return { server, serverStatus, coolifyStatus };
-  } catch (error: unknown) {
-    return {
-      server,
-      serverStatus: "error",
-      coolifyStatus: "unknown",
-      error: getErrorMessage(error),
-    };
+function printStatusSummary(results: StatusResult[]): void {
+  const running = results.filter((r) => r.coolifyStatus === "running").length;
+  const errors = results.filter((r) => r.error).length;
+  if (errors > 0) {
+    logger.warning(`${running} running, ${errors} error(s)`);
+  } else {
+    logger.success(`${running}/${results.length} server(s) with Coolify running`);
   }
 }
 
@@ -65,35 +54,14 @@ async function statusAll(): Promise<void> {
   const spinner = createSpinner(`Checking status of ${servers.length} server(s)...`);
   spinner.start();
 
-  const results = await Promise.all(
-    servers.map((s) => checkSingleServer(s, tokenMap.get(s.provider)!)),
-  );
+  const results = await checkAllServersStatus(servers, tokenMap);
 
   spinner.succeed("Status check complete");
   console.log();
 
-  // Table header
-  const header = `${"Name".padEnd(20)} ${"IP".padEnd(16)} ${"Provider".padEnd(14)} ${"Server".padEnd(12)} ${"Coolify".padEnd(14)}`;
-  console.log(header);
-  console.log("─".repeat(header.length));
-
-  for (const r of results) {
-    const serverStr = r.error ? "error" : r.serverStatus;
-    const coolifyStr = r.coolifyStatus;
-    console.log(
-      `${r.server.name.padEnd(20)} ${r.server.ip.padEnd(16)} ${r.server.provider.padEnd(14)} ${serverStr.padEnd(12)} ${coolifyStr.padEnd(14)}`,
-    );
-  }
-
+  printStatusTable(results);
   console.log();
-
-  const running = results.filter((r) => r.coolifyStatus === "running").length;
-  const errors = results.filter((r) => r.error).length;
-  if (errors > 0) {
-    logger.warning(`${running} running, ${errors} error(s)`);
-  } else {
-    logger.success(`${running}/${results.length} server(s) with Coolify running`);
-  }
+  printStatusSummary(results);
 }
 
 async function autostartCoolify(server: ServerRecord): Promise<void> {
@@ -112,13 +80,10 @@ async function autostartCoolify(server: ServerRecord): Promise<void> {
 
       // Wait and check again
       await new Promise((resolve) => setTimeout(resolve, 5000));
-      try {
-        await axios.get(`http://${server.ip}:8000`, {
-          timeout: 5000,
-          validateStatus: () => true,
-        });
+      const healthStatus = await checkCoolifyHealth(server.ip);
+      if (healthStatus === "running") {
         logger.success("Coolify is now running!");
-      } catch {
+      } else {
         logger.warning("Coolify may still be starting. Check again in a moment.");
       }
     } else {
@@ -148,25 +113,8 @@ export async function statusCommand(query?: string, options?: StatusOptions): Pr
   spinner.start();
 
   try {
-    let serverStatus: string;
-    if (server.id.startsWith("manual-")) {
-      serverStatus = "unknown (manual)";
-    } else {
-      const provider = createProviderWithToken(server.provider, apiToken);
-      serverStatus = await provider.getServerStatus(server.id);
-    }
-
-    // Check Coolify health
-    let coolifyStatus = "unknown";
-    try {
-      await axios.get(`http://${server.ip}:8000`, {
-        timeout: 5000,
-        validateStatus: () => true,
-      });
-      coolifyStatus = "running";
-    } catch {
-      coolifyStatus = "not reachable";
-    }
+    const serverStatus = await getCloudServerStatus(server, apiToken);
+    const coolifyStatus = await checkCoolifyHealth(server.ip);
 
     spinner.succeed("Status retrieved");
 

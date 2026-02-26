@@ -1,0 +1,63 @@
+import axios from "axios";
+import { createProviderWithToken } from "../utils/providerFactory.js";
+import { getErrorMessage } from "../utils/errorMapper.js";
+import { assertValidIp } from "../utils/ssh.js";
+import type { ServerRecord } from "../types/index.js";
+
+export interface StatusResult {
+  server: ServerRecord;
+  serverStatus: string;
+  coolifyStatus: string;
+  error?: string;
+}
+
+export async function checkCoolifyHealth(ip: string): Promise<"running" | "not reachable"> {
+  assertValidIp(ip);
+  try {
+    await axios.get(`http://${ip}:8000`, {
+      timeout: 5000,
+      validateStatus: () => true,
+    });
+    return "running";
+  } catch {
+    return "not reachable";
+  }
+}
+
+export async function getCloudServerStatus(
+  server: ServerRecord,
+  apiToken: string,
+): Promise<string> {
+  if (server.id.startsWith("manual-")) {
+    return "unknown (manual)";
+  }
+  const provider = createProviderWithToken(server.provider, apiToken);
+  return provider.getServerStatus(server.id);
+}
+
+export async function checkServerStatus(
+  server: ServerRecord,
+  apiToken: string,
+): Promise<StatusResult> {
+  try {
+    const serverStatus = await getCloudServerStatus(server, apiToken);
+    const coolifyStatus = await checkCoolifyHealth(server.ip);
+    return { server, serverStatus, coolifyStatus };
+  } catch (error: unknown) {
+    return {
+      server,
+      serverStatus: "error",
+      coolifyStatus: "unknown",
+      error: getErrorMessage(error),
+    };
+  }
+}
+
+export async function checkAllServersStatus(
+  servers: ServerRecord[],
+  tokenMap: Map<string, string>,
+): Promise<StatusResult[]> {
+  return Promise.all(
+    servers.map((s) => checkServerStatus(s, tokenMap.get(s.provider) ?? "")),
+  );
+}

@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-02-26
+
+### Added
+- **MCP Server** — Built-in Model Context Protocol server for AI-powered server management
+  - `server_info` tool with `list`, `status`, and `health` actions
+  - Structured JSON responses with `suggested_actions` for AI context optimization
+  - Tool annotations: `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`
+  - Rate limiting guidance in tool descriptions
+- **`src/core/` module** — Pure business logic extracted from CLI commands (no CLI dependencies)
+  - `src/core/status.ts` — `checkCoolifyHealth`, `getCloudServerStatus`, `checkServerStatus`, `checkAllServersStatus`
+  - `src/core/tokens.ts` — `getProviderToken`, `collectProviderTokensFromEnv` (non-interactive token resolution)
+- **`src/mcp/` module** — MCP server implementation
+  - `src/mcp/server.ts` — MCP server setup with tool registration
+  - `src/mcp/tools/serverInfo.ts` — server_info tool handler with error handling and token validation
+  - `src/mcp/index.ts` — stdio transport entry point
+- `bin/quicklify-mcp` — MCP server binary entry point
+- SSRF defense: `assertValidIp()` added to `checkCoolifyHealth` (IP format validation before HTTP request)
+- Stack trace sanitization in MCP error responses via `getErrorMessage()`
+
+### Changed
+- `src/commands/status.ts` refactored to use `src/core/status.ts` (DRY: eliminated duplicate Coolify health check)
+- Test count: 1369 → 1415 (+46 new tests across 3 new test suites)
+- Test suites: 55 → 58
+
+### Dependencies
+- Added `@modelcontextprotocol/sdk` ^1.27.1 (MCP server SDK)
+- Added `zod` ^4.3.6 (MCP input schema validation)
+
 ## [1.0.5] - 2026-02-26
 
 ### Added

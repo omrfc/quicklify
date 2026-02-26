@@ -157,7 +157,7 @@ quicklify init --template production --provider hetzner
 
 ## Security
 
-Quicklify is built with security as a priority — **1,300+ tests** across 55 suites, including dedicated security test suites.
+Quicklify is built with security as a priority — **1,400+ tests** across 58 suites, including dedicated security test suites.
 
 - API tokens are never stored on disk — prompted at runtime or via environment variables
 - SSH keys are auto-generated if needed (Ed25519)
@@ -196,8 +196,36 @@ Use `quicklify status my-server --autostart` to check and auto-restart if needed
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and contribution guidelines.
 
+## MCP Server (AI Integration)
+
+Quicklify includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server for AI-powered server management. Works with Claude Code, Cursor, Windsurf, and other MCP-compatible clients.
+
+```json
+{
+  "mcpServers": {
+    "quicklify": {
+      "command": "npx",
+      "args": ["-y", "quicklify", "--mcp"],
+      "env": {
+        "HETZNER_TOKEN": "your-token",
+        "DIGITALOCEAN_TOKEN": "your-token"
+      }
+    }
+  }
+}
+```
+
+Available tools:
+
+| Tool | Actions | Description |
+|------|---------|-------------|
+| `server_info` | list, status, health | Query server information, check cloud provider & Coolify status |
+
+> More tools coming soon: `server_provision`, `server_manage`, `server_logs`, `server_secure`, `server_backup`, `server_maintain`.
+
 ## What's Next
 
+- More MCP tools for full AI-native server management
 - Scheduled maintenance (cron-based automatic upkeep)
 - Generic server management (non-Coolify servers)
 - Interactive TUI dashboard
