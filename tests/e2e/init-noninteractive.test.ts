@@ -400,6 +400,140 @@ describe("initCommand Non-Interactive", () => {
     expect(mockedAxios.post).toHaveBeenCalled();
   });
 
+  describe("Vultr IP assignment", () => {
+    it("should warn when Vultr IP assignment times out", async () => {
+      // validateToken (Vultr)
+      mockedAxios.get.mockResolvedValueOnce({ data: { account: {} } });
+
+      // createServer → IP "0.0.0.0"
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          instance: {
+            id: "vultr-timeout",
+            main_ip: "0.0.0.0",
+            power_status: "running",
+            server_status: "ok",
+          },
+        },
+      });
+
+      // getServerStatus → already running
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { instance: { power_status: "running", server_status: "ok" } },
+      });
+
+      // getServerDetails: 40 calls all returning 0.0.0.0
+      for (let i = 0; i < 40; i++) {
+        mockedAxios.get.mockResolvedValueOnce({
+          data: {
+            instance: { id: "vultr-timeout", main_ip: "0.0.0.0", power_status: "running" },
+          },
+        });
+      }
+
+      await initCommand({
+        provider: "vultr",
+        token: "vultr-token",
+        region: "ewr",
+        size: "vc2-1c-2gb",
+        name: "vultr-timeout-test",
+      });
+
+      const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(allOutput).toContain("IP assignment timed out");
+      expect(allOutput).toContain("quicklify status vultr-timeout");
+    });
+
+    it("should assign Vultr IP after delayed response", async () => {
+      // validateToken
+      mockedAxios.get.mockResolvedValueOnce({ data: { account: {} } });
+
+      // createServer → IP "0.0.0.0"
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          instance: {
+            id: "vultr-delayed",
+            main_ip: "0.0.0.0",
+            power_status: "running",
+            server_status: "ok",
+          },
+        },
+      });
+
+      // getServerStatus → running
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { instance: { power_status: "running", server_status: "ok" } },
+      });
+
+      // getServerDetails: 3 calls returning 0.0.0.0, then IP assigned
+      for (let i = 0; i < 3; i++) {
+        mockedAxios.get.mockResolvedValueOnce({
+          data: {
+            instance: { id: "vultr-delayed", main_ip: "0.0.0.0", power_status: "running" },
+          },
+        });
+      }
+      mockedAxios.get.mockResolvedValueOnce({
+        data: {
+          instance: { id: "vultr-delayed", main_ip: "45.76.100.50", power_status: "running" },
+        },
+      });
+
+      await initCommand({
+        provider: "vultr",
+        token: "vultr-token",
+        region: "ewr",
+        size: "vc2-1c-2gb",
+        name: "vultr-delayed-test",
+      });
+
+      const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(allOutput).toContain("45.76.100.50");
+      expect(allOutput).not.toContain("IP assignment timed out");
+    });
+
+    it("should handle Vultr server_status provisioning before running", async () => {
+      // validateToken
+      mockedAxios.get.mockResolvedValueOnce({ data: { account: {} } });
+
+      // createServer → IP assigned immediately
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          instance: {
+            id: "vultr-prov",
+            main_ip: "45.76.100.51",
+            power_status: "running",
+            server_status: "installingbooting",
+          },
+        },
+      });
+
+      // getServerStatus: first 2 calls → provisioning, then ok
+      mockedAxios.get
+        .mockResolvedValueOnce({
+          data: { instance: { power_status: "running", server_status: "installingbooting" } },
+        })
+        .mockResolvedValueOnce({
+          data: { instance: { power_status: "running", server_status: "installingbooting" } },
+        })
+        .mockResolvedValueOnce({
+          data: { instance: { power_status: "running", server_status: "ok" } },
+        });
+
+      await initCommand({
+        provider: "vultr",
+        token: "vultr-token",
+        region: "ewr",
+        size: "vc2-1c-2gb",
+        name: "vultr-prov-test",
+      });
+
+      const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(allOutput).toContain("45.76.100.51");
+      expect(processExitSpy).not.toHaveBeenCalled();
+    });
+  });
+
   it("should show onboarding next steps after successful deploy", async () => {
     mockedAxios.get
       .mockResolvedValueOnce({ data: { servers: [] } })

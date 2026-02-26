@@ -50,6 +50,14 @@ describe("openBrowser", () => {
       expect(isValidBrowserUrl("")).toBe(false);
     });
 
+    it("should reject http://0.0.0.0:8000 (unassigned IP)", () => {
+      expect(isValidBrowserUrl("http://0.0.0.0:8000")).toBe(false);
+    });
+
+    it("should reject http://0.0.0.0 (unassigned IP without port)", () => {
+      expect(isValidBrowserUrl("http://0.0.0.0")).toBe(false);
+    });
+
     it("should reject URLs with query params", () => {
       expect(isValidBrowserUrl("http://1.2.3.4:8000?cmd=ls")).toBe(false);
     });

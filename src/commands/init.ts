@@ -17,12 +17,29 @@ import { getCoolifyCloudInit } from "../utils/cloudInit.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { openBrowser } from "../utils/openBrowser.js";
+import { assertValidIp } from "../utils/ssh.js";
 import { findLocalSshKey, generateSshKey, getSshKeyName } from "../utils/sshKey.js";
 import { firewallSetup } from "./firewall.js";
 import { secureSetup } from "./secure.js";
 import { loadYamlConfig } from "../utils/yamlConfig.js";
 import { mergeConfig } from "../utils/configMerge.js";
 import { getTemplate, getTemplateDefaults, VALID_TEMPLATE_NAMES } from "../utils/templates.js";
+
+// Provider-specific IP wait configuration (IP assignment latency varies significantly)
+const IP_WAIT: Record<string, { attempts: number; interval: number }> = {
+  hetzner:      { attempts: 10, interval: 3000 },   // 30s (instant IP)
+  digitalocean: { attempts: 20, interval: 3000 },   // 60s
+  vultr:        { attempts: 40, interval: 5000 },   // 200s (slowest IP assignment)
+  linode:       { attempts: 30, interval: 5000 },   // 150s
+};
+
+// Provider-specific minimum wait before first Coolify health check
+const COOLIFY_MIN_WAIT: Record<string, number> = {
+  hetzner: 60000,
+  digitalocean: 120000,
+  vultr: 180000,
+  linode: 120000,
+};
 
 export async function initCommand(options: InitOptions = {}): Promise<void> {
   // Load YAML config if --config flag provided
@@ -387,24 +404,39 @@ async function deployServer(
 
     statusSpinner.succeed("Server is running");
 
-    // Refresh server details to get final IP (DO/Vultr assign IP after boot)
-    if (server.ip === "pending" || server.ip === "0.0.0.0") {
+    // Refresh server details to get final IP (DO/Vultr/Linode assign IP after boot)
+    if (server.ip === "pending" || server.ip === "0.0.0.0" || server.ip === "") {
+      const ipConfig = IP_WAIT[providerChoice] || { attempts: 10, interval: 3000 };
+      const ipSpinner = createSpinner("Waiting for IP address assignment...");
+      ipSpinner.start();
       let refreshAttempts = 0;
-      while (refreshAttempts < 10) {
+      while (refreshAttempts < ipConfig.attempts) {
         const details = await providerWithToken.getServerDetails(server.id);
-        if (details.ip && details.ip !== "0.0.0.0" && details.ip !== "pending") {
-          server.ip = details.ip;
-          break;
+        if (details.ip && details.ip !== "0.0.0.0" && details.ip !== "pending" && details.ip !== "") {
+          try {
+            assertValidIp(details.ip);
+            server.ip = details.ip;
+            break;
+          } catch {
+            // Invalid IP format from API — skip and retry
+          }
         }
         refreshAttempts++;
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        await new Promise((resolve) => setTimeout(resolve, ipConfig.interval));
+      }
+      if (server.ip === "pending" || server.ip === "0.0.0.0" || server.ip === "") {
+        ipSpinner.fail("Could not obtain server IP address");
+        logger.warning("The server was created but IP assignment timed out.");
+        logger.info(`Check IP later with: quicklify status ${server.id}`);
+      } else {
+        ipSpinner.succeed(`IP address assigned: ${server.ip}`);
       }
     }
 
-    // Health check polling instead of blind wait
-    const isDigitalOcean = providerChoice === "digitalocean";
-    const minWait = isDigitalOcean ? 120000 : 60000;
-    const ready = await waitForCoolify(server.ip, minWait);
+    // Health check polling instead of blind wait (skip if no valid IP)
+    const hasValidIp = server.ip !== "0.0.0.0" && server.ip !== "pending" && server.ip !== "";
+    const minWait = COOLIFY_MIN_WAIT[providerChoice] || 60000;
+    const ready = hasValidIp ? await waitForCoolify(server.ip, minWait) : false;
 
     // Save server record to config
     saveServer({
@@ -450,7 +482,7 @@ async function deployServer(
     console.log();
     if (ready) {
       logger.info("Coolify is ready! Open the URL above to get started.");
-      if (!noOpen) {
+      if (!noOpen && hasValidIp) {
         openBrowser(`http://${server.ip}:8000`);
       }
     } else {

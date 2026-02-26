@@ -390,6 +390,56 @@ describe("VultrProvider", () => {
       );
     });
 
+    it('should return "provisioning" when power is running but server_status is not ok', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { instance: { power_status: "running", server_status: "installingbooting" } },
+      });
+
+      const status = await provider.getServerStatus("inst-abc-123");
+
+      expect(status).toBe("provisioning");
+    });
+
+    it('should return "running" when power_status is running and server_status is ok', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { instance: { power_status: "running", server_status: "ok" } },
+      });
+
+      const status = await provider.getServerStatus("inst-abc-123");
+
+      expect(status).toBe("running");
+    });
+
+    it('should return "provisioning" when server_status is "none"', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { instance: { power_status: "running", server_status: "none" } },
+      });
+
+      const status = await provider.getServerStatus("inst-abc-123");
+
+      expect(status).toBe("provisioning");
+    });
+
+    it('should return "provisioning" when server_status is "locked"', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { instance: { power_status: "running", server_status: "locked" } },
+      });
+
+      const status = await provider.getServerStatus("inst-abc-123");
+
+      expect(status).toBe("provisioning");
+    });
+
+    it('should return "running" when server_status is null (backward compat)', async () => {
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { instance: { power_status: "running", server_status: null } },
+      });
+
+      const status = await provider.getServerStatus("inst-abc-123");
+
+      expect(status).toBe("running");
+    });
+
     it("should throw on error", async () => {
       mockedAxios.get.mockRejectedValueOnce(new Error("Not Found"));
 

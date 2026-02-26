@@ -34,7 +34,10 @@ function getOpenCommand(): string | null {
 }
 
 export function isValidBrowserUrl(url: string): boolean {
-  return SAFE_URL_PATTERN.test(url);
+  if (!SAFE_URL_PATTERN.test(url)) return false;
+  // Reject placeholder/unassigned IP addresses
+  if (url.includes("://0.0.0.0")) return false;
+  return true;
 }
 
 export function canOpenBrowser(): boolean {

@@ -151,7 +151,13 @@ export class VultrProvider implements CloudProvider {
       const response = await axios.get(`${this.baseUrl}/instances/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
-      return response.data.instance.power_status;
+      const inst = response.data.instance;
+      // Vultr reports power_status=running before server is fully provisioned.
+      // server_status progresses: none → locked → installingbooting → ok
+      if (inst.power_status === "running" && inst.server_status != null && inst.server_status !== "ok") {
+        return "provisioning";
+      }
+      return inst.power_status;
     } catch (error: unknown) {
       stripSensitiveData(error);
       throw new Error(
