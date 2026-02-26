@@ -3,6 +3,7 @@ import { serverInfoSchema, handleServerInfo } from "./tools/serverInfo.js";
 import { serverLogsSchema, handleServerLogs } from "./tools/serverLogs.js";
 import { serverManageSchema, handleServerManage } from "./tools/serverManage.js";
 import { serverMaintainSchema, handleServerMaintain } from "./tools/serverMaintain.js";
+import { serverSecureSchema, handleServerSecure } from "./tools/serverSecure.js";
 
 const pkg = { name: "quicklify-mcp", version: "1.1.0" };
 
@@ -70,6 +71,21 @@ export function createMcpServer(): McpServer {
     },
   }, async (params) => {
     return handleServerMaintain(params);
+  });
+
+  server.registerTool("server_secure", {
+    description:
+      "Secure Quicklify servers. Secure: 'secure-setup' applies SSH hardening + fail2ban, 'secure-audit' runs security audit with score. Firewall: 'firewall-setup' installs UFW with Coolify ports, 'firewall-add'/'firewall-remove' manage port rules, 'firewall-status' shows current rules. Domain: 'domain-set'/'domain-remove' manage custom domain with optional SSL, 'domain-check' verifies DNS, 'domain-info' shows current FQDN. All require SSH access to server.",
+    inputSchema: serverSecureSchema,
+    annotations: {
+      title: "Server Security",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+  }, async (params) => {
+    return handleServerSecure(params);
   });
 
   return server;
