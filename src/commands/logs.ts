@@ -47,7 +47,9 @@ export async function logsCommand(
 
   if (follow) {
     const exitCode = await sshStream(server.ip, command);
-    if (exitCode !== 0) {
+    if (exitCode === 130) {
+      // Ctrl+C — normal user-initiated exit
+    } else if (exitCode !== 0) {
       logger.error(`Log stream ended with code ${exitCode}`);
     }
   } else {

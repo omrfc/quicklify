@@ -72,6 +72,16 @@ describe("sshCommand", () => {
     expect(output).toContain("SSH session ended with code 255");
   });
 
+  it("should not show warning for Ctrl+C exit (code 130)", async () => {
+    mockedSsh.checkSshAvailable.mockReturnValue(true);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
+    mockedSsh.sshConnect.mockResolvedValue(130);
+
+    await sshCommand("1.2.3.4");
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).not.toContain("SSH session ended");
+  });
+
   it("should execute single command with --command", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServers.mockReturnValue([sampleServer]);

@@ -24,7 +24,9 @@ export async function sshCommand(query?: string, options?: { command?: string })
   } else {
     logger.info(`Connecting to ${server.name} (${server.ip})...`);
     const exitCode = await sshConnect(server.ip);
-    if (exitCode !== 0) {
+    if (exitCode === 130) {
+      // Ctrl+C — normal user-initiated exit, no warning needed
+    } else if (exitCode !== 0) {
       logger.warning(`SSH session ended with code ${exitCode}`);
     }
   }

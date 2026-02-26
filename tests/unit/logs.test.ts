@@ -132,4 +132,15 @@ describe("logsCommand", () => {
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("Log stream ended with code 1");
   });
+
+  it("should not show error for Ctrl+C exit (code 130) in follow mode", async () => {
+    mockedSsh.checkSshAvailable.mockReturnValue(true);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
+    mockedSsh.sshStream.mockResolvedValue(130);
+
+    await logsCommand("1.2.3.4", { follow: true });
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).not.toContain("Log stream ended");
+  });
 });
