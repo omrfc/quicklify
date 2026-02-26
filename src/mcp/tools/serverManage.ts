@@ -153,7 +153,6 @@ export async function handleServerManage(params: {
               provider: result.server!.provider,
             },
             suggested_actions: [
-              { command: `server_manage { action: 'destroy', server: '${result.server!.name}' }`, reason: "Also delete from cloud provider" },
               { command: "server_info { action: 'list' }", reason: "View remaining servers" },
             ],
           }) }],

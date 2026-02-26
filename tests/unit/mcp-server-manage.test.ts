@@ -119,8 +119,8 @@ describe("validateIpAddress", () => {
   it("should accept valid IPs", () => {
     expect(validateIpAddress("1.2.3.4")).toBeNull();
     expect(validateIpAddress("192.168.1.1")).toBeNull();
-    expect(validateIpAddress("0.0.0.0")).toBeNull();
     expect(validateIpAddress("255.255.255.255")).toBeNull();
+    expect(validateIpAddress("10.0.0.1")).toBeNull();
   });
 
   it("should reject empty IP", () => {
@@ -136,6 +136,12 @@ describe("validateIpAddress", () => {
   it("should reject out-of-range octets", () => {
     expect(validateIpAddress("256.1.1.1")).not.toBeNull();
     expect(validateIpAddress("1.1.1.999")).not.toBeNull();
+  });
+
+  it("should reject reserved IPs", () => {
+    expect(validateIpAddress("0.0.0.0")).toContain("Reserved");
+    expect(validateIpAddress("127.0.0.1")).toContain("Reserved");
+    expect(validateIpAddress("127.1.2.3")).toContain("Reserved");
   });
 });
 

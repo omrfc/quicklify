@@ -1,2 +1,5 @@
 #!/usr/bin/env node
-import('../dist/mcp/index.js');
+import('../dist/mcp/index.js').catch((err) => {
+  process.stderr.write(`quicklify-mcp: ${err}\n`);
+  process.exit(1);
+});

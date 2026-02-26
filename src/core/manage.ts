@@ -28,6 +28,9 @@ export function validateIpAddress(ip: string): string | null {
   if (octets.some((o) => o < 0 || o > 255)) {
     return "Invalid IP address (octets must be 0-255)";
   }
+  if (ip === "0.0.0.0" || ip.startsWith("127.")) {
+    return "Reserved IP address not allowed";
+  }
   return null;
 }
 
@@ -136,7 +139,8 @@ export async function addServerRecord(params: AddServerParams): Promise<AddServe
             coolifyStatus = "not_detected";
           }
         }
-      } catch {
+      } catch (error: unknown) {
+        process.stderr.write(`[warn] Coolify verification failed for ${params.ip}: ${getErrorMessage(error)}\n`);
         coolifyStatus = "verification_failed";
       }
     }
