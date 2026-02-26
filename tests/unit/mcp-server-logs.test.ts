@@ -253,6 +253,7 @@ describe("handleServerLogs — logs", () => {
     const result = await handleServerLogs({ action: "logs" });
     const data = JSON.parse(result.content[0].text);
 
+    expect(result.isError).toBe(true);
     expect(data.error).toBe("No servers found");
     expect(data.suggested_actions).toBeDefined();
   });

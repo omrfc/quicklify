@@ -1,0 +1,259 @@
+import { getServers, saveServer, removeServer, findServer } from "../utils/config.js";
+import { createProviderWithToken } from "../utils/providerFactory.js";
+import { sshExec, checkSshAvailable } from "../utils/ssh.js";
+import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
+import { getProviderToken } from "./tokens.js";
+import type { ServerRecord } from "../types/index.js";
+
+// ─── SAFE_MODE ────────────────────────────────────────────────────────────────
+
+export function isSafeMode(): boolean {
+  return process.env.QUICKLIFY_SAFE_MODE === "true";
+}
+
+// ─── Validation ───────────────────────────────────────────────────────────────
+
+const VALID_PROVIDERS = ["hetzner", "digitalocean", "vultr", "linode"];
+
+export function isValidProvider(provider: string): boolean {
+  return VALID_PROVIDERS.includes(provider);
+}
+
+export function validateIpAddress(ip: string): string | null {
+  if (!ip) return "IP address is required";
+  if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) {
+    return "Invalid IP address format";
+  }
+  const octets = ip.split(".").map(Number);
+  if (octets.some((o) => o < 0 || o > 255)) {
+    return "Invalid IP address (octets must be 0-255)";
+  }
+  return null;
+}
+
+export function validateServerName(name: string): string | null {
+  if (!name) return "Server name is required";
+  if (name.length < 3 || name.length > 63) {
+    return "Server name must be 3-63 characters";
+  }
+  if (!/^[a-z][a-z0-9-]*[a-z0-9]$/.test(name)) {
+    return "Must start with a letter, end with letter/number, only lowercase letters, numbers, hyphens";
+  }
+  return null;
+}
+
+// ─── Add Server ───────────────────────────────────────────────────────────────
+
+export interface AddServerParams {
+  provider: string;
+  ip: string;
+  name: string;
+  skipVerify?: boolean;
+}
+
+export interface AddServerResult {
+  success: boolean;
+  server?: ServerRecord;
+  coolifyStatus?: string;
+  error?: string;
+}
+
+export async function addServerRecord(params: AddServerParams): Promise<AddServerResult> {
+  // Validate provider
+  if (!isValidProvider(params.provider)) {
+    return {
+      success: false,
+      error: `Invalid provider: ${params.provider}. Valid: ${VALID_PROVIDERS.join(", ")}`,
+    };
+  }
+
+  // Get token from env
+  const token = getProviderToken(params.provider);
+  if (!token) {
+    return {
+      success: false,
+      error: `No API token found for provider: ${params.provider}. Set ${params.provider.toUpperCase()}_TOKEN environment variable`,
+    };
+  }
+
+  // Validate IP
+  const ipError = validateIpAddress(params.ip);
+  if (ipError) {
+    return { success: false, error: ipError };
+  }
+
+  // Check duplicate
+  const existing = getServers();
+  const duplicate = existing.find((s) => s.ip === params.ip);
+  if (duplicate) {
+    return {
+      success: false,
+      error: `Server with IP ${params.ip} already exists: ${duplicate.name}`,
+    };
+  }
+
+  // Validate name
+  const nameError = validateServerName(params.name);
+  if (nameError) {
+    return { success: false, error: nameError };
+  }
+
+  // Validate API token
+  try {
+    const provider = createProviderWithToken(params.provider, token);
+    const valid = await provider.validateToken(token);
+    if (!valid) {
+      return { success: false, error: `Invalid API token for ${params.provider}` };
+    }
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: `Token validation failed: ${getErrorMessage(error)}`,
+    };
+  }
+
+  // Optional Coolify verification via SSH
+  let coolifyStatus = "skipped";
+  if (!params.skipVerify) {
+    if (!checkSshAvailable()) {
+      coolifyStatus = "ssh_unavailable";
+    } else {
+      try {
+        const result = await sshExec(
+          params.ip,
+          "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/api/health",
+        );
+        if (result.code === 0 && result.stdout.trim().includes("200")) {
+          coolifyStatus = "running";
+        } else {
+          const dockerResult = await sshExec(
+            params.ip,
+            "docker ps --format '{{.Names}}' 2>/dev/null | grep -q coolify && echo OK",
+          );
+          if (dockerResult.code === 0 && dockerResult.stdout.trim().includes("OK")) {
+            coolifyStatus = "containers_detected";
+          } else {
+            coolifyStatus = "not_detected";
+          }
+        }
+      } catch {
+        coolifyStatus = "verification_failed";
+      }
+    }
+  }
+
+  // Save to config
+  const record: ServerRecord = {
+    id: `manual-${Date.now()}`,
+    name: params.name,
+    provider: params.provider,
+    ip: params.ip,
+    region: "unknown",
+    size: "unknown",
+    createdAt: new Date().toISOString(),
+  };
+
+  saveServer(record);
+
+  return { success: true, server: record, coolifyStatus };
+}
+
+// ─── Remove Server ────────────────────────────────────────────────────────────
+
+export interface RemoveServerResult {
+  success: boolean;
+  server?: ServerRecord;
+  error?: string;
+}
+
+export function removeServerRecord(query: string): RemoveServerResult {
+  const server = findServer(query);
+  if (!server) {
+    return { success: false, error: `Server not found: ${query}` };
+  }
+
+  const removed = removeServer(server.id);
+  if (!removed) {
+    return { success: false, error: `Failed to remove server: ${server.name}` };
+  }
+
+  return { success: true, server };
+}
+
+// ─── Destroy Server ───────────────────────────────────────────────────────────
+
+export interface DestroyServerResult {
+  success: boolean;
+  server?: ServerRecord;
+  cloudDeleted: boolean;
+  localRemoved: boolean;
+  error?: string;
+  hint?: string;
+}
+
+export async function destroyCloudServer(query: string): Promise<DestroyServerResult> {
+  const server = findServer(query);
+  if (!server) {
+    return {
+      success: false,
+      cloudDeleted: false,
+      localRemoved: false,
+      error: `Server not found: ${query}`,
+    };
+  }
+
+  // Manual servers can only be removed, not destroyed
+  if (server.id.startsWith("manual-")) {
+    return {
+      success: false,
+      server,
+      cloudDeleted: false,
+      localRemoved: false,
+      error: `Server "${server.name}" was manually added (no cloud provider ID). Use 'remove' action instead.`,
+    };
+  }
+
+  // Get token from env
+  const token = getProviderToken(server.provider);
+  if (!token) {
+    return {
+      success: false,
+      server,
+      cloudDeleted: false,
+      localRemoved: false,
+      error: `No API token for ${server.provider}. Set ${server.provider.toUpperCase()}_TOKEN environment variable`,
+    };
+  }
+
+  try {
+    const provider = createProviderWithToken(server.provider, token);
+    await provider.destroyServer(server.id);
+    removeServer(server.id);
+    return { success: true, server, cloudDeleted: true, localRemoved: true };
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    const isNotFound =
+      message.toLowerCase().includes("not found") || message.toLowerCase().includes("not_found");
+
+    if (isNotFound) {
+      removeServer(server.id);
+      return {
+        success: true,
+        server,
+        cloudDeleted: false,
+        localRemoved: true,
+        hint: `Server not found on ${server.provider} (may have been deleted manually). Removed from local config.`,
+      };
+    }
+
+    const hint = mapProviderError(error, server.provider);
+    return {
+      success: false,
+      server,
+      cloudDeleted: false,
+      localRemoved: false,
+      error: message,
+      ...(hint ? { hint } : {}),
+    };
+  }
+}

@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { serverInfoSchema, handleServerInfo } from "./tools/serverInfo.js";
 import { serverLogsSchema, handleServerLogs } from "./tools/serverLogs.js";
+import { serverManageSchema, handleServerManage } from "./tools/serverManage.js";
 
 const pkg = { name: "quicklify-mcp", version: "1.1.0" };
 
@@ -38,6 +39,21 @@ export function createMcpServer(): McpServer {
     },
   }, async (params) => {
     return handleServerLogs(params);
+  });
+
+  server.registerTool("server_manage", {
+    description:
+      "Manage Quicklify servers. Actions: 'add' registers an existing server to local config (validates API token, optionally verifies Coolify via SSH). 'remove' unregisters a server from local config only (cloud server keeps running). 'destroy' PERMANENTLY DELETES the server from the cloud provider and removes from local config. Requires provider API tokens as environment variables. Destroy is blocked when QUICKLIFY_SAFE_MODE=true.",
+    inputSchema: serverManageSchema,
+    annotations: {
+      title: "Server Management",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
+  }, async (params) => {
+    return handleServerManage(params);
   });
 
   return server;

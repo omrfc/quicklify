@@ -52,6 +52,7 @@ export async function handleServerLogs(params: {
           error: "No servers found",
           suggested_actions: [{ command: "quicklify init", reason: "Deploy a server first" }],
         }) }],
+        isError: true,
       };
     }
 

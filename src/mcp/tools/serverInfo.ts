@@ -122,6 +122,7 @@ export async function handleServerInfo(params: {
               error: "No servers found",
               suggested_actions: [{ command: "quicklify init", reason: "Deploy a server first" }],
             }) }],
+            isError: true,
           };
         }
 
@@ -185,6 +186,7 @@ export async function handleServerInfo(params: {
               error: "No servers found",
               suggested_actions: [{ command: "quicklify init", reason: "Deploy a server first" }],
             }) }],
+            isError: true,
           };
         }
 

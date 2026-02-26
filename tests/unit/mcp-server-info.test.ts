@@ -109,6 +109,7 @@ describe("handleServerInfo — status", () => {
     const result = await handleServerInfo({ action: "status" });
     const data = JSON.parse(result.content[0].text);
 
+    expect(result.isError).toBe(true);
     expect(data.error).toBe("No servers found");
   });
 
@@ -221,6 +222,7 @@ describe("handleServerInfo — health", () => {
     const result = await handleServerInfo({ action: "health" });
     const data = JSON.parse(result.content[0].text);
 
+    expect(result.isError).toBe(true);
     expect(data.error).toBe("No servers found");
   });
 
