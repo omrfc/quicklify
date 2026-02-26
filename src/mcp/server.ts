@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { serverInfoSchema, handleServerInfo } from "./tools/serverInfo.js";
 import { serverLogsSchema, handleServerLogs } from "./tools/serverLogs.js";
 import { serverManageSchema, handleServerManage } from "./tools/serverManage.js";
+import { serverMaintainSchema, handleServerMaintain } from "./tools/serverMaintain.js";
 
 const pkg = { name: "quicklify-mcp", version: "1.1.0" };
 
@@ -54,6 +55,21 @@ export function createMcpServer(): McpServer {
     },
   }, async (params) => {
     return handleServerManage(params);
+  });
+
+  server.registerTool("server_maintain", {
+    description:
+      "Maintain Quicklify servers. Actions: 'update' runs Coolify update via SSH, 'restart' reboots server via cloud provider API, 'maintain' runs full 5-step maintenance (status check → update → health check → reboot → final check). Snapshot not included — use server_backup tool. Requires SSH access for update, provider API tokens for restart/status. Manual servers: update works, restart not available.",
+    inputSchema: serverMaintainSchema,
+    annotations: {
+      title: "Server Maintenance",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+  }, async (params) => {
+    return handleServerMaintain(params);
   });
 
   return server;
