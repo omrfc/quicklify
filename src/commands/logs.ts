@@ -1,19 +1,10 @@
 import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec, sshStream } from "../utils/ssh.js";
 import { logger } from "../utils/logger.js";
+import { buildLogCommand } from "../core/logs.js";
+import type { LogService } from "../core/logs.js";
 
-export type LogService = "coolify" | "docker" | "system";
-
-export function buildLogCommand(service: LogService, lines: number, follow: boolean): string {
-  switch (service) {
-    case "coolify":
-      return `docker logs coolify --tail ${lines}${follow ? " --follow" : ""}`;
-    case "docker":
-      return `journalctl -u docker --no-pager -n ${lines}${follow ? " -f" : ""}`;
-    case "system":
-      return `journalctl --no-pager -n ${lines}${follow ? " -f" : ""}`;
-  }
-}
+export { buildLogCommand, type LogService };
 
 export async function logsCommand(
   query?: string,
