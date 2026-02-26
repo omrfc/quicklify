@@ -344,6 +344,23 @@ describe("secure", () => {
       expect(mockedSsh.sshExec).toHaveBeenCalledTimes(2);
     });
 
+    it("should show SSH hint on hardening exception with permission denied", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec
+        .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" })
+        .mockRejectedValueOnce(new Error("Permission denied"));
+      mockedInquirer.prompt = jest
+        .fn()
+        .mockResolvedValueOnce({ confirm: true })
+        .mockResolvedValueOnce({ confirmName: "coolify-test" }) as any;
+
+      await secureCommand("setup", "1.2.3.4");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("SSH authentication failed");
+    });
+
     it("should show partially complete when fail2ban fails (non-zero code)", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServers.mockReturnValue([sampleServer]);

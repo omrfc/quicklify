@@ -97,3 +97,81 @@ export function mapProviderError(error: unknown, provider: string): string {
 
   return "";
 }
+
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return String(error);
+}
+
+const SSH_ERROR_PATTERNS: { pattern: RegExp; message: (ip?: string) => string }[] = [
+  {
+    pattern: /Connection refused/i,
+    message: () => "SSH connection refused. Is the server running? Check: quicklify status",
+  },
+  {
+    pattern: /Permission denied/i,
+    message: (ip) =>
+      `SSH authentication failed. Verify SSH key: ssh-copy-id root@${ip || "<server-ip>"}`,
+  },
+  {
+    pattern: /Host key verification failed/i,
+    message: (ip) => `Host key changed. Run: ssh-keygen -R ${ip || "<server-ip>"} then retry.`,
+  },
+  {
+    pattern: /No route to host|Network is unreachable/i,
+    message: () => "Cannot reach server. Check your internet connection and server IP.",
+  },
+  {
+    pattern: /Connection timed out|Operation timed out/i,
+    message: () =>
+      "SSH connection timed out. Server may be down or port 22 is blocked by firewall.",
+  },
+  {
+    pattern: /Connection reset/i,
+    message: () => "SSH connection reset. The server may be rebooting. Try again shortly.",
+  },
+  {
+    pattern: /Could not resolve hostname/i,
+    message: () => "Could not resolve hostname. Check the server IP address.",
+  },
+  {
+    pattern: /command not found/i,
+    message: () => "Required command not found on server. Is the software installed?",
+  },
+  {
+    pattern: /No space left on device/i,
+    message: () => "Server disk is full. Free up space or check: quicklify monitor",
+  },
+  {
+    pattern: /Broken pipe/i,
+    message: () => "SSH connection dropped. The server may be overloaded. Try again.",
+  },
+];
+
+export function mapSshError(error: unknown, ip?: string): string {
+  const message = getErrorMessage(error);
+  for (const { pattern, message: getMessage } of SSH_ERROR_PATTERNS) {
+    if (pattern.test(message)) {
+      return getMessage(ip);
+    }
+  }
+  return "";
+}
+
+const FS_ERROR_CODES: Record<string, string> = {
+  ENOENT: "File or directory not found. Check the path and try again.",
+  EACCES: "Permission denied. Check file permissions or run with elevated privileges.",
+  EPERM: "Permission denied. Check file permissions or run with elevated privileges.",
+  ENOSPC: "Disk full. Free up space and try again.",
+};
+
+export function mapFileSystemError(error: unknown): string {
+  if (error instanceof Error && "code" in error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code && code in FS_ERROR_CODES) {
+      return FS_ERROR_CODES[code];
+    }
+  }
+  return "";
+}

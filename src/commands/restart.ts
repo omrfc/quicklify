@@ -2,6 +2,7 @@ import inquirer from "inquirer";
 import { resolveServer, promptApiToken } from "../utils/serverSelect.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 
 export async function restartCommand(query?: string): Promise<void> {
   const server = await resolveServer(query, "Select a server to restart:");
@@ -65,6 +66,8 @@ export async function restartCommand(query?: string): Promise<void> {
     logger.warning("The server may still be rebooting. Check status later with: quicklify status");
   } catch (error: unknown) {
     spinner.fail("Failed to reboot server");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapProviderError(error, server.provider);
+    if (hint) logger.info(hint);
   }
 }

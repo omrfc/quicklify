@@ -2,6 +2,7 @@ import inquirer from "inquirer";
 import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 import type { SshdSetting, SecureAuditResult } from "../types/index.js";
 
 export function parseSshdConfig(content: string): SshdSetting[] {
@@ -243,7 +244,9 @@ export async function secureSetup(
     spinner.succeed("SSH hardened successfully");
   } catch (error: unknown) {
     spinner.fail("Failed to apply SSH hardening");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, ip);
+    if (hint) logger.info(hint);
     return;
   }
 
@@ -263,7 +266,9 @@ export async function secureSetup(
     }
   } catch (error: unknown) {
     f2bSpinner.warn("Fail2ban installation failed (non-fatal)");
-    logger.warning(error instanceof Error ? error.message : String(error));
+    logger.warning(getErrorMessage(error));
+    const hint = mapSshError(error, ip);
+    if (hint) logger.info(hint);
     fail2banOk = false;
   }
 
@@ -310,7 +315,9 @@ async function secureStatus(ip: string, name: string): Promise<void> {
     logger.info(`SSH Port:       ${audit.sshPort}`);
   } catch (error: unknown) {
     spinner.fail("Failed to check security status");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, ip);
+    if (hint) logger.info(hint);
   }
 }
 
@@ -366,6 +373,8 @@ async function secureAudit(ip: string, name: string): Promise<void> {
     }
   } catch (error: unknown) {
     spinner.fail("Failed to run security audit");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, ip);
+    if (hint) logger.info(hint);
   }
 }

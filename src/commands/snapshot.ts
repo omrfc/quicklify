@@ -3,7 +3,7 @@ import { getServers } from "../utils/config.js";
 import { resolveServer, promptApiToken, collectProviderTokens } from "../utils/serverSelect.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
 import { logger, createSpinner } from "../utils/logger.js";
-import { mapProviderError } from "../utils/errorMapper.js";
+import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 
 interface SnapshotOptions {
   all?: boolean;
@@ -68,11 +68,9 @@ async function snapshotCreate(
     logger.info(`Cost: ${snapshot.costPerMonth}`);
   } catch (error: unknown) {
     spinner.fail("Failed to create snapshot");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
     const hint = mapProviderError(error, server.provider);
-    if (hint) {
-      logger.info(hint);
-    }
+    if (hint) logger.info(hint);
   }
 }
 
@@ -103,7 +101,9 @@ async function snapshotList(query?: string): Promise<void> {
     }
   } catch (error: unknown) {
     spinner.fail("Failed to list snapshots");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapProviderError(error, server.provider);
+    if (hint) logger.info(hint);
   }
 }
 
@@ -137,7 +137,9 @@ async function snapshotListAll(): Promise<void> {
       }
     } catch (error: unknown) {
       spinner.fail(`${server.name}: Failed to list snapshots`);
-      logger.error(error instanceof Error ? error.message : String(error));
+      logger.error(getErrorMessage(error));
+      const hint = mapProviderError(error, server.provider);
+      if (hint) logger.info(hint);
     }
     console.log();
   }
@@ -162,7 +164,9 @@ async function snapshotDelete(
     snapshots = await provider.listSnapshots(server.id);
   } catch (error: unknown) {
     listSpinner.fail("Failed to list snapshots");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapProviderError(error, server.provider);
+    if (hint) logger.info(hint);
     return;
   }
 
@@ -208,7 +212,9 @@ async function snapshotDelete(
     deleteSpinner.succeed("Snapshot deleted");
   } catch (error: unknown) {
     deleteSpinner.fail("Failed to delete snapshot");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapProviderError(error, server.provider);
+    if (hint) logger.info(hint);
   }
 }
 

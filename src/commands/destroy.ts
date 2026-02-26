@@ -3,7 +3,7 @@ import { removeServer } from "../utils/config.js";
 import { resolveServer, promptApiToken } from "../utils/serverSelect.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
 import { logger, createSpinner } from "../utils/logger.js";
-import { mapProviderError } from "../utils/errorMapper.js";
+import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 
 export async function destroyCommand(query?: string): Promise<void> {
   const server = await resolveServer(query, "Select a server to destroy:");
@@ -51,7 +51,7 @@ export async function destroyCommand(query?: string): Promise<void> {
     spinner.succeed(`Server "${server.name}" destroyed`);
     logger.success("Server has been removed from your cloud provider and local config.");
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     const isNotFound =
       message.toLowerCase().includes("not found") || message.toLowerCase().includes("not_found");
 

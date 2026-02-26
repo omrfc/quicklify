@@ -295,6 +295,19 @@ describe("backup", () => {
       expect(output).toContain("Connection lost");
     });
 
+    it("should show SSH hint on database backup exception with connection refused", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+      mockedSsh.sshExec
+        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
+        .mockRejectedValueOnce(new Error("Connection refused"));
+
+      await backupCommand("1.2.3.4");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("SSH connection refused");
+    });
+
     it("should handle config backup failure with stderr", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);

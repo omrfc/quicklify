@@ -1,6 +1,7 @@
 import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 
 export interface SystemMetrics {
   cpu: string;
@@ -115,6 +116,8 @@ export async function monitorCommand(
     }
   } catch (error: unknown) {
     spinner.fail("Failed to fetch metrics");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, server.ip);
+    if (hint) logger.info(hint);
   }
 }

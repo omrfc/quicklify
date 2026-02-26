@@ -178,6 +178,27 @@ describe("maintainCommand", () => {
     expect(output).toContain("SSH connection lost");
   });
 
+  it("should show SSH hint when Coolify update throws connection refused", async () => {
+    mockedSsh.checkSshAvailable.mockReturnValue(true);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
+
+    const inquirer = await import("inquirer");
+    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+
+    // Step 0: snapshot cost estimate (fails -> skipped)
+    mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
+    // getServerStatus returns "running"
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+
+    // sshExec throws with matching SSH pattern
+    mockedSsh.sshExec.mockRejectedValueOnce(new Error("Connection refused"));
+
+    await maintainCommand("1.2.3.4");
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("SSH connection refused");
+  });
+
   it("should abort when health check fails after update", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServers.mockReturnValue([sampleServer]);

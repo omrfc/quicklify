@@ -6,6 +6,7 @@ import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec, sanitizedEnv } from "../utils/ssh.js";
 import { listBackups, getBackupDir } from "./backup.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 import type { BackupManifest } from "../types/index.js";
 
 // Pure functions (testable)
@@ -204,7 +205,9 @@ export async function restoreCommand(
     uploadSpinner.succeed("Backup files uploaded");
   } catch (error: unknown) {
     uploadSpinner.fail("Failed to upload backup files");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, server.ip);
+    if (hint) logger.info(hint);
     return;
   }
 
@@ -222,7 +225,9 @@ export async function restoreCommand(
     stopSpinner.succeed("Coolify stopped");
   } catch (error: unknown) {
     stopSpinner.fail("Failed to stop Coolify");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, server.ip);
+    if (hint) logger.info(hint);
     return;
   }
 
@@ -241,7 +246,9 @@ export async function restoreCommand(
     dbStartSpinner.succeed("Database started");
   } catch (error: unknown) {
     dbStartSpinner.fail("Failed to start database");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, server.ip);
+    if (hint) logger.info(hint);
     await tryRestartCoolify(server.ip);
     return;
   }
@@ -261,7 +268,9 @@ export async function restoreCommand(
     restoreDbSpinner.succeed("Database restored");
   } catch (error: unknown) {
     restoreDbSpinner.fail("Database restore failed");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, server.ip);
+    if (hint) logger.info(hint);
     await tryRestartCoolify(server.ip);
     return;
   }
@@ -281,7 +290,9 @@ export async function restoreCommand(
     restoreConfigSpinner.succeed("Config files restored");
   } catch (error: unknown) {
     restoreConfigSpinner.fail("Config restore failed");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, server.ip);
+    if (hint) logger.info(hint);
     await tryRestartCoolify(server.ip);
     return;
   }
@@ -300,7 +311,9 @@ export async function restoreCommand(
     startSpinner.succeed("Coolify started");
   } catch (error: unknown) {
     startSpinner.fail("Failed to start Coolify");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, server.ip);
+    if (hint) logger.info(hint);
     return;
   }
 

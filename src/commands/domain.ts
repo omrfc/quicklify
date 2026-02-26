@@ -1,6 +1,7 @@
 import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 
 const COOLIFY_SOURCE_DIR = "/data/coolify/source";
 const COOLIFY_DB_CONTAINER = "coolify-db";
@@ -166,7 +167,9 @@ async function domainAdd(
     logger.info("Make sure your DNS A record points to " + ip);
   } catch (error: unknown) {
     spinner.fail("Failed to set domain");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, ip);
+    if (hint) logger.info(hint);
   }
 }
 
@@ -202,7 +205,9 @@ async function domainRemove(ip: string, name: string, dryRun: boolean): Promise<
     logger.success(`Coolify is now accessible at http://${ip}:8000`);
   } catch (error: unknown) {
     spinner.fail("Failed to remove domain");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, ip);
+    if (hint) logger.info(hint);
   }
 }
 
@@ -239,7 +244,9 @@ async function domainCheck(ip: string, options?: { domain?: string }): Promise<v
     }
   } catch (error: unknown) {
     spinner.fail("Failed to check DNS");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, ip);
+    if (hint) logger.info(hint);
   }
 }
 
@@ -265,6 +272,8 @@ async function domainList(ip: string, name: string): Promise<void> {
     }
   } catch (error: unknown) {
     spinner.fail("Failed to fetch domain");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, ip);
+    if (hint) logger.info(hint);
   }
 }

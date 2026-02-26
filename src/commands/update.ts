@@ -4,6 +4,7 @@ import { resolveServer, promptApiToken, collectProviderTokens } from "../utils/s
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 
 const COOLIFY_UPDATE_CMD = "curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash";
 
@@ -34,7 +35,9 @@ async function updateSingleServer(
       spinner.succeed(`${serverName}: Server verified`);
     } catch (error: unknown) {
       spinner.fail(`${serverName}: Failed to verify server`);
-      logger.error(error instanceof Error ? error.message : String(error));
+      logger.error(getErrorMessage(error));
+      const hint = mapProviderError(error, provider);
+      if (hint) logger.info(hint);
       return false;
     }
   }
@@ -148,7 +151,9 @@ export async function updateCommand(query?: string, options?: UpdateOptions): Pr
       spinner.succeed("Server verified");
     } catch (error: unknown) {
       spinner.fail("Failed to verify server");
-      logger.error(error instanceof Error ? error.message : String(error));
+      logger.error(getErrorMessage(error));
+      const hint = mapProviderError(error, server.provider);
+      if (hint) logger.info(hint);
       return;
     }
   }

@@ -1,4 +1,10 @@
-import { mapProviderError, getProviderDisplayName } from "../../src/utils/errorMapper";
+import {
+  mapProviderError,
+  getProviderDisplayName,
+  getErrorMessage,
+  mapSshError,
+  mapFileSystemError,
+} from "../../src/utils/errorMapper";
 
 function createAxiosError(
   status: number | undefined,
@@ -225,6 +231,148 @@ describe("errorMapper", () => {
         expect(result).toContain("Insufficient");
         expect(result).toContain("your provider billing page");
       });
+    });
+  });
+
+  describe("getErrorMessage", () => {
+    it("should extract message from Error instance", () => {
+      expect(getErrorMessage(new Error("test error"))).toBe("test error");
+    });
+
+    it("should return string directly", () => {
+      expect(getErrorMessage("raw string")).toBe("raw string");
+    });
+
+    it("should convert undefined to string", () => {
+      expect(getErrorMessage(undefined)).toBe("undefined");
+    });
+
+    it("should convert null to string", () => {
+      expect(getErrorMessage(null)).toBe("null");
+    });
+
+    it("should convert number to string", () => {
+      expect(getErrorMessage(42)).toBe("42");
+    });
+  });
+
+  describe("mapSshError", () => {
+    it("should map Connection refused", () => {
+      const result = mapSshError(new Error("ssh: connect to host 1.2.3.4 port 22: Connection refused"));
+      expect(result).toContain("SSH connection refused");
+      expect(result).toContain("quicklify status");
+    });
+
+    it("should map Permission denied with IP", () => {
+      const result = mapSshError(new Error("Permission denied (publickey)"), "1.2.3.4");
+      expect(result).toContain("SSH authentication failed");
+      expect(result).toContain("ssh-copy-id root@1.2.3.4");
+    });
+
+    it("should map Permission denied without IP", () => {
+      const result = mapSshError(new Error("Permission denied"));
+      expect(result).toContain("ssh-copy-id root@<server-ip>");
+    });
+
+    it("should map Host key verification failed with IP", () => {
+      const result = mapSshError(new Error("Host key verification failed."), "5.6.7.8");
+      expect(result).toContain("ssh-keygen -R 5.6.7.8");
+    });
+
+    it("should map No route to host", () => {
+      const result = mapSshError(new Error("No route to host"));
+      expect(result).toContain("Cannot reach server");
+    });
+
+    it("should map Network is unreachable", () => {
+      const result = mapSshError(new Error("Network is unreachable"));
+      expect(result).toContain("Cannot reach server");
+    });
+
+    it("should map Connection timed out", () => {
+      const result = mapSshError(new Error("Connection timed out"));
+      expect(result).toContain("timed out");
+      expect(result).toContain("port 22");
+    });
+
+    it("should map Operation timed out", () => {
+      const result = mapSshError(new Error("Operation timed out"));
+      expect(result).toContain("timed out");
+    });
+
+    it("should map Connection reset", () => {
+      const result = mapSshError(new Error("Connection reset by peer"));
+      expect(result).toContain("SSH connection reset");
+      expect(result).toContain("rebooting");
+    });
+
+    it("should map Could not resolve hostname", () => {
+      const result = mapSshError(new Error("Could not resolve hostname"));
+      expect(result).toContain("resolve hostname");
+    });
+
+    it("should map command not found", () => {
+      const result = mapSshError(new Error("bash: pg_dump: command not found"));
+      expect(result).toContain("command not found");
+      expect(result).toContain("installed");
+    });
+
+    it("should map No space left on device", () => {
+      const result = mapSshError(new Error("No space left on device"));
+      expect(result).toContain("disk is full");
+    });
+
+    it("should map Broken pipe", () => {
+      const result = mapSshError(new Error("Broken pipe"));
+      expect(result).toContain("connection dropped");
+    });
+
+    it("should return empty string for unrecognized SSH error", () => {
+      expect(mapSshError(new Error("Something unexpected"))).toBe("");
+    });
+
+    it("should handle non-Error input", () => {
+      expect(mapSshError("Connection refused")).toContain("SSH connection refused");
+    });
+  });
+
+  describe("mapFileSystemError", () => {
+    it("should map ENOENT", () => {
+      const error = new Error("no such file") as NodeJS.ErrnoException;
+      error.code = "ENOENT";
+      expect(mapFileSystemError(error)).toContain("File or directory not found");
+    });
+
+    it("should map EACCES", () => {
+      const error = new Error("permission denied") as NodeJS.ErrnoException;
+      error.code = "EACCES";
+      expect(mapFileSystemError(error)).toContain("Permission denied");
+    });
+
+    it("should map EPERM", () => {
+      const error = new Error("operation not permitted") as NodeJS.ErrnoException;
+      error.code = "EPERM";
+      expect(mapFileSystemError(error)).toContain("Permission denied");
+    });
+
+    it("should map ENOSPC", () => {
+      const error = new Error("no space") as NodeJS.ErrnoException;
+      error.code = "ENOSPC";
+      expect(mapFileSystemError(error)).toContain("Disk full");
+    });
+
+    it("should return empty string for unknown code", () => {
+      const error = new Error("unknown") as NodeJS.ErrnoException;
+      error.code = "UNKNOWN";
+      expect(mapFileSystemError(error)).toBe("");
+    });
+
+    it("should return empty string for non-Error input", () => {
+      expect(mapFileSystemError("just a string")).toBe("");
+    });
+
+    it("should return empty string for Error without code", () => {
+      expect(mapFileSystemError(new Error("no code"))).toBe("");
     });
   });
 });

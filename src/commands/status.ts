@@ -4,6 +4,7 @@ import { resolveServer, promptApiToken, collectProviderTokens } from "../utils/s
 import { createProviderWithToken } from "../utils/providerFactory.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { getErrorMessage, mapProviderError, mapSshError } from "../utils/errorMapper.js";
 import type { ServerRecord } from "../types/index.js";
 
 const COOLIFY_RESTART_CMD =
@@ -48,7 +49,7 @@ async function checkSingleServer(server: ServerRecord, apiToken: string): Promis
       server,
       serverStatus: "error",
       coolifyStatus: "unknown",
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     };
   }
 }
@@ -126,7 +127,9 @@ async function autostartCoolify(server: ServerRecord): Promise<void> {
     }
   } catch (error: unknown) {
     spinner.fail("Failed to restart Coolify");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, server.ip);
+    if (hint) logger.info(hint);
   }
 }
 
@@ -190,6 +193,8 @@ export async function statusCommand(query?: string, options?: StatusOptions): Pr
     }
   } catch (error: unknown) {
     spinner.fail("Failed to check status");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapProviderError(error, server.provider);
+    if (hint) logger.info(hint);
   }
 }

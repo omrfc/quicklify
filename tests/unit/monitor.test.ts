@@ -179,6 +179,17 @@ describe("monitorCommand", () => {
     expect(output).toContain("SSH connection failed");
   });
 
+  it("should show SSH hint on connection refused exception", async () => {
+    mockedSsh.checkSshAvailable.mockReturnValue(true);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
+    mockedSsh.sshExec.mockRejectedValueOnce(new Error("Connection refused"));
+
+    await monitorCommand("1.2.3.4");
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("SSH connection refused");
+  });
+
   it("should handle SSH failure without stderr", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServers.mockReturnValue([sampleServer]);

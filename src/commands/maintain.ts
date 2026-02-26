@@ -5,6 +5,7 @@ import { resolveServer, promptApiToken, collectProviderTokens } from "../utils/s
 import { createProviderWithToken } from "../utils/providerFactory.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { getErrorMessage, mapProviderError, mapSshError } from "../utils/errorMapper.js";
 import type { ServerRecord } from "../types/index.js";
 
 const COOLIFY_UPDATE_CMD = "curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash";
@@ -111,7 +112,9 @@ async function maintainSingleServer(
           snapSpinner.succeed(`Step 0: Snapshot created (${snapshotName})`);
         } catch (error: unknown) {
           snapSpinner.warn("Step 0: Snapshot failed — continuing maintenance");
-          logger.error(error instanceof Error ? error.message : String(error));
+          logger.error(getErrorMessage(error));
+          const hint = mapProviderError(error, server.provider);
+          if (hint) logger.info(hint);
         }
       } else {
         logger.info("Step 0: Snapshot skipped");
@@ -142,7 +145,9 @@ async function maintainSingleServer(
       result.statusCheck = true;
     } catch (error: unknown) {
       statusSpinner.fail("Step 1: Failed to check server status");
-      logger.error(error instanceof Error ? error.message : String(error));
+      logger.error(getErrorMessage(error));
+      const hint = mapProviderError(error, server.provider);
+      if (hint) logger.info(hint);
       return result;
     }
   }
@@ -162,7 +167,9 @@ async function maintainSingleServer(
     result.update = true;
   } catch (error: unknown) {
     updateSpinner.fail("Step 2: Update failed");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, server.ip);
+    if (hint) logger.info(hint);
     return result;
   }
 
@@ -198,7 +205,9 @@ async function maintainSingleServer(
       result.reboot = true;
     } catch (error: unknown) {
       rebootSpinner.fail("Step 4: Reboot failed");
-      logger.error(error instanceof Error ? error.message : String(error));
+      logger.error(getErrorMessage(error));
+      const hint = mapProviderError(error, server.provider);
+      if (hint) logger.info(hint);
       return result;
     }
 
@@ -241,7 +250,7 @@ async function maintainSingleServer(
       }
     } catch (error: unknown) {
       finalSpinner.fail("Step 5: Final check failed");
-      logger.error(error instanceof Error ? error.message : String(error));
+      logger.error(getErrorMessage(error));
       return result;
     }
   }

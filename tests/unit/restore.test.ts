@@ -641,6 +641,8 @@ describe("restore", () => {
 
       await restoreCommand("1.2.3.4", { backup: "my-backup" });
       expect(mockedSsh.sshExec).toHaveBeenCalledTimes(3);
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("SSH connection reset");
     });
 
     it("should handle db restore exception", async () => {

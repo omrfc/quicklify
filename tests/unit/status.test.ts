@@ -354,6 +354,7 @@ describe("statusCommand", () => {
 
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("Connection refused");
+      expect(output).toContain("SSH connection refused");
     });
 
     it("should warn when coolify still not running after restart", async () => {

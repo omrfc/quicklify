@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { getServers, saveServer } from "../utils/config.js";
 import { logger } from "../utils/logger.js";
+import { getErrorMessage, mapFileSystemError } from "../utils/errorMapper.js";
 import type { ServerRecord } from "../types/index.js";
 
 const REQUIRED_FIELDS: (keyof ServerRecord)[] = [
@@ -52,9 +53,9 @@ export async function exportCommand(filePath?: string): Promise<void> {
     logger.success(`Exported ${servers.length} server(s) to ${outPath}`);
     logger.warning("This file contains server information. Store it securely.");
   } catch (error: unknown) {
-    logger.error(
-      `Failed to write export file: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    logger.error(`Failed to write export file: ${getErrorMessage(error)}`);
+    const hint = mapFileSystemError(error);
+    if (hint) logger.info(hint);
   }
 }
 
@@ -70,7 +71,9 @@ export async function importCommand(filePath: string): Promise<void> {
   try {
     raw = readFileSync(inPath, "utf-8");
   } catch (error: unknown) {
-    logger.error(`Failed to read file: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(`Failed to read file: ${getErrorMessage(error)}`);
+    const hint = mapFileSystemError(error);
+    if (hint) logger.info(hint);
     return;
   }
 

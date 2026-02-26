@@ -333,6 +333,19 @@ describe("domain", () => {
       expect(mockedSsh.sshExec).toHaveBeenCalled();
     });
 
+    it("should show SSH hint on add exception with connection timed out", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec
+        .mockResolvedValueOnce({ code: 0, stdout: "coolify-db", stderr: "" })
+        .mockRejectedValueOnce(new Error("Connection timed out"));
+
+      await domainCommand("add", "1.2.3.4", { domain: "example.com" });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("SSH connection timed out");
+    });
+
     it("should sanitize domain before adding", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServers.mockReturnValue([sampleServer]);

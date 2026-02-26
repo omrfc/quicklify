@@ -6,6 +6,7 @@ import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec, sanitizedEnv } from "../utils/ssh.js";
 import { BACKUPS_DIR } from "../utils/config.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 import type { BackupManifest, ServerRecord } from "../types/index.js";
 
 // Pure functions (testable)
@@ -90,8 +91,11 @@ async function backupSingleServer(server: ServerRecord, dryRun: boolean): Promis
       return false;
     }
     dbSpinner.succeed(`[${server.name}] Database backup created`);
-  } catch {
+  } catch (error: unknown) {
     dbSpinner.fail(`[${server.name}] Database backup failed`);
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, server.ip);
+    if (hint) logger.info(hint);
     return false;
   }
 
@@ -104,8 +108,11 @@ async function backupSingleServer(server: ServerRecord, dryRun: boolean): Promis
       return false;
     }
     configSpinner.succeed(`[${server.name}] Config backup created`);
-  } catch {
+  } catch (error: unknown) {
     configSpinner.fail(`[${server.name}] Config backup failed`);
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, server.ip);
+    if (hint) logger.info(hint);
     return false;
   }
 
@@ -133,8 +140,11 @@ async function backupSingleServer(server: ServerRecord, dryRun: boolean): Promis
       return false;
     }
     dlSpinner.succeed(`[${server.name}] Backup files downloaded`);
-  } catch {
+  } catch (error: unknown) {
     dlSpinner.fail(`[${server.name}] Download failed`);
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, server.ip);
+    if (hint) logger.info(hint);
     return false;
   }
 
@@ -240,7 +250,9 @@ export async function backupCommand(
     dbSpinner.succeed("Database backup created");
   } catch (error: unknown) {
     dbSpinner.fail("Database backup failed");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, server.ip);
+    if (hint) logger.info(hint);
     return;
   }
 
@@ -258,7 +270,9 @@ export async function backupCommand(
     configSpinner.succeed("Config backup created");
   } catch (error: unknown) {
     configSpinner.fail("Config backup failed");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, server.ip);
+    if (hint) logger.info(hint);
     return;
   }
 
@@ -293,7 +307,9 @@ export async function backupCommand(
     dlSpinner.succeed("Backup files downloaded");
   } catch (error: unknown) {
     dlSpinner.fail("Failed to download backup files");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, server.ip);
+    if (hint) logger.info(hint);
     return;
   }
 

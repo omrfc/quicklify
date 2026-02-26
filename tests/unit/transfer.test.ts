@@ -140,6 +140,20 @@ describe("transfer", () => {
       expect(output).toContain("Failed to write");
     });
 
+    it("should show filesystem hint on write EACCES error", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+      const err = new Error("write failed") as NodeJS.ErrnoException;
+      err.code = "EACCES";
+      mockedWriteFileSync.mockImplementation(() => {
+        throw err;
+      });
+
+      await exportCommand();
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Permission denied");
+    });
+
     it("should show security warning after export", async () => {
       mockedWriteFileSync.mockReset();
       mockedConfig.getServers.mockReturnValue([sampleServer]);
@@ -208,6 +222,19 @@ describe("transfer", () => {
 
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("Failed to read");
+    });
+
+    it("should show filesystem hint on read ENOENT error", async () => {
+      const err = new Error("no such file") as NodeJS.ErrnoException;
+      err.code = "ENOENT";
+      mockedReadFileSync.mockImplementation(() => {
+        throw err;
+      });
+
+      await importCommand("/tmp/missing.json");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("File or directory not found");
     });
 
     it("should handle invalid JSON", async () => {

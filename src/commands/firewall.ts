@@ -2,6 +2,7 @@ import inquirer from "inquirer";
 import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 import type { FirewallStatus, FirewallRule, FirewallProtocol } from "../types/index.js";
 
 export const PROTECTED_PORTS = [22];
@@ -132,7 +133,9 @@ export async function firewallSetup(ip: string, name: string, dryRun: boolean): 
     logger.success(`UFW enabled with Coolify ports (${COOLIFY_PORTS.join(", ")}) + SSH (22)`);
   } catch (error: unknown) {
     spinner.fail("Failed to setup firewall");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, ip);
+    if (hint) logger.info(hint);
   }
 }
 
@@ -177,7 +180,9 @@ async function firewallAdd(
     spinner.succeed(`Port ${port}/${protocol} opened on ${name}`);
   } catch (error: unknown) {
     spinner.fail(`Failed to open port ${port}/${protocol}`);
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, ip);
+    if (hint) logger.info(hint);
   }
 }
 
@@ -242,7 +247,9 @@ async function firewallRemove(
     spinner.succeed(`Port ${port}/${protocol} closed on ${name}`);
   } catch (error: unknown) {
     spinner.fail(`Failed to close port ${port}/${protocol}`);
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, ip);
+    if (hint) logger.info(hint);
   }
 }
 
@@ -277,7 +284,9 @@ async function firewallList(ip: string, name: string): Promise<void> {
     }
   } catch (error: unknown) {
     spinner.fail("Failed to fetch firewall rules");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, ip);
+    if (hint) logger.info(hint);
   }
 }
 
@@ -302,6 +311,8 @@ async function firewallStatusCheck(ip: string, name: string): Promise<void> {
     }
   } catch (error: unknown) {
     spinner.fail("Failed to check firewall status");
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, ip);
+    if (hint) logger.info(hint);
   }
 }

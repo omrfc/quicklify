@@ -15,7 +15,7 @@ import {
 } from "../utils/prompts.js";
 import { getCoolifyCloudInit } from "../utils/cloudInit.js";
 import { logger, createSpinner } from "../utils/logger.js";
-import { mapProviderError } from "../utils/errorMapper.js";
+import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { openBrowser } from "../utils/openBrowser.js";
 import { findLocalSshKey, generateSshKey, getSshKeyName } from "../utils/sshKey.js";
 import { firewallSetup } from "./firewall.js";
@@ -265,7 +265,7 @@ async function uploadSshKeyToProvider(provider: CloudProvider): Promise<string[]
     return [keyId];
   } catch (error: unknown) {
     spinner.fail("SSH key upload failed — falling back to password auth");
-    logger.warning(error instanceof Error ? error.message : String(error));
+    logger.warning(getErrorMessage(error));
     logger.warning("Run 'quicklify secure setup' after deployment to harden SSH access");
     return [];
   }
@@ -306,7 +306,7 @@ async function deployServer(
         serverSpinner.succeed(`Server created (ID: ${server.id})`);
       } catch (createError: unknown) {
         serverSpinner.fail("Server creation failed");
-        const errorMsg = createError instanceof Error ? createError.message : "";
+        const errorMsg = getErrorMessage(createError);
 
         if (errorMsg.includes("already") && errorMsg.includes("used")) {
           logger.warning(`Server name "${serverName}" is already in use`);
@@ -430,16 +430,12 @@ async function deployServer(
       try {
         await firewallSetup(server.ip, serverName, false);
       } catch (error: unknown) {
-        logger.warning(
-          `Firewall setup failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        logger.warning(`Firewall setup failed: ${getErrorMessage(error)}`);
       }
       try {
         await secureSetup(server.ip, serverName, undefined, false, true);
       } catch (error: unknown) {
-        logger.warning(
-          `Security setup failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        logger.warning(`Security setup failed: ${getErrorMessage(error)}`);
       }
     } else if (fullSetup && !ready) {
       logger.warning("Skipping full setup: Coolify is not ready yet.");
@@ -497,7 +493,7 @@ async function deployServer(
     );
     console.log();
   } catch (error: unknown) {
-    logger.error(`Deployment failed: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(`Deployment failed: ${getErrorMessage(error)}`);
     const hint = mapProviderError(error, providerChoice);
     if (hint) {
       logger.info(hint);
