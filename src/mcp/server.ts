@@ -5,6 +5,7 @@ import { serverManageSchema, handleServerManage } from "./tools/serverManage.js"
 import { serverMaintainSchema, handleServerMaintain } from "./tools/serverMaintain.js";
 import { serverSecureSchema, handleServerSecure } from "./tools/serverSecure.js";
 import { serverBackupSchema, handleServerBackup } from "./tools/serverBackup.js";
+import { serverProvisionSchema, handleServerProvision } from "./tools/serverProvision.js";
 
 const pkg = { name: "quicklify-mcp", version: "1.1.0" };
 
@@ -102,6 +103,21 @@ export function createMcpServer(): McpServer {
     },
   }, async (params) => {
     return handleServerBackup(params);
+  });
+
+  server.registerTool("server_provision", {
+    description:
+      "Provision a new Coolify server on a cloud provider. Creates VPS with Coolify auto-install via cloud-init. Requires provider API token as environment variable (HETZNER_TOKEN, DIGITALOCEAN_TOKEN, VULTR_TOKEN, LINODE_TOKEN). WARNING: Creates a billable cloud resource. Blocked when QUICKLIFY_SAFE_MODE=true. Server takes 3-5 minutes to fully initialize after provisioning.",
+    inputSchema: serverProvisionSchema,
+    annotations: {
+      title: "Server Provisioning",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
+  }, async (params) => {
+    return handleServerProvision(params);
   });
 
   return server;
