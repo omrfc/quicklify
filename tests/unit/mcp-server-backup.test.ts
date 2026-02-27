@@ -80,7 +80,6 @@ const manualServer = {
 
 const sampleManifest = {
   serverName: "coolify-test",
-  serverIp: "1.2.3.4",
   provider: "hetzner",
   timestamp: "2026-02-20_12-00-00-000",
   coolifyVersion: "4.0.0",

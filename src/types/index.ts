@@ -130,7 +130,6 @@ export interface SnapshotInfo {
 // Backup
 export interface BackupManifest {
   serverName: string;
-  serverIp: string;
   provider: string;
   timestamp: string;
   coolifyVersion: string;

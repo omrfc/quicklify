@@ -25,7 +25,7 @@ export const serverBackupSchema = {
   server: z.string().optional().describe(
     "Server name or IP. Auto-selected if only one server exists.",
   ),
-  backupId: z.string().optional().describe(
+  backupId: z.string().regex(/^[\w-]+$/, "Invalid backupId: only alphanumeric, hyphens, underscores allowed").optional().describe(
     "Backup timestamp folder name (required for backup-restore).",
   ),
   snapshotId: z.string().optional().describe(
@@ -219,6 +219,19 @@ export async function handleServerBackup(params: {
       // ─── Snapshot Actions ────────────────────────────────────────────
 
       case "snapshot-create": {
+        if (isSafeMode()) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({
+              error: "Snapshot creation is disabled in SAFE_MODE",
+              hint: "Set QUICKLIFY_SAFE_MODE=false to enable snapshot creation (billable operation)",
+              suggested_actions: [
+                { command: `server_backup { action: 'backup-create', server: '${server.name}' }`, reason: "Use SSH-based backup instead (free)" },
+              ],
+            }) }],
+            isError: true,
+          };
+        }
+
         const isManual = server.id.startsWith("manual-");
         if (isManual) {
           return {

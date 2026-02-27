@@ -1,5 +1,5 @@
 import { sshExec } from "../utils/ssh.js";
-import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
+import { getErrorMessage, mapSshError, sanitizeStderr } from "../utils/errorMapper.js";
 
 export type LogService = "coolify" | "docker" | "system";
 
@@ -118,7 +118,7 @@ export async function fetchServerLogs(
         logs: result.stdout || "",
         service,
         lines,
-        error: result.stderr || `Exit code ${result.code}`,
+        error: sanitizeStderr(result.stderr) || `Exit code ${result.code}`,
         ...(hint ? { hint } : {}),
       };
     }
@@ -148,7 +148,7 @@ export async function fetchServerMetrics(
       const hint = mapSshError(new Error(result.stderr || "SSH command failed"), ip);
       return {
         metrics: { ...EMPTY_METRICS },
-        error: result.stderr || `Exit code ${result.code}`,
+        error: sanitizeStderr(result.stderr) || `Exit code ${result.code}`,
         ...(hint ? { hint } : {}),
       };
     }

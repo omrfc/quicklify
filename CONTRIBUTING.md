@@ -26,7 +26,7 @@ npm run dev -- init
 4. **Run Tests**
 
 ```bash
-npm test                # Run all tests (1,415 tests, 58 suites)
+npm test                # Run all tests (1,758 tests, 64 suites)
 npm run test:watch      # Watch mode
 npm run test:coverage   # Coverage report
 ```
@@ -67,12 +67,24 @@ src/
 │   └── snapshot.ts       # Manage VPS snapshots
 ├── core/                   # Pure business logic (no CLI dependencies)
 │   ├── status.ts          # Server & Coolify status checks
-│   └── tokens.ts          # Non-interactive token resolution from env vars
+│   ├── tokens.ts          # Non-interactive token resolution from env vars
+│   ├── secure.ts          # SSH hardening + audit (pure functions)
+│   ├── firewall.ts        # UFW management (pure functions)
+│   ├── domain.ts          # FQDN/DNS management (pure functions)
+│   ├── backup.ts          # Backup/restore operations (20 pure functions)
+│   ├── snapshot.ts        # Snapshot create/list/delete + cost estimate
+│   └── provision.ts       # Server provisioning (13-step flow)
 ├── mcp/                    # MCP (Model Context Protocol) server
 │   ├── index.ts           # MCP stdio transport entry point
-│   ├── server.ts          # MCP server setup + tool registration
+│   ├── server.ts          # MCP server setup + 7 tool registrations
 │   └── tools/
-│       └── serverInfo.ts  # server_info tool handler (list/status/health)
+│       ├── serverInfo.ts      # server_info (list/status/health)
+│       ├── serverLogs.ts      # server_logs (logs/monitor)
+│       ├── serverManage.ts    # server_manage (add/remove/destroy)
+│       ├── serverMaintain.ts  # server_maintain (update/restart/maintain)
+│       ├── serverSecure.ts    # server_secure (10 security subcommands)
+│       ├── serverBackup.ts    # server_backup (backup/restore + snapshots)
+│       └── serverProvision.ts # server_provision (create new servers)
 ├── providers/
 │   ├── base.ts           # CloudProvider interface
 │   ├── hetzner.ts        # Hetzner Cloud implementation
@@ -186,7 +198,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 - No `any` types — use proper interfaces
 - `catch (error: unknown)` with type guards, never `catch (error: any)`
 - All user input must be validated
-- Keep dependencies minimal (zero runtime deps beyond core 6)
+- Keep dependencies minimal (zero runtime deps beyond core 8)
 - Test edge cases (network errors, invalid input, timeouts)
 - All SSH connections must use `assertValidIp()` and `sanitizedEnv()`
 - Provider errors must call `stripSensitiveData()` before rethrowing

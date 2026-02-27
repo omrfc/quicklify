@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getServers, findServer } from "../../utils/config.js";
 import { getProviderToken } from "../../core/tokens.js";
+import { isSafeMode } from "../../core/manage.js";
 import {
   executeCoolifyUpdate,
   rebootAndWait,
@@ -102,6 +103,19 @@ export async function handleServerMaintain(params: {
       }
 
       case "restart": {
+        if (isSafeMode()) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({
+              error: "Restart is disabled in SAFE_MODE",
+              hint: "Set QUICKLIFY_SAFE_MODE=false to enable server reboot",
+              suggested_actions: [
+                { command: `server_maintain { action: 'update', server: '${server.name}' }`, reason: "Run Coolify update instead (non-destructive)" },
+              ],
+            }) }],
+            isError: true,
+          };
+        }
+
         // Restart requires API token for cloud provider
         const isManual = server.id.startsWith("manual-");
         if (isManual) {
@@ -159,6 +173,19 @@ export async function handleServerMaintain(params: {
       }
 
       case "maintain": {
+        if (isSafeMode()) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({
+              error: "Maintenance is disabled in SAFE_MODE",
+              hint: "Set QUICKLIFY_SAFE_MODE=false to enable full maintenance (includes reboot)",
+              suggested_actions: [
+                { command: `server_maintain { action: 'update', server: '${server.name}' }`, reason: "Run Coolify update only (non-destructive)" },
+              ],
+            }) }],
+            isError: true,
+          };
+        }
+
         // Maintain requires API token for non-manual servers
         const isManual = server.id.startsWith("manual-");
         let token = "";

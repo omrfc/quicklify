@@ -21,14 +21,25 @@ const sampleServer = {
 
 describe("destroyCommand E2E", () => {
   let consoleSpy: jest.SpyInstance;
+  const savedEnv: Record<string, string | undefined> = {};
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
     jest.clearAllMocks();
+    // Save and clear provider tokens so promptApiToken doesn't skip the prompt
+    for (const key of ["HETZNER_TOKEN", "DIGITALOCEAN_TOKEN", "VULTR_TOKEN", "LINODE_TOKEN"]) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
   });
 
   afterEach(() => {
     consoleSpy.mockRestore();
+    // Restore provider tokens
+    for (const key of ["HETZNER_TOKEN", "DIGITALOCEAN_TOKEN", "VULTR_TOKEN", "LINODE_TOKEN"]) {
+      if (savedEnv[key] !== undefined) process.env[key] = savedEnv[key];
+      else delete process.env[key];
+    }
   });
 
   it("should complete full destroy flow with Hetzner", async () => {

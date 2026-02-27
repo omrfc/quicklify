@@ -2,7 +2,7 @@ import { isValidProvider, validateServerName } from "./manage.js";
 import { getProviderToken } from "./tokens.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
 import { getCoolifyCloudInit } from "../utils/cloudInit.js";
-import { findLocalSshKey, getSshKeyName } from "../utils/sshKey.js";
+import { findLocalSshKey, generateSshKey, getSshKeyName } from "../utils/sshKey.js";
 import { saveServer } from "../utils/config.js";
 import { getTemplateDefaults } from "../utils/templates.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
@@ -51,10 +51,15 @@ function isPendingIp(ip: string): boolean {
 }
 
 export async function uploadSshKeyBestEffort(provider: CloudProvider): Promise<string[]> {
-  const publicKey = findLocalSshKey();
+  let publicKey = findLocalSshKey();
   if (!publicKey) {
-    process.stderr.write("[provision] No local SSH key found, skipping upload\n");
-    return [];
+    process.stderr.write("[provision] No local SSH key found. Generating one...\n");
+    publicKey = generateSshKey();
+    if (!publicKey) {
+      process.stderr.write("[provision] SSH key generation failed. Continuing without SSH key.\n");
+      return [];
+    }
+    process.stderr.write("[provision] SSH key generated (~/.ssh/id_ed25519)\n");
   }
 
   try {

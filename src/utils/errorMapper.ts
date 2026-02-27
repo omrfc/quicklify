@@ -159,6 +159,27 @@ export function mapSshError(error: unknown, ip?: string): string {
   return "";
 }
 
+const SENSITIVE_PATTERNS = [
+  /\/home\/[^\s/]+/g,        // Home directory paths
+  /\/root\/[^\s]+/g,         // Root paths
+  /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, // IP addresses in stderr
+  /password[=:]\S+/gi,       // Password values
+  /token[=:]\S+/gi,          // Token values
+  /secret[=:]\S+/gi,         // Secret values
+];
+
+export function sanitizeStderr(stderr: string, maxLength: number = 200): string {
+  if (!stderr) return "";
+  let sanitized = stderr;
+  for (const pattern of SENSITIVE_PATTERNS) {
+    sanitized = sanitized.replace(pattern, "[REDACTED]");
+  }
+  if (sanitized.length > maxLength) {
+    sanitized = sanitized.substring(0, maxLength) + "...";
+  }
+  return sanitized.trim();
+}
+
 const FS_ERROR_CODES: Record<string, string> = {
   ENOENT: "File or directory not found. Check the path and try again.",
   EACCES: "Permission denied. Check file permissions or run with elevated privileges.",

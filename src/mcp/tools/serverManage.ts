@@ -15,7 +15,7 @@ export const serverManageSchema = {
   server: z.string().optional().describe(
     "Server name or IP (required for 'remove' and 'destroy' actions)",
   ),
-  provider: z.string().optional().describe(
+  provider: z.enum(["hetzner", "digitalocean", "vultr", "linode"]).optional().describe(
     "Cloud provider: 'hetzner', 'digitalocean', 'vultr', 'linode' (required for 'add' action)",
   ),
   ip: z.string().optional().describe(

@@ -140,7 +140,7 @@ export async function addServerRecord(params: AddServerParams): Promise<AddServe
           }
         }
       } catch (error: unknown) {
-        process.stderr.write(`[warn] Coolify verification failed for ${params.ip}: ${getErrorMessage(error)}\n`);
+        process.stderr.write(`[warn] Coolify verification failed: ${getErrorMessage(error)}\n`);
         coolifyStatus = "verification_failed";
       }
     }

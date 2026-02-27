@@ -82,10 +82,17 @@ describe("initCommand E2E", () => {
   let processExitSpy: jest.SpyInstance;
   const originalSetTimeout = global.setTimeout;
 
+  const savedEnv: Record<string, string | undefined> = {};
+
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
     processExitSpy = jest.spyOn(process, "exit").mockImplementation((() => {}) as any);
     jest.clearAllMocks();
+    // Save and clear provider tokens so promptApiToken/initCommand doesn't pick them up
+    for (const key of ["HETZNER_TOKEN", "DIGITALOCEAN_TOKEN", "VULTR_TOKEN", "LINODE_TOKEN"]) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
 
     // Make all setTimeout calls resolve instantly for test speed
     global.setTimeout = ((fn: Function) => {
@@ -98,6 +105,11 @@ describe("initCommand E2E", () => {
     consoleSpy.mockRestore();
     processExitSpy.mockRestore();
     global.setTimeout = originalSetTimeout;
+    // Restore provider tokens
+    for (const key of ["HETZNER_TOKEN", "DIGITALOCEAN_TOKEN", "VULTR_TOKEN", "LINODE_TOKEN"]) {
+      if (savedEnv[key] !== undefined) process.env[key] = savedEnv[key];
+      else delete process.env[key];
+    }
   });
 
   describe("Hetzner flow", () => {

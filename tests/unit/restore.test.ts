@@ -56,7 +56,6 @@ const sampleServer = {
 
 const sampleManifest = {
   serverName: "coolify-test",
-  serverIp: "1.2.3.4",
   provider: "hetzner",
   timestamp: "2026-02-21_15-30-45-123",
   coolifyVersion: "4.0.0",

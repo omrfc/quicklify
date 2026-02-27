@@ -150,13 +150,12 @@ async function backupSingleServer(server: ServerRecord, dryRun: boolean): Promis
 
   const manifest: BackupManifest = {
     serverName: server.name,
-    serverIp: server.ip,
     provider: server.provider,
     timestamp,
     coolifyVersion,
     files: ["coolify-backup.sql.gz", "coolify-config.tar.gz"],
   };
-  writeFileSync(join(backupPath, "manifest.json"), JSON.stringify(manifest, null, 2));
+  writeFileSync(join(backupPath, "manifest.json"), JSON.stringify(manifest, null, 2), { mode: 0o600 });
   await sshExec(server.ip, buildCleanupCommand()).catch(() => {});
 
   logger.success(`[${server.name}] Backup saved to ${backupPath}`);
@@ -316,14 +315,13 @@ export async function backupCommand(
   // Step 5: Write manifest
   const manifest: BackupManifest = {
     serverName: server.name,
-    serverIp: server.ip,
     provider: server.provider,
     timestamp,
     coolifyVersion,
     files: ["coolify-backup.sql.gz", "coolify-config.tar.gz"],
   };
 
-  writeFileSync(join(backupPath, "manifest.json"), JSON.stringify(manifest, null, 2));
+  writeFileSync(join(backupPath, "manifest.json"), JSON.stringify(manifest, null, 2), { mode: 0o600 });
 
   // Step 6: Cleanup remote
   await sshExec(server.ip, buildCleanupCommand()).catch(() => {});

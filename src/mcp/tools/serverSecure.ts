@@ -30,7 +30,7 @@ export const serverSecureSchema = {
   server: z.string().optional().describe(
     "Server name or IP. Auto-selected if only one server exists.",
   ),
-  port: z.number().optional().describe(
+  port: z.number().min(1).max(65535).optional().describe(
     "Port number. Required for firewall-add/remove. Optional SSH port for secure-setup.",
   ),
   protocol: z.enum(["tcp", "udp"]).default("tcp").describe(

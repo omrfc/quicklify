@@ -73,6 +73,47 @@ Requires Node.js 20+.
 | Vultr | Stable | `VULTR_TOKEN` |
 | Linode (Akamai) | Beta | `LINODE_TOKEN` |
 
+## MCP Server (AI Integration)
+
+Quicklify includes a built-in Model Context Protocol (MCP) server for AI-powered server management.
+
+**Binary**: `quicklify-mcp` (stdio transport)
+
+### Available Tools (7)
+
+| Tool | Actions | Description |
+|------|---------|-------------|
+| `server_info` | list, status, health | Query server information (readOnly) |
+| `server_logs` | logs, monitor | Fetch logs and system metrics via SSH (readOnly) |
+| `server_manage` | add, remove, destroy | Register, unregister, or destroy servers |
+| `server_maintain` | update, restart, maintain | Update Coolify, restart, full maintenance |
+| `server_secure` | secure-setup, secure-audit, firewall-setup, firewall-add, firewall-remove, firewall-status, domain-set, domain-remove, domain-check, domain-info | Security, firewall, domain management |
+| `server_backup` | backup-create, backup-list, backup-restore, snapshot-create, snapshot-list, snapshot-delete | Backup/restore + VPS snapshots |
+| `server_provision` | create | Provision new Coolify servers on cloud providers |
+
+### SAFE_MODE (default: enabled)
+
+Destructive operations blocked by default: `destroy`, `restore`, `snapshot-delete`, `provision`, `restart`, `maintain`, `snapshot-create`. Set `QUICKLIFY_SAFE_MODE=false` to enable.
+
+### MCP Configuration
+
+```json
+{
+  "mcpServers": {
+    "quicklify": {
+      "command": "npx",
+      "args": ["-y", "-p", "quicklify", "quicklify-mcp"],
+      "env": {
+        "HETZNER_TOKEN": "your-token",
+        "DIGITALOCEAN_TOKEN": "your-token",
+        "VULTR_TOKEN": "your-token",
+        "LINODE_TOKEN": "your-token"
+      }
+    }
+  }
+}
+```
+
 ## Architecture
 
 - **Runtime**: Node.js 20+ (ESM)
@@ -81,8 +122,9 @@ Requires Node.js 20+.
 - **HTTP**: Axios (provider API calls)
 - **Logging**: Chalk + Ora (spinners)
 - **Config**: YAML (js-yaml) + JSON
+- **MCP**: @modelcontextprotocol/sdk (MCP server) + Zod (input validation)
 - **Config Storage**: `~/.quicklify/` (servers.json, config.json, backups/)
-- **Testing**: Jest (1,326 tests, 55 suites, ~97% coverage)
+- **Testing**: Jest (1,758 tests, 64 suites, ~97% coverage)
 - **Linting**: ESLint 10 + typescript-eslint + Prettier
 
 ## Typical Workflows
@@ -118,11 +160,14 @@ quicklify restore my-server --backup 2026-02-25T10-00-00
 ## Security Model
 
 - API tokens are NEVER stored on disk — runtime prompt or env vars only
-- SSH: IP validation, env filtering, StrictHostKeyChecking
-- Shell injection protection on all user inputs (spawnSync)
-- Provider errors sanitized (stripSensitiveData) — no token leakage
+- SSH: IP validation (`assertValidIp` with octet range), env filtering (`sanitizedEnv`), StrictHostKeyChecking
+- Shell injection protection on all user inputs (spawnSync/spawn, no execSync)
+- Provider errors sanitized (`stripSensitiveData`) — no token leakage
+- stderr sanitization (`sanitizeStderr`) — redacts IPs, paths, tokens, secrets (200 char limit)
 - YAML config: 22+ security key patterns detected and warned
-- Import/export: sensitive field stripping + strict file permissions
+- Import/export: sensitive field stripping + strict file permissions (0o600)
+- MCP: SAFE_MODE blocks destructive ops, Zod schema validation, path traversal guards
+- Backup manifests: no IP persistence, file permissions 0o600
 
 ## Links
 

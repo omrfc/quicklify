@@ -410,13 +410,30 @@ describe("uploadSshKeyBestEffort", () => {
     );
   });
 
-  it("should return empty array when no local key", async () => {
+  it("should return empty array when no local key and generation fails", async () => {
     mockedSshKey.findLocalSshKey.mockReturnValue(null);
+    mockedSshKey.generateSshKey.mockReturnValue(null);
 
     const ids = await uploadSshKeyBestEffort(mockProvider);
 
     expect(ids).toEqual([]);
+    expect(mockedSshKey.generateSshKey).toHaveBeenCalled();
     expect(mockProvider.uploadSshKey).not.toHaveBeenCalled();
+  });
+
+  it("should generate and upload key when no local key exists", async () => {
+    mockedSshKey.findLocalSshKey.mockReturnValue(null);
+    mockedSshKey.generateSshKey.mockReturnValue("ssh-ed25519 AAAA generated@quicklify");
+    mockProvider.uploadSshKey.mockResolvedValue("key-gen-789");
+
+    const ids = await uploadSshKeyBestEffort(mockProvider);
+
+    expect(ids).toEqual(["key-gen-789"]);
+    expect(mockedSshKey.generateSshKey).toHaveBeenCalled();
+    expect(mockProvider.uploadSshKey).toHaveBeenCalledWith(
+      "quicklify-1234567890",
+      "ssh-ed25519 AAAA generated@quicklify",
+    );
   });
 
   it("should return empty array on upload failure", async () => {

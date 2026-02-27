@@ -2,29 +2,55 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.0] - 2026-02-26
+## [1.1.0] - 2026-02-27
 
 ### Added
-- **MCP Server** — Built-in Model Context Protocol server for AI-powered server management
-  - `server_info` tool with `list`, `status`, and `health` actions
+- **MCP Server** — Built-in Model Context Protocol server for AI-powered server management with 7 tools:
+  - `server_info` — `list`, `status`, `health` (readOnly)
+  - `server_logs` — `logs`, `monitor` (readOnly)
+  - `server_manage` — `add`, `remove`, `destroy` (destructive, SAFE_MODE on destroy)
+  - `server_maintain` — `update`, `restart`, `maintain`
+  - `server_secure` — `secure-setup`, `secure-audit`, `firewall-setup`, `firewall-add`, `firewall-remove`, `firewall-status`, `domain-set`, `domain-remove`, `domain-check`, `domain-info`
+  - `server_backup` — `backup-create`, `backup-list`, `backup-restore`, `snapshot-create`, `snapshot-list`, `snapshot-delete` (SAFE_MODE on restore/delete)
+  - `server_provision` — `create` (destructive, SAFE_MODE — creates billable cloud resources)
   - Structured JSON responses with `suggested_actions` for AI context optimization
   - Tool annotations: `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`
   - Rate limiting guidance in tool descriptions
+  - SAFE_MODE guards on destructive operations (provision, destroy, restore, snapshot-delete)
 - **`src/core/` module** — Pure business logic extracted from CLI commands (no CLI dependencies)
-  - `src/core/status.ts` — `checkCoolifyHealth`, `getCloudServerStatus`, `checkServerStatus`, `checkAllServersStatus`
-  - `src/core/tokens.ts` — `getProviderToken`, `collectProviderTokensFromEnv` (non-interactive token resolution)
+  - `status.ts` — `checkCoolifyHealth`, `getCloudServerStatus`, `checkServerStatus`, `checkAllServersStatus`
+  - `tokens.ts` — `getProviderToken`, `collectProviderTokensFromEnv` (non-interactive token resolution)
+  - `secure.ts` — SSH hardening + audit (pure functions + async wrappers)
+  - `firewall.ts` — UFW management (pure functions + async wrappers)
+  - `domain.ts` — FQDN/DNS management (pure functions + async wrappers)
+  - `backup.ts` — Backup/restore (20 pure functions + SCP helpers)
+  - `snapshot.ts` — Snapshot create/list/delete + cost estimate
+  - `provision.ts` — Server provisioning (13-step flow: validate → token → SSH → cloudInit → create → boot → IP → save)
 - **`src/mcp/` module** — MCP server implementation
-  - `src/mcp/server.ts` — MCP server setup with tool registration
-  - `src/mcp/tools/serverInfo.ts` — server_info tool handler with error handling and token validation
+  - `src/mcp/server.ts` — MCP server setup with 7 tool registrations
+  - `src/mcp/tools/` — 7 tool handlers (serverInfo, serverLogs, serverManage, serverMaintain, serverSecure, serverBackup, serverProvision)
   - `src/mcp/index.ts` — stdio transport entry point
 - `bin/quicklify-mcp` — MCP server binary entry point
 - SSRF defense: `assertValidIp()` added to `checkCoolifyHealth` (IP format validation before HTTP request)
 - Stack trace sanitization in MCP error responses via `getErrorMessage()`
 
+### Security
+- **Path traversal protection**: `backupId` validated with Zod regex (`/^[\w-]+$/`) + `path.resolve()` guard in restore
+- **SAFE_MODE enforcement**: Added `isSafeMode()` guards on `restart`, `maintain`, and `snapshot-create` MCP actions
+- **IP validation hardened**: `assertValidIp()` now validates octet range (0-255), IP removed from error messages
+- **stderr sanitization**: New `sanitizeStderr()` function redacts IPs, home paths, tokens, secrets (200 char limit) — applied to all backup/restore/logs error output
+- **Port validation**: MCP `server_secure` port restricted to `z.number().min(1).max(65535)`
+- **Provider enum validation**: MCP `server_manage` provider changed from `z.string()` to `z.enum()` (prevents invalid provider injection)
+- **Manifest hardening**: `serverIp` field removed from `BackupManifest` type, manifest files written with `mode: 0o600`
+- **SCP IP validation**: `assertValidIp()` added to `scpDownload()` and `scpUpload()` before spawning child process
+- **Log redaction**: `manage.ts` stderr no longer exposes server IP address
+- **SSH key auto-generation**: `provision` now auto-generates SSH key when none exists (instead of skipping)
+- `.mcp.json` added to `.gitignore` (contains local absolute paths)
+
 ### Changed
 - `src/commands/status.ts` refactored to use `src/core/status.ts` (DRY: eliminated duplicate Coolify health check)
-- Test count: 1369 → 1415 (+46 new tests across 3 new test suites)
-- Test suites: 55 → 58
+- Test count: 1369 → 1758 (+389 new tests across 9 new test suites)
+- Test suites: 55 → 64
 
 ### Dependencies
 - Added `@modelcontextprotocol/sdk` ^1.27.1 (MCP server SDK)

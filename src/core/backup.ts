@@ -1,9 +1,9 @@
 import { mkdirSync, existsSync, writeFileSync, readFileSync, readdirSync } from "fs";
-import { join } from "path";
+import { join, resolve } from "path";
 import { spawn } from "child_process";
 import { sshExec, assertValidIp, sanitizedEnv } from "../utils/ssh.js";
 import { BACKUPS_DIR } from "../utils/config.js";
-import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
+import { getErrorMessage, mapSshError, sanitizeStderr } from "../utils/errorMapper.js";
 import type { BackupManifest } from "../types/index.js";
 
 // ─── Pure Functions (Backup) ─────────────────────────────────────────────────
@@ -86,6 +86,7 @@ export function scpDownload(
   remotePath: string,
   localPath: string,
 ): Promise<{ code: number; stderr: string }> {
+  assertValidIp(ip);
   return new Promise((resolve) => {
     const child = spawn(
       "scp",
@@ -106,6 +107,7 @@ export function scpUpload(
   localPath: string,
   remotePath: string,
 ): Promise<{ code: number; stderr: string }> {
+  assertValidIp(ip);
   return new Promise((resolve) => {
     const child = spawn(
       "scp",
@@ -168,7 +170,7 @@ export async function createBackup(
       return {
         success: false,
         error: "Database backup failed",
-        hint: dbResult.stderr || undefined,
+        hint: sanitizeStderr(dbResult.stderr) || undefined,
       };
     }
 
@@ -178,7 +180,7 @@ export async function createBackup(
       return {
         success: false,
         error: "Config backup failed",
-        hint: configResult.stderr || undefined,
+        hint: sanitizeStderr(configResult.stderr) || undefined,
       };
     }
 
@@ -193,7 +195,7 @@ export async function createBackup(
       join(backupPath, "coolify-backup.sql.gz"),
     );
     if (dbDl.code !== 0) {
-      return { success: false, error: "Failed to download database backup", hint: dbDl.stderr || undefined };
+      return { success: false, error: "Failed to download database backup", hint: sanitizeStderr(dbDl.stderr) || undefined };
     }
 
     const configDl = await scpDownload(
@@ -202,19 +204,18 @@ export async function createBackup(
       join(backupPath, "coolify-config.tar.gz"),
     );
     if (configDl.code !== 0) {
-      return { success: false, error: "Failed to download config backup", hint: configDl.stderr || undefined };
+      return { success: false, error: "Failed to download config backup", hint: sanitizeStderr(configDl.stderr) || undefined };
     }
 
     // Step 5: Write manifest
     const manifest: BackupManifest = {
       serverName,
-      serverIp: ip,
       provider,
       timestamp,
       coolifyVersion,
       files: ["coolify-backup.sql.gz", "coolify-config.tar.gz"],
     };
-    writeFileSync(join(backupPath, "manifest.json"), JSON.stringify(manifest, null, 2));
+    writeFileSync(join(backupPath, "manifest.json"), JSON.stringify(manifest, null, 2), { mode: 0o600 });
 
     // Step 6: Cleanup remote (best-effort)
     await sshExec(ip, buildCleanupCommand()).catch(() => {});
@@ -237,7 +238,14 @@ export async function restoreBackup(
 ): Promise<RestoreResult> {
   assertValidIp(ip);
 
-  const backupPath = join(getBackupDir(serverName), backupId);
+  const baseDir = getBackupDir(serverName);
+  const backupPath = join(baseDir, backupId);
+
+  // Path traversal guard
+  if (!resolve(backupPath).startsWith(resolve(baseDir))) {
+    return { success: false, steps: [], error: "Invalid backupId: path traversal detected" };
+  }
+
   const steps: Array<{ name: string; status: "success" | "failure"; error?: string }> = [];
 
   // Validate manifest
@@ -271,7 +279,7 @@ export async function restoreBackup(
     if (dbUpload.code !== 0) {
       return {
         success: false,
-        steps: [{ name: "Upload database backup", status: "failure", error: dbUpload.stderr }],
+        steps: [{ name: "Upload database backup", status: "failure", error: sanitizeStderr(dbUpload.stderr) }],
         error: "Failed to upload database backup",
       };
     }
@@ -284,7 +292,7 @@ export async function restoreBackup(
     if (configUpload.code !== 0) {
       return {
         success: false,
-        steps: [{ name: "Upload config backup", status: "failure", error: configUpload.stderr }],
+        steps: [{ name: "Upload config backup", status: "failure", error: sanitizeStderr(configUpload.stderr) }],
         error: "Failed to upload config backup",
       };
     }
@@ -292,7 +300,7 @@ export async function restoreBackup(
     // Step 1: Stop Coolify
     const stopResult = await sshExec(ip, buildStopCoolifyCommand());
     if (stopResult.code !== 0) {
-      steps.push({ name: "Stop Coolify", status: "failure", error: stopResult.stderr });
+      steps.push({ name: "Stop Coolify", status: "failure", error: sanitizeStderr(stopResult.stderr) });
       return { success: false, steps, error: "Failed to stop Coolify" };
     }
     steps.push({ name: "Stop Coolify", status: "success" });
@@ -300,7 +308,7 @@ export async function restoreBackup(
     // Step 2: Start DB only
     const dbStartResult = await sshExec(ip, buildStartDbCommand());
     if (dbStartResult.code !== 0) {
-      steps.push({ name: "Start database", status: "failure", error: dbStartResult.stderr });
+      steps.push({ name: "Start database", status: "failure", error: sanitizeStderr(dbStartResult.stderr) });
       await tryRestartCoolify(ip);
       return { success: false, steps, error: "Failed to start database" };
     }
@@ -309,7 +317,7 @@ export async function restoreBackup(
     // Step 3: Restore database
     const restoreDbResult = await sshExec(ip, buildRestoreDbCommand());
     if (restoreDbResult.code !== 0) {
-      steps.push({ name: "Restore database", status: "failure", error: restoreDbResult.stderr });
+      steps.push({ name: "Restore database", status: "failure", error: sanitizeStderr(restoreDbResult.stderr) });
       await tryRestartCoolify(ip);
       return { success: false, steps, error: "Database restore failed" };
     }
@@ -318,7 +326,7 @@ export async function restoreBackup(
     // Step 4: Restore config
     const restoreConfigResult = await sshExec(ip, buildRestoreConfigCommand());
     if (restoreConfigResult.code !== 0) {
-      steps.push({ name: "Restore config", status: "failure", error: restoreConfigResult.stderr });
+      steps.push({ name: "Restore config", status: "failure", error: sanitizeStderr(restoreConfigResult.stderr) });
       await tryRestartCoolify(ip);
       return { success: false, steps, error: "Config restore failed" };
     }
@@ -327,7 +335,7 @@ export async function restoreBackup(
     // Step 5: Start Coolify
     const startResult = await sshExec(ip, buildStartCoolifyCommand());
     if (startResult.code !== 0) {
-      steps.push({ name: "Start Coolify", status: "failure", error: startResult.stderr });
+      steps.push({ name: "Start Coolify", status: "failure", error: sanitizeStderr(startResult.stderr) });
       return { success: false, steps, error: "Failed to start Coolify" };
     }
     steps.push({ name: "Start Coolify", status: "success" });

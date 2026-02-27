@@ -101,7 +101,7 @@ quicklify snapshot delete my-server   # Delete a snapshot
 quicklify firewall status my-server   # Check firewall
 quicklify firewall setup my-server    # Configure UFW
 quicklify secure audit my-server      # Security audit
-quicklify secure harden my-server     # SSH hardening + fail2ban
+quicklify secure setup my-server      # SSH hardening + fail2ban
 quicklify domain add my-server --domain example.com  # Set domain + SSL
 ```
 
@@ -157,16 +157,18 @@ quicklify init --template production --provider hetzner
 
 ## Security
 
-Quicklify is built with security as a priority — **1,400+ tests** across 58 suites, including dedicated security test suites.
+Quicklify is built with security as a priority — **1,750+ tests** across 64 suites, including dedicated security test suites.
 
 - API tokens are never stored on disk — prompted at runtime or via environment variables
 - SSH keys are auto-generated if needed (Ed25519)
-- All SSH connections use `StrictHostKeyChecking=accept-new` with IP validation and environment filtering
-- Shell injection protection on all user-facing inputs
+- All SSH connections use `StrictHostKeyChecking=accept-new` with IP validation (octet range) and environment filtering
+- Shell injection protection on all user-facing inputs (`spawn`/`spawnSync`, no `execSync`)
 - Provider error messages are sanitized to prevent token leakage
+- stderr sanitization redacts IPs, home paths, tokens, and secrets from error output
 - Config file token detection (22+ key patterns, case-insensitive, nested)
-- Import/export operations strip sensitive fields and enforce strict file permissions
+- Import/export operations strip sensitive fields and enforce strict file permissions (`0o600`)
 - `--full-setup` enables UFW firewall and SSH hardening automatically
+- MCP: SAFE_MODE (default: on) blocks all destructive operations, Zod schema validation on all inputs, path traversal protection on backup restore
 
 ## Installation
 
@@ -205,10 +207,12 @@ Quicklify includes a built-in [Model Context Protocol](https://modelcontextproto
   "mcpServers": {
     "quicklify": {
       "command": "npx",
-      "args": ["-y", "quicklify", "--mcp"],
+      "args": ["-y", "-p", "quicklify", "quicklify-mcp"],
       "env": {
         "HETZNER_TOKEN": "your-token",
-        "DIGITALOCEAN_TOKEN": "your-token"
+        "DIGITALOCEAN_TOKEN": "your-token",
+        "VULTR_TOKEN": "your-token",
+        "LINODE_TOKEN": "your-token"
       }
     }
   }
@@ -220,12 +224,17 @@ Available tools:
 | Tool | Actions | Description |
 |------|---------|-------------|
 | `server_info` | list, status, health | Query server information, check cloud provider & Coolify status |
+| `server_logs` | logs, monitor | Fetch Coolify/Docker logs and system metrics via SSH |
+| `server_manage` | add, remove, destroy | Register, unregister, or destroy cloud servers |
+| `server_maintain` | update, restart, maintain | Update Coolify, restart servers, run full maintenance |
+| `server_secure` | secure, firewall, domain | SSH hardening, firewall rules, domain/SSL management (10 subcommands) |
+| `server_backup` | backup, snapshot | Backup/restore databases and create/manage VPS snapshots |
+| `server_provision` | create | Provision new Coolify servers on cloud providers |
 
-> More tools coming soon: `server_provision`, `server_manage`, `server_logs`, `server_secure`, `server_backup`, `server_maintain`.
+> All destructive operations (destroy, restore, snapshot-delete, provision, restart, maintain, snapshot-create) require `SAFE_MODE=false` to execute.
 
 ## What's Next
 
-- More MCP tools for full AI-native server management
 - Scheduled maintenance (cron-based automatic upkeep)
 - Generic server management (non-Coolify servers)
 - Interactive TUI dashboard

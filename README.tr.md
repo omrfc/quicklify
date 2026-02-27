@@ -101,7 +101,7 @@ quicklify snapshot delete sunucum   # Snapshot sil
 quicklify firewall status sunucum   # Güvenlik duvarı durumu
 quicklify firewall setup sunucum    # UFW yapılandırması
 quicklify secure audit sunucum      # Güvenlik denetimi
-quicklify secure harden sunucum     # SSH sıkılaştırma + fail2ban
+quicklify secure setup sunucum      # SSH sıkılaştırma + fail2ban
 quicklify domain add sunucum --domain ornek.com  # Domain + SSL ayarla
 ```
 
@@ -157,16 +157,18 @@ quicklify init --template production --provider hetzner
 
 ## Güvenlik
 
-Quicklify güvenlik öncelikli olarak geliştirilmektedir — 58 test suite'inde **1.400+ test**, özel güvenlik test suite'leri dahil.
+Quicklify güvenlik öncelikli olarak geliştirilmektedir — 64 test suite'inde **1.750+ test**, özel güvenlik test suite'leri dahil.
 
 - API token'ları asla diske kaydedilmez — çalışma zamanında sorulur veya ortam değişkenlerinden alınır
 - SSH anahtarları gerekirse otomatik oluşturulur (Ed25519)
-- Tüm SSH bağlantıları `StrictHostKeyChecking=accept-new` ile IP doğrulama ve ortam filtreleme kullanır
-- Tüm kullanıcı girdilerinde shell injection koruması
+- Tüm SSH bağlantıları `StrictHostKeyChecking=accept-new` ile IP doğrulama (oktet aralığı) ve ortam filtreleme kullanır
+- Tüm kullanıcı girdilerinde shell injection koruması (`spawn`/`spawnSync`, `execSync` yok)
 - Provider hata mesajları token sızıntısını önlemek için temizlenir
+- stderr temizleme — hata çıktısından IP'ler, home dizinleri, token'lar ve gizli veriler otomatik redakte edilir
 - Yapılandırma dosyasında token tespiti (22+ anahtar pattern, büyük/küçük harf duyarsız, iç içe yapılar)
-- İçe/dışa aktarma işlemleri hassas alanları temizler ve dosya izinlerini sıkılaştırır
+- İçe/dışa aktarma işlemleri hassas alanları temizler ve dosya izinlerini sıkılaştırır (`0o600`)
 - `--full-setup` güvenlik duvarı ve SSH sıkılaştırmasını otomatik etkinleştirir
+- MCP: SAFE_MODE (varsayılan: açık) tüm yıkıcı işlemleri engeller, tüm girdilerde Zod şema doğrulaması, yedek geri yüklemede path traversal koruması
 
 ## Kurulum
 
@@ -205,10 +207,12 @@ Quicklify, yapay zeka destekli sunucu yönetimi için yerleşik bir [Model Conte
   "mcpServers": {
     "quicklify": {
       "command": "npx",
-      "args": ["-y", "quicklify", "--mcp"],
+      "args": ["-y", "-p", "quicklify", "quicklify-mcp"],
       "env": {
         "HETZNER_TOKEN": "token-buraya",
-        "DIGITALOCEAN_TOKEN": "token-buraya"
+        "DIGITALOCEAN_TOKEN": "token-buraya",
+        "VULTR_TOKEN": "token-buraya",
+        "LINODE_TOKEN": "token-buraya"
       }
     }
   }
@@ -220,12 +224,17 @@ Mevcut araçlar:
 | Araç | Eylemler | Açıklama |
 |------|----------|----------|
 | `server_info` | list, status, health | Sunucu bilgilerini sorgula, bulut sağlayıcı ve Coolify durumunu kontrol et |
+| `server_logs` | logs, monitor | SSH ile Coolify/Docker loglarını ve sistem metriklerini getir |
+| `server_manage` | add, remove, destroy | Sunucuları kaydet, kaldır veya bulut sunucusunu sil |
+| `server_maintain` | update, restart, maintain | Coolify güncelle, sunucuları yeniden başlat, tam bakım yap |
+| `server_secure` | secure, firewall, domain | SSH sıkılaştırma, güvenlik duvarı kuralları, domain/SSL yönetimi (10 alt komut) |
+| `server_backup` | backup, snapshot | Veritabanı yedekle/geri yükle ve VPS snapshot oluştur/yönet |
+| `server_provision` | create | Bulut sağlayıcılarda yeni Coolify sunucusu oluştur |
 
-> Yakında daha fazla araç: `server_provision`, `server_manage`, `server_logs`, `server_secure`, `server_backup`, `server_maintain`.
+> Tüm yıkıcı işlemler (destroy, restore, snapshot-delete, provision, restart, maintain, snapshot-create) çalıştırılmak için `SAFE_MODE=false` gerektirir.
 
 ## Gelecek Planlar
 
-- Tam yapay zeka destekli sunucu yönetimi için daha fazla MCP aracı
 - Zamanlanmış bakım (cron tabanlı otomatik bakım)
 - Genel sunucu yönetimi (Coolify olmayan sunucular)
 - İnteraktif TUI arayüzü

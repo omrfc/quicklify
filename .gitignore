@@ -140,6 +140,7 @@ vite.config.ts.timestamp-*
 
 # Claude Code settings
 .claude/settings.local.json
+.mcp.json
 
 # Quicklify user config & export
 quicklify.yml
