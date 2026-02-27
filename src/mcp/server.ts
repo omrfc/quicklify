@@ -4,6 +4,7 @@ import { serverLogsSchema, handleServerLogs } from "./tools/serverLogs.js";
 import { serverManageSchema, handleServerManage } from "./tools/serverManage.js";
 import { serverMaintainSchema, handleServerMaintain } from "./tools/serverMaintain.js";
 import { serverSecureSchema, handleServerSecure } from "./tools/serverSecure.js";
+import { serverBackupSchema, handleServerBackup } from "./tools/serverBackup.js";
 
 const pkg = { name: "quicklify-mcp", version: "1.1.0" };
 
@@ -86,6 +87,21 @@ export function createMcpServer(): McpServer {
     },
   }, async (params) => {
     return handleServerSecure(params);
+  });
+
+  server.registerTool("server_backup", {
+    description:
+      "Backup and snapshot Quicklify servers. Backup: 'backup-create' dumps Coolify DB + config via SSH, 'backup-list' shows local backups, 'backup-restore' restores from backup (SAFE_MODE blocks this). Snapshot: 'snapshot-create'/'snapshot-list'/'snapshot-delete' manage cloud provider snapshots (requires provider API token). Snapshots not available for manually added servers. Backup uses SSH, snapshots use provider API.",
+    inputSchema: serverBackupSchema,
+    annotations: {
+      title: "Server Backup & Snapshots",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
+  }, async (params) => {
+    return handleServerBackup(params);
   });
 
   return server;
