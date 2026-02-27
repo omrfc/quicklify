@@ -1,0 +1,85 @@
+# Roadmap: Quicklify
+
+## Milestones
+
+- ✅ **v1.0.0 Initial Release** - Phases pre-GSD (shipped 2026-02-23)
+- ✅ **v1.1.0 MCP Server + Security** - Phases pre-GSD (shipped 2026-02-27)
+- 🚧 **v1.2.0 Generic Server Management** - Phases 1-3 (in progress)
+
+## Phases
+
+<details>
+<summary>✅ v1.0.0 Initial Release — SHIPPED 2026-02-23</summary>
+
+23 CLI commands, 4 cloud providers, YAML config, SAFE_MODE, SSH hardening, firewall, domain/SSL, backup/restore, snapshots. Pre-GSD — no phase plans tracked.
+
+</details>
+
+<details>
+<summary>✅ v1.1.0 MCP Server + Security — SHIPPED 2026-02-27</summary>
+
+MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs update. Pre-GSD — no phase plans tracked.
+
+</details>
+
+---
+
+### 🚧 v1.2.0 Generic Server Management (In Progress)
+
+**Milestone Goal:** Break Coolify dependency by introducing `--mode bare` for generic server management, eliminate CLI/MCP code duplication by routing everything through core/, and improve MCP provision flow.
+
+## Phases
+
+- [ ] **Phase 1: CLI/Core Refactor** - CLI commands delegate to core/ modules, eliminating duplicated business logic
+- [ ] **Phase 2: Bare Mode** - Users can provision and manage servers without Coolify using `--mode bare`
+- [ ] **Phase 3: MCP Refactor** - MCP tools route through core/ and support bare mode via parameter
+
+## Phase Details
+
+### Phase 1: CLI/Core Refactor
+**Goal**: CLI commands are thin wrappers around core/ modules — no duplicated business logic
+**Depends on**: Nothing (first phase)
+**Requirements**: REF-01, REF-02, REF-03, REF-04, REF-05
+**Success Criteria** (what must be TRUE):
+  1. Every CLI command that had duplicated logic now calls the equivalent core/ function instead
+  2. Shared constants (IP_WAIT, COOLIFY_MIN_WAIT, BOOT_MAX_ATTEMPTS) are defined once and imported everywhere
+  3. All existing CLI commands produce identical output and behavior before and after refactor
+  4. Test suite passes at 80%+ coverage with no regressions after refactor
+**Plans**: TBD
+
+### Phase 2: Bare Mode
+**Goal**: Users can provision and manage generic VPS servers without Coolify installed
+**Depends on**: Phase 1
+**Requirements**: BARE-01, BARE-02, BARE-03, BARE-04, BARE-05, BARE-06, BARE-07, BARE-08, BARE-09
+**Success Criteria** (what must be TRUE):
+  1. User can run `quicklify init --mode bare` and get a provisioned VPS without Coolify installed
+  2. User can run status, destroy, secure, firewall, domain, backup/restore commands against a bare server without Coolify-specific errors
+  3. Bare server status check reports cloud status only (no Coolify health check attempted)
+  4. Server records include a `mode` field (`"coolify"` or `"bare"`) visible in status output
+  5. All existing Coolify commands continue working unchanged on coolify-mode servers
+**Plans**: TBD
+
+### Phase 3: MCP Refactor
+**Goal**: MCP tools use core/ modules and support bare mode — no duplicated logic, consistent errors
+**Depends on**: Phase 2
+**Requirements**: MCP-01, MCP-02, MCP-03, MCP-04
+**Success Criteria** (what must be TRUE):
+  1. MCP tools call the same core/ functions as CLI commands (no parallel implementation paths)
+  2. Claude can provision a bare server via the MCP provision tool by passing `mode: "bare"` as a parameter
+  3. MCP tool errors use the same format and messages as core/ error mappers
+  4. All existing MCP tool schemas and behaviors are unchanged (no breaking changes for Claude integrations)
+**Plans**: TBD
+
+## Progress
+
+**Execution Order:** 1 → 2 → 3
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. CLI/Core Refactor | v1.2.0 | 0/TBD | Not started | - |
+| 2. Bare Mode | v1.2.0 | 0/TBD | Not started | - |
+| 3. MCP Refactor | v1.2.0 | 0/TBD | Not started | - |
+
+---
+*Roadmap created: 2026-02-27*
+*Last updated: 2026-02-27 — Initial roadmap for v1.2.0*
