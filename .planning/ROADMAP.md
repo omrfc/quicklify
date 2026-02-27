@@ -45,7 +45,14 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
   2. Shared constants (IP_WAIT, COOLIFY_MIN_WAIT, BOOT_MAX_ATTEMPTS) are defined once and imported everywhere
   3. All existing CLI commands produce identical output and behavior before and after refactor
   4. Test suite passes at 80%+ coverage with no regressions after refactor
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Extract shared constants to src/constants.ts and define QuicklifyResult type
+- [ ] 01-02-PLAN.md — Remove duplicated pure functions from secure, firewall, domain commands (import from core/)
+- [ ] 01-03-PLAN.md — Refactor add, destroy, health, restart commands to delegate to core/manage.ts
+- [ ] 01-04-PLAN.md — Refactor backup, restore, maintain, update, snapshot commands to delegate to core/
+- [ ] 01-05-PLAN.md — Finalize init.ts and status.ts refactoring, full test coverage verification
 
 ### Phase 2: Bare Mode
 **Goal**: Users can provision and manage generic VPS servers without Coolify installed
@@ -76,10 +83,10 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1. CLI/Core Refactor | v1.2.0 | 0/TBD | Not started | - |
+| 1. CLI/Core Refactor | v1.2.0 | 0/5 | Planned | - |
 | 2. Bare Mode | v1.2.0 | 0/TBD | Not started | - |
 | 3. MCP Refactor | v1.2.0 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-02-27 — Initial roadmap for v1.2.0*
+*Last updated: 2026-02-27 — Phase 1 planned (5 plans in 3 waves)*
