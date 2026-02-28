@@ -538,6 +538,75 @@ describe("domain", () => {
       );
     });
 
+    // info subcommand
+    it("should show domain info with FQDN and SSL enabled", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec.mockResolvedValue({
+        code: 0,
+        stdout: " https://example.com\n",
+        stderr: "",
+      });
+
+      await domainCommand("info", "1.2.3.4");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("coolify-test");
+      expect(output).toContain("https://example.com");
+      expect(output).toContain("SSL: enabled");
+    });
+
+    it("should show domain info without FQDN (uses IP)", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec.mockResolvedValue({
+        code: 0,
+        stdout: "   \n",
+        stderr: "",
+      });
+
+      await domainCommand("info", "1.2.3.4");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("not set");
+      expect(output).toContain("http://1.2.3.4:8000");
+    });
+
+    it("should show domain info with HTTP FQDN (SSL disabled)", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec.mockResolvedValue({
+        code: 0,
+        stdout: " http://example.com\n",
+        stderr: "",
+      });
+
+      await domainCommand("info", "1.2.3.4");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("SSL: disabled");
+    });
+
+    it("should handle info failure (non-zero code)", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "error" });
+
+      await domainCommand("info", "1.2.3.4");
+      expect(mockedSsh.sshExec).toHaveBeenCalled();
+    });
+
+    it("should handle info exception", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec.mockRejectedValue(new Error("Connection refused"));
+
+      await domainCommand("info", "1.2.3.4");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("SSH connection refused");
+    });
+
     // ---- BARE-06 mode guard: domain is blocked on bare servers ----
 
     it("should reject bare-mode server with requireCoolifyMode error (BARE-06)", async () => {

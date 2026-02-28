@@ -444,7 +444,7 @@ describe("firewall", () => {
 
       await firewallCommand("status", "1.2.3.4");
       // spinner.succeed is called
-      expect(mockedSsh.sshExec).toHaveBeenCalledWith("1.2.3.4", "ufw status");
+      expect(mockedSsh.sshExec).toHaveBeenCalledWith("1.2.3.4", "ufw status numbered");
     });
 
     it("should show inactive UFW status", async () => {
@@ -458,6 +458,43 @@ describe("firewall", () => {
 
       await firewallCommand("status", "1.2.3.4");
       expect(mockedSsh.sshExec).toHaveBeenCalled();
+    });
+
+    it("should show rules when UFW is active with rules", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec.mockResolvedValue({
+        code: 0,
+        stdout: `Status: active
+
+     To                         Action      From
+     --                         ------      ----
+[ 1] 22/tcp                     ALLOW IN    Anywhere
+[ 2] 80/tcp                     ALLOW IN    Anywhere`,
+        stderr: "",
+      });
+
+      await firewallCommand("status", "1.2.3.4");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("22/tcp");
+      expect(output).toContain("80/tcp");
+      expect(output).toContain("2 rules");
+    });
+
+    it("should show no rules message when UFW is active but empty", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec.mockResolvedValue({
+        code: 0,
+        stdout: "Status: active\n\n     To                         Action      From\n     --                         ------      ----",
+        stderr: "",
+      });
+
+      await firewallCommand("status", "1.2.3.4");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("No rules configured");
     });
 
     it("should handle setup exception", async () => {

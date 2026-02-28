@@ -136,6 +136,11 @@ const SSH_ERROR_PATTERNS: { pattern: RegExp; message: (ip?: string) => string }[
     message: () => "Could not resolve hostname. Check the server IP address.",
   },
   {
+    pattern: /dpkg.*lock|locked.*dpkg|Could not get lock/i,
+    message: () =>
+      "Server is still initializing (dpkg lock active). Wait 1-2 minutes and retry.",
+  },
+  {
     pattern: /command not found/i,
     message: () => "Required command not found on server. Is the software installed?",
   },

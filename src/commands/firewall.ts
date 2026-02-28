@@ -275,16 +275,25 @@ async function firewallStatusCheck(ip: string, name: string): Promise<void> {
   spinner.start();
 
   try {
-    const result = await sshExec(ip, "ufw status");
+    const result = await sshExec(ip, buildUfwStatusCommand());
     if (result.code !== 0) {
       spinner.fail("Failed to check firewall status");
       if (result.stderr) logger.error(result.stderr);
       return;
     }
 
-    const active = result.stdout.toLowerCase().includes("status: active");
-    if (active) {
+    const status = parseUfwStatus(result.stdout);
+    if (status.active) {
       spinner.succeed(`UFW is active on ${name}`);
+      if (status.rules.length > 0) {
+        console.log();
+        logger.info(`Open ports (${status.rules.length} rules):`);
+        for (const rule of status.rules) {
+          logger.step(`${rule.port}/${rule.protocol} → ${rule.action} from ${rule.from}`);
+        }
+      } else {
+        logger.info("No rules configured.");
+      }
     } else {
       spinner.warn(`UFW is inactive on ${name}`);
       logger.info("Run 'quicklify firewall setup' to enable.");

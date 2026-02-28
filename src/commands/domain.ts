@@ -37,7 +37,7 @@ export async function domainCommand(
     return;
   }
 
-  const validSubcommands = ["add", "remove", "check", "list"];
+  const validSubcommands = ["add", "remove", "check", "list", "info"];
   const sub = subcommand || "list";
 
   if (!validSubcommands.includes(sub)) {
@@ -68,6 +68,9 @@ export async function domainCommand(
       break;
     case "list":
       await domainList(server.ip, server.name);
+      break;
+    case "info":
+      await domainInfo(server.ip, server.name);
       break;
   }
 }
@@ -238,6 +241,39 @@ async function domainList(ip: string, name: string): Promise<void> {
     }
   } catch (error: unknown) {
     spinner.fail("Failed to fetch domain");
+    logger.error(getErrorMessage(error));
+    const hint = mapSshError(error, ip);
+    if (hint) logger.info(hint);
+  }
+}
+
+async function domainInfo(ip: string, name: string): Promise<void> {
+  const spinner = createSpinner(`Fetching domain info for ${name}...`);
+  spinner.start();
+
+  try {
+    const result = await sshExec(ip, buildGetFqdnCommand());
+    if (result.code !== 0) {
+      spinner.fail("Failed to fetch domain info");
+      if (result.stderr) logger.error(result.stderr);
+      return;
+    }
+
+    const fqdn = parseFqdn(result.stdout);
+    spinner.succeed(`Domain info for ${name}`);
+    console.log();
+    logger.info(`Server: ${name} (${ip})`);
+    if (fqdn) {
+      logger.info(`FQDN: ${fqdn}`);
+      const isHttps = fqdn.startsWith("https://");
+      logger.info(`SSL: ${isHttps ? "enabled" : "disabled"}`);
+      logger.info(`URL: ${fqdn}`);
+    } else {
+      logger.info(`FQDN: not set (using IP)`);
+      logger.info(`URL: http://${ip}:8000`);
+    }
+  } catch (error: unknown) {
+    spinner.fail("Failed to fetch domain info");
     logger.error(getErrorMessage(error));
     const hint = mapSshError(error, ip);
     if (hint) logger.info(hint);

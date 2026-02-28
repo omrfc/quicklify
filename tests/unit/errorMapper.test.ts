@@ -311,6 +311,17 @@ describe("errorMapper", () => {
       expect(result).toContain("resolve hostname");
     });
 
+    it("should map dpkg lock error", () => {
+      const result = mapSshError(new Error("Could not get lock /var/lib/dpkg/lock-frontend"));
+      expect(result).toContain("dpkg lock active");
+      expect(result).toContain("1-2 minutes");
+    });
+
+    it("should map dpkg lock error variant", () => {
+      const result = mapSshError(new Error("dpkg: error: another process has the lock"));
+      expect(result).toContain("dpkg lock active");
+    });
+
     it("should map command not found", () => {
       const result = mapSshError(new Error("bash: pg_dump: command not found"));
       expect(result).toContain("command not found");

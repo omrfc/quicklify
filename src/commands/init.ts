@@ -71,6 +71,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
 
   let providerChoice: string;
   let apiToken: string;
+  let tokenSource: string;
   let region: string;
   let serverSize: string;
   let serverName: string;
@@ -104,21 +105,27 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
   // Step 2: Get API token (env var > interactive prompt)
   if (options.token) {
     apiToken = options.token;
+    tokenSource = "--token flag";
     logger.warning(
       "Token passed via --token flag is visible in shell history. Use environment variables instead: export HETZNER_TOKEN=...",
     );
     process.title = "quicklify";
   } else if (providerChoice === "hetzner" && process.env.HETZNER_TOKEN) {
     apiToken = process.env.HETZNER_TOKEN;
+    tokenSource = "HETZNER_TOKEN env var";
   } else if (providerChoice === "digitalocean" && process.env.DIGITALOCEAN_TOKEN) {
     apiToken = process.env.DIGITALOCEAN_TOKEN;
+    tokenSource = "DIGITALOCEAN_TOKEN env var";
   } else if (providerChoice === "vultr" && process.env.VULTR_TOKEN) {
     apiToken = process.env.VULTR_TOKEN;
+    tokenSource = "VULTR_TOKEN env var";
   } else if (providerChoice === "linode" && process.env.LINODE_TOKEN) {
     apiToken = process.env.LINODE_TOKEN;
+    tokenSource = "LINODE_TOKEN env var";
   } else {
     const config = await getDeploymentConfig(provider);
     apiToken = config.apiToken;
+    tokenSource = "interactive prompt";
   }
 
   // Step 3: Validate API token
@@ -136,7 +143,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     }
     return;
   }
-  tokenSpinner.succeed("API token validated");
+  tokenSpinner.succeed(`API token validated (from ${tokenSource})`);
 
   // Step 4: Region
   if (options.region) {
