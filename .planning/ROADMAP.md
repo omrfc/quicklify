@@ -50,7 +50,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 Plans:
 - [x] 01-01-PLAN.md — Extract shared constants to src/constants.ts and define QuicklifyResult type
 - [x] 01-02-PLAN.md — Remove duplicated pure functions from secure, firewall, domain commands (import from core/)
-- [ ] 01-03-PLAN.md — Refactor add, destroy, health, restart commands to delegate to core/manage.ts
+- [x] 01-03-PLAN.md — Refactor add, destroy, health, restart commands to delegate to core/manage.ts
 - [ ] 01-04-PLAN.md — Refactor backup, restore, maintain, update, snapshot commands to delegate to core/
 - [ ] 01-05-PLAN.md — Finalize init.ts and status.ts refactoring, full test coverage verification
 
@@ -83,10 +83,10 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1. CLI/Core Refactor | v1.2.0 | 2/5 | In progress | - |
+| 1. CLI/Core Refactor | v1.2.0 | 3/5 | In progress | - |
 | 2. Bare Mode | v1.2.0 | 0/TBD | Not started | - |
 | 3. MCP Refactor | v1.2.0 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-02-28 — Plan 01-02 complete (secure/firewall/domain command deduplication)*
+*Last updated: 2026-02-28 — Plan 01-03 complete (add/destroy/restart/health command refactor)*
