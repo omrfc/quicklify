@@ -1,13 +1,14 @@
-import axios from "axios";
 import inquirer from "inquirer";
 import { destroyCommand } from "../../src/commands/destroy";
-import * as config from "../../src/utils/config";
+import * as coreManage from "../../src/core/manage";
+import * as serverSelect from "../../src/utils/serverSelect";
 
-jest.mock("../../src/utils/config");
+jest.mock("../../src/core/manage");
+jest.mock("../../src/utils/serverSelect");
 
-const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
-const mockedConfig = config as jest.Mocked<typeof config>;
+const mockedCoreManage = coreManage as jest.Mocked<typeof coreManage>;
+const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
 
 const sampleServer = {
   id: "123",
@@ -19,159 +20,148 @@ const sampleServer = {
   createdAt: "2026-02-20T00:00:00Z",
 };
 
+const doServer = {
+  id: "555",
+  name: "do-server",
+  provider: "digitalocean",
+  ip: "10.20.30.40",
+  region: "nyc1",
+  size: "s-2vcpu-4gb",
+  createdAt: "2026-02-20T00:00:00Z",
+};
+
 describe("destroyCommand E2E", () => {
   let consoleSpy: jest.SpyInstance;
-  const savedEnv: Record<string, string | undefined> = {};
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
     jest.clearAllMocks();
-    // Save and clear provider tokens so promptApiToken doesn't skip the prompt
-    for (const key of ["HETZNER_TOKEN", "DIGITALOCEAN_TOKEN", "VULTR_TOKEN", "LINODE_TOKEN"]) {
-      savedEnv[key] = process.env[key];
-      delete process.env[key];
-    }
   });
 
   afterEach(() => {
     consoleSpy.mockRestore();
-    // Restore provider tokens
-    for (const key of ["HETZNER_TOKEN", "DIGITALOCEAN_TOKEN", "VULTR_TOKEN", "LINODE_TOKEN"]) {
-      if (savedEnv[key] !== undefined) process.env[key] = savedEnv[key];
-      else delete process.env[key];
-    }
   });
 
   it("should complete full destroy flow with Hetzner", async () => {
-    mockedConfig.findServers.mockReturnValue([sampleServer]);
-    mockedConfig.removeServer.mockReturnValue(true);
-
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
     mockedInquirer.prompt
       .mockResolvedValueOnce({ confirm: true })
-      .mockResolvedValueOnce({ confirmName: "coolify-test" })
-      .mockResolvedValueOnce({ apiToken: "test-token" });
-
-    mockedAxios.delete.mockResolvedValueOnce({});
+      .mockResolvedValueOnce({ confirmName: "coolify-test" });
+    mockedCoreManage.destroyCloudServer.mockResolvedValue({
+      success: true,
+      server: sampleServer,
+      cloudDeleted: true,
+      localRemoved: true,
+    });
 
     await destroyCommand("1.2.3.4");
 
-    expect(mockedAxios.delete).toHaveBeenCalledWith(
-      "https://api.hetzner.cloud/v1/servers/123",
-      expect.objectContaining({
-        headers: { Authorization: "Bearer test-token" },
-      }),
-    );
-    expect(mockedConfig.removeServer).toHaveBeenCalledWith("123");
-
+    expect(mockedCoreManage.destroyCloudServer).toHaveBeenCalledWith("coolify-test");
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("removed");
+    expect(output).toContain("removed from your cloud provider");
   });
 
   it("should complete full destroy flow with DigitalOcean", async () => {
-    const doServer = {
-      ...sampleServer,
-      provider: "digitalocean",
-      id: "555",
-      ip: "10.20.30.40",
-      name: "do-server",
-    };
-    mockedConfig.findServers.mockReturnValue([doServer]);
-    mockedConfig.removeServer.mockReturnValue(true);
-
+    mockedServerSelect.resolveServer.mockResolvedValue(doServer);
     mockedInquirer.prompt
       .mockResolvedValueOnce({ confirm: true })
-      .mockResolvedValueOnce({ confirmName: "do-server" })
-      .mockResolvedValueOnce({ apiToken: "do-token" });
-
-    mockedAxios.delete.mockResolvedValueOnce({});
+      .mockResolvedValueOnce({ confirmName: "do-server" });
+    mockedCoreManage.destroyCloudServer.mockResolvedValue({
+      success: true,
+      server: doServer,
+      cloudDeleted: true,
+      localRemoved: true,
+    });
 
     await destroyCommand("10.20.30.40");
 
-    expect(mockedAxios.delete).toHaveBeenCalledWith(
-      "https://api.digitalocean.com/v2/droplets/555",
-      expect.objectContaining({
-        headers: { Authorization: "Bearer do-token" },
-      }),
-    );
+    expect(mockedCoreManage.destroyCloudServer).toHaveBeenCalledWith("do-server");
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("removed from your cloud provider");
   });
 
   it("should abort on first confirmation decline", async () => {
-    mockedConfig.findServers.mockReturnValue([sampleServer]);
-
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
     mockedInquirer.prompt.mockResolvedValueOnce({ confirm: false });
 
     await destroyCommand("coolify-test");
 
-    expect(mockedAxios.delete).not.toHaveBeenCalled();
+    expect(mockedCoreManage.destroyCloudServer).not.toHaveBeenCalled();
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("cancelled");
   });
 
   it("should abort when typed name does not match", async () => {
-    mockedConfig.findServers.mockReturnValue([sampleServer]);
-
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
     mockedInquirer.prompt
       .mockResolvedValueOnce({ confirm: true })
       .mockResolvedValueOnce({ confirmName: "wrong" });
 
     await destroyCommand("1.2.3.4");
 
-    expect(mockedAxios.delete).not.toHaveBeenCalled();
+    expect(mockedCoreManage.destroyCloudServer).not.toHaveBeenCalled();
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("does not match");
   });
 
-  it("should handle Hetzner API error on destroy", async () => {
-    mockedConfig.findServers.mockReturnValue([sampleServer]);
-
+  it("should handle API error on destroy", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
     mockedInquirer.prompt
       .mockResolvedValueOnce({ confirm: true })
       .mockResolvedValueOnce({ confirmName: "coolify-test" })
-      .mockResolvedValueOnce({ apiToken: "test-token" })
       .mockResolvedValueOnce({ removeLocal: false });
-
-    mockedAxios.delete.mockRejectedValueOnce(new Error("quota exceeded"));
+    mockedCoreManage.destroyCloudServer.mockResolvedValue({
+      success: false,
+      server: sampleServer,
+      cloudDeleted: false,
+      localRemoved: false,
+      error: "quota exceeded",
+    });
 
     await destroyCommand("1.2.3.4");
 
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("Failed to destroy");
+    // logger.error("quota exceeded") is captured via console.log
+    expect(output).toContain("quota exceeded");
   });
 
   it("should remove from local config when server already deleted from provider", async () => {
-    mockedConfig.findServers.mockReturnValue([sampleServer]);
-    mockedConfig.removeServer.mockReturnValue(true);
-
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
     mockedInquirer.prompt
       .mockResolvedValueOnce({ confirm: true })
-      .mockResolvedValueOnce({ confirmName: "coolify-test" })
-      .mockResolvedValueOnce({ apiToken: "test-token" });
-
-    mockedAxios.delete.mockRejectedValueOnce(
-      new Error("Failed to destroy server: server not found"),
-    );
+      .mockResolvedValueOnce({ confirmName: "coolify-test" });
+    mockedCoreManage.destroyCloudServer.mockResolvedValue({
+      success: true,
+      server: sampleServer,
+      cloudDeleted: false,
+      localRemoved: true,
+      hint: "Server not found on hetzner (may have been deleted manually). Removed from local config.",
+    });
 
     await destroyCommand("1.2.3.4");
 
-    expect(mockedConfig.removeServer).toHaveBeenCalledWith("123");
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("Removed from local config");
   });
 
-  it("should find server by name", async () => {
-    mockedConfig.findServers.mockReturnValue([sampleServer]);
-    mockedConfig.removeServer.mockReturnValue(true);
-
+  it("should find server by name via resolveServer", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
     mockedInquirer.prompt
       .mockResolvedValueOnce({ confirm: true })
-      .mockResolvedValueOnce({ confirmName: "coolify-test" })
-      .mockResolvedValueOnce({ apiToken: "test-token" });
-
-    mockedAxios.delete.mockResolvedValueOnce({});
+      .mockResolvedValueOnce({ confirmName: "coolify-test" });
+    mockedCoreManage.destroyCloudServer.mockResolvedValue({
+      success: true,
+      server: sampleServer,
+      cloudDeleted: true,
+      localRemoved: true,
+    });
 
     await destroyCommand("coolify-test");
 
-    expect(mockedConfig.findServers).toHaveBeenCalledWith("coolify-test");
-    expect(mockedAxios.delete).toHaveBeenCalled();
+    expect(mockedServerSelect.resolveServer).toHaveBeenCalledWith(
+      "coolify-test",
+      "Select a server to destroy:",
+    );
+    expect(mockedCoreManage.destroyCloudServer).toHaveBeenCalled();
   });
 });

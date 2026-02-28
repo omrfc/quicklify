@@ -52,6 +52,7 @@ export interface AddServerParams {
   ip: string;
   name: string;
   skipVerify?: boolean;
+  apiToken?: string;
 }
 
 export interface AddServerResult {
@@ -70,8 +71,8 @@ export async function addServerRecord(params: AddServerParams): Promise<AddServe
     };
   }
 
-  // Get token from env
-  const token = getProviderToken(params.provider);
+  // Get token from explicit param or env
+  const token = params.apiToken ?? getProviderToken(params.provider);
   if (!token) {
     return {
       success: false,

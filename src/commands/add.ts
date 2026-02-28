@@ -1,12 +1,9 @@
 import inquirer from "inquirer";
 import ora from "ora";
 import chalk from "chalk";
-import { getServers, saveServer } from "../utils/config.js";
 import { promptApiToken } from "../utils/serverSelect.js";
-import { createProviderWithToken } from "../utils/providerFactory.js";
-import { sshExec, checkSshAvailable } from "../utils/ssh.js";
+import { addServerRecord } from "../core/manage.js";
 import { logger } from "../utils/logger.js";
-import type { ServerRecord } from "../types/index.js";
 
 interface AddOptions {
   provider?: string;
@@ -43,20 +40,9 @@ export async function addCommand(options: AddOptions = {}): Promise<void> {
   }
 
   // Step 2: Get API token
-  const token = await promptApiToken(providerName!);
-  const provider = createProviderWithToken(providerName!, token);
+  const apiToken = await promptApiToken(providerName!);
 
-  // Step 3: Validate token
-  const spinner = ora("Validating API token...").start();
-  const valid = await provider.validateToken(token);
-  if (!valid) {
-    spinner.fail("Invalid API token");
-    process.exit(1);
-    return;
-  }
-  spinner.succeed("Token validated");
-
-  // Step 4: Get server IP
+  // Step 3: Get server IP
   let serverIp = options.ip;
   if (!serverIp) {
     const { ip } = await inquirer.prompt([
@@ -81,16 +67,7 @@ export async function addCommand(options: AddOptions = {}): Promise<void> {
     serverIp = ip.trim();
   }
 
-  // Step 5: Check for duplicate
-  const existingServers = getServers();
-  const duplicate = existingServers.find((s) => s.ip === serverIp);
-  if (duplicate) {
-    logger.error(`Server with IP ${serverIp} already exists: ${duplicate.name}`);
-    process.exit(1);
-    return;
-  }
-
-  // Step 6: Get server name
+  // Step 4: Get server name
   let serverName = options.name;
   if (!serverName) {
     const { name } = await inquirer.prompt([
@@ -115,57 +92,47 @@ export async function addCommand(options: AddOptions = {}): Promise<void> {
     serverName = name.trim();
   }
 
-  // Step 7: Verify Coolify is installed (unless --skip-verify)
-  if (!options.skipVerify) {
-    if (!checkSshAvailable()) {
-      logger.warning("SSH not available. Use --skip-verify to skip Coolify verification.");
-      process.exit(1);
-      return;
-    }
+  const spinner = ora("Adding server...").start();
 
-    const verifySpinner = ora("Verifying Coolify installation...").start();
-    try {
-      const result = await sshExec(
-        serverIp!,
-        "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/api/health",
-      );
-      if (result.code === 0 && result.stdout.trim().includes("200")) {
-        verifySpinner.succeed("Coolify is running");
-      } else {
-        // Fallback: check docker containers
-        const dockerResult = await sshExec(
-          serverIp!,
-          "docker ps --format '{{.Names}}' 2>/dev/null | grep -q coolify && echo OK",
-        );
-        if (dockerResult.code === 0 && dockerResult.stdout.trim().includes("OK")) {
-          verifySpinner.succeed("Coolify containers detected");
-        } else {
-          verifySpinner.warn("Coolify not detected. Server added anyway.");
-        }
-      }
-    } catch {
-      verifySpinner.warn("Could not verify Coolify. Server added anyway.");
-    }
-  }
-
-  // Step 8: Save to config
-  const record: ServerRecord = {
-    id: `manual-${Date.now()}`,
-    name: serverName!,
+  // Delegate all business logic to core
+  const result = await addServerRecord({
     provider: providerName!,
     ip: serverIp!,
-    region: "unknown",
-    size: "unknown",
-    createdAt: new Date().toISOString(),
-  };
+    name: serverName!,
+    skipVerify: options.skipVerify,
+    apiToken,
+  });
 
-  saveServer(record);
+  if (!result.success) {
+    spinner.fail(result.error ?? "Failed to add server");
+    process.exit(1);
+    return;
+  }
+
+  // Handle SSH unavailable (non-fatal)
+  if (result.coolifyStatus === "ssh_unavailable") {
+    spinner.warn("SSH not available. Use --skip-verify to skip Coolify verification.");
+    process.exit(1);
+    return;
+  }
+
+  const server = result.server!;
+
+  if (result.coolifyStatus === "running") {
+    spinner.succeed("Coolify is running");
+  } else if (result.coolifyStatus === "containers_detected") {
+    spinner.succeed("Coolify containers detected");
+  } else if (result.coolifyStatus === "skipped") {
+    spinner.succeed("Token validated");
+  } else {
+    spinner.warn("Could not verify Coolify. Server added anyway.");
+  }
 
   console.log();
   console.log(chalk.green("Server added successfully!"));
-  console.log(`  Name: ${record.name}`);
-  console.log(`  IP: ${record.ip}`);
-  console.log(`  Provider: ${provider.displayName}`);
+  console.log(`  Name: ${server.name}`);
+  console.log(`  IP: ${server.ip}`);
+  console.log(`  Provider: ${server.provider}`);
   console.log();
   console.log("All commands now work for this server (status, update, backup, etc.)");
 }

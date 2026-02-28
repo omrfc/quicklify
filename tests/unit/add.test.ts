@@ -1,40 +1,27 @@
 import inquirer from "inquirer";
-import * as config from "../../src/utils/config";
+import * as coreManage from "../../src/core/manage";
 import * as serverSelect from "../../src/utils/serverSelect";
-import * as providerFactory from "../../src/utils/providerFactory";
-import * as ssh from "../../src/utils/ssh";
 import { addCommand } from "../../src/commands/add";
-import type { CloudProvider } from "../../src/providers/base";
 
-jest.mock("../../src/utils/config");
+jest.mock("../../src/core/manage");
 jest.mock("../../src/utils/serverSelect");
-jest.mock("../../src/utils/providerFactory");
-jest.mock("../../src/utils/ssh");
 
 const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
-const mockedConfig = config as jest.Mocked<typeof config>;
+const mockedCoreManage = coreManage as jest.Mocked<typeof coreManage>;
 const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
-const mockedProviderFactory = providerFactory as jest.Mocked<typeof providerFactory>;
-const mockedSsh = ssh as jest.Mocked<typeof ssh>;
 
-const mockProvider: CloudProvider = {
-  name: "hetzner",
-  displayName: "Hetzner Cloud",
-  validateToken: jest.fn().mockResolvedValue(true),
-  getRegions: jest.fn().mockReturnValue([]),
-  getServerSizes: jest.fn().mockReturnValue([]),
-  getAvailableLocations: jest.fn().mockResolvedValue([]),
-  getAvailableServerTypes: jest.fn().mockResolvedValue([]),
-  uploadSshKey: jest.fn(),
-  createServer: jest.fn(),
-  getServerStatus: jest.fn(),
-  getServerDetails: jest.fn(),
-  destroyServer: jest.fn(),
-  rebootServer: jest.fn(),
-  createSnapshot: jest.fn(),
-  listSnapshots: jest.fn(),
-  deleteSnapshot: jest.fn(),
-  getSnapshotCostEstimate: jest.fn(),
+const baseAddResult = {
+  success: true,
+  server: {
+    id: "manual-123",
+    name: "my-server",
+    provider: "hetzner",
+    ip: "1.2.3.4",
+    region: "unknown",
+    size: "unknown",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  coolifyStatus: "skipped" as const,
 };
 
 describe("addCommand", () => {
@@ -47,12 +34,7 @@ describe("addCommand", () => {
     jest.clearAllMocks();
 
     mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
-    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
-    (mockProvider.validateToken as jest.Mock).mockResolvedValue(true);
-    mockedConfig.getServers.mockReturnValue([]);
-    mockedConfig.saveServer.mockImplementation(() => {});
-    mockedSsh.checkSshAvailable.mockReturnValue(true);
-    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "200", stderr: "" });
+    mockedCoreManage.addServerRecord.mockResolvedValue(baseAddResult);
   });
 
   afterEach(() => {
@@ -64,51 +46,49 @@ describe("addCommand", () => {
     it("should add server with all options provided", async () => {
       await addCommand({ provider: "hetzner", ip: "1.2.3.4", name: "my-server", skipVerify: true });
 
-      expect(mockedConfig.saveServer).toHaveBeenCalledWith(
+      expect(mockedCoreManage.addServerRecord).toHaveBeenCalledWith(
         expect.objectContaining({
-          name: "my-server",
           provider: "hetzner",
           ip: "1.2.3.4",
+          name: "my-server",
+          skipVerify: true,
+          apiToken: "test-token",
         }),
       );
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("Server added successfully");
     });
 
-    it("should validate token before adding", async () => {
-      await addCommand({ provider: "hetzner", ip: "1.2.3.4", name: "test", skipVerify: true });
-
-      expect(mockProvider.validateToken).toHaveBeenCalledWith("test-token");
-    });
-
-    it("should exit on invalid token", async () => {
-      (mockProvider.validateToken as jest.Mock).mockResolvedValue(false);
+    it("should exit on invalid token (core returns error)", async () => {
+      mockedCoreManage.addServerRecord.mockResolvedValue({
+        success: false,
+        error: "Invalid API token for hetzner",
+      });
 
       await addCommand({ provider: "hetzner", ip: "1.2.3.4", name: "test", skipVerify: true });
 
       expect(exitSpy).toHaveBeenCalledWith(1);
-      expect(mockedConfig.saveServer).not.toHaveBeenCalled();
     });
 
     it("should exit on invalid provider", async () => {
       await addCommand({ provider: "aws", ip: "1.2.3.4", name: "test" });
 
       expect(exitSpy).toHaveBeenCalledWith(1);
-      expect(mockedConfig.saveServer).not.toHaveBeenCalled();
+      expect(mockedCoreManage.addServerRecord).not.toHaveBeenCalled();
     });
 
     it("should accept all valid providers", async () => {
       for (const p of ["hetzner", "digitalocean", "vultr", "linode"]) {
         jest.clearAllMocks();
         mockedServerSelect.promptApiToken.mockResolvedValue("token");
-        mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
-        (mockProvider.validateToken as jest.Mock).mockResolvedValue(true);
-        mockedConfig.getServers.mockReturnValue([]);
-        mockedConfig.saveServer.mockImplementation(() => {});
+        mockedCoreManage.addServerRecord.mockResolvedValue({
+          ...baseAddResult,
+          server: { ...baseAddResult.server, provider: p },
+        });
 
         await addCommand({ provider: p, ip: "1.2.3.4", name: "test", skipVerify: true });
 
-        expect(mockedConfig.saveServer).toHaveBeenCalledWith(
+        expect(mockedCoreManage.addServerRecord).toHaveBeenCalledWith(
           expect.objectContaining({ provider: p }),
         );
       }
@@ -116,79 +96,76 @@ describe("addCommand", () => {
   });
 
   describe("duplicate detection", () => {
-    it("should reject duplicate IP", async () => {
-      mockedConfig.getServers.mockReturnValue([
-        {
-          id: "123",
-          name: "existing",
-          provider: "hetzner",
-          ip: "1.2.3.4",
-          region: "nbg1",
-          size: "cx33",
-          createdAt: "2026-01-01",
-        },
-      ]);
+    it("should reject duplicate IP (core returns error)", async () => {
+      mockedCoreManage.addServerRecord.mockResolvedValue({
+        success: false,
+        error: "Server with IP 1.2.3.4 already exists: existing",
+      });
 
       await addCommand({ provider: "hetzner", ip: "1.2.3.4", name: "test", skipVerify: true });
 
       expect(exitSpy).toHaveBeenCalledWith(1);
-      expect(mockedConfig.saveServer).not.toHaveBeenCalled();
     });
   });
 
   describe("Coolify verification", () => {
-    it("should verify Coolify via health endpoint", async () => {
-      mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "200", stderr: "" });
+    it("should show running status when Coolify running", async () => {
+      mockedCoreManage.addServerRecord.mockResolvedValue({
+        ...baseAddResult,
+        coolifyStatus: "running",
+      });
 
       await addCommand({ provider: "hetzner", ip: "1.2.3.4", name: "test" });
 
-      expect(mockedSsh.sshExec).toHaveBeenCalled();
-      expect(mockedConfig.saveServer).toHaveBeenCalled();
+      expect(mockedCoreManage.addServerRecord).toHaveBeenCalled();
     });
 
-    it("should fallback to docker ps check when health fails", async () => {
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "connection refused" })
-        .mockResolvedValueOnce({ code: 0, stdout: "OK", stderr: "" });
+    it("should show containers_detected status when docker found", async () => {
+      mockedCoreManage.addServerRecord.mockResolvedValue({
+        ...baseAddResult,
+        coolifyStatus: "containers_detected",
+      });
 
       await addCommand({ provider: "hetzner", ip: "1.2.3.4", name: "test" });
 
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(2);
-      expect(mockedConfig.saveServer).toHaveBeenCalled();
+      expect(mockedCoreManage.addServerRecord).toHaveBeenCalled();
     });
 
-    it("should add server even when verification fails", async () => {
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "" });
+    it("should add server even when verification fails (not_detected)", async () => {
+      mockedCoreManage.addServerRecord.mockResolvedValue({
+        ...baseAddResult,
+        coolifyStatus: "not_detected",
+      });
 
       await addCommand({ provider: "hetzner", ip: "1.2.3.4", name: "test" });
 
-      expect(mockedConfig.saveServer).toHaveBeenCalled();
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Server added successfully");
     });
 
     it("should skip verification with --skip-verify", async () => {
+      mockedCoreManage.addServerRecord.mockResolvedValue({
+        ...baseAddResult,
+        coolifyStatus: "skipped",
+      });
+
       await addCommand({ provider: "hetzner", ip: "1.2.3.4", name: "test", skipVerify: true });
 
-      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
-      expect(mockedConfig.saveServer).toHaveBeenCalled();
+      expect(mockedCoreManage.addServerRecord).toHaveBeenCalledWith(
+        expect.objectContaining({ skipVerify: true }),
+      );
     });
 
-    it("should exit when SSH not available and not skipping verify", async () => {
-      mockedSsh.checkSshAvailable.mockReturnValue(false);
+    it("should exit when SSH not available", async () => {
+      mockedCoreManage.addServerRecord.mockResolvedValue({
+        success: true,
+        server: baseAddResult.server,
+        coolifyStatus: "ssh_unavailable",
+      });
 
       await addCommand({ provider: "hetzner", ip: "1.2.3.4", name: "test" });
 
       expect(exitSpy).toHaveBeenCalledWith(1);
-      expect(mockedConfig.saveServer).not.toHaveBeenCalled();
-    });
-
-    it("should handle ssh exception gracefully", async () => {
-      mockedSsh.sshExec.mockRejectedValue(new Error("SSH timeout"));
-
-      await addCommand({ provider: "hetzner", ip: "1.2.3.4", name: "test" });
-
-      expect(mockedConfig.saveServer).toHaveBeenCalled();
     });
   });
 
@@ -198,10 +175,14 @@ describe("addCommand", () => {
         .mockResolvedValueOnce({ provider: "digitalocean" }) // provider
         .mockResolvedValueOnce({ ip: "5.6.7.8" }) // ip
         .mockResolvedValueOnce({ name: "my-do-server" }); // name
+      mockedCoreManage.addServerRecord.mockResolvedValue({
+        ...baseAddResult,
+        server: { ...baseAddResult.server, provider: "digitalocean", ip: "5.6.7.8", name: "my-do-server" },
+      });
 
       await addCommand({});
 
-      expect(mockedConfig.saveServer).toHaveBeenCalledWith(
+      expect(mockedCoreManage.addServerRecord).toHaveBeenCalledWith(
         expect.objectContaining({
           provider: "digitalocean",
           ip: "5.6.7.8",
@@ -214,20 +195,28 @@ describe("addCommand", () => {
       mockedInquirer.prompt
         .mockResolvedValueOnce({ ip: "10.0.0.1" }) // ip
         .mockResolvedValueOnce({ name: "test-server" }); // name
+      mockedCoreManage.addServerRecord.mockResolvedValue({
+        ...baseAddResult,
+        server: { ...baseAddResult.server, ip: "10.0.0.1" },
+      });
 
       await addCommand({ provider: "hetzner" });
 
-      expect(mockedConfig.saveServer).toHaveBeenCalledWith(
+      expect(mockedCoreManage.addServerRecord).toHaveBeenCalledWith(
         expect.objectContaining({ ip: "10.0.0.1" }),
       );
     });
 
     it("should prompt for name when not given", async () => {
       mockedInquirer.prompt.mockResolvedValueOnce({ name: "custom-name" });
+      mockedCoreManage.addServerRecord.mockResolvedValue({
+        ...baseAddResult,
+        server: { ...baseAddResult.server, name: "custom-name" },
+      });
 
       await addCommand({ provider: "hetzner", ip: "1.2.3.4" });
 
-      expect(mockedConfig.saveServer).toHaveBeenCalledWith(
+      expect(mockedCoreManage.addServerRecord).toHaveBeenCalledWith(
         expect.objectContaining({ name: "custom-name" }),
       );
     });
@@ -283,36 +272,23 @@ describe("addCommand", () => {
     });
   });
 
-  describe("server record", () => {
-    it("should save with manual- prefixed ID", async () => {
-      await addCommand({ provider: "hetzner", ip: "1.2.3.4", name: "test", skipVerify: true });
-
-      const savedRecord = mockedConfig.saveServer.mock.calls[0][0];
-      expect(savedRecord.id).toMatch(/^manual-\d+$/);
-    });
-
-    it("should save with unknown region and size", async () => {
-      await addCommand({ provider: "hetzner", ip: "1.2.3.4", name: "test", skipVerify: true });
-
-      const savedRecord = mockedConfig.saveServer.mock.calls[0][0];
-      expect(savedRecord.region).toBe("unknown");
-      expect(savedRecord.size).toBe("unknown");
-    });
-
-    it("should save with ISO timestamp", async () => {
-      await addCommand({ provider: "hetzner", ip: "1.2.3.4", name: "test", skipVerify: true });
-
-      const savedRecord = mockedConfig.saveServer.mock.calls[0][0];
-      expect(savedRecord.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    });
-
-    it("should display success message with provider displayName", async () => {
+  describe("server output", () => {
+    it("should display success message with server details", async () => {
       await addCommand({ provider: "hetzner", ip: "1.2.3.4", name: "test", skipVerify: true });
 
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("Hetzner Cloud");
       expect(output).toContain("1.2.3.4");
-      expect(output).toContain("test");
+      expect(output).toContain("my-server");
+    });
+
+    it("should pass apiToken from promptApiToken to addServerRecord", async () => {
+      mockedServerSelect.promptApiToken.mockResolvedValue("my-secret-token");
+
+      await addCommand({ provider: "hetzner", ip: "1.2.3.4", name: "test", skipVerify: true });
+
+      expect(mockedCoreManage.addServerRecord).toHaveBeenCalledWith(
+        expect.objectContaining({ apiToken: "my-secret-token" }),
+      );
     });
   });
 });
