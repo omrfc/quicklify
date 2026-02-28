@@ -1,11 +1,11 @@
 import inquirer from "inquirer";
 import { getServers } from "../utils/config.js";
 import { resolveServer, promptApiToken, collectProviderTokens } from "../utils/serverSelect.js";
-import { checkSshAvailable, sshExec } from "../utils/ssh.js";
+import { checkSshAvailable } from "../utils/ssh.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
-import { COOLIFY_UPDATE_CMD } from "../constants.js";
+import { executeCoolifyUpdate } from "../core/maintain.js";
 
 interface UpdateOptions {
   all?: boolean;
@@ -43,16 +43,15 @@ async function updateSingleServer(
 
   logger.info(`Updating Coolify on ${serverName} (${serverIp})...`);
 
-  const result = await sshExec(serverIp, COOLIFY_UPDATE_CMD);
+  const result = await executeCoolifyUpdate(serverIp);
 
-  if (result.stdout) console.log(result.stdout);
-  if (result.stderr) console.error(result.stderr);
+  if (result.output) console.log(result.output);
 
-  if (result.code === 0) {
+  if (result.success) {
     logger.success(`${serverName}: Coolify update completed!`);
     return true;
   } else {
-    logger.error(`${serverName}: Update failed with exit code ${result.code}`);
+    logger.error(`${serverName}: Update failed with exit code`);
     return false;
   }
 }
@@ -161,16 +160,15 @@ export async function updateCommand(query?: string, options?: UpdateOptions): Pr
   logger.info("This may take several minutes. Please wait.");
   console.log();
 
-  const result = await sshExec(server.ip, COOLIFY_UPDATE_CMD);
+  const result = await executeCoolifyUpdate(server.ip);
 
-  if (result.stdout) console.log(result.stdout);
-  if (result.stderr) console.error(result.stderr);
+  if (result.output) console.log(result.output);
 
-  if (result.code === 0) {
+  if (result.success) {
     logger.success("Coolify update completed successfully!");
     logger.info(`Access Coolify: http://${server.ip}:8000`);
   } else {
-    logger.error(`Update failed with exit code ${result.code}`);
+    logger.error(`Update failed with exit code ${result.error ?? ""}`);
     logger.info("Check the output above for details.");
   }
 }

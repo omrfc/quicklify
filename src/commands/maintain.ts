@@ -1,13 +1,15 @@
 import inquirer from "inquirer";
-import axios from "axios";
 import { getServers } from "../utils/config.js";
 import { resolveServer, promptApiToken, collectProviderTokens } from "../utils/serverSelect.js";
-import { createProviderWithToken } from "../utils/providerFactory.js";
-import { checkSshAvailable, sshExec } from "../utils/ssh.js";
+import { checkSshAvailable } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
-import { getErrorMessage, mapProviderError, mapSshError } from "../utils/errorMapper.js";
+import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
+import { createProviderWithToken } from "../utils/providerFactory.js";
 import type { ServerRecord } from "../types/index.js";
-import { COOLIFY_UPDATE_CMD } from "../constants.js";
+import {
+  executeCoolifyUpdate,
+  pollCoolifyHealth,
+} from "../core/maintain.js";
 
 interface MaintainOptions {
   skipReboot?: boolean;
@@ -23,33 +25,6 @@ interface MaintainResult {
   healthCheck: boolean;
   reboot: boolean | "skipped";
   finalCheck: boolean | "skipped";
-}
-
-async function checkCoolifyHealth(ip: string): Promise<boolean> {
-  try {
-    await axios.get(`http://${ip}:8000`, {
-      timeout: 5000,
-      validateStatus: () => true,
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function pollCoolifyHealth(
-  ip: string,
-  maxAttempts: number,
-  intervalMs: number,
-): Promise<boolean> {
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const healthy = await checkCoolifyHealth(ip);
-    if (healthy) return true;
-    if (attempt < maxAttempts) {
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
-    }
-  }
-  return false;
 }
 
 function showDryRun(server: ServerRecord, skipReboot: boolean): void {
@@ -151,28 +126,22 @@ async function maintainSingleServer(
     }
   }
 
-  // Step 2: Coolify update
+  // Step 2: Coolify update via core
   const updateSpinner = createSpinner("Step 2: Updating Coolify...");
   updateSpinner.start();
 
-  try {
-    const updateResult = await sshExec(server.ip, COOLIFY_UPDATE_CMD);
-    if (updateResult.code !== 0) {
-      updateSpinner.fail(`Step 2: Update failed (exit code ${updateResult.code})`);
-      if (updateResult.stderr) logger.error(updateResult.stderr.trim());
-      return result;
-    }
-    updateSpinner.succeed("Step 2: Coolify updated");
-    result.update = true;
-  } catch (error: unknown) {
-    updateSpinner.fail("Step 2: Update failed");
-    logger.error(getErrorMessage(error));
-    const hint = mapSshError(error, server.ip);
-    if (hint) logger.info(hint);
+  const updateResult = await executeCoolifyUpdate(server.ip);
+  if (!updateResult.success) {
+    updateSpinner.fail(`Step 2: Update failed`);
+    if (updateResult.output) logger.error(updateResult.output.trim());
+    if (updateResult.error && !updateResult.output) logger.error(updateResult.error);
+    if (updateResult.hint) logger.info(updateResult.hint);
     return result;
   }
+  updateSpinner.succeed("Step 2: Coolify updated");
+  result.update = true;
 
-  // Step 3: Health check after update
+  // Step 3: Health check after update via core
   const healthSpinner = createSpinner("Step 3: Checking Coolify health...");
   healthSpinner.start();
 

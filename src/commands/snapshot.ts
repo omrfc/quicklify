@@ -1,9 +1,10 @@
 import inquirer from "inquirer";
 import { getServers } from "../utils/config.js";
 import { resolveServer, promptApiToken, collectProviderTokens } from "../utils/serverSelect.js";
-import { createProviderWithToken } from "../utils/providerFactory.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
+import { createSnapshot, listSnapshots, deleteSnapshot } from "../core/snapshot.js";
+import { createProviderWithToken } from "../utils/providerFactory.js";
 
 interface SnapshotOptions {
   all?: boolean;
@@ -57,20 +58,18 @@ async function snapshotCreate(
     }
   }
 
-  const snapshotName = `quicklify-${Date.now()}`;
-  const spinner = createSpinner(`Creating snapshot "${snapshotName}"...`);
+  const spinner = createSpinner(`Creating snapshot...`);
   spinner.start();
 
-  try {
-    const snapshot = await provider.createSnapshot(server.id, snapshotName);
-    spinner.succeed(`Snapshot created: ${snapshot.name} (${snapshot.id})`);
-    logger.info(`Status: ${snapshot.status}`);
-    logger.info(`Cost: ${snapshot.costPerMonth}`);
-  } catch (error: unknown) {
+  const result = await createSnapshot(server, apiToken);
+  if (result.success && result.snapshot) {
+    spinner.succeed(`Snapshot created: ${result.snapshot.name} (${result.snapshot.id})`);
+    logger.info(`Status: ${result.snapshot.status}`);
+    logger.info(`Cost: ${result.snapshot.costPerMonth}`);
+  } else {
     spinner.fail("Failed to create snapshot");
-    logger.error(getErrorMessage(error));
-    const hint = mapProviderError(error, server.provider);
-    if (hint) logger.info(hint);
+    if (result.error) logger.error(result.error);
+    if (result.hint) logger.info(result.hint);
   }
 }
 
@@ -79,31 +78,30 @@ async function snapshotList(query?: string): Promise<void> {
   if (!server) return;
 
   const apiToken = await promptApiToken(server.provider);
-  const provider = createProviderWithToken(server.provider, apiToken);
 
   const spinner = createSpinner(`Fetching snapshots for ${server.name}...`);
   spinner.start();
 
-  try {
-    const snapshots = await provider.listSnapshots(server.id);
-    if (snapshots.length === 0) {
-      spinner.succeed(`No snapshots found for ${server.name}`);
-      return;
-    }
-
-    spinner.succeed(`${snapshots.length} snapshot(s) found for ${server.name}`);
-    console.log();
-
-    for (const snap of snapshots) {
-      logger.step(
-        `${snap.name} | ID: ${snap.id} | Size: ${snap.sizeGb.toFixed(1)} GB | Cost: ${snap.costPerMonth} | Created: ${snap.createdAt}`,
-      );
-    }
-  } catch (error: unknown) {
+  const result = await listSnapshots(server, apiToken);
+  if (result.error) {
     spinner.fail("Failed to list snapshots");
-    logger.error(getErrorMessage(error));
-    const hint = mapProviderError(error, server.provider);
-    if (hint) logger.info(hint);
+    logger.error(result.error);
+    if (result.hint) logger.info(result.hint);
+    return;
+  }
+
+  if (result.snapshots.length === 0) {
+    spinner.succeed(`No snapshots found for ${server.name}`);
+    return;
+  }
+
+  spinner.succeed(`${result.snapshots.length} snapshot(s) found for ${server.name}`);
+  console.log();
+
+  for (const snap of result.snapshots) {
+    logger.step(
+      `${snap.name} | ID: ${snap.id} | Size: ${snap.sizeGb.toFixed(1)} GB | Cost: ${snap.costPerMonth} | Created: ${snap.createdAt}`,
+    );
   }
 }
 
@@ -118,28 +116,24 @@ async function snapshotListAll(): Promise<void> {
 
   for (const server of servers) {
     const token = tokenMap.get(server.provider)!;
-    const provider = createProviderWithToken(server.provider, token);
 
     const spinner = createSpinner(`Fetching snapshots for ${server.name}...`);
     spinner.start();
 
-    try {
-      const snapshots = await provider.listSnapshots(server.id);
-      if (snapshots.length === 0) {
-        spinner.succeed(`${server.name}: No snapshots`);
-      } else {
-        spinner.succeed(`${server.name}: ${snapshots.length} snapshot(s)`);
-        for (const snap of snapshots) {
-          logger.step(
-            `  ${snap.name} | ID: ${snap.id} | Size: ${snap.sizeGb.toFixed(1)} GB | Cost: ${snap.costPerMonth} | Created: ${snap.createdAt}`,
-          );
-        }
-      }
-    } catch (error: unknown) {
+    const result = await listSnapshots(server, token);
+    if (result.error) {
       spinner.fail(`${server.name}: Failed to list snapshots`);
-      logger.error(getErrorMessage(error));
-      const hint = mapProviderError(error, server.provider);
-      if (hint) logger.info(hint);
+      logger.error(result.error);
+      if (result.hint) logger.info(result.hint);
+    } else if (result.snapshots.length === 0) {
+      spinner.succeed(`${server.name}: No snapshots`);
+    } else {
+      spinner.succeed(`${server.name}: ${result.snapshots.length} snapshot(s)`);
+      for (const snap of result.snapshots) {
+        logger.step(
+          `  ${snap.name} | ID: ${snap.id} | Size: ${snap.sizeGb.toFixed(1)} GB | Cost: ${snap.costPerMonth} | Created: ${snap.createdAt}`,
+        );
+      }
     }
     console.log();
   }
@@ -153,23 +147,20 @@ async function snapshotDelete(
   if (!server) return;
 
   const apiToken = await promptApiToken(server.provider);
-  const provider = createProviderWithToken(server.provider, apiToken);
 
   // List snapshots to select from
   const listSpinner = createSpinner("Fetching snapshots...");
   listSpinner.start();
 
-  let snapshots;
-  try {
-    snapshots = await provider.listSnapshots(server.id);
-  } catch (error: unknown) {
+  const listResult = await listSnapshots(server, apiToken);
+  if (listResult.error) {
     listSpinner.fail("Failed to list snapshots");
-    logger.error(getErrorMessage(error));
-    const hint = mapProviderError(error, server.provider);
-    if (hint) logger.info(hint);
+    logger.error(listResult.error);
+    if (listResult.hint) logger.info(listResult.hint);
     return;
   }
 
+  const snapshots = listResult.snapshots;
   if (snapshots.length === 0) {
     listSpinner.succeed("No snapshots to delete");
     return;
@@ -207,14 +198,13 @@ async function snapshotDelete(
   const deleteSpinner = createSpinner("Deleting snapshot...");
   deleteSpinner.start();
 
-  try {
-    await provider.deleteSnapshot(selectedId);
+  const deleteResult = await deleteSnapshot(server, apiToken, selectedId);
+  if (deleteResult.success) {
     deleteSpinner.succeed("Snapshot deleted");
-  } catch (error: unknown) {
+  } else {
     deleteSpinner.fail("Failed to delete snapshot");
-    logger.error(getErrorMessage(error));
-    const hint = mapProviderError(error, server.provider);
-    if (hint) logger.info(hint);
+    if (deleteResult.error) logger.error(deleteResult.error);
+    if (deleteResult.hint) logger.info(deleteResult.hint);
   }
 }
 
