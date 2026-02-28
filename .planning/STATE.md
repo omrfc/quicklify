@@ -39,13 +39,13 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 
 ## Current Position
 
-**Phase:** 2 of 3 (Bare Mode)
-**Current Plan:** Not started
+**Phase:** 3 of 3 (MCP Refactor)
+**Current Plan:** 1 of 4 complete
 **Total Plans in Phase:** 4
-**Status:** Milestone complete
+**Status:** In progress
 **Last Activity:** 2026-02-28
 
-Progress: [██████████] 100% (Phase 1) | [██████████] 100% (Phase 2)
+Progress: [██████████] 100% (Phase 1) | [██████████] 100% (Phase 2) | [██░░░░░░░░] 25% (Phase 3)
 
 ## Performance Metrics
 
@@ -69,6 +69,7 @@ Progress: [██████████] 100% (Phase 1) | [██████�
 | Phase 02-bare-mode P02 | 7m43s | 2 tasks | 9 files |
 | Phase 02-bare-mode P03 | 9m40s | 2 tasks | 19 files |
 | Phase 02-bare-mode P04 | 9m16s | 2 tasks | 6 files |
+| Phase 03-mcp-refactor P01 | 4m45s | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,10 @@ Recent decisions affecting current work:
 - [Phase 02-03]: logsCommand: bare+coolify explicit error; bare+no-service silently defaults to system (UNIX convention)
 - [Phase 02-bare-mode]: SAFE_MODE check placed before mode routing in restoreCommand — blocks all restore (bare and coolify) with identical error message
 - [Phase 02-bare-mode]: Separate test files for bare command routing to avoid mock conflicts with existing inline sshExec tests
+- [03-01] McpResponse type exported from utils.ts so tool handlers can use it in Plans 02 and 03
+- [03-01] requireProviderToken returns discriminated union { token } | { error: McpResponse } for clean call-site pattern
+- [03-01] isSafeMode() imported from core/manage.ts (canonical) — restore.ts no longer reads env var directly
+- [03-01] server.ts uses ESM-compatible __dirname via fileURLToPath + dirname(import.meta.url)
 
 ### Pending Todos
 
@@ -114,5 +119,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-mcp-refactor/03-CONTEXT.md
+Stopped at: Completed 03-mcp-refactor/03-01-PLAN.md
+Resume file: .planning/phases/03-mcp-refactor/03-02-PLAN.md
