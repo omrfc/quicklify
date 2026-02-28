@@ -533,6 +533,51 @@ describe("maintainCommand", () => {
     expect(output).toContain("Linux/macOS:");
   });
 
+  // ---- Bare mode guard tests ----
+
+  describe("bare server guard", () => {
+    const bareServer = {
+      id: "bare-123",
+      name: "bare-test",
+      provider: "hetzner",
+      ip: "9.9.9.9",
+      region: "nbg1",
+      size: "cax11",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      mode: "bare" as const,
+    };
+
+    it("should print error and return when server is bare", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([bareServer]);
+
+      await maintainCommand("9.9.9.9");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("bare");
+      // No SSH exec should occur
+      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+    });
+
+    it("should still maintain coolify server (existing behavior unchanged)", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+
+      const inquirer = await import("inquirer");
+      (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+
+      // Step 0: snapshot cost estimate (fails -> skipped)
+      mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
+      // Step 1: not running (keeps test short)
+      mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "off" } } });
+
+      await maintainCommand("1.2.3.4");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Maintenance Report");
+    });
+  });
+
   it("should show update stderr when update fails", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServers.mockReturnValue([sampleServer]);

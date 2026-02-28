@@ -537,5 +537,23 @@ describe("domain", () => {
         expect.stringContaining("SELECT fqdn"),
       );
     });
+
+    // ---- BARE-06 regression: domain works on bare servers ----
+
+    it("should run domain list for bare-mode server without mode-related errors (BARE-06 regression)", async () => {
+      const bareServer = { ...sampleServer, mode: "bare" as const };
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([bareServer]);
+      mockedSsh.sshExec.mockResolvedValue({
+        code: 0,
+        stdout: " https://example.com\n",
+        stderr: "",
+      });
+
+      await domainCommand("list", "1.2.3.4");
+
+      // domain command should proceed to SSH (no mode guard on domain)
+      expect(mockedSsh.sshExec).toHaveBeenCalled();
+    });
   });
 });

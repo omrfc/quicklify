@@ -159,6 +159,45 @@ describe("updateCommand", () => {
     expect(mockedSsh.sshExec).not.toHaveBeenCalled();
   });
 
+  // ---- Bare mode tests ----
+
+  describe("bare server guard", () => {
+    const bareServer = {
+      ...sampleServer,
+      id: "bare-123",
+      name: "bare-test",
+      ip: "9.9.9.9",
+      mode: "bare" as const,
+    };
+
+    it("should print error and return when server is bare", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
+
+      await updateCommand("9.9.9.9");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("bare");
+      // SSH update should NOT have been called
+      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+      expect(mockedInquirer.prompt).not.toHaveBeenCalled();
+    });
+
+    it("should still update coolify server when passed (existing behavior unchanged)", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+      mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+      mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+      mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "Coolify updated", stderr: "" });
+
+      await updateCommand("1.2.3.4");
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("update completed successfully");
+    });
+  });
+
   // ---- --all mode tests ----
 
   describe("--all mode", () => {
@@ -283,6 +322,32 @@ describe("updateCommand", () => {
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("API down");
       expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+    });
+
+    it("should skip bare servers and warn in --all mode", async () => {
+      const bareServer = {
+        ...sampleServer,
+        id: "bare-123",
+        name: "bare-test",
+        ip: "9.9.9.9",
+        mode: "bare" as const,
+      };
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.getServers.mockReturnValue([sampleServer, bareServer]);
+      mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+      mockedServerSelect.collectProviderTokens.mockResolvedValue(
+        new Map([["hetzner", "h-token"]]),
+      );
+      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+      mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "Updated", stderr: "" });
+
+      await updateCommand(undefined, { all: true });
+
+      // Only 1 sshExec call (bare server skipped)
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(1);
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("bare");
     });
   });
 });

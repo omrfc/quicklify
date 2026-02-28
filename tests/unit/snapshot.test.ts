@@ -295,4 +295,41 @@ describe("snapshotCommand", () => {
       expect(mockProvider.deleteSnapshot).not.toHaveBeenCalled();
     });
   });
+
+  // ---- Bare server regression tests ----
+
+  describe("bare server regression (snapshot)", () => {
+    const bareServer = {
+      ...sampleServer,
+      mode: "bare" as const,
+    };
+
+    it("should create snapshot for bare-mode server (snapshot regression)", async () => {
+      mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
+      mockProvider.getSnapshotCostEstimate.mockResolvedValue("€0.24/mo");
+      mockProvider.createSnapshot.mockResolvedValue({
+        id: "snap-bare",
+        serverId: "123",
+        name: "quicklify-bare-snap",
+        status: "available",
+        sizeGb: 3.0,
+        createdAt: "2026-02-28T00:00:00Z",
+        costPerMonth: "€0.03/mo",
+      });
+      mockedInquirer.prompt.mockResolvedValue({ confirm: true });
+
+      await snapshotCommand("create", "test");
+
+      expect(mockProvider.createSnapshot).toHaveBeenCalled();
+    });
+
+    it("should list snapshots for bare-mode server (snapshot regression)", async () => {
+      mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
+      mockProvider.listSnapshots.mockResolvedValue([]);
+
+      await snapshotCommand("list");
+
+      expect(mockProvider.listSnapshots).toHaveBeenCalled();
+    });
+  });
 });

@@ -181,4 +181,28 @@ describe("destroyCommand", () => {
     );
     expect(mockedCoreManage.destroyCloudServer).toHaveBeenCalledWith("coolify-test");
   });
+
+  // ---- BARE-03 regression: destroy works on bare servers ----
+
+  it("should destroy bare-mode server successfully (BARE-03 regression)", async () => {
+    const bareServer = { ...sampleServer, mode: "bare" as const };
+    const bareDestroyResult = {
+      success: true,
+      server: bareServer,
+      cloudDeleted: true,
+      localRemoved: true,
+    };
+
+    mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ confirm: true })
+      .mockResolvedValueOnce({ confirmName: "coolify-test" });
+    mockedCoreManage.destroyCloudServer.mockResolvedValue(bareDestroyResult);
+
+    await destroyCommand("1.2.3.4");
+
+    expect(mockedCoreManage.destroyCloudServer).toHaveBeenCalledWith("coolify-test");
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("removed from your cloud provider");
+  });
 });

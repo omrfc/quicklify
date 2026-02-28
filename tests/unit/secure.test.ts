@@ -529,6 +529,24 @@ describe("secure", () => {
       expect(output).toContain("Security setup complete");
     });
 
+    // ---- BARE-04 regression: secure works on bare servers ----
+
+    it("should run secure status for bare-mode server without mode-related errors (BARE-04 regression)", async () => {
+      const bareServer = { ...sampleServer, mode: "bare" as const };
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([bareServer]);
+      mockedSsh.sshExec.mockResolvedValue({
+        code: 0,
+        stdout: `Port 22\nPasswordAuthentication no\n---SEPARATOR---\nUnit fail2ban.service could not be found.`,
+        stderr: "",
+      });
+
+      await secureCommand("status", "1.2.3.4");
+
+      // Should proceed to SSH command (no mode-related errors)
+      expect(mockedSsh.sshExec).toHaveBeenCalled();
+    });
+
     it("should default to status subcommand", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServers.mockReturnValue([sampleServer]);

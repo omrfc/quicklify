@@ -143,4 +143,63 @@ describe("logsCommand", () => {
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).not.toContain("Log stream ended");
   });
+
+  // ---- Bare mode tests ----
+
+  describe("bare server + service guard", () => {
+    const bareServer = {
+      id: "bare-123",
+      name: "bare-test",
+      provider: "hetzner",
+      ip: "9.9.9.9",
+      region: "nbg1",
+      size: "cax11",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      mode: "bare" as const,
+    };
+
+    it("should error when service=coolify on bare server", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([bareServer]);
+
+      await logsCommand("9.9.9.9", { service: "coolify" });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("bare");
+      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+    });
+
+    it("should work when service=system on bare server", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([bareServer]);
+      mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "system log", stderr: "" });
+
+      await logsCommand("9.9.9.9", { service: "system" });
+
+      expect(mockedSsh.sshExec).toHaveBeenCalled();
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("system log");
+    });
+
+    it("should work when service=docker on bare server", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([bareServer]);
+      mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "docker log", stderr: "" });
+
+      await logsCommand("9.9.9.9", { service: "docker" });
+
+      expect(mockedSsh.sshExec).toHaveBeenCalled();
+    });
+
+    it("should default to system service (not coolify) on bare server when no service specified", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([bareServer]);
+      mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+
+      await logsCommand("9.9.9.9");
+
+      // Should use system logs, not coolify logs
+      expect(mockedSsh.sshExec).toHaveBeenCalledWith("9.9.9.9", expect.stringContaining("journalctl"));
+    });
+  });
 });

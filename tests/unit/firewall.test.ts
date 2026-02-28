@@ -535,6 +535,34 @@ describe("firewall", () => {
       expect(output).toContain("Invalid --protocol");
     });
 
+    // ---- BARE-05 regression: firewall works on bare servers ----
+
+    it("should run firewall status for bare-mode server without mode-related errors (BARE-05 regression)", async () => {
+      const bareServer = { ...sampleServer, mode: "bare" as const };
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([bareServer]);
+      mockedSsh.sshExec.mockResolvedValue({
+        code: 0,
+        stdout: "Status: active",
+        stderr: "",
+      });
+
+      await firewallCommand("status", "1.2.3.4");
+
+      expect(mockedSsh.sshExec).toHaveBeenCalled();
+    });
+
+    it("should setup firewall for bare-mode server without mode-related errors (BARE-05 regression)", async () => {
+      const bareServer = { ...sampleServer, mode: "bare" as const };
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([bareServer]);
+      mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+
+      await firewallCommand("setup", "1.2.3.4");
+
+      expect(mockedSsh.sshExec).toHaveBeenCalled();
+    });
+
     it("should show no rules message when list returns active but empty", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServers.mockReturnValue([sampleServer]);

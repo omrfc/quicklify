@@ -6,6 +6,7 @@ import { createProviderWithToken } from "../utils/providerFactory.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { executeCoolifyUpdate } from "../core/maintain.js";
+import { isBareServer, requireCoolifyMode } from "../utils/modeGuard.js";
 
 interface UpdateOptions {
   all?: boolean;
@@ -88,6 +89,13 @@ async function updateAll(): Promise<void> {
   let failed = 0;
 
   for (const server of servers) {
+    if (isBareServer(server)) {
+      logger.warning(
+        `Skipping ${server.name}: update command is not available for bare servers (requires Coolify).`,
+      );
+      console.log();
+      continue;
+    }
     const token = tokenMap.get(server.provider)!;
     const ok = await updateSingleServer(server.name, server.ip, server.id, server.provider, token);
     if (ok) succeeded++;
@@ -116,6 +124,12 @@ export async function updateCommand(query?: string, options?: UpdateOptions): Pr
 
   const server = await resolveServer(query, "Select a server to update:");
   if (!server) return;
+
+  const modeError = requireCoolifyMode(server, "update");
+  if (modeError) {
+    logger.error(modeError);
+    return;
+  }
 
   const { confirm } = await inquirer.prompt([
     {

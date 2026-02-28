@@ -1,11 +1,14 @@
 import axios from "axios";
 import * as config from "../../src/utils/config";
+import * as serverSelect from "../../src/utils/serverSelect";
 import { checkServerHealth, healthCommand } from "../../src/commands/health";
 
 jest.mock("../../src/utils/config");
+jest.mock("../../src/utils/serverSelect");
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedConfig = config as jest.Mocked<typeof config>;
+const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
 
 const sampleServer = {
   id: "123",
@@ -103,5 +106,50 @@ describe("healthCommand", () => {
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("1 healthy");
     expect(output).toContain("1 unreachable");
+  });
+
+  // ---- Bare mode tests ----
+
+  describe("bare server guard", () => {
+    const bareServer = {
+      ...sampleServer,
+      id: "bare-123",
+      name: "bare-test",
+      ip: "9.9.9.9",
+      mode: "bare" as const,
+    };
+
+    it("should skip bare servers and warn when all servers are bare", async () => {
+      mockedConfig.getServers.mockReturnValue([bareServer]);
+
+      await healthCommand();
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("bare");
+      // No health check performed (no axios.get call)
+      expect(mockedAxios.get).not.toHaveBeenCalled();
+    });
+
+    it("should skip bare servers but health-check coolify servers in mixed list", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer, bareServer]);
+      mockedAxios.get.mockResolvedValueOnce({ data: {}, status: 200 });
+
+      await healthCommand();
+
+      // Only one health check (for coolify server, not bare)
+      expect(mockedAxios.get).toHaveBeenCalledTimes(1);
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("coolify-test");
+      // Health table should contain healthy coolify server only
+      expect(output).toContain("healthy");
+    });
+
+    it("should show message when all servers are bare (no Coolify health checks run)", async () => {
+      mockedConfig.getServers.mockReturnValue([bareServer]);
+
+      await healthCommand();
+
+      expect(mockedAxios.get).not.toHaveBeenCalled();
+    });
   });
 });

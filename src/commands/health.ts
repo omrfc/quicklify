@@ -1,5 +1,6 @@
 import { getServers } from "../utils/config.js";
 import { checkCoolifyHealth } from "../core/status.js";
+import { isBareServer } from "../utils/modeGuard.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import type { ServerRecord } from "../types/index.js";
 
@@ -30,10 +31,24 @@ export async function healthCommand(): Promise<void> {
     return;
   }
 
-  const spinner = createSpinner(`Checking health of ${servers.length} server(s)...`);
+  // Filter out bare servers — health command requires Coolify
+  const bareServers = servers.filter(isBareServer);
+  const coolifyServers = servers.filter((s) => !isBareServer(s));
+
+  for (const bare of bareServers) {
+    logger.warning(
+      `Skipping ${bare.name}: health command is not available for bare servers (requires Coolify).`,
+    );
+  }
+
+  if (coolifyServers.length === 0) {
+    return;
+  }
+
+  const spinner = createSpinner(`Checking health of ${coolifyServers.length} server(s)...`);
   spinner.start();
 
-  const results = await Promise.all(servers.map(checkServerHealth));
+  const results = await Promise.all(coolifyServers.map(checkServerHealth));
 
   spinner.succeed("Health check complete");
 
