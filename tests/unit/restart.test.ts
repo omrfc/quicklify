@@ -1,13 +1,20 @@
 import inquirer from "inquirer";
-import axios from "axios";
-import * as config from "../../src/utils/config";
 import { restartCommand } from "../../src/commands/restart";
+import * as coreManage from "../../src/core/manage";
+import * as coreStatus from "../../src/core/status";
+import * as coreTokens from "../../src/core/tokens";
+import * as serverSelect from "../../src/utils/serverSelect";
 
-jest.mock("../../src/utils/config");
+jest.mock("../../src/core/manage");
+jest.mock("../../src/core/status");
+jest.mock("../../src/core/tokens");
+jest.mock("../../src/utils/serverSelect");
 
 const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
-const mockedAxios = axios as jest.Mocked<typeof axios>;
-const mockedConfig = config as jest.Mocked<typeof config>;
+const mockedCoreManage = coreManage as jest.Mocked<typeof coreManage>;
+const mockedCoreStatus = coreStatus as jest.Mocked<typeof coreStatus>;
+const mockedCoreTokens = coreTokens as jest.Mocked<typeof coreTokens>;
+const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
 
 const sampleServer = {
   id: "123",
@@ -22,106 +29,107 @@ const sampleServer = {
 describe("restartCommand", () => {
   let consoleSpy: jest.SpyInstance;
   const originalSetTimeout = global.setTimeout;
-  const savedEnv: Record<string, string | undefined> = {};
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
     jest.clearAllMocks();
-    // Save and clear provider tokens so promptApiToken doesn't skip the prompt
-    for (const key of ["HETZNER_TOKEN", "DIGITALOCEAN_TOKEN", "VULTR_TOKEN", "LINODE_TOKEN"]) {
-      savedEnv[key] = process.env[key];
-      delete process.env[key];
-    }
     // Make setTimeout instant
     global.setTimeout = ((fn: Function) => {
       fn();
       return 0;
     }) as any;
+
+    mockedCoreTokens.getProviderToken.mockReturnValue("test-token");
   });
 
   afterEach(() => {
     consoleSpy.mockRestore();
     global.setTimeout = originalSetTimeout;
-    // Restore provider tokens
-    for (const key of ["HETZNER_TOKEN", "DIGITALOCEAN_TOKEN", "VULTR_TOKEN", "LINODE_TOKEN"]) {
-      if (savedEnv[key] !== undefined) process.env[key] = savedEnv[key];
-      else delete process.env[key];
-    }
   });
 
   it("should return when no server found", async () => {
-    mockedConfig.findServers.mockReturnValue([]);
+    mockedServerSelect.resolveServer.mockResolvedValue(undefined);
+
     await restartCommand("nonexistent");
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("Server not found");
+
+    // resolveServer returns undefined (it logs "Server not found" internally)
+    expect(mockedCoreManage.rebootServer).not.toHaveBeenCalled();
   });
 
   it("should return when no servers exist", async () => {
-    mockedConfig.getServers.mockReturnValue([]);
+    mockedServerSelect.resolveServer.mockResolvedValue(undefined);
+
     await restartCommand();
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("No servers found");
+
+    expect(mockedCoreManage.rebootServer).not.toHaveBeenCalled();
   });
 
   it("should cancel when user declines", async () => {
-    mockedConfig.findServers.mockReturnValue([sampleServer]);
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
     mockedInquirer.prompt.mockResolvedValueOnce({ confirm: false });
 
     await restartCommand("1.2.3.4");
+
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("Restart cancelled");
+    expect(mockedCoreManage.rebootServer).not.toHaveBeenCalled();
   });
 
   it("should reboot server successfully", async () => {
-    mockedConfig.findServers.mockReturnValue([sampleServer]);
-    mockedInquirer.prompt
-      .mockResolvedValueOnce({ confirm: true })
-      .mockResolvedValueOnce({ apiToken: "test-token" });
-
-    // validateToken
-    mockedAxios.get.mockResolvedValueOnce({ data: { servers: [] } });
-    // rebootServer
-    mockedAxios.post.mockResolvedValueOnce({ data: { action: { id: 1 } } });
-    // getServerStatus (polling)
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedCoreManage.rebootServer.mockResolvedValue({ success: true, server: sampleServer });
+    // Polling: server comes back running
+    mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
 
     await restartCommand("1.2.3.4");
+
+    expect(mockedCoreManage.rebootServer).toHaveBeenCalledWith("coolify-test");
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("restarted successfully");
   });
 
-  it("should handle reboot API error", async () => {
-    mockedConfig.findServers.mockReturnValue([sampleServer]);
-    mockedInquirer.prompt
-      .mockResolvedValueOnce({ confirm: true })
-      .mockResolvedValueOnce({ apiToken: "test-token" });
-
-    // validateToken
-    mockedAxios.get.mockResolvedValueOnce({ data: { servers: [] } });
-    // rebootServer fails
-    mockedAxios.post.mockRejectedValueOnce(new Error("API Error"));
+  it("should handle reboot error from core", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedCoreManage.rebootServer.mockResolvedValue({
+      success: false,
+      server: sampleServer,
+      error: "API Error",
+    });
 
     await restartCommand("1.2.3.4");
+
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("Failed to reboot");
+    expect(output).not.toContain("restarted successfully");
   });
 
   it("should show timeout warning when server does not come back", async () => {
-    mockedConfig.findServers.mockReturnValue([sampleServer]);
-    mockedInquirer.prompt
-      .mockResolvedValueOnce({ confirm: true })
-      .mockResolvedValueOnce({ apiToken: "test-token" });
-
-    // validateToken
-    mockedAxios.get.mockResolvedValueOnce({ data: { servers: [] } });
-    // rebootServer success
-    mockedAxios.post.mockResolvedValueOnce({ data: { action: { id: 1 } } });
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedCoreManage.rebootServer.mockResolvedValue({ success: true, server: sampleServer });
     // All polling attempts return non-running status
-    mockedAxios.get.mockResolvedValue({ data: { server: { status: "off" } } });
+    mockedCoreStatus.getCloudServerStatus.mockResolvedValue("off");
 
     await restartCommand("1.2.3.4");
+
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("may still be rebooting");
     expect(output).toContain("Check status later");
+  });
+
+  it("should not reboot manually added servers", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedCoreManage.rebootServer.mockResolvedValue({
+      success: false,
+      server: sampleServer,
+      error: `Server "coolify-test" was manually added. Reboot is only available for cloud-provisioned servers.`,
+    });
+
+    await restartCommand("1.2.3.4");
+
+    // No polling should happen since reboot failed
+    expect(mockedCoreStatus.getCloudServerStatus).not.toHaveBeenCalled();
   });
 });

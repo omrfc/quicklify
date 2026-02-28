@@ -1,5 +1,5 @@
-import axios from "axios";
 import { getServers } from "../utils/config.js";
+import { checkCoolifyHealth } from "../core/status.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import type { ServerRecord } from "../types/index.js";
 
@@ -12,12 +12,9 @@ export interface HealthResult {
 export async function checkServerHealth(server: ServerRecord): Promise<HealthResult> {
   const start = Date.now();
   try {
-    const response = await axios.get(`http://${server.ip}:8000`, {
-      timeout: 5000,
-      validateStatus: () => true,
-    });
+    const healthStatus = await checkCoolifyHealth(server.ip);
     const responseTime = Date.now() - start;
-    const status = response.status < 500 ? "healthy" : "unhealthy";
+    const status = healthStatus === "running" ? "healthy" : "unreachable";
     return { server, status, responseTime };
   } catch {
     const responseTime = Date.now() - start;

@@ -1,8 +1,9 @@
 import inquirer from "inquirer";
-import { resolveServer, promptApiToken } from "../utils/serverSelect.js";
-import { createProviderWithToken } from "../utils/providerFactory.js";
+import { resolveServer } from "../utils/serverSelect.js";
+import { rebootServer } from "../core/manage.js";
+import { getCloudServerStatus } from "../core/status.js";
+import { getProviderToken } from "../core/tokens.js";
 import { logger, createSpinner } from "../utils/logger.js";
-import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 
 export async function restartCommand(query?: string): Promise<void> {
   const server = await resolveServer(query, "Select a server to restart:");
@@ -22,52 +23,45 @@ export async function restartCommand(query?: string): Promise<void> {
     return;
   }
 
-  const apiToken = await promptApiToken(server.provider);
-
   const spinner = createSpinner("Rebooting server...");
   spinner.start();
 
-  try {
-    if (server.id.startsWith("manual-")) {
-      spinner.fail(
-        "Cannot reboot manually added server via API. Use SSH: ssh root@" + server.ip + " reboot",
-      );
-      return;
-    }
-    const provider = createProviderWithToken(server.provider, apiToken);
-    await provider.rebootServer(server.id);
-    spinner.succeed("Reboot initiated");
+  // Delegate reboot to core
+  const result = await rebootServer(server.name);
 
-    const pollSpinner = createSpinner("Waiting for server to come back online...");
-    pollSpinner.start();
-
-    let attempts = 0;
-    const maxAttempts = 30;
-
-    while (attempts < maxAttempts) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      try {
-        const status = await provider.getServerStatus(server.id);
-        if (status === "running") {
-          pollSpinner.succeed("Server is running");
-          console.log();
-          logger.success(`Server "${server.name}" restarted successfully`);
-          logger.info(`Access Coolify: http://${server.ip}:8000`);
-          return;
-        }
-      } catch {
-        // Server might be temporarily unreachable during reboot
-      }
-      attempts++;
-      pollSpinner.text = `Waiting for server... (${attempts}/${maxAttempts})`;
-    }
-
-    pollSpinner.warn("Server did not come back in time");
-    logger.warning("The server may still be rebooting. Check status later with: quicklify status");
-  } catch (error: unknown) {
-    spinner.fail("Failed to reboot server");
-    logger.error(getErrorMessage(error));
-    const hint = mapProviderError(error, server.provider);
-    if (hint) logger.info(hint);
+  if (!result.success) {
+    spinner.fail(result.error ?? "Failed to reboot server");
+    if (result.hint) logger.info(result.hint);
+    return;
   }
+
+  spinner.succeed("Reboot initiated");
+
+  const pollSpinner = createSpinner("Waiting for server to come back online...");
+  pollSpinner.start();
+
+  const token = getProviderToken(server.provider) ?? "";
+  let attempts = 0;
+  const maxAttempts = 30;
+
+  while (attempts < maxAttempts) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      const status = await getCloudServerStatus(server, token);
+      if (status === "running") {
+        pollSpinner.succeed("Server is running");
+        console.log();
+        logger.success(`Server "${server.name}" restarted successfully`);
+        logger.info(`Access Coolify: http://${server.ip}:8000`);
+        return;
+      }
+    } catch {
+      // Server might be temporarily unreachable during reboot
+    }
+    attempts++;
+    pollSpinner.text = `Waiting for server... (${attempts}/${maxAttempts})`;
+  }
+
+  pollSpinner.warn("Server did not come back in time");
+  logger.warning("The server may still be rebooting. Check status later with: quicklify status");
 }

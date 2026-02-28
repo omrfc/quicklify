@@ -262,3 +262,50 @@ export async function destroyCloudServer(query: string): Promise<DestroyServerRe
     };
   }
 }
+
+// ─── Reboot Server ────────────────────────────────────────────────────────────
+
+export interface RebootServerResult {
+  success: boolean;
+  server?: ServerRecord;
+  error?: string;
+  hint?: string;
+}
+
+export async function rebootServer(query: string): Promise<RebootServerResult> {
+  const server = findServer(query);
+  if (!server) {
+    return { success: false, error: `Server not found: ${query}` };
+  }
+
+  if (server.id.startsWith("manual-")) {
+    return {
+      success: false,
+      server,
+      error: `Server "${server.name}" was manually added. Reboot is only available for cloud-provisioned servers.`,
+    };
+  }
+
+  const token = getProviderToken(server.provider);
+  if (!token) {
+    return {
+      success: false,
+      server,
+      error: `No API token for ${server.provider}. Set ${server.provider.toUpperCase()}_TOKEN environment variable`,
+    };
+  }
+
+  try {
+    const provider = createProviderWithToken(server.provider, token);
+    await provider.rebootServer(server.id);
+    return { success: true, server };
+  } catch (error: unknown) {
+    const hint = mapProviderError(error, server.provider);
+    return {
+      success: false,
+      server,
+      error: getErrorMessage(error),
+      ...(hint ? { hint } : {}),
+    };
+  }
+}
