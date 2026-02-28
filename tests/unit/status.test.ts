@@ -243,6 +243,87 @@ describe("statusCommand", () => {
     });
   });
 
+  // ---- Bare mode tests ----
+
+  describe("bare server", () => {
+    const bareServer = {
+      id: "bare-123",
+      name: "bare-test",
+      provider: "hetzner",
+      ip: "9.9.9.9",
+      region: "nbg1",
+      size: "cax11",
+      createdAt: "2026-02-20T00:00:00Z",
+      mode: "bare" as const,
+    };
+
+    it("should display Mode: bare in status output for bare server", async () => {
+      mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
+      mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+
+      await statusCommand("9.9.9.9");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("bare");
+    });
+
+    it("should NOT show Coolify status line for bare server", async () => {
+      mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
+      mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+
+      await statusCommand("9.9.9.9");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).not.toContain("Coolify Status");
+      // Should not attempt Coolify health check
+      expect(mockedAxios.get).not.toHaveBeenCalled();
+    });
+
+    it("should NOT trigger autostart for bare server", async () => {
+      mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
+      mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+
+      await statusCommand("9.9.9.9", { autostart: true });
+
+      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+      expect(mockedAxios.get).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("--all mode with mixed bare+coolify", () => {
+    const bareServer = {
+      id: "bare-123",
+      name: "bare-test",
+      provider: "hetzner",
+      ip: "9.9.9.9",
+      region: "nbg1",
+      size: "cax11",
+      createdAt: "2026-02-20T00:00:00Z",
+      mode: "bare" as const,
+    };
+
+    it("should include Mode column in status table output", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer, bareServer]);
+      mockedServerSelect.collectProviderTokens.mockResolvedValue(
+        new Map([["hetzner", "h-token"]]),
+      );
+      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+      mockedAxios.get.mockResolvedValue({ status: 200 });
+
+      await statusCommand(undefined, { all: true });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Mode");
+    });
+  });
+
   // ---- --autostart tests ----
 
   describe("--autostart mode", () => {

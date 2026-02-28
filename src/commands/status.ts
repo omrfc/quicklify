@@ -8,6 +8,7 @@ import {
   checkAllServersStatus,
   checkCoolifyHealth,
 } from "../core/status.js";
+import { isBareServer, getServerMode } from "../utils/modeGuard.js";
 import type { ServerRecord } from "../types/index.js";
 import type { StatusResult } from "../core/status.js";
 import { COOLIFY_RESTART_CMD } from "../constants.js";
@@ -18,26 +19,31 @@ interface StatusOptions {
 }
 
 function printStatusTable(results: StatusResult[]): void {
-  const header = `${"Name".padEnd(20)} ${"IP".padEnd(16)} ${"Provider".padEnd(14)} ${"Server".padEnd(12)} ${"Coolify".padEnd(14)}`;
+  const header = `${"Name".padEnd(20)} ${"IP".padEnd(16)} ${"Provider".padEnd(14)} ${"Mode".padEnd(10)} ${"Server".padEnd(12)} ${"Coolify".padEnd(14)}`;
   console.log(header);
   console.log("─".repeat(header.length));
 
   for (const r of results) {
     const serverStr = r.error ? "error" : r.serverStatus;
     const coolifyStr = r.coolifyStatus;
+    const modeStr = getServerMode(r.server);
     console.log(
-      `${r.server.name.padEnd(20)} ${r.server.ip.padEnd(16)} ${r.server.provider.padEnd(14)} ${serverStr.padEnd(12)} ${coolifyStr.padEnd(14)}`,
+      `${r.server.name.padEnd(20)} ${r.server.ip.padEnd(16)} ${r.server.provider.padEnd(14)} ${modeStr.padEnd(10)} ${serverStr.padEnd(12)} ${coolifyStr.padEnd(14)}`,
     );
   }
 }
 
 function printStatusSummary(results: StatusResult[]): void {
-  const running = results.filter((r) => r.coolifyStatus === "running").length;
+  const coolifyResults = results.filter((r) => !isBareServer(r.server));
+  const running = coolifyResults.filter((r) => r.coolifyStatus === "running").length;
   const errors = results.filter((r) => r.error).length;
+  const bareCount = results.filter((r) => isBareServer(r.server)).length;
   if (errors > 0) {
-    logger.warning(`${running} running, ${errors} error(s)`);
+    logger.warning(`${running} running, ${errors} error(s)${bareCount > 0 ? `, ${bareCount} bare` : ""}`);
+  } else if (bareCount > 0 && coolifyResults.length === 0) {
+    logger.success(`${bareCount} bare server(s) running`);
   } else {
-    logger.success(`${running}/${results.length} server(s) with Coolify running`);
+    logger.success(`${running}/${coolifyResults.length} server(s) with Coolify running${bareCount > 0 ? `, ${bareCount} bare` : ""}`);
   }
 }
 
@@ -112,7 +118,6 @@ export async function statusCommand(query?: string, options?: StatusOptions): Pr
 
   try {
     const serverStatus = await getCloudServerStatus(server, apiToken);
-    const coolifyStatus = await checkCoolifyHealth(server.ip);
 
     spinner.succeed("Status retrieved");
 
@@ -122,19 +127,30 @@ export async function statusCommand(query?: string, options?: StatusOptions): Pr
     logger.info(`IP:             ${server.ip}`);
     logger.info(`Region:         ${server.region}`);
     logger.info(`Size:           ${server.size}`);
+    logger.info(`Mode:           ${getServerMode(server)}`);
     logger.info(`Server Status:  ${serverStatus}`);
-    logger.info(`Coolify Status: ${coolifyStatus}`);
-    console.log();
 
-    if (coolifyStatus === "running") {
-      logger.success(`Access Coolify: http://${server.ip}:8000`);
-      logger.warning("Running on HTTP. Set up a domain + SSL for production use.");
+    if (isBareServer(server)) {
+      // Bare servers: no Coolify, show SSH info
+      logger.info("Mode: bare (no platform installed)");
+      console.log();
+      logger.info(`SSH:            ssh root@${server.ip}`);
     } else {
-      logger.warning("Coolify is not reachable. It may still be installing.");
+      // Coolify servers: check and display Coolify status
+      const coolifyStatus = await checkCoolifyHealth(server.ip);
+      logger.info(`Coolify Status: ${coolifyStatus}`);
+      console.log();
 
-      // Autostart: restart Coolify if server is running but Coolify is down
-      if (options?.autostart && serverStatus === "running") {
-        await autostartCoolify(server);
+      if (coolifyStatus === "running") {
+        logger.success(`Access Coolify: http://${server.ip}:8000`);
+        logger.warning("Running on HTTP. Set up a domain + SSL for production use.");
+      } else {
+        logger.warning("Coolify is not reachable. It may still be installing.");
+
+        // Autostart: restart Coolify if server is running but Coolify is down
+        if (options?.autostart && serverStatus === "running") {
+          await autostartCoolify(server);
+        }
       }
     }
   } catch (error: unknown) {

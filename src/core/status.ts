@@ -2,6 +2,7 @@ import axios from "axios";
 import { createProviderWithToken } from "../utils/providerFactory.js";
 import { getErrorMessage } from "../utils/errorMapper.js";
 import { assertValidIp } from "../utils/ssh.js";
+import { isBareServer } from "../utils/modeGuard.js";
 import type { ServerRecord } from "../types/index.js";
 
 export interface StatusResult {
@@ -41,7 +42,7 @@ export async function checkServerStatus(
 ): Promise<StatusResult> {
   try {
     const serverStatus = await getCloudServerStatus(server, apiToken);
-    const coolifyStatus = await checkCoolifyHealth(server.ip);
+    const coolifyStatus = isBareServer(server) ? "n/a" : await checkCoolifyHealth(server.ip);
     return { server, serverStatus, coolifyStatus };
   } catch (error: unknown) {
     return {

@@ -258,3 +258,55 @@ describe("checkAllServersStatus", () => {
     expect(results).toEqual([]);
   });
 });
+
+// ---- Bare mode tests ----
+
+describe("checkServerStatus - bare mode", () => {
+  it("should return coolifyStatus='n/a' for bare server without calling checkCoolifyHealth", async () => {
+    const bareServer = { ...sampleServer, mode: "bare" as const };
+    (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+
+    const result = await checkServerStatus(bareServer, "test-token");
+
+    expect(result.coolifyStatus).toBe("n/a");
+    expect(result.serverStatus).toBe("running");
+    expect(result.error).toBeUndefined();
+    // axios.get should NOT have been called (no Coolify health check for bare servers)
+    expect(mockedAxios.get).not.toHaveBeenCalled();
+  });
+
+  it("should call checkCoolifyHealth for coolify server (existing behavior unchanged)", async () => {
+    const coolifyServer = { ...sampleServer, mode: "coolify" as const };
+    (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+    mockedAxios.get.mockResolvedValueOnce({ status: 200 });
+
+    const result = await checkServerStatus(coolifyServer, "test-token");
+
+    expect(result.coolifyStatus).toBe("running");
+    expect(mockedAxios.get).toHaveBeenCalled();
+  });
+
+  it("should handle mixed bare+coolify servers in checkAllServersStatus", async () => {
+    const bareServer = { ...sampleServer, id: "bare-1", name: "bare-one", mode: "bare" as const };
+    const coolifyServer = { ...sampleServer2, mode: "coolify" as const };
+
+    (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+    // Only coolify server triggers axios.get
+    mockedAxios.get.mockResolvedValueOnce({ status: 200 });
+
+    const tokenMap = new Map([
+      ["hetzner", "h-token"],
+      ["digitalocean", "do-token"],
+    ]);
+
+    const results = await checkAllServersStatus([bareServer, coolifyServer], tokenMap);
+
+    expect(results[0].coolifyStatus).toBe("n/a"); // bare
+    expect(results[1].coolifyStatus).toBe("running"); // coolify
+    // axios.get called only once (for coolify server)
+    expect(mockedAxios.get).toHaveBeenCalledTimes(1);
+  });
+});

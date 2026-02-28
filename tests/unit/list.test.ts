@@ -82,6 +82,65 @@ describe("listCommand", () => {
     expect(output).toContain("Total: 2 server(s)");
   });
 
+  it("should include Mode column header in list output", async () => {
+    mockedConfig.getServers.mockReturnValue([
+      {
+        id: "123",
+        name: "coolify-test",
+        provider: "hetzner",
+        ip: "1.2.3.4",
+        region: "nbg1",
+        size: "cax11",
+        createdAt: "2026-02-20T10:00:00Z",
+        mode: "coolify" as const,
+      },
+    ]);
+
+    await listCommand();
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Mode");
+  });
+
+  it("should show bare mode in Mode column", async () => {
+    mockedConfig.getServers.mockReturnValue([
+      {
+        id: "bare-1",
+        name: "bare-server",
+        provider: "hetzner",
+        ip: "9.9.9.9",
+        region: "nbg1",
+        size: "cax11",
+        createdAt: "2026-02-20T10:00:00Z",
+        mode: "bare" as const,
+      },
+    ]);
+
+    await listCommand();
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("bare");
+  });
+
+  it("should show coolify mode for legacy servers (no mode field)", async () => {
+    mockedConfig.getServers.mockReturnValue([
+      {
+        id: "123",
+        name: "legacy-server",
+        provider: "hetzner",
+        ip: "1.2.3.4",
+        region: "nbg1",
+        size: "cax11",
+        createdAt: "2026-02-20T10:00:00Z",
+      },
+    ]);
+
+    await listCommand();
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("coolify");
+  });
+
   it("should handle missing createdAt gracefully", async () => {
     mockedConfig.getServers.mockReturnValue([
       {
