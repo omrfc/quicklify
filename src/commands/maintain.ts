@@ -7,8 +7,7 @@ import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapProviderError, mapSshError } from "../utils/errorMapper.js";
 import type { ServerRecord } from "../types/index.js";
-
-const COOLIFY_UPDATE_CMD = "curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash";
+import { COOLIFY_UPDATE_CMD } from "../constants.js";
 
 interface MaintainOptions {
   skipReboot?: boolean;

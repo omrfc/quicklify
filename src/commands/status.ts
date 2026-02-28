@@ -10,9 +10,7 @@ import {
 } from "../core/status.js";
 import type { ServerRecord } from "../types/index.js";
 import type { StatusResult } from "../core/status.js";
-
-const COOLIFY_RESTART_CMD =
-  "cd /data/coolify/source && docker compose -f docker-compose.yml -f docker-compose.prod.yml restart coolify";
+import { COOLIFY_RESTART_CMD } from "../constants.js";
 
 interface StatusOptions {
   all?: boolean;

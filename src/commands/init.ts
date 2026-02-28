@@ -24,22 +24,7 @@ import { secureSetup } from "./secure.js";
 import { loadYamlConfig } from "../utils/yamlConfig.js";
 import { mergeConfig } from "../utils/configMerge.js";
 import { getTemplate, getTemplateDefaults, VALID_TEMPLATE_NAMES } from "../utils/templates.js";
-
-// Provider-specific IP wait configuration (IP assignment latency varies significantly)
-const IP_WAIT: Record<string, { attempts: number; interval: number }> = {
-  hetzner:      { attempts: 10, interval: 3000 },   // 30s (instant IP)
-  digitalocean: { attempts: 20, interval: 3000 },   // 60s
-  vultr:        { attempts: 40, interval: 5000 },   // 200s (slowest IP assignment)
-  linode:       { attempts: 30, interval: 5000 },   // 150s
-};
-
-// Provider-specific minimum wait before first Coolify health check
-const COOLIFY_MIN_WAIT: Record<string, number> = {
-  hetzner: 60000,
-  digitalocean: 120000,
-  vultr: 180000,
-  linode: 120000,
-};
+import { IP_WAIT, COOLIFY_MIN_WAIT } from "../constants.js";
 
 export async function initCommand(options: InitOptions = {}): Promise<void> {
   // Load YAML config if --config flag provided

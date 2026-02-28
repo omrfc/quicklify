@@ -9,6 +9,7 @@ import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { assertValidIp } from "../utils/ssh.js";
 import type { CloudProvider } from "../providers/base.js";
 import type { ServerRecord } from "../types/index.js";
+import { IP_WAIT, BOOT_MAX_ATTEMPTS, BOOT_INTERVAL } from "../constants.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -26,19 +27,6 @@ export interface ProvisionResult {
   error?: string;
   hint?: string;
 }
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-// TODO: v1.2.0'da init.ts ile birleştirilecek — ortak modüle taşı
-const IP_WAIT: Record<string, { attempts: number; interval: number }> = {
-  hetzner:      { attempts: 10, interval: 3000 },   // 30s
-  digitalocean: { attempts: 20, interval: 3000 },   // 60s
-  vultr:        { attempts: 40, interval: 5000 },    // 200s
-  linode:       { attempts: 30, interval: 5000 },    // 150s
-};
-
-const BOOT_MAX_ATTEMPTS = 30;
-const BOOT_INTERVAL = 1000;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

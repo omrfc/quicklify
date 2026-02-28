@@ -5,8 +5,7 @@ import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
-
-const COOLIFY_UPDATE_CMD = "curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash";
+import { COOLIFY_UPDATE_CMD } from "../constants.js";
 
 interface UpdateOptions {
   all?: boolean;

@@ -1,12 +1,11 @@
 import { sshExec, assertValidIp } from "../utils/ssh.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
-
-// ─── Constants ──────────────────────────────────────────────────────────────
-
-const COOLIFY_SOURCE_DIR = "/data/coolify/source";
-const COOLIFY_DB_CONTAINER = "coolify-db";
-const COOLIFY_DB_USER = "coolify";
-const COOLIFY_DB_NAME = "coolify";
+import {
+  COOLIFY_SOURCE_DIR,
+  COOLIFY_DB_CONTAINER,
+  COOLIFY_DB_USER,
+  COOLIFY_DB_NAME,
+} from "../constants.js";
 
 // ─── Pure Functions ─────────────────────────────────────────────────────────
 

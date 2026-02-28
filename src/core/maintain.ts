@@ -3,10 +3,7 @@ import { createProviderWithToken } from "../utils/providerFactory.js";
 import { checkCoolifyHealth, getCloudServerStatus } from "./status.js";
 import { getErrorMessage, mapSshError, mapProviderError } from "../utils/errorMapper.js";
 import type { ServerRecord } from "../types/index.js";
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const COOLIFY_UPDATE_CMD = "curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash";
+import { COOLIFY_UPDATE_CMD } from "../constants.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
