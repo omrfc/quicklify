@@ -135,3 +135,11 @@ export interface BackupManifest {
   coolifyVersion: string;
   files: string[];
 }
+
+// Result pattern for core/ functions (no exceptions thrown)
+export interface QuicklifyResult<T = void> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  hint?: string;
+}
