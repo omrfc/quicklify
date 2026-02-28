@@ -1,78 +1,36 @@
-import { readFileSync, existsSync } from "fs";
+import { existsSync } from "fs";
 import { join, basename } from "path";
-import { spawn } from "child_process";
 import inquirer from "inquirer";
 import { resolveServer } from "../utils/serverSelect.js";
-import { checkSshAvailable, sshExec, sanitizedEnv } from "../utils/ssh.js";
+import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { listBackups, getBackupDir } from "./backup.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 import type { BackupManifest } from "../types/index.js";
+import {
+  buildStopCoolifyCommand,
+  buildStartCoolifyCommand,
+  buildStartDbCommand,
+  buildRestoreDbCommand,
+  buildRestoreConfigCommand,
+  buildCleanupCommand,
+  loadManifest,
+  scpUpload,
+  tryRestartCoolify,
+} from "../core/backup.js";
 
-// Pure functions (testable)
-
-export function buildStopCoolifyCommand(): string {
-  return "cd /data/coolify/source && docker compose -f docker-compose.yml -f docker-compose.prod.yml stop";
-}
-
-export function buildStartCoolifyCommand(): string {
-  return "cd /data/coolify/source && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d";
-}
-
-export function buildStartDbCommand(): string {
-  return "cd /data/coolify/source && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d postgres && sleep 3";
-}
-
-export function buildRestoreDbCommand(): string {
-  return "gunzip -c /tmp/coolify-backup.sql.gz | docker exec -i coolify-db psql -U coolify -d coolify";
-}
-
-export function buildRestoreConfigCommand(): string {
-  return "tar xzf /tmp/coolify-config.tar.gz -C /data/coolify/source";
-}
-
-export function buildCleanupCommand(): string {
-  return "rm -f /tmp/coolify-backup.sql.gz /tmp/coolify-config.tar.gz";
-}
-
-export function scpUpload(
-  ip: string,
-  localPath: string,
-  remotePath: string,
-): Promise<{ code: number; stderr: string }> {
-  return new Promise((resolve) => {
-    const child = spawn(
-      "scp",
-      ["-o", "StrictHostKeyChecking=accept-new", localPath, `root@${ip}:${remotePath}`],
-      { stdio: ["inherit", "pipe", "pipe"], env: sanitizedEnv() },
-    );
-    let stderr = "";
-    child.stderr?.on("data", (data: Buffer) => {
-      stderr += data.toString();
-    });
-    child.on("close", (code) => resolve({ code: code ?? 1, stderr }));
-    child.on("error", (err) => resolve({ code: 1, stderr: err.message }));
-  });
-}
-
-export function loadManifest(backupPath: string): BackupManifest | undefined {
-  const manifestPath = join(backupPath, "manifest.json");
-  if (!existsSync(manifestPath)) return undefined;
-  try {
-    return JSON.parse(readFileSync(manifestPath, "utf-8"));
-  } catch {
-    return undefined;
-  }
-}
-
-export async function tryRestartCoolify(ip: string): Promise<void> {
-  logger.warning("Attempting to restart Coolify...");
-  try {
-    await sshExec(ip, buildStartCoolifyCommand());
-  } catch {
-    // Best-effort — swallow errors
-  }
-}
+// Re-export pure functions from core/backup.ts for backward compatibility
+export {
+  buildStopCoolifyCommand,
+  buildStartCoolifyCommand,
+  buildStartDbCommand,
+  buildRestoreDbCommand,
+  buildRestoreConfigCommand,
+  buildCleanupCommand,
+  loadManifest,
+  scpUpload,
+  tryRestartCoolify,
+};
 
 // Command
 

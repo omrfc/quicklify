@@ -1,72 +1,33 @@
-import { mkdirSync, existsSync, writeFileSync, readdirSync } from "fs";
+import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
-import { spawn } from "child_process";
 import { getServers } from "../utils/config.js";
 import { resolveServer } from "../utils/serverSelect.js";
-import { checkSshAvailable, sshExec, sanitizedEnv } from "../utils/ssh.js";
-import { BACKUPS_DIR } from "../utils/config.js";
+import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 import type { BackupManifest, ServerRecord } from "../types/index.js";
+import {
+  formatTimestamp,
+  getBackupDir,
+  buildPgDumpCommand,
+  buildConfigTarCommand,
+  buildCleanupCommand,
+  buildCoolifyVersionCommand,
+  listBackups,
+  scpDownload,
+} from "../core/backup.js";
 
-// Pure functions (testable)
-
-export function formatTimestamp(date: Date): string {
-  return date.toISOString().replace(/[:.]/g, "-").replace("T", "_").replace("Z", "");
-}
-
-export function getBackupDir(serverName: string): string {
-  return join(BACKUPS_DIR, serverName);
-}
-
-export function buildPgDumpCommand(): string {
-  return "docker exec coolify-db pg_dump -U coolify -d coolify | gzip > /tmp/coolify-backup.sql.gz";
-}
-
-export function buildConfigTarCommand(): string {
-  return "tar czf /tmp/coolify-config.tar.gz -C /data/coolify/source .env docker-compose.yml docker-compose.prod.yml 2>/dev/null || tar czf /tmp/coolify-config.tar.gz -C /data/coolify/source .env docker-compose.yml";
-}
-
-export function buildCleanupCommand(): string {
-  return "rm -f /tmp/coolify-backup.sql.gz /tmp/coolify-config.tar.gz";
-}
-
-export function buildCoolifyVersionCommand(): string {
-  return "docker inspect coolify --format '{{.Config.Image}}' 2>/dev/null | sed 's/.*://' || echo unknown";
-}
-
-export function scpDownload(
-  ip: string,
-  remotePath: string,
-  localPath: string,
-): Promise<{ code: number; stderr: string }> {
-  return new Promise((resolve) => {
-    const child = spawn(
-      "scp",
-      ["-o", "StrictHostKeyChecking=accept-new", `root@${ip}:${remotePath}`, localPath],
-      { stdio: ["inherit", "pipe", "pipe"], env: sanitizedEnv() },
-    );
-    let stderr = "";
-    child.stderr?.on("data", (data: Buffer) => {
-      stderr += data.toString();
-    });
-    child.on("close", (code) => resolve({ code: code ?? 1, stderr }));
-    child.on("error", (err) => resolve({ code: 1, stderr: err.message }));
-  });
-}
-
-export function listBackups(serverName: string): string[] {
-  const dir = getBackupDir(serverName);
-  if (!existsSync(dir)) return [];
-  try {
-    return readdirSync(dir)
-      .filter((name) => existsSync(join(dir, name, "manifest.json")))
-      .sort()
-      .reverse();
-  } catch {
-    return [];
-  }
-}
+// Re-export pure functions from core/backup.ts for backward compatibility
+export {
+  formatTimestamp,
+  getBackupDir,
+  buildPgDumpCommand,
+  buildConfigTarCommand,
+  buildCleanupCommand,
+  buildCoolifyVersionCommand,
+  listBackups,
+  scpDownload,
+};
 
 // Single server backup (extracted for reuse)
 
