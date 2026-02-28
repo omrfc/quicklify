@@ -40,7 +40,65 @@ describe("config", () => {
       ];
       mockedFs.existsSync.mockReturnValue(true);
       mockedFs.readFileSync.mockReturnValue(JSON.stringify(servers));
-      expect(getServers()).toEqual(servers);
+      // mode defaults to 'coolify' for records without mode field
+      expect(getServers()).toEqual([{ ...servers[0], mode: "coolify" }]);
+    });
+
+    it("should default mode to 'coolify' for records without mode field", () => {
+      const servers = [
+        {
+          id: "1",
+          name: "legacy",
+          provider: "hetzner",
+          ip: "1.1.1.1",
+          region: "nbg1",
+          size: "cax11",
+          createdAt: "2026-01-01T00:00:00Z",
+          // no mode field
+        },
+      ];
+      mockedFs.existsSync.mockReturnValue(true);
+      mockedFs.readFileSync.mockReturnValue(JSON.stringify(servers));
+      const result = getServers();
+      expect(result[0].mode).toBe("coolify");
+    });
+
+    it("should preserve mode='coolify' for servers that already have it", () => {
+      const servers = [
+        {
+          id: "2",
+          name: "explicit-coolify",
+          provider: "digitalocean",
+          ip: "2.2.2.2",
+          region: "nyc1",
+          size: "s-2vcpu-2gb",
+          createdAt: "2026-01-01T00:00:00Z",
+          mode: "coolify",
+        },
+      ];
+      mockedFs.existsSync.mockReturnValue(true);
+      mockedFs.readFileSync.mockReturnValue(JSON.stringify(servers));
+      const result = getServers();
+      expect(result[0].mode).toBe("coolify");
+    });
+
+    it("should preserve mode='bare' for bare servers", () => {
+      const servers = [
+        {
+          id: "3",
+          name: "bare-server",
+          provider: "hetzner",
+          ip: "3.3.3.3",
+          region: "fsn1",
+          size: "cax11",
+          createdAt: "2026-01-01T00:00:00Z",
+          mode: "bare",
+        },
+      ];
+      mockedFs.existsSync.mockReturnValue(true);
+      mockedFs.readFileSync.mockReturnValue(JSON.stringify(servers));
+      const result = getServers();
+      expect(result[0].mode).toBe("bare");
     });
 
     it("should return empty array when file contains invalid JSON", () => {

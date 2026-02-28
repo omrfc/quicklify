@@ -35,6 +35,8 @@ export interface DeploymentConfig {
   serverName: string;
 }
 
+export type ServerMode = "coolify" | "bare";
+
 export interface ServerRecord {
   id: string;
   name: string;
@@ -43,6 +45,7 @@ export interface ServerRecord {
   region: string;
   size: string;
   createdAt: string;
+  mode?: ServerMode;
 }
 
 export interface InitOptions {
@@ -55,6 +58,7 @@ export interface InitOptions {
   config?: string;
   template?: string;
   noOpen?: boolean;
+  mode?: ServerMode;
 }
 
 // Templates
@@ -134,6 +138,7 @@ export interface BackupManifest {
   timestamp: string;
   coolifyVersion: string;
   files: string[];
+  mode?: ServerMode;
 }
 
 // Result pattern for core/ functions (no exceptions thrown)

@@ -23,7 +23,7 @@ export function getServers(): ServerRecord[] {
     if (!Array.isArray(parsed)) {
       return [];
     }
-    return parsed;
+    return parsed.map((s: ServerRecord) => ({ ...s, mode: s.mode || "coolify" }));
   } catch {
     return [];
   }
