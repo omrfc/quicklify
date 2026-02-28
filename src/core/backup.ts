@@ -123,6 +123,150 @@ export function scpUpload(
   });
 }
 
+// ─── Pure Functions (Bare Backup) ────────────────────────────────────────────
+
+export function buildBareConfigTarCommand(): string {
+  return (
+    "tar czf /tmp/bare-config.tar.gz --ignore-failed-read " +
+    "-C / " +
+    "etc/nginx " +
+    "etc/ssh/sshd_config " +
+    "etc/ufw " +
+    "etc/fail2ban " +
+    "etc/crontab " +
+    "etc/apt/apt.conf.d/50unattended-upgrades " +
+    "2>/dev/null || tar czf /tmp/bare-config.tar.gz --ignore-failed-read -C / etc/ssh/sshd_config"
+  );
+}
+
+export function buildBareRestoreConfigCommand(): string {
+  return "tar xzf /tmp/bare-config.tar.gz -C /";
+}
+
+export function buildBareCleanupCommand(): string {
+  return "rm -f /tmp/bare-config.tar.gz";
+}
+
+// ─── Async Wrappers (Bare) ────────────────────────────────────────────────────
+
+export async function createBareBackup(
+  ip: string,
+  serverName: string,
+  provider: string,
+): Promise<BackupResult> {
+  assertValidIp(ip);
+  try {
+    // Step 1: Create config archive on server
+    const configResult = await sshExec(ip, buildBareConfigTarCommand());
+    if (configResult.code !== 0) {
+      return {
+        success: false,
+        error: "Config backup failed",
+        hint: sanitizeStderr(configResult.stderr) || undefined,
+      };
+    }
+
+    // Step 2: Download
+    const timestamp = formatTimestamp(new Date());
+    const backupPath = join(getBackupDir(serverName), timestamp);
+    mkdirSync(backupPath, { recursive: true, mode: 0o700 });
+
+    const dl = await scpDownload(ip, "/tmp/bare-config.tar.gz", join(backupPath, "bare-config.tar.gz"));
+    if (dl.code !== 0) {
+      return {
+        success: false,
+        error: "Failed to download config backup",
+        hint: sanitizeStderr(dl.stderr) || undefined,
+      };
+    }
+
+    // Step 3: Write manifest
+    const manifest: BackupManifest = {
+      serverName,
+      provider,
+      timestamp,
+      coolifyVersion: "n/a",
+      files: ["bare-config.tar.gz"],
+      mode: "bare",
+    };
+    writeFileSync(join(backupPath, "manifest.json"), JSON.stringify(manifest, null, 2), { mode: 0o600 });
+
+    // Step 4: Cleanup remote
+    await sshExec(ip, buildBareCleanupCommand()).catch(() => {});
+
+    return { success: true, backupPath, manifest };
+  } catch (error: unknown) {
+    const hint = mapSshError(error, ip);
+    return {
+      success: false,
+      error: getErrorMessage(error),
+      ...(hint ? { hint } : {}),
+    };
+  }
+}
+
+export async function restoreBareBackup(
+  ip: string,
+  serverName: string,
+  backupId: string,
+): Promise<RestoreResult> {
+  assertValidIp(ip);
+  const baseDir = getBackupDir(serverName);
+  const backupPath = join(baseDir, backupId);
+
+  // Path traversal guard
+  if (!resolve(backupPath).startsWith(resolve(baseDir))) {
+    return { success: false, steps: [], error: "Invalid backupId: path traversal detected" };
+  }
+
+  const steps: Array<{ name: string; status: "success" | "failure"; error?: string }> = [];
+
+  const manifest = loadManifest(backupPath);
+  if (!manifest) {
+    return { success: false, steps, error: `Backup not found or corrupt: ${backupId}` };
+  }
+
+  // Verify backup file exists
+  const configFile = join(backupPath, "bare-config.tar.gz");
+  if (!existsSync(configFile)) {
+    return { success: false, steps, error: "Missing backup file: bare-config.tar.gz" };
+  }
+
+  try {
+    // Upload config archive
+    const upload = await scpUpload(ip, configFile, "/tmp/bare-config.tar.gz");
+    if (upload.code !== 0) {
+      return {
+        success: false,
+        steps: [{ name: "Upload config", status: "failure", error: sanitizeStderr(upload.stderr) }],
+        error: "Upload failed",
+      };
+    }
+    steps.push({ name: "Upload config", status: "success" });
+
+    // Extract config
+    const restoreResult = await sshExec(ip, buildBareRestoreConfigCommand());
+    if (restoreResult.code !== 0) {
+      steps.push({ name: "Restore config", status: "failure", error: sanitizeStderr(restoreResult.stderr) });
+      return { success: false, steps, error: "Config restore failed" };
+    }
+    steps.push({ name: "Restore config", status: "success" });
+
+    // Cleanup
+    await sshExec(ip, buildBareCleanupCommand()).catch(() => {});
+
+    return { success: true, steps };
+  } catch (error: unknown) {
+    const hint = mapSshError(error, ip);
+    return {
+      success: false,
+      steps,
+      error: getErrorMessage(error),
+      ...(hint ? { hint } : {}),
+    };
+  }
+}
+
 // ─── Best-Effort Rollback ────────────────────────────────────────────────────
 
 export async function tryRestartCoolify(ip: string): Promise<void> {
