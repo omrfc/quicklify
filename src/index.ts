@@ -54,6 +54,7 @@ program
   .option("--config <path>", "Load deployment config from a YAML file (quicklify.yml)")
   .option("--template <template>", "Use a predefined template (starter, production, dev)")
   .option("--no-open", "Do not open browser after deployment")
+  .option("--mode <mode>", "Server mode: coolify (default) or bare")
   .action(initCommand);
 
 program.command("list").description("List all registered servers").action(listCommand);

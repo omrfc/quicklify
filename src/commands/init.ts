@@ -13,7 +13,7 @@ import {
   getServerNameConfig,
   confirmDeployment,
 } from "../utils/prompts.js";
-import { getCoolifyCloudInit } from "../utils/cloudInit.js";
+import { getCoolifyCloudInit, getBareCloudInit } from "../utils/cloudInit.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { openBrowser } from "../utils/openBrowser.js";
@@ -209,6 +209,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
       serverName,
       options.fullSetup,
       options.noOpen,
+      options.mode,
     );
   }
 
@@ -241,6 +242,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     serverName,
     options.fullSetup,
     options.noOpen,
+    options.mode,
   );
 }
 
@@ -281,11 +283,13 @@ async function deployServer(
   serverName: string,
   fullSetup?: boolean,
   noOpen?: boolean,
+  mode?: string,
 ): Promise<void> {
   try {
     // Upload SSH key before creating server
     const sshKeyIds = await uploadSshKeyToProvider(providerWithToken);
-    const cloudInit = getCoolifyCloudInit(serverName);
+    const isBare = mode === "bare";
+    const cloudInit = isBare ? getBareCloudInit(serverName) : getCoolifyCloudInit(serverName);
 
     let server: { id: string; ip: string; status: string } | undefined;
     let retries = 0;
@@ -418,10 +422,10 @@ async function deployServer(
       }
     }
 
-    // Health check polling instead of blind wait (skip if no valid IP)
+    // Health check polling instead of blind wait (skip if no valid IP or bare mode)
     const hasValidIp = server.ip !== "0.0.0.0" && server.ip !== "pending" && server.ip !== "";
     const minWait = COOLIFY_MIN_WAIT[providerChoice] || 60000;
-    const ready = hasValidIp ? await waitForCoolify(server.ip, minWait) : false;
+    const ready = !isBare && hasValidIp ? await waitForCoolify(server.ip, minWait) : false;
 
     // Save server record to config
     saveServer({
@@ -432,7 +436,22 @@ async function deployServer(
       region,
       size: serverSize,
       createdAt: new Date().toISOString(),
+      ...(isBare ? { mode: "bare" as const } : { mode: "coolify" as const }),
     });
+
+    // Bare mode: show SSH info and exit early
+    if (isBare) {
+      logger.title("Bare Server Ready!");
+      console.log();
+      logger.success(`Bare server ready!`);
+      logger.info(`SSH: ssh root@${server.ip}`);
+      logger.info(`IP: ${server.ip}`);
+      logger.info("Mode: bare (no platform installed)");
+      console.log();
+      logger.info("  Server saved to local config. Use 'quicklify list' to see all servers.");
+      console.log();
+      return;
+    }
 
     // Full setup: auto-configure firewall + SSH hardening
     if (fullSetup && ready) {
