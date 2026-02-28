@@ -30,7 +30,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 
 ## Phases
 
-- [x] **Phase 1: CLI/Core Refactor** - CLI commands delegate to core/ modules, eliminating duplicated business logic (completed 2026-02-28)
+- [x] **Phase 1: CLI/Core Refactor** - CLI commands delegate to core/ modules, eliminating duplicated business logic (completed 2026-02-28)
 - [ ] **Phase 2: Bare Mode** - Users can provision and manage servers without Coolify using `--mode bare`
 - [ ] **Phase 3: MCP Refactor** - MCP tools route through core/ and support bare mode via parameter
 
@@ -52,7 +52,7 @@ Plans:
 - [x] 01-02-PLAN.md — Remove duplicated pure functions from secure, firewall, domain commands (import from core/)
 - [x] 01-03-PLAN.md — Refactor add, destroy, health, restart commands to delegate to core/manage.ts
 - [x] 01-04-PLAN.md — Refactor backup, restore, maintain, update, snapshot commands to delegate to core/
-- [ ] 01-05-PLAN.md — Finalize init.ts and status.ts refactoring, full test coverage verification
+- [x] 01-05-PLAN.md — Finalize init.ts and status.ts refactoring, full test coverage verification
 
 ### Phase 2: Bare Mode
 **Goal**: Users can provision and manage generic VPS servers without Coolify installed
@@ -64,7 +64,13 @@ Plans:
   3. Bare server status check reports cloud status only (no Coolify health check attempted)
   4. Server records include a `mode` field (`"coolify"` or `"bare"`) visible in status output
   5. All existing Coolify commands continue working unchanged on coolify-mode servers
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Foundation: ServerRecord mode field, bare cloud-init script, mode guard utility
+- [ ] 02-02-PLAN.md — Provisioning: init --mode bare and add --mode bare commands
+- [ ] 02-03-PLAN.md — Mode-aware status/list/health display and Coolify-only command guards
+- [ ] 02-04-PLAN.md — Bare server backup/restore with system config targeting
 
 ### Phase 3: MCP Refactor
 **Goal**: MCP tools use core/ modules and support bare mode — no duplicated logic, consistent errors
@@ -84,9 +90,9 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. CLI/Core Refactor | 5/5 | Complete   | 2026-02-28 | - |
-| 2. Bare Mode | v1.2.0 | 0/TBD | Not started | - |
+| 2. Bare Mode | v1.2.0 | 0/4 | Planned | - |
 | 3. MCP Refactor | v1.2.0 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-02-28 — Plan 01-04 complete (backup/restore/maintain/update/snapshot/monitor command refactor)*
+*Last updated: 2026-02-28 — Phase 2 planned: 4 plans in 3 waves for bare mode support*
