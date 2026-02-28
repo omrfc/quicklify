@@ -5,6 +5,7 @@ import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
+import { isBareServer } from "../utils/modeGuard.js";
 import type { BackupManifest, ServerRecord } from "../types/index.js";
 import {
   formatTimestamp,
@@ -15,6 +16,7 @@ import {
   buildCoolifyVersionCommand,
   listBackups,
   scpDownload,
+  createBareBackup,
 } from "../core/backup.js";
 
 // Re-export pure functions from core/backup.ts for backward compatibility
@@ -38,6 +40,27 @@ async function backupSingleServer(server: ServerRecord, dryRun: boolean): Promis
   if (dryRun) {
     logger.info(`[${server.name}] Dry run - would backup to: ${backupPath}`);
     return true;
+  }
+
+  // Bare server: backup system config files instead of Coolify DB
+  if (isBareServer(server)) {
+    const spinner = createSpinner(`[${server.name}] Backing up system config...`);
+    spinner.start();
+    try {
+      const result = await createBareBackup(server.ip, server.name, server.provider);
+      if (result.success) {
+        spinner.succeed(`[${server.name}] System config backup saved to ${result.backupPath}`);
+        return true;
+      } else {
+        spinner.fail(`[${server.name}] Backup failed: ${result.error}`);
+        if (result.hint) logger.info(result.hint);
+        return false;
+      }
+    } catch (error: unknown) {
+      spinner.fail(`[${server.name}] Backup failed`);
+      logger.error(getErrorMessage(error));
+      return false;
+    }
   }
 
   const versionResult = await sshExec(server.ip, buildCoolifyVersionCommand());
@@ -182,13 +205,40 @@ export async function backupCommand(
     logger.info(`Backup path: ${backupPath}`);
     console.log();
     logger.info("Commands to execute:");
-    logger.step(buildPgDumpCommand());
-    logger.step(buildConfigTarCommand());
-    logger.step(`scp root@${server.ip}:/tmp/coolify-backup.sql.gz ${backupPath}/`);
-    logger.step(`scp root@${server.ip}:/tmp/coolify-config.tar.gz ${backupPath}/`);
-    logger.step(buildCleanupCommand());
+    if (isBareServer(server)) {
+      logger.step("tar czf /tmp/bare-config.tar.gz --ignore-failed-read -C / etc/nginx etc/ssh/sshd_config etc/ufw etc/fail2ban etc/crontab");
+      logger.step(`scp root@${server.ip}:/tmp/bare-config.tar.gz ${backupPath}/`);
+    } else {
+      logger.step(buildPgDumpCommand());
+      logger.step(buildConfigTarCommand());
+      logger.step(`scp root@${server.ip}:/tmp/coolify-backup.sql.gz ${backupPath}/`);
+      logger.step(`scp root@${server.ip}:/tmp/coolify-config.tar.gz ${backupPath}/`);
+      logger.step(buildCleanupCommand());
+    }
     console.log();
     logger.warning("No changes applied. Remove --dry-run to execute.");
+    return;
+  }
+
+  // Bare server: backup system config files instead of Coolify DB
+  if (isBareServer(server)) {
+    const spinner = createSpinner("Backing up system config...");
+    spinner.start();
+    try {
+      const result = await createBareBackup(server.ip, server.name, server.provider);
+      if (result.success) {
+        spinner.succeed("System config backup created");
+        logger.success(`Backup saved to ${result.backupPath}`);
+        logger.info("Files: bare-config.tar.gz, manifest.json");
+      } else {
+        spinner.fail("System config backup failed");
+        logger.error(result.error ?? "Backup failed");
+        if (result.hint) logger.info(result.hint);
+      }
+    } catch (error: unknown) {
+      spinner.fail("System config backup failed");
+      logger.error(getErrorMessage(error));
+    }
     return;
   }
 

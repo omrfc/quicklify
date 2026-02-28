@@ -3,6 +3,7 @@ import { join, basename } from "path";
 import inquirer from "inquirer";
 import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
+import { isBareServer } from "../utils/modeGuard.js";
 import { listBackups, getBackupDir } from "./backup.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
@@ -16,6 +17,7 @@ import {
   loadManifest,
   scpUpload,
   tryRestartCoolify,
+  restoreBareBackup,
 } from "../core/backup.js";
 
 // Re-export pure functions from core/backup.ts for backward compatibility
@@ -39,6 +41,14 @@ export async function restoreCommand(
 ): Promise<void> {
   if (!checkSshAvailable()) {
     logger.error("SSH client not found. Please install OpenSSH.");
+    return;
+  }
+
+  // SAFE_MODE check — applies before mode routing (blocks ALL restore operations)
+  if (process.env.SAFE_MODE === "true") {
+    logger.error(
+      "Restore is blocked by SAFE_MODE. Set SAFE_MODE=false to allow restore operations.",
+    );
     return;
   }
 
@@ -130,6 +140,19 @@ export async function restoreCommand(
 
   if (confirmName.trim() !== server.name) {
     logger.error("Server name does not match. Restore cancelled.");
+    return;
+  }
+
+  // Bare server: restore system config files (no Coolify stop/start)
+  if (isBareServer(server)) {
+    const result = await restoreBareBackup(server.ip, server.name, selectedBackup);
+    if (result.success) {
+      logger.success(`Restore complete for ${server.name}`);
+      logger.info("Config files restored. Restart affected services manually (nginx, ssh, ufw, etc.)");
+    } else {
+      logger.error(`Restore failed: ${result.error}`);
+      if (result.hint) logger.info(result.hint);
+    }
     return;
   }
 
