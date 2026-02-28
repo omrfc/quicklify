@@ -159,7 +159,8 @@ None.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 1 | Domain commands isBareServer guard + MCP tools mcpError consistency fix | 2026-02-28 | 41218f2 | [1-domain-commands-isbareserver-guard-mcp-t](./quick/1-domain-commands-isbareserver-guard-mcp-t/) |
+| 2 | BUG-1/2/5/6/7/8/13: bare --full-setup, --name flag, cloud-init wait, health query, bare firewall ports, restart bare msg, MCP SSH ENOENT | 2026-02-28 | 9bb0d21 | [2-bug-fixes-1-init-full-setup-bare-mode-2-](./quick/2-bug-fixes-1-init-full-setup-bare-mode-2-/) |
 
 ## Session Continuity
 
-Last activity: 2026-02-28 - Completed quick task 1: Domain commands isBareServer guard + MCP tools mcpError consistency fix
+Last activity: 2026-02-28 - Completed quick task 2: 7 bug fixes for v1.2.0 pre-release (BUG-1/2/5/6/7/8/13)
