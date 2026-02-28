@@ -96,7 +96,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 1. CLI/Core Refactor | 5/5 | Complete   | 2026-02-28 | - |
 | 2. Bare Mode | 4/4 | Complete   | 2026-02-28 | - |
-| 3. MCP Refactor | 1/3 | In Progress|  | - |
+| 3. MCP Refactor | 2/3 | In Progress|  | - |
 
 ---
 *Roadmap created: 2026-02-27*

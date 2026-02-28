@@ -2,6 +2,21 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
+current_plan: 2
+status: executing
+last_updated: "2026-02-28T09:15:48.108Z"
+last_activity: 2026-02-28
+progress:
+  total_phases: 3
+  completed_phases: 2
+  total_plans: 12
+  completed_plans: 11
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
 current_plan: Not started
 status: completed
 last_updated: "2026-02-28T08:19:06.401Z"
@@ -40,9 +55,9 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 **Phase:** 3 of 3 (MCP Refactor)
-**Current Plan:** 1 of 4 complete
+**Current Plan:** 2
 **Total Plans in Phase:** 4
-**Status:** In progress
+**Status:** Ready to execute
 **Last Activity:** 2026-02-28
 
 Progress: [██████████] 100% (Phase 1) | [██████████] 100% (Phase 2) | [██░░░░░░░░] 25% (Phase 3)
@@ -70,6 +85,7 @@ Progress: [██████████] 100% (Phase 1) | [██████�
 | Phase 02-bare-mode P03 | 9m40s | 2 tasks | 19 files |
 | Phase 02-bare-mode P04 | 9m16s | 2 tasks | 6 files |
 | Phase 03-mcp-refactor P01 | 4m45s | 2 tasks | 6 files |
+| Phase 03-mcp-refactor P03-03 | 7m36s | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -107,6 +123,9 @@ Recent decisions affecting current work:
 - [03-01] requireProviderToken returns discriminated union { token } | { error: McpResponse } for clean call-site pattern
 - [03-01] isSafeMode() imported from core/manage.ts (canonical) — restore.ts no longer reads env var directly
 - [03-01] server.ts uses ESM-compatible __dirname via fileURLToPath + dirname(import.meta.url)
+- [Phase 03-mcp-refactor]: serverMaintain update/maintain: bare mode blocked via requireCoolifyMode; restart is mode-independent (cloud API)
+- [Phase 03-mcp-refactor]: serverLogs: bare + coolify service returns error with hint (consistent with CLI logsCommand Phase 2 behavior)
+- [Phase 03-mcp-refactor]: serverBackup bare restore: adds hint about restarting services post-restore for bare servers
 
 ### Pending Todos
 
