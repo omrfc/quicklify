@@ -2,7 +2,6 @@ import inquirer from "inquirer";
 import { getServers } from "../utils/config.js";
 import { resolveServer, promptApiToken, collectProviderTokens } from "../utils/serverSelect.js";
 import { logger, createSpinner } from "../utils/logger.js";
-import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { createSnapshot, listSnapshots, deleteSnapshot } from "../core/snapshot.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
 

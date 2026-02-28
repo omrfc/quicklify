@@ -6,7 +6,6 @@ import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { listBackups, getBackupDir } from "./backup.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
-import type { BackupManifest } from "../types/index.js";
 import {
   buildStopCoolifyCommand,
   buildStartCoolifyCommand,
