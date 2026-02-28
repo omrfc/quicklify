@@ -18,11 +18,11 @@ Requirements for v1.2.0 — Generic Server Management. Each maps to roadmap phas
 ### Bare Mode
 
 - [x] **BARE-01**: User can provision a server without Coolify via `--mode bare`
-- [ ] **BARE-02**: User can check bare server status (cloud status only, no Coolify health check)
-- [ ] **BARE-03**: User can destroy a bare server (same SAFE_MODE protection)
-- [ ] **BARE-04**: User can run security hardening on a bare server (secure setup + audit)
-- [ ] **BARE-05**: User can manage firewall on a bare server (setup, add/remove ports)
-- [ ] **BARE-06**: User can set custom domain on a bare server (with SSL)
+- [x] **BARE-02**: User can check bare server status (cloud status only, no Coolify health check)
+- [x] **BARE-03**: User can destroy a bare server (same SAFE_MODE protection)
+- [x] **BARE-04**: User can run security hardening on a bare server (secure setup + audit)
+- [x] **BARE-05**: User can manage firewall on a bare server (setup, add/remove ports)
+- [x] **BARE-06**: User can set custom domain on a bare server (with SSL)
 - [ ] **BARE-07**: User can backup/restore a bare server (system-level, no Coolify DB)
 - [x] **BARE-08**: ServerRecord stores `mode: "coolify" | "bare"` to track server type
 - [x] **BARE-09**: Existing Coolify commands continue working unchanged (backward compatible)
@@ -73,11 +73,11 @@ Deferred to future milestones. Tracked but not in current roadmap.
 | REF-04 | Phase 1 | Complete (01-01) |
 | REF-05 | Phase 1 | Complete (01-01) |
 | BARE-01 | Phase 2 | Complete |
-| BARE-02 | Phase 2 | Pending |
-| BARE-03 | Phase 2 | Pending |
-| BARE-04 | Phase 2 | Pending |
-| BARE-05 | Phase 2 | Pending |
-| BARE-06 | Phase 2 | Pending |
+| BARE-02 | Phase 2 | Complete |
+| BARE-03 | Phase 2 | Complete |
+| BARE-04 | Phase 2 | Complete |
+| BARE-05 | Phase 2 | Complete |
+| BARE-06 | Phase 2 | Complete |
 | BARE-07 | Phase 2 | Pending |
 | BARE-08 | Phase 2 | Complete |
 | BARE-09 | Phase 2 | Complete |

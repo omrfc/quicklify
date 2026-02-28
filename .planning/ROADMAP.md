@@ -90,7 +90,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. CLI/Core Refactor | 5/5 | Complete   | 2026-02-28 | - |
-| 2. Bare Mode | 2/4 | In Progress|  | - |
+| 2. Bare Mode | 3/4 | In Progress|  | - |
 | 3. MCP Refactor | v1.2.0 | 0/TBD | Not started | - |
 
 ---
