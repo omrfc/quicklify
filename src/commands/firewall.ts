@@ -3,63 +3,27 @@ import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
-import type { FirewallStatus, FirewallRule, FirewallProtocol } from "../types/index.js";
-
-export const PROTECTED_PORTS = [22];
-export const COOLIFY_PORTS = [80, 443, 8000, 6001, 6002];
-
-export function isValidPort(port: number): boolean {
-  return Number.isInteger(port) && port >= 1 && port <= 65535;
-}
-
-export function isProtectedPort(port: number): boolean {
-  return PROTECTED_PORTS.includes(port);
-}
-
-export function buildUfwRuleCommand(
-  action: "allow" | "delete allow",
-  port: number,
-  protocol: FirewallProtocol = "tcp",
-): string {
-  return `ufw ${action} ${port}/${protocol}`;
-}
-
-export function buildFirewallSetupCommand(): string {
-  const commands = [
-    "apt-get install -y ufw",
-    "ufw default deny incoming",
-    "ufw default allow outgoing",
-    ...COOLIFY_PORTS.map((p) => `ufw allow ${p}/tcp`),
-    "ufw allow 22/tcp",
-    'echo "y" | ufw enable',
-  ];
-  return commands.join(" && ");
-}
-
-export function buildUfwStatusCommand(): string {
-  return "ufw status numbered";
-}
-
-export function parseUfwStatus(stdout: string): FirewallStatus {
-  const lines = stdout.split("\n");
-  const active = stdout.toLowerCase().includes("status: active");
-  const rules: FirewallRule[] = [];
-
-  for (const line of lines) {
-    // Match lines like: [ 1] 22/tcp                     ALLOW IN    Anywhere
-    const match = line.match(/\[\s*\d+\]\s+(\d+)\/(tcp|udp)\s+(ALLOW|DENY)\s+IN\s+(.*)/i);
-    if (match) {
-      rules.push({
-        port: parseInt(match[1], 10),
-        protocol: match[2].toLowerCase() as FirewallProtocol,
-        action: match[3].toUpperCase() as "ALLOW" | "DENY",
-        from: match[4].trim() || "Anywhere",
-      });
-    }
-  }
-
-  return { active, rules };
-}
+import {
+  PROTECTED_PORTS,
+  COOLIFY_PORTS,
+  isValidPort,
+  isProtectedPort,
+  buildUfwRuleCommand,
+  buildFirewallSetupCommand,
+  buildUfwStatusCommand,
+  parseUfwStatus,
+} from "../core/firewall.js";
+export {
+  PROTECTED_PORTS,
+  COOLIFY_PORTS,
+  isValidPort,
+  isProtectedPort,
+  buildUfwRuleCommand,
+  buildFirewallSetupCommand,
+  buildUfwStatusCommand,
+  parseUfwStatus,
+};
+import type { FirewallProtocol } from "../types/index.js";
 
 export async function firewallCommand(
   subcommand?: string,
