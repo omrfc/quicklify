@@ -192,7 +192,7 @@ describe("getServerTypeConfig", () => {
 
     const size = await getServerTypeConfig(mockProvider, "nbg1");
 
-    expect(mockProvider.getAvailableServerTypes).toHaveBeenCalledWith("nbg1");
+    expect(mockProvider.getAvailableServerTypes).toHaveBeenCalledWith("nbg1", undefined);
     expect(size).toBe("cax11");
   });
 

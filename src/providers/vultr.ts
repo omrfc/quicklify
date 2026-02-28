@@ -1,6 +1,6 @@
 import axios from "axios";
 import type { CloudProvider } from "./base.js";
-import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo } from "../types/index.js";
+import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
 
 function stripSensitiveData(error: unknown): void {
   if (axios.isAxiosError(error)) {
@@ -249,13 +249,13 @@ export class VultrProvider implements CloudProvider {
     }
   }
 
-  async getAvailableServerTypes(location: string): Promise<ServerSize[]> {
+  async getAvailableServerTypes(location: string, mode?: ServerMode): Promise<ServerSize[]> {
     try {
       const response = await axios.get(`${this.baseUrl}/plans`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
 
-      const MIN_RAM_MB = 2048; // Coolify requires at least 2GB RAM
+      const MIN_RAM_MB = mode === "bare" ? 0 : 2048; // Coolify requires at least 2GB RAM, bare has no minimum
       const plans = response.data.plans.filter(
         (p: VultrPlan) => p.type === "vc2" && p.ram >= MIN_RAM_MB && p.locations.includes(location),
       );

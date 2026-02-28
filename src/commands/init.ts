@@ -1,6 +1,6 @@
 import { spawnSync } from "child_process";
 import type { CloudProvider } from "../providers/base.js";
-import type { InitOptions } from "../types/index.js";
+import type { InitOptions, ServerMode } from "../types/index.js";
 import { createProvider, createProviderWithToken } from "../utils/providerFactory.js";
 import { saveServer } from "../utils/config.js";
 import { waitForCoolify } from "../utils/healthCheck.js";
@@ -165,7 +165,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
           break;
         }
         case 5: {
-          const s = await getServerTypeConfig(providerWithToken, region);
+          const s = await getServerTypeConfig(providerWithToken, region, [], options.mode);
           if (s === BACK_SIGNAL) {
             step = 4;
             break;
@@ -196,6 +196,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
             region,
             serverSize,
             serverName,
+            mode: options.mode,
           };
           const confirmed = await confirmDeployment(config, providerWithToken);
           if (confirmed === BACK_SIGNAL) {
@@ -231,7 +232,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
   } else {
     let s = BACK_SIGNAL;
     while (s === BACK_SIGNAL) {
-      s = await getServerTypeConfig(providerWithToken, region);
+      s = await getServerTypeConfig(providerWithToken, region, [], options.mode);
     }
     serverSize = s;
   }
@@ -346,7 +347,7 @@ async function deployServer(
               newRegion = await getLocationConfig(providerWithToken, failedLocations);
             }
             region = newRegion;
-            const newSize = await getServerTypeConfig(providerWithToken, region);
+            const newSize = await getServerTypeConfig(providerWithToken, region, [], mode as ServerMode);
             if (newSize === BACK_SIGNAL) continue;
             serverSize = newSize;
             pickedSize = true;
@@ -364,7 +365,7 @@ async function deployServer(
             logger.info("Please select a different server type:");
             let newSize = BACK_SIGNAL;
             while (newSize === BACK_SIGNAL) {
-              newSize = await getServerTypeConfig(providerWithToken, region, failedTypes);
+              newSize = await getServerTypeConfig(providerWithToken, region, failedTypes, mode as ServerMode);
             }
             serverSize = newSize;
             retries++;
@@ -453,19 +454,39 @@ async function deployServer(
 
     // Bare mode: cloud-init wait + optional full setup + show SSH info
     if (isBare) {
-      // Wait for cloud-init to finish (BUG-5)
+      // Wait for SSH + cloud-init to finish (BUG-5)
       if (hasValidIp) {
-        const cloudInitSpinner = createSpinner("Waiting for cloud-init to finish...");
+        const cloudInitSpinner = createSpinner("Waiting for server to accept SSH...");
         cloudInitSpinner.start();
-        try {
-          const ciResult = await sshExec(server.ip, "cloud-init status --wait");
-          if (ciResult.code === 0) {
-            cloudInitSpinner.succeed("Cloud-init completed");
-          } else {
-            cloudInitSpinner.warn("Cloud-init may not have finished — continuing anyway");
+
+        // Step 1: Wait for SSH to become available (retry up to 60 attempts, 5s apart = 5 min max)
+        let sshReady = false;
+        for (let attempt = 1; attempt <= 60; attempt++) {
+          try {
+            await sshExec(server.ip, "echo ok");
+            sshReady = true;
+            break;
+          } catch {
+            cloudInitSpinner.text = `Waiting for server to accept SSH... (attempt ${attempt}/60)`;
+            await new Promise((r) => setTimeout(r, 5000));
           }
-        } catch {
-          cloudInitSpinner.warn("Could not check cloud-init status — continuing anyway");
+        }
+
+        if (sshReady) {
+          // Step 2: Wait for cloud-init to finish
+          cloudInitSpinner.text = "SSH ready — waiting for cloud-init to finish...";
+          try {
+            const ciResult = await sshExec(server.ip, "cloud-init status --wait");
+            if (ciResult.code === 0) {
+              cloudInitSpinner.succeed("Cloud-init completed");
+            } else {
+              cloudInitSpinner.warn("Cloud-init may not have finished — continuing anyway");
+            }
+          } catch {
+            cloudInitSpinner.warn("Could not check cloud-init status — continuing anyway");
+          }
+        } else {
+          cloudInitSpinner.warn("SSH not available after 5 min — continuing anyway");
         }
       }
 

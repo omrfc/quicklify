@@ -1,6 +1,6 @@
 import axios from "axios";
 import type { CloudProvider } from "./base.js";
-import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo } from "../types/index.js";
+import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
 
 function stripSensitiveData(error: unknown): void {
   if (axios.isAxiosError(error)) {
@@ -255,14 +255,14 @@ export class DigitalOceanProvider implements CloudProvider {
     }
   }
 
-  async getAvailableServerTypes(location: string): Promise<ServerSize[]> {
+  async getAvailableServerTypes(location: string, mode?: ServerMode): Promise<ServerSize[]> {
     try {
       const response = await axios.get(`${this.baseUrl}/sizes`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
 
-      const MIN_RAM_MB = 2048; // Coolify requires at least 2GB RAM
-      const MIN_VCPUS = 2; // Coolify requires at least 2 CPUs
+      const MIN_RAM_MB = mode === "bare" ? 0 : 2048; // Coolify requires at least 2GB RAM, bare has no minimum
+      const MIN_VCPUS = mode === "bare" ? 0 : 2; // Coolify requires at least 2 CPUs
       const sizes = response.data.sizes.filter(
         (s: DOSize) =>
           s.available &&

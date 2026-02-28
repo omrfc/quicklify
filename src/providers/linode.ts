@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import axios from "axios";
 import type { CloudProvider } from "./base.js";
-import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo } from "../types/index.js";
+import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
 
 function stripSensitiveData(error: unknown): void {
   if (axios.isAxiosError(error)) {
@@ -254,13 +254,13 @@ export class LinodeProvider implements CloudProvider {
     }
   }
 
-  async getAvailableServerTypes(_location: string): Promise<ServerSize[]> {
+  async getAvailableServerTypes(_location: string, mode?: ServerMode): Promise<ServerSize[]> {
     try {
       const response = await axios.get(`${this.baseUrl}/linode/types`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
 
-      const MIN_RAM_MB = 4096; // Coolify requires at least 2GB, recommend 4GB
+      const MIN_RAM_MB = mode === "bare" ? 0 : 4096; // Coolify requires at least 2GB, recommend 4GB. Bare has no minimum
       const types = response.data.data.filter(
         (t: LinodeType) => t.memory >= MIN_RAM_MB && t.id.startsWith("g6-standard"),
       );

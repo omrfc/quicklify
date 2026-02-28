@@ -230,7 +230,10 @@ describe("initCommand — bare mode", () => {
   });
 
   it("should continue even when cloud-init sshExec throws (BUG-5 resilience)", async () => {
-    sshExec.mockRejectedValue(new Error("SSH connection timeout"));
+    // First call (echo ok) succeeds so SSH ready check passes, second call (cloud-init) throws
+    sshExec
+      .mockResolvedValueOnce({ code: 0, stdout: "ok", stderr: "" })
+      .mockRejectedValue(new Error("SSH connection timeout"));
 
     await initCommand({
       provider: "hetzner",

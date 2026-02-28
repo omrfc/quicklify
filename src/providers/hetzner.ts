@@ -1,6 +1,6 @@
 import axios from "axios";
 import type { CloudProvider } from "./base.js";
-import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo } from "../types/index.js";
+import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
 
 function stripSensitiveData(error: unknown): void {
   if (axios.isAxiosError(error)) {
@@ -255,7 +255,7 @@ export class HetznerProvider implements CloudProvider {
     }
   }
 
-  async getAvailableServerTypes(location: string): Promise<ServerSize[]> {
+  async getAvailableServerTypes(location: string, mode?: ServerMode): Promise<ServerSize[]> {
     try {
       // Get actually available server type IDs from datacenter
       const dcResponse = await axios.get(`${this.baseUrl}/datacenters`, {
@@ -271,7 +271,7 @@ export class HetznerProvider implements CloudProvider {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
 
-      const MIN_RAM_GB = 2; // Coolify requires at least 2GB RAM
+      const MIN_RAM_GB = mode === "bare" ? 0 : 2; // Coolify requires at least 2GB RAM, bare has no minimum
       const types = response.data.server_types.filter(
         (type: HetznerServerType) =>
           !type.deprecation &&

@@ -27,15 +27,16 @@ export interface ServerResult {
   status: string;
 }
 
+export type ServerMode = "coolify" | "bare";
+
 export interface DeploymentConfig {
   provider: string;
   apiToken: string;
   region: string;
   serverSize: string;
   serverName: string;
+  mode?: ServerMode;
 }
-
-export type ServerMode = "coolify" | "bare";
 
 export interface ServerRecord {
   id: string;
