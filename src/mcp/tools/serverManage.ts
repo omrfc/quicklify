@@ -6,7 +6,7 @@ import {
   removeServerRecord,
   destroyCloudServer,
 } from "../../core/manage.js";
-import { getErrorMessage } from "../../utils/errorMapper.js";
+import { mcpSuccess, mcpError } from "../utils.js";
 
 export const serverManageSchema = {
   action: z.enum(["add", "remove", "destroy"]).describe(
@@ -27,6 +27,12 @@ export const serverManageSchema = {
   skipVerify: z.boolean().default(false).describe(
     "Skip Coolify SSH verification when adding a server (only for 'add' action)",
   ),
+  mode: z
+    .enum(["coolify", "bare"])
+    .default("coolify")
+    .describe(
+      "Server mode for 'add' action: 'coolify' or 'bare'. Default: coolify",
+    ),
 };
 
 export async function handleServerManage(params: {
@@ -36,88 +42,105 @@ export async function handleServerManage(params: {
   ip?: string;
   name?: string;
   skipVerify?: boolean;
+  mode?: "coolify" | "bare";
 }): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
   try {
     switch (params.action) {
       case "add": {
         if (!params.provider) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Missing required parameter: provider",
-              hint: "Specify provider: 'hetzner', 'digitalocean', 'vultr', or 'linode'",
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Missing required parameter: provider",
+            "Specify provider: 'hetzner', 'digitalocean', 'vultr', or 'linode'",
+          );
         }
         if (!params.ip) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Missing required parameter: ip",
-              hint: "Specify the server's public IP address",
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Missing required parameter: ip",
+            "Specify the server's public IP address",
+          );
         }
         if (!params.name) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Missing required parameter: name",
-              hint: "Specify a server name (3-63 chars, lowercase, alphanumeric and hyphens)",
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Missing required parameter: name",
+            "Specify a server name (3-63 chars, lowercase, alphanumeric and hyphens)",
+          );
         }
+
+        const mode = params.mode ?? "coolify";
 
         const result = await addServerRecord({
           provider: params.provider,
           ip: params.ip,
           name: params.name,
           skipVerify: params.skipVerify ?? false,
+          mode,
         });
 
         if (!result.success) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: result.error,
-              suggested_actions: [
-                { command: "server_info { action: 'list' }", reason: "Check existing servers" },
-              ],
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            result.error ?? "Add server failed",
+            undefined,
+            [
+              { command: "server_info { action: 'list' }", reason: "Check existing servers" },
+            ],
+          );
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            success: true,
-            message: `Server "${result.server!.name}" added successfully`,
-            server: {
-              name: result.server!.name,
-              ip: result.server!.ip,
-              provider: result.server!.provider,
-              id: result.server!.id,
-            },
-            coolifyStatus: result.coolifyStatus,
-            suggested_actions: [
-              { command: `server_info { action: 'status', server: '${result.server!.name}' }`, reason: "Check server status" },
-              { command: `server_info { action: 'health', server: '${result.server!.name}' }`, reason: "Check Coolify health" },
-              { command: `server_logs { action: 'logs', server: '${result.server!.name}' }`, reason: "View server logs" },
-            ],
-          }) }],
-        };
+        const suggestedActions =
+          mode === "bare"
+            ? [
+                {
+                  command: `server_info { action: 'status', server: '${result.server!.name}' }`,
+                  reason: "Check server status",
+                },
+                {
+                  command: `server_secure { action: 'secure-setup', server: '${result.server!.name}' }`,
+                  reason: "Harden SSH security + install fail2ban",
+                },
+                {
+                  command: `server_logs { action: 'logs', server: '${result.server!.name}' }`,
+                  reason: "View server logs",
+                },
+              ]
+            : [
+                {
+                  command: `server_info { action: 'status', server: '${result.server!.name}' }`,
+                  reason: "Check server status",
+                },
+                {
+                  command: `server_info { action: 'health', server: '${result.server!.name}' }`,
+                  reason: "Check Coolify health",
+                },
+                {
+                  command: `server_logs { action: 'logs', server: '${result.server!.name}' }`,
+                  reason: "View server logs",
+                },
+              ];
+
+        return mcpSuccess({
+          success: true,
+          message: `Server "${result.server!.name}" added successfully`,
+          server: {
+            name: result.server!.name,
+            ip: result.server!.ip,
+            provider: result.server!.provider,
+            id: result.server!.id,
+            mode,
+          },
+          coolifyStatus: result.coolifyStatus,
+          suggested_actions: suggestedActions,
+        });
       }
 
       case "remove": {
         if (!params.server) {
           const servers = getServers();
           if (servers.length === 0) {
-            return {
-              content: [{ type: "text", text: JSON.stringify({
-                error: "No servers found",
-                suggested_actions: [{ command: "quicklify init", reason: "Deploy a server first" }],
-              }) }],
-              isError: true,
-            };
+            return mcpError(
+              "No servers found",
+              undefined,
+              [{ command: "quicklify init", reason: "Deploy a server first" }],
+            );
           }
           return {
             content: [{ type: "text", text: JSON.stringify({
@@ -142,48 +165,44 @@ export async function handleServerManage(params: {
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            success: true,
-            message: `Server "${result.server!.name}" removed from local config`,
-            note: "The cloud server is still running. Use 'destroy' to delete it from the provider.",
-            server: {
-              name: result.server!.name,
-              ip: result.server!.ip,
-              provider: result.server!.provider,
-            },
-            suggested_actions: [
-              { command: "server_info { action: 'list' }", reason: "View remaining servers" },
-            ],
-          }) }],
-        };
+        return mcpSuccess({
+          success: true,
+          message: `Server "${result.server!.name}" removed from local config`,
+          note: "The cloud server is still running. Use 'destroy' to delete it from the provider.",
+          server: {
+            name: result.server!.name,
+            ip: result.server!.ip,
+            provider: result.server!.provider,
+          },
+          suggested_actions: [
+            { command: "server_info { action: 'list' }", reason: "View remaining servers" },
+          ],
+        });
       }
 
       case "destroy": {
         // SAFE_MODE check
         if (isSafeMode()) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Destroy is disabled in SAFE_MODE",
-              hint: "Set QUICKLIFY_SAFE_MODE=false to enable destructive operations",
-              suggested_actions: [
-                { command: `server_manage { action: 'remove', server: '${params.server ?? ""}' }`, reason: "Remove from local config only (non-destructive)" },
-              ],
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Destroy is disabled in SAFE_MODE",
+            "Set QUICKLIFY_SAFE_MODE=false to enable destructive operations",
+            [
+              {
+                command: `server_manage { action: 'remove', server: '${params.server ?? ""}' }`,
+                reason: "Remove from local config only (non-destructive)",
+              },
+            ],
+          );
         }
 
         if (!params.server) {
           const servers = getServers();
           if (servers.length === 0) {
-            return {
-              content: [{ type: "text", text: JSON.stringify({
-                error: "No servers found",
-                suggested_actions: [{ command: "quicklify init", reason: "Deploy a server first" }],
-              }) }],
-              isError: true,
-            };
+            return mcpError(
+              "No servers found",
+              undefined,
+              [{ command: "quicklify init", reason: "Deploy a server first" }],
+            );
           }
           return {
             content: [{ type: "text", text: JSON.stringify({
@@ -215,29 +234,26 @@ export async function handleServerManage(params: {
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            success: true,
-            message: `Server "${result.server!.name}" destroyed`,
-            cloudDeleted: result.cloudDeleted,
-            localRemoved: result.localRemoved,
-            ...(result.hint ? { note: result.hint } : {}),
-            server: {
-              name: result.server!.name,
-              ip: result.server!.ip,
-              provider: result.server!.provider,
-            },
-            suggested_actions: [
-              { command: "server_info { action: 'list' }", reason: "Verify server was removed" },
-            ],
-          }) }],
-        };
+        return mcpSuccess({
+          success: true,
+          message: `Server "${result.server!.name}" destroyed`,
+          cloudDeleted: result.cloudDeleted,
+          localRemoved: result.localRemoved,
+          ...(result.hint ? { note: result.hint } : {}),
+          server: {
+            name: result.server!.name,
+            ip: result.server!.ip,
+            provider: result.server!.provider,
+          },
+          suggested_actions: [
+            { command: "server_info { action: 'list' }", reason: "Verify server was removed" },
+          ],
+        });
       }
     }
   } catch (error: unknown) {
-    return {
-      content: [{ type: "text", text: JSON.stringify({ error: getErrorMessage(error) }) }],
-      isError: true,
-    };
+    return mcpError(
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }

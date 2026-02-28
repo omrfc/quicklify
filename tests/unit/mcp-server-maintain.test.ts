@@ -619,3 +619,67 @@ describe("handleServerMaintain — error handling", () => {
     expect(data.error).toBe("string error");
   });
 });
+
+// ─── MCP Handler: bare mode guards ───────────────────────────────────────────
+
+const bareServer = {
+  id: "789",
+  name: "bare-server",
+  provider: "hetzner",
+  ip: "10.0.0.1",
+  region: "nbg1",
+  size: "cax11",
+  mode: "bare" as const,
+  createdAt: "2026-02-20T00:00:00Z",
+};
+
+describe("handleServerMaintain — bare mode", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedConfig.getServers.mockReturnValue([bareServer]);
+    mockedConfig.findServer.mockReturnValue(bareServer);
+  });
+
+  it("should block update on bare server with requireCoolifyMode error", async () => {
+    const result = await handleServerMaintain({ action: "update", server: "bare-server" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(data.error).toContain("update");
+    expect(data.error).toContain("bare");
+  });
+
+  it("should block maintain on bare server with requireCoolifyMode error", async () => {
+    const result = await handleServerMaintain({ action: "maintain", server: "bare-server" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(data.error).toContain("maintain");
+    expect(data.error).toContain("bare");
+  });
+
+  it("should allow restart on bare server (cloud API reboot is mode-independent)", async () => {
+    process.env.HETZNER_TOKEN = "test-token";
+
+    const spy = jest.spyOn(maintain, "rebootAndWait").mockResolvedValue({
+      success: true,
+      finalStatus: "running",
+    });
+
+    const result = await handleServerMaintain({ action: "restart", server: "bare-server" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.success).toBe(true);
+    spy.mockRestore();
+  });
+
+  it("should return bare mode error with SSH hint for update", async () => {
+    const result = await handleServerMaintain({ action: "update", server: "bare-server" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(data.hint).toBeDefined();
+    expect(data.hint.toLowerCase()).toContain("ssh");
+  });
+});

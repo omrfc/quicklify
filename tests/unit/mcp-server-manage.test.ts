@@ -512,6 +512,56 @@ describe("handleServerManage — add", () => {
   });
 });
 
+// ─── MCP Handler: handleServerManage — add bare mode ─────────────────────────
+
+describe("handleServerManage — add bare mode", () => {
+  it("should add bare server with mode:'bare' and show SSH suggested_actions", async () => {
+    process.env.HETZNER_TOKEN = "test-token";
+    mockedConfig.getServers.mockReturnValue([]);
+    (mockProvider.validateToken as jest.Mock).mockResolvedValue(true);
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "200", stderr: "" });
+
+    const result = await handleServerManage({
+      action: "add",
+      provider: "hetzner",
+      ip: "5.6.7.8",
+      name: "bare-server",
+      mode: "bare",
+    });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.success).toBe(true);
+    expect(data.server.mode).toBe("bare");
+    // bare mode: no Coolify health check in suggested_actions
+    const commands: string[] = data.suggested_actions.map((a: { command: string }) => a.command);
+    expect(commands.every((c) => !c.includes("health"))).toBe(true);
+  });
+
+  it("should add coolify server without mode param (backward compat)", async () => {
+    process.env.HETZNER_TOKEN = "test-token";
+    mockedConfig.getServers.mockReturnValue([]);
+    (mockProvider.validateToken as jest.Mock).mockResolvedValue(true);
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "200", stderr: "" });
+
+    const result = await handleServerManage({
+      action: "add",
+      provider: "hetzner",
+      ip: "5.6.7.8",
+      name: "test-server",
+    });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.success).toBe(true);
+    // coolify mode: health check should appear in suggested_actions
+    const commands: string[] = data.suggested_actions.map((a: { command: string }) => a.command);
+    expect(commands.some((c) => c.includes("health"))).toBe(true);
+  });
+});
+
 // ─── MCP Handler: handleServerManage — remove ────────────────────────────────
 
 describe("handleServerManage — remove", () => {

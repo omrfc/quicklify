@@ -24,6 +24,8 @@ import {
   tryRestartCoolify,
   createBackup,
   restoreBackup,
+  createBareBackup,
+  restoreBareBackup,
 } from "../../src/core/backup";
 import {
   createSnapshot,
@@ -909,5 +911,119 @@ describe("handleServerBackup - snapshot-delete", () => {
     const data = JSON.parse(result.content[0].text);
     expect(result.isError).toBe(true);
     expect(data.error).toContain("snapshotId is required");
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Handler: bare mode routing
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const bareServer = {
+  id: "456",
+  name: "bare-test",
+  provider: "hetzner",
+  ip: "5.6.7.8",
+  region: "nbg1",
+  size: "cax11",
+  mode: "bare" as const,
+  createdAt: "2026-02-20T00:00:00Z",
+};
+
+describe("handleServerBackup - bare mode backup-create", () => {
+  beforeEach(() => {
+    mockedConfig.getServers.mockReturnValue([bareServer]);
+    mockedConfig.findServer.mockReturnValue(bareServer);
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+    mockedSpawn.mockImplementation(() => createMockProcess(0));
+  });
+
+  test("routes bare server to createBareBackup instead of createBackup", async () => {
+    const result = await handleServerBackup({ action: "backup-create", server: "bare-test" });
+    const data = JSON.parse(result.content[0].text);
+    // createBareBackup uses buildBareConfigTarCommand (not pg_dump) — sshExec called once (config tar)
+    expect(data.success).toBe(true);
+    expect(data.manifest).toBeDefined();
+    expect(data.manifest.mode).toBe("bare");
+    expect(data.manifest.coolifyVersion).toBe("n/a");
+  });
+
+  test("returns error on bare backup SSH failure", async () => {
+    mockedSsh.sshExec.mockResolvedValueOnce({ code: 1, stdout: "", stderr: "tar: Permission denied" });
+
+    const result = await handleServerBackup({ action: "backup-create", server: "bare-test" });
+    const data = JSON.parse(result.content[0].text);
+    expect(result.isError).toBe(true);
+    expect(data.error).toBeDefined();
+  });
+
+  test("coolify server still uses createBackup (unchanged)", async () => {
+    mockedConfig.getServers.mockReturnValue([sampleServer]);
+    mockedConfig.findServer.mockReturnValue(sampleServer);
+    // createBackup: version check + db dump + config tar + scp x2 + cleanup
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "4.0.0", stderr: "" });
+
+    const result = await handleServerBackup({ action: "backup-create", server: "coolify-test" });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.success).toBe(true);
+    expect(data.manifest.coolifyVersion).toBe("4.0.0");
+    // coolify backup manifest has no mode field
+    expect(data.manifest.mode).toBeUndefined();
+  });
+});
+
+describe("handleServerBackup - bare mode backup-restore", () => {
+  const bareManifest = {
+    serverName: "bare-test",
+    provider: "hetzner",
+    timestamp: "2026-02-20_12-00-00-000",
+    coolifyVersion: "n/a",
+    files: ["bare-config.tar.gz"],
+    mode: "bare",
+  };
+
+  beforeEach(() => {
+    mockedConfig.getServers.mockReturnValue([bareServer]);
+    mockedConfig.findServer.mockReturnValue(bareServer);
+    mockedExistsSync.mockReturnValue(true);
+    mockedReadFileSync.mockReturnValue(JSON.stringify(bareManifest));
+    mockedSpawn.mockImplementation(() => createMockProcess(0));
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+  });
+
+  test("routes bare server to restoreBareBackup and returns steps", async () => {
+    const result = await handleServerBackup({
+      action: "backup-restore",
+      server: "bare-test",
+      backupId: "2026-02-20_12-00-00-000",
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.success).toBe(true);
+    expect(data.steps).toBeDefined();
+    expect(data.steps.length).toBeGreaterThan(0);
+  });
+
+  test("bare restore success includes service restart hint", async () => {
+    const result = await handleServerBackup({
+      action: "backup-restore",
+      server: "bare-test",
+      backupId: "2026-02-20_12-00-00-000",
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.success).toBe(true);
+    expect(data.hint).toBeDefined();
+    expect(data.hint).toContain("restart");
+  });
+
+  test("blocks bare restore in SAFE_MODE", async () => {
+    process.env.QUICKLIFY_SAFE_MODE = "true";
+
+    const result = await handleServerBackup({
+      action: "backup-restore",
+      server: "bare-test",
+      backupId: "2026-02-20_12-00-00-000",
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(result.isError).toBe(true);
+    expect(data.error).toContain("SAFE_MODE");
   });
 });

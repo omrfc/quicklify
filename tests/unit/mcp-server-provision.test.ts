@@ -594,6 +594,74 @@ describe("handleServerProvision — errors", () => {
   });
 });
 
+// ─── handleServerProvision — bare mode ───────────────────────────────────────
+
+describe("handleServerProvision — bare mode", () => {
+  it("should pass mode:'bare' to provisionServer and show SSH hint in suggested_actions", async () => {
+    const result = await handleServerProvision({
+      provider: "hetzner",
+      region: "nbg1",
+      size: "cax11",
+      name: "bare-srv",
+      mode: "bare",
+    });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.success).toBe(true);
+    expect(data.server.mode).toBe("bare");
+    // SSH hint should appear instead of Coolify health check
+    const commands: string[] = data.suggested_actions.map((a: { command: string }) => a.command);
+    expect(commands.some((c) => c.includes("ssh"))).toBe(true);
+    expect(commands.every((c) => !c.includes("health"))).toBe(true);
+  });
+
+  it("should include mode field in success response server object for bare", async () => {
+    const result = await handleServerProvision({
+      provider: "hetzner",
+      region: "nbg1",
+      size: "cax11",
+      name: "bare-srv",
+      mode: "bare",
+    });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.server.mode).toBe("bare");
+  });
+
+  it("should default to coolify mode when mode omitted (backward compat)", async () => {
+    const result = await handleServerProvision({
+      provider: "hetzner",
+      region: "nbg1",
+      size: "cax11",
+      name: "my-server",
+    });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.success).toBe(true);
+    // existing coolify suggested_actions intact
+    const commands: string[] = data.suggested_actions.map((a: { command: string }) => a.command);
+    expect(commands.some((c) => c.includes("health"))).toBe(true);
+  });
+
+  it("should pass mode:'coolify' explicitly and behave like default", async () => {
+    const result = await handleServerProvision({
+      provider: "hetzner",
+      region: "nbg1",
+      size: "cax11",
+      name: "coolify-srv",
+      mode: "coolify",
+    });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.success).toBe(true);
+    const commands: string[] = data.suggested_actions.map((a: { command: string }) => a.command);
+    expect(commands.some((c) => c.includes("health"))).toBe(true);
+  });
+});
+
 // ─── handleServerProvision — template ────────────────────────────────────────
 
 describe("handleServerProvision — template", () => {

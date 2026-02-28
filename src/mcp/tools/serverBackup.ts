@@ -1,10 +1,12 @@
 import { z } from "zod";
-import { getServers, findServer } from "../../utils/config.js";
+import { getServers } from "../../utils/config.js";
 import { isSafeMode } from "../../core/manage.js";
 import { getProviderToken } from "../../core/tokens.js";
 import {
   createBackup,
+  createBareBackup,
   restoreBackup,
+  restoreBareBackup,
   listBackups,
   loadManifest,
 } from "../../core/backup.js";
@@ -13,6 +15,13 @@ import {
   listSnapshots,
   deleteSnapshot,
 } from "../../core/snapshot.js";
+import { isBareServer } from "../../utils/modeGuard.js";
+import {
+  resolveServerForMcp,
+  mcpSuccess,
+  mcpError,
+  type McpResponse,
+} from "../utils.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
 
 export const serverBackupSchema = {
@@ -20,7 +29,7 @@ export const serverBackupSchema = {
     "backup-create", "backup-list", "backup-restore",
     "snapshot-create", "snapshot-list", "snapshot-delete",
   ]).describe(
-    "Backup: 'backup-create' dumps Coolify DB+config via SSH, 'backup-list' shows local backups, 'backup-restore' restores (SAFE_MODE blocks). Snapshot: 'snapshot-create'/'snapshot-list'/'snapshot-delete' manage cloud snapshots (requires API token).",
+    "Backup: 'backup-create' dumps Coolify DB+config via SSH (or system config for bare servers), 'backup-list' shows local backups, 'backup-restore' restores (SAFE_MODE blocks). Snapshot: 'snapshot-create'/'snapshot-list'/'snapshot-delete' manage cloud snapshots (requires API token).",
   ),
   server: z.string().optional().describe(
     "Server name or IP. Auto-selected if only one server exists.",
@@ -35,35 +44,21 @@ export const serverBackupSchema = {
 
 type Action = z.infer<typeof serverBackupSchema.action>;
 
-function resolveServer(params: { server?: string }, servers: ReturnType<typeof getServers>) {
-  if (params.server) {
-    return findServer(params.server);
-  }
-  if (servers.length === 1) {
-    return servers[0];
-  }
-  return undefined;
-}
-
 export async function handleServerBackup(params: {
   action: Action;
   server?: string;
   backupId?: string;
   snapshotId?: string;
-}): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
+}): Promise<McpResponse> {
   try {
     const servers = getServers();
     if (servers.length === 0) {
-      return {
-        content: [{ type: "text", text: JSON.stringify({
-          error: "No servers found",
-          suggested_actions: [{ command: "quicklify init", reason: "Deploy a server first" }],
-        }) }],
-        isError: true,
-      };
+      return mcpError("No servers found", undefined, [
+        { command: "quicklify init", reason: "Deploy a server first" },
+      ]);
     }
 
-    const server = resolveServer(params, servers);
+    const server = resolveServerForMcp(params, servers);
     if (!server) {
       if (params.server) {
         return {
@@ -87,7 +82,10 @@ export async function handleServerBackup(params: {
       // ─── Backup Actions ──────────────────────────────────────────────
 
       case "backup-create": {
-        const result = await createBackup(server.ip, server.name, server.provider);
+        const bare = isBareServer(server);
+        const result = bare
+          ? await createBareBackup(server.ip, server.name, server.provider)
+          : await createBackup(server.ip, server.name, server.provider);
 
         if (!result.success) {
           return {
@@ -104,35 +102,31 @@ export async function handleServerBackup(params: {
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            success: true,
-            server: server.name,
-            ip: server.ip,
-            backupPath: result.backupPath,
-            manifest: result.manifest,
-            suggested_actions: [
-              { command: `server_backup { action: 'backup-list', server: '${server.name}' }`, reason: "View all backups" },
-              { command: `server_secure { action: 'secure-audit', server: '${server.name}' }`, reason: "Run security audit" },
-            ],
-          }) }],
-        };
+        return mcpSuccess({
+          success: true,
+          server: server.name,
+          ip: server.ip,
+          backupPath: result.backupPath,
+          manifest: result.manifest,
+          suggested_actions: [
+            { command: `server_backup { action: 'backup-list', server: '${server.name}' }`, reason: "View all backups" },
+            { command: `server_secure { action: 'secure-audit', server: '${server.name}' }`, reason: "Run security audit" },
+          ],
+        });
       }
 
       case "backup-list": {
         const backupIds = listBackups(server.name);
 
         if (backupIds.length === 0) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              server: server.name,
-              backups: [],
-              message: "No backups found for this server",
-              suggested_actions: [
-                { command: `server_backup { action: 'backup-create', server: '${server.name}' }`, reason: "Create a backup" },
-              ],
-            }) }],
-          };
+          return mcpSuccess({
+            server: server.name,
+            backups: [],
+            message: "No backups found for this server",
+            suggested_actions: [
+              { command: `server_backup { action: 'backup-create', server: '${server.name}' }`, reason: "Create a backup" },
+            ],
+          });
         }
 
         const { getBackupDir } = await import("../../core/backup.js");
@@ -150,43 +144,36 @@ export async function handleServerBackup(params: {
           return { backupId: id, status: "corrupt/unreadable" };
         });
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            server: server.name,
-            backupCount: backupIds.length,
-            backups,
-            suggested_actions: [
-              { command: `server_backup { action: 'backup-restore', server: '${server.name}', backupId: '${backupIds[0]}' }`, reason: "Restore latest backup" },
-            ],
-          }) }],
-        };
+        return mcpSuccess({
+          server: server.name,
+          backupCount: backupIds.length,
+          backups,
+          suggested_actions: [
+            { command: `server_backup { action: 'backup-restore', server: '${server.name}', backupId: '${backupIds[0]}' }`, reason: "Restore latest backup" },
+          ],
+        });
       }
 
       case "backup-restore": {
         if (isSafeMode()) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Restore disabled in SAFE_MODE",
-              hint: "Set QUICKLIFY_SAFE_MODE=false to enable restore operations",
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Restore disabled in SAFE_MODE",
+            "Set QUICKLIFY_SAFE_MODE=false to enable restore operations",
+          );
         }
 
         if (!params.backupId) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "backupId is required for backup-restore",
-              hint: "Use backup-list to see available backups",
-              suggested_actions: [
-                { command: `server_backup { action: 'backup-list', server: '${server.name}' }`, reason: "List available backups" },
-              ],
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "backupId is required for backup-restore",
+            "Use backup-list to see available backups",
+            [{ command: `server_backup { action: 'backup-list', server: '${server.name}' }`, reason: "List available backups" }],
+          );
         }
 
-        const result = await restoreBackup(server.ip, server.name, params.backupId);
+        const bare = isBareServer(server);
+        const result = bare
+          ? await restoreBareBackup(server.ip, server.name, params.backupId)
+          : await restoreBackup(server.ip, server.name, params.backupId);
 
         if (!result.success) {
           return {
@@ -202,62 +189,51 @@ export async function handleServerBackup(params: {
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            success: true,
-            server: server.name,
-            ip: server.ip,
-            backupId: params.backupId,
-            steps: result.steps,
-            suggested_actions: [
-              { command: `server_info { action: 'health', server: '${server.name}' }`, reason: "Verify Coolify is running" },
-            ],
-          }) }],
+        const successPayload: Record<string, unknown> = {
+          success: true,
+          server: server.name,
+          ip: server.ip,
+          backupId: params.backupId,
+          steps: result.steps,
+          suggested_actions: [
+            {
+              command: `server_info { action: 'health', server: '${server.name}' }`,
+              reason: bare ? "Verify SSH access after restore" : "Verify Coolify is running",
+            },
+          ],
         };
+
+        if (bare) {
+          successPayload.hint = "Config restored. You may need to restart services (e.g., nginx, fail2ban) for changes to take effect.";
+        }
+
+        return mcpSuccess(successPayload);
       }
 
       // ─── Snapshot Actions ────────────────────────────────────────────
 
       case "snapshot-create": {
         if (isSafeMode()) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Snapshot creation is disabled in SAFE_MODE",
-              hint: "Set QUICKLIFY_SAFE_MODE=false to enable snapshot creation (billable operation)",
-              suggested_actions: [
-                { command: `server_backup { action: 'backup-create', server: '${server.name}' }`, reason: "Use SSH-based backup instead (free)" },
-              ],
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Snapshot creation is disabled in SAFE_MODE",
+            "Set QUICKLIFY_SAFE_MODE=false to enable snapshot creation (billable operation)",
+            [{ command: `server_backup { action: 'backup-create', server: '${server.name}' }`, reason: "Use SSH-based backup instead (free)" }],
+          );
         }
 
         const isManual = server.id.startsWith("manual-");
         if (isManual) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Snapshots require cloud provider API. Manual servers don't have provider IDs.",
-              hint: "Use backup-create for SSH-based backup instead.",
-              suggested_actions: [
-                { command: `server_backup { action: 'backup-create', server: '${server.name}' }`, reason: "SSH-based backup" },
-              ],
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Snapshots require cloud provider API. Manual servers don't have provider IDs.",
+            "Use backup-create for SSH-based backup instead.",
+            [{ command: `server_backup { action: 'backup-create', server: '${server.name}' }`, reason: "SSH-based backup" }],
+          );
         }
 
-        const token = getProviderToken(server.provider);
-        if (!token) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: `No API token found for ${server.provider}`,
-              hint: `Set ${server.provider.toUpperCase()}_TOKEN environment variable`,
-            }) }],
-            isError: true,
-          };
-        }
+        const tokenResult = requireToken(server.provider);
+        if ("error" in tokenResult) return tokenResult.error;
 
-        const result = await createSnapshot(server, token);
+        const result = await createSnapshot(server, tokenResult.token);
 
         if (!result.success) {
           return {
@@ -271,47 +247,32 @@ export async function handleServerBackup(params: {
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            success: true,
-            server: server.name,
-            ip: server.ip,
-            snapshot: result.snapshot,
-            costEstimate: result.costEstimate,
-            suggested_actions: [
-              { command: `server_backup { action: 'snapshot-list', server: '${server.name}' }`, reason: "View all snapshots" },
-            ],
-          }) }],
-        };
+        return mcpSuccess({
+          success: true,
+          server: server.name,
+          ip: server.ip,
+          snapshot: result.snapshot,
+          costEstimate: result.costEstimate,
+          suggested_actions: [
+            { command: `server_backup { action: 'snapshot-list', server: '${server.name}' }`, reason: "View all snapshots" },
+          ],
+        });
       }
 
       case "snapshot-list": {
         const isManual = server.id.startsWith("manual-");
         if (isManual) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Snapshots require cloud provider API. Manual servers don't have provider IDs.",
-              hint: "Use backup-list for local backups instead.",
-              suggested_actions: [
-                { command: `server_backup { action: 'backup-list', server: '${server.name}' }`, reason: "List local backups" },
-              ],
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Snapshots require cloud provider API. Manual servers don't have provider IDs.",
+            "Use backup-list for local backups instead.",
+            [{ command: `server_backup { action: 'backup-list', server: '${server.name}' }`, reason: "List local backups" }],
+          );
         }
 
-        const token = getProviderToken(server.provider);
-        if (!token) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: `No API token found for ${server.provider}`,
-              hint: `Set ${server.provider.toUpperCase()}_TOKEN environment variable`,
-            }) }],
-            isError: true,
-          };
-        }
+        const tokenResult = requireToken(server.provider);
+        if ("error" in tokenResult) return tokenResult.error;
 
-        const result = await listSnapshots(server, token);
+        const result = await listSnapshots(server, tokenResult.token);
 
         if (result.error) {
           return {
@@ -326,78 +287,55 @@ export async function handleServerBackup(params: {
         }
 
         if (result.snapshots.length === 0) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              server: server.name,
-              snapshots: [],
-              message: "No snapshots found",
-              suggested_actions: [
-                { command: `server_backup { action: 'snapshot-create', server: '${server.name}' }`, reason: "Create a snapshot" },
-              ],
-            }) }],
-          };
+          return mcpSuccess({
+            server: server.name,
+            snapshots: [],
+            message: "No snapshots found",
+            suggested_actions: [
+              { command: `server_backup { action: 'snapshot-create', server: '${server.name}' }`, reason: "Create a snapshot" },
+            ],
+          });
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            server: server.name,
-            ip: server.ip,
-            snapshotCount: result.snapshots.length,
-            snapshots: result.snapshots,
-            suggested_actions: [
-              { command: `server_backup { action: 'snapshot-delete', server: '${server.name}', snapshotId: '${result.snapshots[0].id}' }`, reason: "Delete a snapshot" },
-            ],
-          }) }],
-        };
+        return mcpSuccess({
+          server: server.name,
+          ip: server.ip,
+          snapshotCount: result.snapshots.length,
+          snapshots: result.snapshots,
+          suggested_actions: [
+            { command: `server_backup { action: 'snapshot-delete', server: '${server.name}', snapshotId: '${result.snapshots[0].id}' }`, reason: "Delete a snapshot" },
+          ],
+        });
       }
 
       case "snapshot-delete": {
         if (isSafeMode()) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Snapshot delete disabled in SAFE_MODE",
-              hint: "Set QUICKLIFY_SAFE_MODE=false to enable snapshot deletion",
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Snapshot delete disabled in SAFE_MODE",
+            "Set QUICKLIFY_SAFE_MODE=false to enable snapshot deletion",
+          );
         }
 
         const isManual = server.id.startsWith("manual-");
         if (isManual) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Snapshots require cloud provider API. Manual servers don't have provider IDs.",
-              hint: "Manual servers cannot manage cloud snapshots.",
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Snapshots require cloud provider API. Manual servers don't have provider IDs.",
+            "Manual servers cannot manage cloud snapshots.",
+          );
         }
 
-        const token = getProviderToken(server.provider);
-        if (!token) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: `No API token found for ${server.provider}`,
-              hint: `Set ${server.provider.toUpperCase()}_TOKEN environment variable`,
-            }) }],
-            isError: true,
-          };
-        }
+        const tokenResult = requireToken(server.provider);
+        if ("error" in tokenResult) return tokenResult.error;
 
         if (!params.snapshotId) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "snapshotId is required for snapshot-delete",
-              hint: "Use snapshot-list to see available snapshots",
-              suggested_actions: [
-                { command: `server_backup { action: 'snapshot-list', server: '${server.name}' }`, reason: "List snapshots" },
-              ],
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "snapshotId is required for snapshot-delete",
+            "Use snapshot-list to see available snapshots",
+            [{ command: `server_backup { action: 'snapshot-list', server: '${server.name}' }`, reason: "List snapshots" }],
+          );
         }
 
-        const result = await deleteSnapshot(server, token, params.snapshotId);
+        const result = await deleteSnapshot(server, tokenResult.token, params.snapshotId);
 
         if (!result.success) {
           return {
@@ -412,24 +350,32 @@ export async function handleServerBackup(params: {
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            success: true,
-            server: server.name,
-            ip: server.ip,
-            snapshotId: params.snapshotId,
-            message: "Snapshot deleted",
-            suggested_actions: [
-              { command: `server_backup { action: 'snapshot-list', server: '${server.name}' }`, reason: "View remaining snapshots" },
-            ],
-          }) }],
-        };
+        return mcpSuccess({
+          success: true,
+          server: server.name,
+          ip: server.ip,
+          snapshotId: params.snapshotId,
+          message: "Snapshot deleted",
+          suggested_actions: [
+            { command: `server_backup { action: 'snapshot-list', server: '${server.name}' }`, reason: "View remaining snapshots" },
+          ],
+        });
       }
     }
   } catch (error: unknown) {
-    return {
-      content: [{ type: "text", text: JSON.stringify({ error: getErrorMessage(error) }) }],
-      isError: true,
-    };
+    return mcpError(getErrorMessage(error));
   }
+}
+
+// ─── Internal helpers ─────────────────────────────────────────────────────────
+
+function requireToken(provider: string): { token: string } | { error: McpResponse } {
+  const token = getProviderToken(provider);
+  if (token) return { token };
+  return {
+    error: mcpError(
+      `No API token found for ${provider}`,
+      `Set ${provider.toUpperCase()}_TOKEN environment variable`,
+    ),
+  };
 }

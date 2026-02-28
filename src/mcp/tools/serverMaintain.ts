@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getServers, findServer } from "../../utils/config.js";
+import { getServers } from "../../utils/config.js";
 import { getProviderToken } from "../../core/tokens.js";
 import { isSafeMode } from "../../core/manage.js";
 import {
@@ -7,11 +7,18 @@ import {
   rebootAndWait,
   maintainServer,
 } from "../../core/maintain.js";
+import { requireCoolifyMode } from "../../utils/modeGuard.js";
+import {
+  resolveServerForMcp,
+  mcpSuccess,
+  mcpError,
+  type McpResponse,
+} from "../utils.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
 
 export const serverMaintainSchema = {
   action: z.enum(["update", "restart", "maintain"]).describe(
-    "Action: 'update' runs Coolify update via SSH, 'restart' reboots server via cloud API, 'maintain' runs full 5-step maintenance (status → update → health → reboot → final)",
+    "Action: 'update' runs Coolify update via SSH (Coolify servers only), 'restart' reboots server via cloud provider API (both modes), 'maintain' runs full 5-step maintenance (status → update → health → reboot → final, Coolify servers only)",
   ),
   server: z.string().optional().describe(
     "Server name or IP. Auto-selected if only one server exists.",
@@ -21,34 +28,20 @@ export const serverMaintainSchema = {
   ),
 };
 
-function resolveServer(params: { server?: string }, servers: ReturnType<typeof getServers>) {
-  if (params.server) {
-    return findServer(params.server);
-  }
-  if (servers.length === 1) {
-    return servers[0];
-  }
-  return undefined;
-}
-
 export async function handleServerMaintain(params: {
   action: "update" | "restart" | "maintain";
   server?: string;
   skipReboot?: boolean;
-}): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
+}): Promise<McpResponse> {
   try {
     const servers = getServers();
     if (servers.length === 0) {
-      return {
-        content: [{ type: "text", text: JSON.stringify({
-          error: "No servers found",
-          suggested_actions: [{ command: "quicklify init", reason: "Deploy a server first" }],
-        }) }],
-        isError: true,
-      };
+      return mcpError("No servers found", undefined, [
+        { command: "quicklify init", reason: "Deploy a server first" },
+      ]);
     }
 
-    const server = resolveServer(params, servers);
+    const server = resolveServerForMcp(params, servers);
     if (!server) {
       if (params.server) {
         return {
@@ -70,7 +63,12 @@ export async function handleServerMaintain(params: {
 
     switch (params.action) {
       case "update": {
-        // Update only needs SSH — no API token required
+        // Guard: update requires Coolify
+        const modeError = requireCoolifyMode(server, "update");
+        if (modeError) {
+          return mcpError(modeError, "Use SSH to manage bare servers directly");
+        }
+
         const result = await executeCoolifyUpdate(server.ip);
 
         if (!result.success) {
@@ -88,35 +86,28 @@ export async function handleServerMaintain(params: {
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            success: true,
-            server: server.name,
-            ip: server.ip,
-            message: "Coolify update completed successfully",
-            suggested_actions: [
-              { command: `server_info { action: 'health', server: '${server.name}' }`, reason: "Verify Coolify is running after update" },
-              { command: `server_logs { action: 'logs', server: '${server.name}' }`, reason: "Check logs after update" },
-            ],
-          }) }],
-        };
+        return mcpSuccess({
+          success: true,
+          server: server.name,
+          ip: server.ip,
+          message: "Coolify update completed successfully",
+          suggested_actions: [
+            { command: `server_info { action: 'health', server: '${server.name}' }`, reason: "Verify Coolify is running after update" },
+            { command: `server_logs { action: 'logs', server: '${server.name}' }`, reason: "Check logs after update" },
+          ],
+        });
       }
 
       case "restart": {
         if (isSafeMode()) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Restart is disabled in SAFE_MODE",
-              hint: "Set QUICKLIFY_SAFE_MODE=false to enable server reboot",
-              suggested_actions: [
-                { command: `server_maintain { action: 'update', server: '${server.name}' }`, reason: "Run Coolify update instead (non-destructive)" },
-              ],
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Restart is disabled in SAFE_MODE",
+            "Set QUICKLIFY_SAFE_MODE=false to enable server reboot",
+            [{ command: `server_maintain { action: 'update', server: '${server.name}' }`, reason: "Run Coolify update instead (non-destructive)" }],
+          );
         }
 
-        // Restart requires API token for cloud provider
+        // Restart requires API token for cloud provider — no mode guard (works on both)
         const isManual = server.id.startsWith("manual-");
         if (isManual) {
           return {
@@ -157,33 +148,32 @@ export async function handleServerMaintain(params: {
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            success: true,
-            server: server.name,
-            ip: server.ip,
-            message: "Server restarted successfully",
-            finalStatus: result.finalStatus,
-            suggested_actions: [
-              { command: `server_info { action: 'health', server: '${server.name}' }`, reason: "Verify Coolify is accessible" },
-              { command: `server_logs { action: 'logs', server: '${server.name}' }`, reason: "Check logs after restart" },
-            ],
-          }) }],
-        };
+        return mcpSuccess({
+          success: true,
+          server: server.name,
+          ip: server.ip,
+          message: "Server restarted successfully",
+          finalStatus: result.finalStatus,
+          suggested_actions: [
+            { command: `server_info { action: 'health', server: '${server.name}' }`, reason: "Verify Coolify is accessible" },
+            { command: `server_logs { action: 'logs', server: '${server.name}' }`, reason: "Check logs after restart" },
+          ],
+        });
       }
 
       case "maintain": {
+        // Guard: maintain requires Coolify
+        const modeError = requireCoolifyMode(server, "maintain");
+        if (modeError) {
+          return mcpError(modeError, "Use SSH to manage bare servers directly");
+        }
+
         if (isSafeMode()) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Maintenance is disabled in SAFE_MODE",
-              hint: "Set QUICKLIFY_SAFE_MODE=false to enable full maintenance (includes reboot)",
-              suggested_actions: [
-                { command: `server_maintain { action: 'update', server: '${server.name}' }`, reason: "Run Coolify update only (non-destructive)" },
-              ],
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Maintenance is disabled in SAFE_MODE",
+            "Set QUICKLIFY_SAFE_MODE=false to enable full maintenance (includes reboot)",
+            [{ command: `server_maintain { action: 'update', server: '${server.name}' }`, reason: "Run Coolify update only (non-destructive)" }],
+          );
         }
 
         // Maintain requires API token for non-manual servers
@@ -246,9 +236,6 @@ export async function handleServerMaintain(params: {
       }
     }
   } catch (error: unknown) {
-    return {
-      content: [{ type: "text", text: JSON.stringify({ error: getErrorMessage(error) }) }],
-      isError: true,
-    };
+    return mcpError(getErrorMessage(error));
   }
 }

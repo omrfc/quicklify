@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { isSafeMode } from "../../core/manage.js";
 import { provisionServer } from "../../core/provision.js";
-import { getErrorMessage } from "../../utils/errorMapper.js";
+import { mcpSuccess, mcpError } from "../utils.js";
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -32,6 +32,12 @@ export const serverProvisionSchema = {
     .describe(
       "Template for default region/size. 'starter' = cheapest, 'production' = more resources, 'dev' = development. Explicit region/size override template defaults. Default: starter",
     ),
+  mode: z
+    .enum(["coolify", "bare"])
+    .default("coolify")
+    .describe(
+      "Server mode: 'coolify' installs Coolify, 'bare' provisions generic VPS without Coolify. Default: coolify",
+    ),
 };
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
@@ -42,21 +48,16 @@ export async function handleServerProvision(params: {
   size?: string;
   name: string;
   template?: "starter" | "production" | "dev";
+  mode?: "coolify" | "bare";
 }): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
+  const mode = params.mode ?? "coolify";
+
   // SAFE_MODE guard
   if (isSafeMode()) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            error: "Provision is disabled in SAFE_MODE",
-            hint: "Set QUICKLIFY_SAFE_MODE=false to enable server provisioning. WARNING: This creates billable cloud resources.",
-          }),
-        },
-      ],
-      isError: true,
-    };
+    return mcpError(
+      "Provision is disabled in SAFE_MODE",
+      "Set QUICKLIFY_SAFE_MODE=false to enable server provisioning. WARNING: This creates billable cloud resources.",
+    );
   }
 
   try {
@@ -66,81 +67,86 @@ export async function handleServerProvision(params: {
       size: params.size,
       name: params.name,
       template: params.template,
+      mode,
     });
 
     if (!result.success) {
-      return {
-        content: [
+      return mcpError(
+        result.error ?? "Provision failed",
+        result.hint,
+        [
           {
-            type: "text",
-            text: JSON.stringify({
-              error: result.error,
-              ...(result.hint ? { hint: result.hint } : {}),
-              suggested_actions: [
-                {
-                  command: "server_info { action: 'list' }",
-                  reason: "Check existing servers",
-                },
-              ],
-            }),
+            command: "server_info { action: 'list' }",
+            reason: "Check existing servers",
           },
         ],
-        isError: true,
-      };
+      );
     }
 
     if (!result.server) {
-      return {
-        content: [{ type: "text", text: JSON.stringify({ error: "Unexpected: server record missing" }) }],
-        isError: true,
-      };
+      return mcpError("Unexpected: server record missing");
     }
 
     const server = result.server;
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            success: true,
-            message: `Server "${server.name}" provisioned on ${server.provider}`,
-            server: {
-              id: server.id,
-              name: server.name,
-              provider: server.provider,
-              ip: server.ip,
-              region: server.region,
-              size: server.size,
-              createdAt: server.createdAt,
+
+    const suggestedActions =
+      mode === "bare"
+        ? [
+            {
+              command: `ssh root@${server.ip}`,
+              reason: "Connect to your bare server via SSH",
             },
-            ...(result.hint ? { hint: result.hint } : {}),
-            suggested_actions: [
-              {
-                command: `server_info { action: 'health', server: '${server.name}' }`,
-                reason:
-                  "Check Coolify health (wait 3-5 minutes after creation for Coolify to initialize)",
-              },
-              {
-                command: `server_secure { action: 'secure-setup', server: '${server.name}' }`,
-                reason: "Harden SSH security + install fail2ban",
-              },
-              {
-                command: `server_secure { action: 'firewall-setup', server: '${server.name}' }`,
-                reason: "Setup UFW firewall with Coolify ports",
-              },
-              {
-                command: `server_info { action: 'status', server: '${server.name}' }`,
-                reason: "Check cloud provider status",
-              },
-            ],
-          }),
-        },
-      ],
-    };
+            {
+              command: `server_secure { action: 'secure-setup', server: '${server.name}' }`,
+              reason: "Harden SSH security + install fail2ban",
+            },
+            {
+              command: `server_secure { action: 'firewall-setup', server: '${server.name}' }`,
+              reason: "Setup UFW firewall",
+            },
+            {
+              command: `server_info { action: 'status', server: '${server.name}' }`,
+              reason: "Check cloud provider status",
+            },
+          ]
+        : [
+            {
+              command: `server_info { action: 'health', server: '${server.name}' }`,
+              reason: "Check Coolify health (wait 3-5 minutes after creation for Coolify to initialize)",
+            },
+            {
+              command: `server_secure { action: 'secure-setup', server: '${server.name}' }`,
+              reason: "Harden SSH security + install fail2ban",
+            },
+            {
+              command: `server_secure { action: 'firewall-setup', server: '${server.name}' }`,
+              reason: "Setup UFW firewall with Coolify ports",
+            },
+            {
+              command: `server_info { action: 'status', server: '${server.name}' }`,
+              reason: "Check cloud provider status",
+            },
+          ];
+
+    return mcpSuccess({
+      success: true,
+      message: `Server "${server.name}" provisioned on ${server.provider}`,
+      server: {
+        id: server.id,
+        name: server.name,
+        provider: server.provider,
+        ip: server.ip,
+        region: server.region,
+        size: server.size,
+        mode,
+        createdAt: server.createdAt,
+      },
+      ...(result.hint ? { hint: result.hint } : {}),
+      suggested_actions: suggestedActions,
+    });
   } catch (error: unknown) {
-    return {
-      content: [{ type: "text", text: JSON.stringify({ error: getErrorMessage(error) }) }],
-      isError: true,
-    };
+    return mcpError(
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }
