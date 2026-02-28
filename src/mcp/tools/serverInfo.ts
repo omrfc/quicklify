@@ -3,12 +3,15 @@ import { getServers, findServer } from "../../utils/config.js";
 import { checkCoolifyHealth, checkServerStatus, checkAllServersStatus } from "../../core/status.js";
 import { getProviderToken, collectProviderTokensFromEnv } from "../../core/tokens.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
+import { isBareServer } from "../../utils/modeGuard.js";
+import { sshExec } from "../../utils/ssh.js";
+import { mcpSuccess, mcpError } from "../utils.js";
 import type { ServerRecord } from "../../types/index.js";
 import type { StatusResult } from "../../core/status.js";
 
 export const serverInfoSchema = {
   action: z.enum(["list", "status", "health"]).describe(
-    "Action to perform: 'list' all servers, 'status' check server/cloud status, 'health' check Coolify reachability",
+    "Action to perform: 'list' all servers, 'status' check server/cloud status, 'health' check Coolify reachability (or SSH reachability for bare servers)",
   ),
   server: z.string().optional().describe(
     "Server name or IP. Required for single-server status/health. Omit for all servers.",
@@ -20,19 +23,19 @@ interface SuggestedAction {
   reason: string;
 }
 
-function formatServerList(servers: ServerRecord[]): string {
+function formatServerList(servers: ServerRecord[]): Record<string, unknown> {
   if (servers.length === 0) {
-    return JSON.stringify({
+    return {
       servers: [],
       total: 0,
       message: "No servers found. Deploy one with: quicklify init",
       suggested_actions: [
         { command: "quicklify init", reason: "Deploy your first Coolify server" },
       ],
-    });
+    };
   }
 
-  return JSON.stringify({
+  return {
     servers: servers.map((s) => ({
       name: s.name,
       ip: s.ip,
@@ -40,14 +43,15 @@ function formatServerList(servers: ServerRecord[]): string {
       region: s.region,
       size: s.size,
       id: s.id,
+      mode: s.mode ?? "coolify",
       createdAt: s.createdAt,
     })),
     total: servers.length,
     suggested_actions: [
       { command: "server_info { action: 'status' }", reason: "Check status of all servers" },
-      { command: "server_info { action: 'health' }", reason: "Check Coolify health on all servers" },
+      { command: "server_info { action: 'health' }", reason: "Check health on all servers" },
     ],
-  });
+  };
 }
 
 function formatStatusResult(result: StatusResult): object {
@@ -57,13 +61,14 @@ function formatStatusResult(result: StatusResult): object {
     provider: result.server.provider,
     region: result.server.region,
     size: result.server.size,
+    mode: result.server.mode ?? "coolify",
     serverStatus: result.serverStatus,
     coolifyStatus: result.coolifyStatus,
     ...(result.error ? { error: result.error } : {}),
   };
 }
 
-function formatStatusResults(results: StatusResult[]): string {
+function formatStatusResults(results: StatusResult[]): Record<string, unknown> {
   const suggestedActions: SuggestedAction[] = [];
 
   const notReachable = results.filter((r) => r.coolifyStatus === "not reachable");
@@ -91,7 +96,7 @@ function formatStatusResults(results: StatusResult[]): string {
     });
   }
 
-  return JSON.stringify({
+  return {
     results: results.map(formatStatusResult),
     summary: {
       total: results.length,
@@ -100,7 +105,16 @@ function formatStatusResults(results: StatusResult[]): string {
       errors: errors.length,
     },
     suggested_actions: suggestedActions,
-  });
+  };
+}
+
+async function checkBareServerSsh(server: ServerRecord): Promise<boolean> {
+  try {
+    const result = await sshExec(server.ip, "echo ok");
+    return result.code === 0;
+  } catch {
+    return false;
+  }
 }
 
 export async function handleServerInfo(params: {
@@ -111,19 +125,17 @@ export async function handleServerInfo(params: {
     switch (params.action) {
       case "list": {
         const servers = getServers();
-        return { content: [{ type: "text", text: formatServerList(servers) }] };
+        return mcpSuccess(formatServerList(servers));
       }
 
       case "status": {
         const servers = getServers();
         if (servers.length === 0) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "No servers found",
-              suggested_actions: [{ command: "quicklify init", reason: "Deploy a server first" }],
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "No servers found",
+            undefined,
+            [{ command: "quicklify init", reason: "Deploy a server first" }],
+          );
         }
 
         if (params.server) {
@@ -151,7 +163,7 @@ export async function handleServerInfo(params: {
           }
 
           const result = await checkServerStatus(server, token);
-          return { content: [{ type: "text", text: formatStatusResults([result]) }] };
+          return mcpSuccess(formatStatusResults([result]));
         }
 
         // All servers
@@ -175,19 +187,17 @@ export async function handleServerInfo(params: {
         }
 
         const results = await checkAllServersStatus(servers, tokenMap);
-        return { content: [{ type: "text", text: formatStatusResults(results) }] };
+        return mcpSuccess(formatStatusResults(results));
       }
 
       case "health": {
         const servers = getServers();
         if (servers.length === 0) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "No servers found",
-              suggested_actions: [{ command: "quicklify init", reason: "Deploy a server first" }],
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "No servers found",
+            undefined,
+            [{ command: "quicklify init", reason: "Deploy a server first" }],
+          );
         }
 
         if (params.server) {
@@ -202,56 +212,86 @@ export async function handleServerInfo(params: {
             };
           }
 
+          // Bare server: check SSH reachability
+          if (isBareServer(server)) {
+            const sshReachable = await checkBareServerSsh(server);
+            const suggestedActions: SuggestedAction[] = sshReachable
+              ? [{ command: `ssh root@${server.ip}`, reason: "Connect to your bare server" }]
+              : [{ command: `quicklify status ${server.name}`, reason: "Check server cloud status" }];
+
+            return mcpSuccess({
+              server: server.name,
+              ip: server.ip,
+              mode: "bare",
+              sshReachable,
+              suggested_actions: suggestedActions,
+            });
+          }
+
+          // Coolify server: check Coolify health
           const status = await checkCoolifyHealth(server.ip);
           const suggestedActions: SuggestedAction[] = status === "not reachable"
             ? [{ command: `quicklify status ${server.name} --autostart`, reason: "Try auto-restart Coolify" }]
             : [{ command: `http://${server.ip}:8000`, reason: "Access Coolify dashboard" }];
 
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              server: server.name,
-              ip: server.ip,
-              coolifyStatus: status,
-              coolifyUrl: status === "running" ? `http://${server.ip}:8000` : null,
-              suggested_actions: suggestedActions,
-            }) }],
-          };
+          return mcpSuccess({
+            server: server.name,
+            ip: server.ip,
+            coolifyStatus: status,
+            coolifyUrl: status === "running" ? `http://${server.ip}:8000` : null,
+            suggested_actions: suggestedActions,
+          });
         }
 
-        // All servers health
+        // All servers health — route based on mode
         const healthResults = await Promise.all(
-          servers.map(async (s) => ({
-            name: s.name,
-            ip: s.ip,
-            coolifyStatus: await checkCoolifyHealth(s.ip),
-          })),
+          servers.map(async (s) => {
+            if (isBareServer(s)) {
+              const sshReachable = await checkBareServerSsh(s);
+              return {
+                name: s.name,
+                ip: s.ip,
+                mode: "bare" as const,
+                sshReachable,
+              };
+            }
+            return {
+              name: s.name,
+              ip: s.ip,
+              mode: "coolify" as const,
+              coolifyStatus: await checkCoolifyHealth(s.ip),
+            };
+          }),
         );
 
-        const notReachable = healthResults.filter((r) => r.coolifyStatus === "not reachable");
-        const suggestedActions: SuggestedAction[] = notReachable.length > 0
-          ? notReachable.map((r) => ({
+        const coolifyResults = healthResults.filter((r) => r.mode === "coolify");
+        const bareResults = healthResults.filter((r) => r.mode === "bare");
+        const notReachableCoolify = coolifyResults.filter(
+          (r) => "coolifyStatus" in r && r.coolifyStatus === "not reachable",
+        );
+
+        const suggestedActions: SuggestedAction[] = notReachableCoolify.length > 0
+          ? notReachableCoolify.map((r) => ({
               command: `quicklify status ${r.name} --autostart`,
               reason: `Coolify not reachable on ${r.name}`,
             }))
           : [{ command: "server_info { action: 'status' }", reason: "All healthy, check full status" }];
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            results: healthResults,
-            summary: {
-              total: healthResults.length,
-              running: healthResults.filter((r) => r.coolifyStatus === "running").length,
-              notReachable: notReachable.length,
-            },
-            suggested_actions: suggestedActions,
-          }) }],
-        };
+        return mcpSuccess({
+          results: healthResults,
+          summary: {
+            total: healthResults.length,
+            running: coolifyResults.filter(
+              (r) => "coolifyStatus" in r && r.coolifyStatus === "running",
+            ).length,
+            notReachable: notReachableCoolify.length,
+            bare: bareResults.length,
+          },
+          suggested_actions: suggestedActions,
+        });
       }
     }
   } catch (error: unknown) {
-    return {
-      content: [{ type: "text", text: JSON.stringify({ error: getErrorMessage(error) }) }],
-      isError: true,
-    };
+    return mcpError(getErrorMessage(error));
   }
 }

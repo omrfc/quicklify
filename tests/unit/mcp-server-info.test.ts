@@ -1,15 +1,18 @@
 import axios from "axios";
 import * as config from "../../src/utils/config";
 import * as providerFactory from "../../src/utils/providerFactory";
+import * as ssh from "../../src/utils/ssh";
 import { handleServerInfo } from "../../src/mcp/tools/serverInfo";
 import type { CloudProvider } from "../../src/providers/base";
 
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/providerFactory");
+jest.mock("../../src/utils/ssh");
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedProviderFactory = providerFactory as jest.Mocked<typeof providerFactory>;
+const mockedSsh = ssh as jest.Mocked<typeof ssh>;
 
 const sampleServer = {
   id: "123",
@@ -29,6 +32,17 @@ const sampleServer2 = {
   region: "nyc1",
   size: "s-2vcpu-4gb",
   createdAt: "2026-02-21T00:00:00Z",
+};
+
+const bareServer = {
+  id: "789",
+  name: "bare-node",
+  provider: "hetzner",
+  ip: "9.10.11.12",
+  region: "nbg1",
+  size: "cax11",
+  createdAt: "2026-02-22T00:00:00Z",
+  mode: "bare" as const,
 };
 
 const mockProvider: CloudProvider = {
@@ -56,6 +70,7 @@ const originalEnv = process.env;
 beforeEach(() => {
   jest.clearAllMocks();
   process.env = { ...originalEnv };
+  mockedSsh.assertValidIp.mockImplementation(() => {});
 });
 
 afterAll(() => {
@@ -291,6 +306,106 @@ describe("handleServerInfo — health", () => {
     // Health check should work without API tokens
     expect(result.isError).toBeUndefined();
     expect(data.coolifyStatus).toBe("running");
+  });
+});
+
+describe("handleServerInfo — list with mode field", () => {
+  it("should include mode field for each server in list", async () => {
+    mockedConfig.getServers.mockReturnValue([sampleServer, bareServer]);
+
+    const result = await handleServerInfo({ action: "list" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.servers).toHaveLength(2);
+    // coolify server should have mode
+    const coolifyEntry = data.servers.find((s: { name: string }) => s.name === "coolify-test");
+    expect(coolifyEntry.mode).toBeDefined();
+    // bare server should have mode:'bare'
+    const bareEntry = data.servers.find((s: { name: string }) => s.name === "bare-node");
+    expect(bareEntry.mode).toBe("bare");
+  });
+});
+
+describe("handleServerInfo — health bare server", () => {
+  it("should return SSH reachability for single bare server (reachable)", async () => {
+    mockedConfig.getServers.mockReturnValue([bareServer]);
+    mockedConfig.findServer.mockReturnValue(bareServer);
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "ok", stderr: "" });
+
+    const result = await handleServerInfo({ action: "health", server: "bare-node" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.server).toBe("bare-node");
+    expect(data.ip).toBe("9.10.11.12");
+    expect(data.mode).toBe("bare");
+    expect(data.sshReachable).toBe(true);
+    expect(data.coolifyUrl).toBeUndefined();
+    expect(data.coolifyStatus).toBeUndefined();
+  });
+
+  it("should return SSH reachability for single bare server (not reachable)", async () => {
+    mockedConfig.getServers.mockReturnValue([bareServer]);
+    mockedConfig.findServer.mockReturnValue(bareServer);
+    mockedSsh.sshExec.mockRejectedValue(new Error("Connection refused"));
+
+    const result = await handleServerInfo({ action: "health", server: "bare-node" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.mode).toBe("bare");
+    expect(data.sshReachable).toBe(false);
+    expect(data.suggested_actions).toBeDefined();
+  });
+
+  it("should return SSH reachability for bare server in all-servers health", async () => {
+    mockedConfig.getServers.mockReturnValue([sampleServer, bareServer]);
+    // Coolify server: axios returns 200
+    mockedAxios.get.mockResolvedValueOnce({ status: 200 });
+    // Bare server: SSH succeeds
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "ok", stderr: "" });
+
+    const result = await handleServerInfo({ action: "health" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.results).toHaveLength(2);
+    const coolifyResult = data.results.find((r: { name: string }) => r.name === "coolify-test");
+    const bareResult = data.results.find((r: { name: string }) => r.name === "bare-node");
+    expect(coolifyResult.coolifyStatus).toBe("running");
+    expect(bareResult.mode).toBe("bare");
+    expect(bareResult.sshReachable).toBe(true);
+    // bare server in summary should be counted separately
+    expect(data.summary.bare).toBeDefined();
+  });
+
+  it("should not call checkCoolifyHealth for bare servers", async () => {
+    mockedConfig.getServers.mockReturnValue([bareServer]);
+    mockedConfig.findServer.mockReturnValue(bareServer);
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "ok", stderr: "" });
+
+    await handleServerInfo({ action: "health", server: "bare-node" });
+
+    // axios (used by checkCoolifyHealth) should NOT have been called
+    expect(mockedAxios.get).not.toHaveBeenCalled();
+  });
+});
+
+describe("handleServerInfo — status with mode field", () => {
+  it("should include mode field in status result for bare server", async () => {
+    process.env.HETZNER_TOKEN = "test-token";
+    mockedConfig.getServers.mockReturnValue([bareServer]);
+    mockedConfig.findServer.mockReturnValue(bareServer);
+    (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+    // bare servers: checkServerStatus returns coolifyStatus:'n/a'
+    mockedAxios.get.mockRejectedValue(new Error("n/a"));
+
+    const result = await handleServerInfo({ action: "status", server: "bare-node" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.results[0].name).toBe("bare-node");
+    expect(data.results[0].mode).toBe("bare");
   });
 });
 
