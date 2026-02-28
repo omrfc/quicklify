@@ -17,7 +17,7 @@ Requirements for v1.2.0 — Generic Server Management. Each maps to roadmap phas
 
 ### Bare Mode
 
-- [ ] **BARE-01**: User can provision a server without Coolify via `--mode bare`
+- [x] **BARE-01**: User can provision a server without Coolify via `--mode bare`
 - [ ] **BARE-02**: User can check bare server status (cloud status only, no Coolify health check)
 - [ ] **BARE-03**: User can destroy a bare server (same SAFE_MODE protection)
 - [ ] **BARE-04**: User can run security hardening on a bare server (secure setup + audit)
@@ -72,7 +72,7 @@ Deferred to future milestones. Tracked but not in current roadmap.
 | REF-03 | Phase 1 | Partial (01-02: secure/firewall/domain; 01-03: add/destroy/restart/health; 01-04: backup/restore/maintain/update/snapshot done) |
 | REF-04 | Phase 1 | Complete (01-01) |
 | REF-05 | Phase 1 | Complete (01-01) |
-| BARE-01 | Phase 2 | Pending |
+| BARE-01 | Phase 2 | Complete |
 | BARE-02 | Phase 2 | Pending |
 | BARE-03 | Phase 2 | Pending |
 | BARE-04 | Phase 2 | Pending |

@@ -36,11 +36,11 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 Phase: 2 of 3 (Bare Mode)
-Plan: 1 of 4 complete in current phase
-Status: In progress — Plan 02-01 complete
-Last activity: 2026-02-28 — Completed plan 02-01 (foundation types, bare cloud-init, mode guard utilities)
+Plan: 2 of 4 complete in current phase
+Status: In progress — Plan 02-02 complete
+Last activity: 2026-02-28 — Completed plan 02-02 (bare mode provisioning and add commands)
 
-Progress: [██████████] 100% (Phase 1) | [██░░░░░░░░] 25% (Phase 2)
+Progress: [██████████] 100% (Phase 1) | [████░░░░░░] 50% (Phase 2)
 
 ## Performance Metrics
 
@@ -60,7 +60,8 @@ Progress: [██████████] 100% (Phase 1) | [██░░░░�
 - Trend: Phase 1 complete
 
 *Updated after each plan completion*
-| Phase 02-bare-mode P01 | 252 | 3 tasks | 7 files |
+| Phase 02-bare-mode P01 | 4m12s | 3 tasks | 7 files |
+| Phase 02-bare-mode P02 | 7m43s | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,9 @@ Recent decisions affecting current work:
 - [01-04] snapshot.ts: fully delegates createSnapshot/listSnapshots/deleteSnapshot to core/snapshot.ts
 - [Phase 01-cli-core-refactor]: init.ts uploadSshKeyToProvider stays local — CLI spinner output vs MCP stderr, intentional distinction not duplication
 - [Phase 02-bare-mode]: ServerMode type exported separately; getServers() normalizes mode at read time for backward compat; requireCoolifyMode returns string|null not throws; bare cloud-init uses UFW only
+- [02-02] deployServer() takes mode as string (not ServerMode type) to avoid tightening function signature — cast via mode === "bare" boolean
+- [02-02] Bare init uses early-return pattern after saving server — simpler than adding mode conditionals to existing Coolify success block
+- [02-02] addServerRecord mode guard placed before SSH block (not inside skipVerify) — bare mode is architecturally distinct from skip-verify
 
 ### Pending Todos
 
@@ -98,5 +102,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Completed 02-01-PLAN.md — foundation types, bare cloud-init, and mode guard utilities
+Stopped at: Completed 02-02-PLAN.md — bare mode provisioning and add commands
 Resume file: None
