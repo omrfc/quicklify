@@ -139,8 +139,12 @@ None.
 
 - Phase 2 risk: Bare mode adds new code paths — test coverage must be maintained at 80%+
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | Domain commands isBareServer guard + MCP tools mcpError consistency fix | 2026-02-28 | 41218f2 | [1-domain-commands-isbareserver-guard-mcp-t](./quick/1-domain-commands-isbareserver-guard-mcp-t/) |
+
 ## Session Continuity
 
-Last session: 2026-02-28
-Stopped at: Completed 03-mcp-refactor/03-01-PLAN.md
-Resume file: .planning/phases/03-mcp-refactor/03-02-PLAN.md
+Last activity: 2026-02-28 - Completed quick task 1: Domain commands isBareServer guard + MCP tools mcpError consistency fix
