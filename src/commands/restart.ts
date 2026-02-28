@@ -3,6 +3,7 @@ import { resolveServer } from "../utils/serverSelect.js";
 import { rebootServer } from "../core/manage.js";
 import { getCloudServerStatus } from "../core/status.js";
 import { getProviderToken } from "../core/tokens.js";
+import { isBareServer } from "../utils/modeGuard.js";
 import { logger, createSpinner } from "../utils/logger.js";
 
 export async function restartCommand(query?: string): Promise<void> {
@@ -52,7 +53,11 @@ export async function restartCommand(query?: string): Promise<void> {
         pollSpinner.succeed("Server is running");
         console.log();
         logger.success(`Server "${server.name}" restarted successfully`);
-        logger.info(`Access Coolify: http://${server.ip}:8000`);
+        if (isBareServer(server)) {
+          logger.info(`SSH: ssh root@${server.ip}`);
+        } else {
+          logger.info(`Access Coolify: http://${server.ip}:8000`);
+        }
         return;
       }
     } catch {

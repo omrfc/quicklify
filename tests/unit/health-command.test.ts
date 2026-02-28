@@ -8,7 +8,8 @@ jest.mock("../../src/utils/serverSelect");
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedConfig = config as jest.Mocked<typeof config>;
-const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
+// serverSelect is imported but not directly used in these tests
+void serverSelect;
 
 const sampleServer = {
   id: "123",
@@ -150,6 +151,45 @@ describe("healthCommand", () => {
       await healthCommand();
 
       expect(mockedAxios.get).not.toHaveBeenCalled();
+    });
+  });
+
+  // ---- BUG-6: health command query parameter ----
+
+  describe("query parameter (BUG-6)", () => {
+    it("should filter to matching server when query is provided", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer, sampleServer2]);
+      mockedConfig.findServer.mockReturnValue(sampleServer);
+      mockedAxios.get.mockResolvedValueOnce({ data: {}, status: 200 });
+
+      await healthCommand("coolify-test");
+
+      // Should only health-check the one matched server
+      expect(mockedAxios.get).toHaveBeenCalledTimes(1);
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("coolify-test");
+    });
+
+    it("should show error when query matches no server", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+      mockedConfig.findServer.mockReturnValue(undefined);
+
+      await healthCommand("nonexistent");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Server not found");
+      expect(mockedAxios.get).not.toHaveBeenCalled();
+    });
+
+    it("should check all servers when no query is provided (backward compat)", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer, sampleServer2]);
+      mockedAxios.get
+        .mockResolvedValueOnce({ data: {}, status: 200 })
+        .mockResolvedValueOnce({ data: {}, status: 200 });
+
+      await healthCommand();
+
+      expect(mockedAxios.get).toHaveBeenCalledTimes(2);
     });
   });
 });

@@ -1,8 +1,46 @@
 import { spawn, execSync } from "child_process";
+import { existsSync } from "fs";
+import { join } from "path";
+
+let cachedSshPath: string | null = null;
+
+export function resolveSshPath(): string {
+  if (cachedSshPath) return cachedSshPath;
+
+  // Try default PATH first
+  try {
+    execSync("ssh -V", { stdio: "pipe" });
+    cachedSshPath = "ssh";
+    return cachedSshPath;
+  } catch {
+    // Not in PATH, try common locations
+  }
+
+  // Windows common SSH locations
+  if (process.platform === "win32") {
+    const candidates = [
+      join(process.env.SystemRoot || "C:\\Windows", "System32", "OpenSSH", "ssh.exe"),
+      join(process.env.ProgramFiles || "C:\\Program Files", "OpenSSH", "ssh.exe"),
+      join(process.env.LOCALAPPDATA || "", "Programs", "Git", "usr", "bin", "ssh.exe"),
+      join(process.env.ProgramFiles || "C:\\Program Files", "Git", "usr", "bin", "ssh.exe"),
+    ];
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) {
+        cachedSshPath = candidate;
+        return cachedSshPath;
+      }
+    }
+  }
+
+  // Fallback — return "ssh" and let it fail with a clearer error
+  cachedSshPath = "ssh";
+  return cachedSshPath;
+}
 
 export function checkSshAvailable(): boolean {
   try {
-    execSync("ssh -V", { stdio: "pipe" });
+    const sshBin = resolveSshPath();
+    execSync(`"${sshBin}" -V`, { stdio: "pipe" });
     return true;
   } catch {
     return false;
@@ -37,8 +75,9 @@ export function sanitizedEnv(): NodeJS.ProcessEnv {
 
 export function sshConnect(ip: string): Promise<number> {
   assertValidIp(ip);
+  const sshBin = resolveSshPath();
   return new Promise((resolve) => {
-    const child = spawn("ssh", ["-o", "StrictHostKeyChecking=accept-new", `root@${ip}`], {
+    const child = spawn(sshBin, ["-o", "StrictHostKeyChecking=accept-new", `root@${ip}`], {
       stdio: "inherit",
       env: sanitizedEnv(),
     });
@@ -49,8 +88,9 @@ export function sshConnect(ip: string): Promise<number> {
 
 export function sshStream(ip: string, command: string): Promise<number> {
   assertValidIp(ip);
+  const sshBin = resolveSshPath();
   return new Promise((resolve) => {
-    const child = spawn("ssh", ["-o", "StrictHostKeyChecking=accept-new", `root@${ip}`, command], {
+    const child = spawn(sshBin, ["-o", "StrictHostKeyChecking=accept-new", `root@${ip}`, command], {
       stdio: "inherit",
       env: sanitizedEnv(),
     });
@@ -64,8 +104,9 @@ export function sshExec(
   command: string,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   assertValidIp(ip);
+  const sshBin = resolveSshPath();
   return new Promise((resolve) => {
-    const child = spawn("ssh", ["-o", "StrictHostKeyChecking=accept-new", `root@${ip}`, command], {
+    const child = spawn(sshBin, ["-o", "StrictHostKeyChecking=accept-new", `root@${ip}`, command], {
       stdio: ["inherit", "pipe", "pipe"],
       env: sanitizedEnv(),
     });

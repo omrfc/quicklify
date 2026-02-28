@@ -132,4 +132,33 @@ describe("restartCommand", () => {
     // No polling should happen since reboot failed
     expect(mockedCoreStatus.getCloudServerStatus).not.toHaveBeenCalled();
   });
+
+  // ---- BUG-8: restart bare message ----
+
+  it("should show SSH info (not Coolify URL) after restarting a bare server (BUG-8)", async () => {
+    const bareServer = { ...sampleServer, mode: "bare" as const };
+    mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedCoreManage.rebootServer.mockResolvedValue({ success: true, server: bareServer });
+    mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
+
+    await restartCommand("1.2.3.4");
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("ssh root@1.2.3.4");
+    expect(output).not.toContain("Access Coolify");
+  });
+
+  it("should show Coolify URL (not SSH info) after restarting a Coolify server (BUG-8 non-regression)", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedCoreManage.rebootServer.mockResolvedValue({ success: true, server: sampleServer });
+    mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
+
+    await restartCommand("1.2.3.4");
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Access Coolify");
+    expect(output).not.toContain("ssh root@");
+  });
 });

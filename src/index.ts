@@ -112,9 +112,9 @@ program
   .action((query?: string, options?: { containers?: boolean }) => monitorCommand(query, options));
 
 program
-  .command("health")
+  .command("health [query]")
   .description("Check health of all registered servers")
-  .action(healthCommand);
+  .action((query?: string) => healthCommand(query));
 
 program
   .command("doctor")

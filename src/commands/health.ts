@@ -1,4 +1,4 @@
-import { getServers } from "../utils/config.js";
+import { getServers, findServer } from "../utils/config.js";
 import { checkCoolifyHealth } from "../core/status.js";
 import { isBareServer } from "../utils/modeGuard.js";
 import { logger, createSpinner } from "../utils/logger.js";
@@ -23,12 +23,22 @@ export async function checkServerHealth(server: ServerRecord): Promise<HealthRes
   }
 }
 
-export async function healthCommand(): Promise<void> {
-  const servers = getServers();
+export async function healthCommand(query?: string): Promise<void> {
+  let servers = getServers();
 
   if (servers.length === 0) {
     logger.info("No servers found. Deploy one with: quicklify init");
     return;
+  }
+
+  // If query provided, filter to matching server
+  if (query) {
+    const found = findServer(query);
+    if (!found) {
+      logger.error(`Server not found: ${query}`);
+      return;
+    }
+    servers = [found];
   }
 
   // Filter out bare servers — health command requires Coolify
