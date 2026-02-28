@@ -10,27 +10,27 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 Phase: 1 of 3 (CLI/Core Refactor)
-Plan: 3 of 5 in current phase
+Plan: 4 of 5 in current phase
 Status: In progress
-Last activity: 2026-02-28 — Completed plan 01-03 (add/destroy/restart/health command refactor)
+Last activity: 2026-02-28 — Completed plan 01-04 (backup/restore/maintain/update/snapshot/monitor command refactor)
 
-Progress: [██████░░░░] 60%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 6m22s
-- Total execution time: 19m7s
+- Total plans completed: 4
+- Average duration: 7m23s
+- Total execution time: 29m10s
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1 - CLI/Core Refactor | 3 | 19m7s | 6m22s |
+| 1 - CLI/Core Refactor | 4 | 29m10s | 7m23s |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (4m24s), 01-02 (6m7s), 01-03 (8m36s)
+- Last 5 plans: 01-01 (4m24s), 01-02 (6m7s), 01-03 (8m36s), 01-04 (10m3s)
 - Trend: +
 
 *Updated after each plan completion*
@@ -51,6 +51,12 @@ Recent decisions affecting current work:
 - [01-03] AddServerParams.apiToken optional field: CLI passes promptApiToken() result directly to addServerRecord() rather than setting env var
 - [01-03] health.ts simplified to binary healthy/unreachable via checkCoolifyHealth — "unhealthy" (5xx) removed, aligned with core's validateStatus:true behavior
 - [01-03] restart.ts retains polling logic as CLI concern; uses getCloudServerStatus from core/status.ts for status checks
+- [01-04] backup.ts: static import + re-export from core/backup.ts to maintain test mock compatibility with spawn
+- [01-04] restore.ts: imports listBackups/getBackupDir from commands/backup.ts (not core) to preserve test mock on commands/backup
+- [01-04] maintain.ts: keeps createProviderWithToken for CLI-specific steps (snapshot step 0, status check, reboot, final check); delegates executeCoolifyUpdate and pollCoolifyHealth to core
+- [01-04] maintain.ts: does NOT call core/maintain.ts::maintainServer() because command has different MaintainResult interface and richer 5-step flow with interactive snapshot prompt
+- [01-04] update.ts: delegates sshExec(COOLIFY_UPDATE_CMD) to executeCoolifyUpdate() from core/maintain.ts
+- [01-04] snapshot.ts: fully delegates createSnapshot/listSnapshots/deleteSnapshot to core/snapshot.ts
 
 ### Pending Todos
 
@@ -63,5 +69,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Completed 01-03-PLAN.md — ready for 01-04/01-05
+Stopped at: Completed 01-04-PLAN.md — ready for 01-05
 Resume file: None

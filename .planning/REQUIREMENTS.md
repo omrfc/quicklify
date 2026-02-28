@@ -67,9 +67,9 @@ Deferred to future milestones. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REF-01 | Phase 1 | Partial (01-02: secure/firewall/domain; 01-03: add/destroy/restart/health done) |
+| REF-01 | Phase 1 | Partial (01-02: secure/firewall/domain; 01-03: add/destroy/restart/health; 01-04: backup/restore/maintain/update/snapshot done) |
 | REF-02 | Phase 1 | Complete (01-01) |
-| REF-03 | Phase 1 | Partial (01-02: secure/firewall/domain; 01-03: add/destroy/restart/health done) |
+| REF-03 | Phase 1 | Partial (01-02: secure/firewall/domain; 01-03: add/destroy/restart/health; 01-04: backup/restore/maintain/update/snapshot done) |
 | REF-04 | Phase 1 | Complete (01-01) |
 | REF-05 | Phase 1 | Complete (01-01) |
 | BARE-01 | Phase 2 | Pending |
@@ -93,4 +93,4 @@ Deferred to future milestones. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-02-27*
-*Last updated: 2026-02-28 — Plan 01-03 completed REF-01/REF-03 partial (add/destroy/restart/health refactored to core/)*
+*Last updated: 2026-02-28 — Plan 01-04 completed REF-01/REF-03 partial (backup/restore/maintain/update/snapshot/monitor refactored to core/)*
