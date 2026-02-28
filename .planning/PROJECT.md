@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Quicklify is a CLI tool and MCP server that deploys and manages Coolify instances on cloud VPS providers (Hetzner, DigitalOcean, Vultr, Linode). It handles the full lifecycle: provisioning, security hardening, domain management, firewall, backups, snapshots, monitoring, and maintenance — all from a single command line or via Claude AI integration.
+Quicklify is a CLI tool and MCP server that deploys and manages servers on cloud VPS providers (Hetzner, DigitalOcean, Vultr, Linode). It supports both Coolify-managed and bare (generic) servers. Full lifecycle management: provisioning, security hardening, domain management, firewall, backups, snapshots, monitoring, and maintenance — all from a single command line or via Claude AI integration.
 
 ## Core Value
 
@@ -12,7 +12,7 @@ One-command server deployment and management across multiple cloud providers, ac
 
 ### Validated
 
-<!-- Shipped and confirmed valuable in v1.0.0 and v1.1.0 -->
+<!-- Shipped and confirmed valuable -->
 
 - ✓ CLI provisions Coolify servers on Hetzner, DigitalOcean, Vultr, Linode — v1.0.0
 - ✓ Server status checks (cloud + Coolify health) — v1.0.0
@@ -26,16 +26,17 @@ One-command server deployment and management across multiple cloud providers, ac
 - ✓ Server destroy with SAFE_MODE protection — v1.0.0
 - ✓ YAML config for automated provisioning — v1.0.0
 - ✓ MCP server with 7 tools for Claude integration — v1.1.0
-- ✓ 12 security hardening measures (path traversal, assertValidIp, sanitizeStderr, etc.) — v1.1.0
+- ✓ 12 security hardening measures — v1.1.0
 - ✓ SSH key auto-generation during provision — v1.1.0
+- ✓ CLI commands import from core/ (eliminate code duplication) — v1.2.0
+- ✓ `--mode bare` support for non-Coolify servers — v1.2.0
+- ✓ MCP tools aligned with core/ + bare mode support — v1.2.0
 
 ### Active
 
-<!-- Current scope: v1.2.0 - Generic Server Management -->
+<!-- Next milestone scope -->
 
-- [ ] CLI commands import from core/ (eliminate code duplication)
-- [ ] `--mode bare` support for non-Coolify servers
-- [ ] MCP provision flow improvements
+(None yet — define with /gsd:new-milestone)
 
 ### Out of Scope
 
@@ -46,13 +47,13 @@ One-command server deployment and management across multiple cloud providers, ac
 
 ## Context
 
-- Published on npm as `quicklify` (v1.1.0)
+- Published on npm as `quicklify` (v1.1.0 — v1.2.0 not yet published)
 - 23 CLI commands + 7 MCP tools
-- 1758 tests across 64 suites (80% coverage threshold)
+- 1921 tests across 74 suites (95%+ coverage)
 - CI: GitHub Actions (3 OS x 2 Node versions = 6 matrix)
-- Codebase: TypeScript + Commander.js + Inquirer.js + Axios + MCP SDK + Zod
-- Architecture: Commands → Core → Providers (plugin pattern)
-- Known issue: CLI commands and MCP tools duplicate logic that exists in core/
+- Codebase: ~11,800 LOC TypeScript
+- Architecture: Commands (thin wrappers) → Core (business logic) → Providers (plugin pattern)
+- Supports two server modes: `coolify` (default, Coolify-managed) and `bare` (generic VPS)
 
 ## Constraints
 
@@ -70,7 +71,11 @@ One-command server deployment and management across multiple cloud providers, ac
 | Provider plugin pattern | Easy to add new cloud providers | ✓ Good |
 | MCP SDK for AI integration | Standard protocol, Claude-native | ✓ Good |
 | SAFE_MODE env var | Prevent accidental destructive operations | ✓ Good |
-| Core/ layer separation | Reusable logic across CLI and MCP | ⚠️ Revisit — not fully utilized, CLI duplicates core |
+| Core/ layer separation | Reusable logic across CLI and MCP | ✓ Good — v1.2.0 fully utilized |
+| Re-export pattern for backward compat | Commands import from core/ and re-export for test mock compat | ✓ Good |
+| ServerMode type (coolify/bare) | Clean mode separation, backward-compatible defaulting | ✓ Good |
+| getBareCloudInit separate from Coolify | Bare servers get minimal hardening without Coolify bloat | ✓ Good |
+| requireCoolifyMode guard pattern | Consistent mode checking across CLI and MCP | ✓ Good |
 
 ---
-*Last updated: 2026-02-27 after milestone v1.2.0 initialization*
+*Last updated: 2026-02-28 after v1.2.0 milestone*
