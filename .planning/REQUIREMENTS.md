@@ -9,9 +9,9 @@ Requirements for v1.2.0 — Generic Server Management. Each maps to roadmap phas
 
 ### Refactor
 
-- [ ] **REF-01**: CLI commands delegate to core/ modules instead of duplicating logic
+- [x] **REF-01**: CLI commands delegate to core/ modules instead of duplicating logic
 - [x] **REF-02**: Shared constants (IP_WAIT, COOLIFY_MIN_WAIT, BOOT_MAX_ATTEMPTS) extracted to single source
-- [ ] **REF-03**: Commands only handle CLI concerns (prompts, output, args) — business logic lives in core/
+- [x] **REF-03**: Commands only handle CLI concerns (prompts, output, args) — business logic lives in core/
 - [x] **REF-04**: No breaking changes to existing CLI command signatures or behavior
 - [x] **REF-05**: Test coverage maintained at 80%+ after refactor
 
