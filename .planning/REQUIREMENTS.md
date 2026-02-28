@@ -10,10 +10,10 @@ Requirements for v1.2.0 — Generic Server Management. Each maps to roadmap phas
 ### Refactor
 
 - [ ] **REF-01**: CLI commands delegate to core/ modules instead of duplicating logic
-- [ ] **REF-02**: Shared constants (IP_WAIT, COOLIFY_MIN_WAIT, BOOT_MAX_ATTEMPTS) extracted to single source
+- [x] **REF-02**: Shared constants (IP_WAIT, COOLIFY_MIN_WAIT, BOOT_MAX_ATTEMPTS) extracted to single source
 - [ ] **REF-03**: Commands only handle CLI concerns (prompts, output, args) — business logic lives in core/
-- [ ] **REF-04**: No breaking changes to existing CLI command signatures or behavior
-- [ ] **REF-05**: Test coverage maintained at 80%+ after refactor
+- [x] **REF-04**: No breaking changes to existing CLI command signatures or behavior
+- [x] **REF-05**: Test coverage maintained at 80%+ after refactor
 
 ### Bare Mode
 
@@ -68,10 +68,10 @@ Deferred to future milestones. Tracked but not in current roadmap.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | REF-01 | Phase 1 | Pending |
-| REF-02 | Phase 1 | Pending |
+| REF-02 | Phase 1 | Complete (01-01) |
 | REF-03 | Phase 1 | Pending |
-| REF-04 | Phase 1 | Pending |
-| REF-05 | Phase 1 | Pending |
+| REF-04 | Phase 1 | Complete (01-01) |
+| REF-05 | Phase 1 | Complete (01-01) |
 | BARE-01 | Phase 2 | Pending |
 | BARE-02 | Phase 2 | Pending |
 | BARE-03 | Phase 2 | Pending |
@@ -93,4 +93,4 @@ Deferred to future milestones. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-02-27*
-*Last updated: 2026-02-27 — Roadmap created, traceability confirmed*
+*Last updated: 2026-02-28 — Plan 01-01 completed REF-02, REF-04, REF-05*
