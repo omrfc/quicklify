@@ -1,4 +1,4 @@
-import { mkdirSync, existsSync, writeFileSync, readFileSync, readdirSync } from "fs";
+import { mkdirSync, existsSync, writeFileSync, readFileSync, readdirSync, rmSync } from "fs";
 import { join, resolve } from "path";
 import { spawn } from "child_process";
 import { sshExec, assertValidIp, sanitizedEnv } from "../utils/ssh.js";
@@ -76,6 +76,32 @@ export function loadManifest(backupPath: string): BackupManifest | undefined {
     return JSON.parse(readFileSync(manifestPath, "utf-8"));
   } catch {
     return undefined;
+  }
+}
+
+export function listOrphanBackups(activeServerNames: string[]): string[] {
+  if (!existsSync(BACKUPS_DIR)) return [];
+  try {
+    return readdirSync(BACKUPS_DIR)
+      .filter((name) => {
+        const fullPath = join(BACKUPS_DIR, name);
+        // Only directories that are not in active server list
+        return existsSync(fullPath) && !activeServerNames.includes(name);
+      })
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+export function cleanupServerBackups(serverName: string): { removed: boolean; path: string } {
+  const dir = getBackupDir(serverName);
+  if (!existsSync(dir)) return { removed: false, path: dir };
+  try {
+    rmSync(dir, { recursive: true, force: true });
+    return { removed: true, path: dir };
+  } catch {
+    return { removed: false, path: dir };
   }
 }
 

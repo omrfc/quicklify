@@ -2,6 +2,31 @@ import inquirer from "inquirer";
 import { resolveServer } from "../utils/serverSelect.js";
 import { destroyCloudServer } from "../core/manage.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { listBackups, cleanupServerBackups } from "../core/backup.js";
+
+async function promptBackupCleanup(serverName: string): Promise<void> {
+  const backups = listBackups(serverName);
+  if (backups.length === 0) return;
+
+  const { cleanBackups } = await inquirer.prompt([
+    {
+      type: "confirm",
+      name: "cleanBackups",
+      message: `Found ${backups.length} backup(s) for "${serverName}". Remove them?`,
+      default: false,
+    },
+  ]);
+  if (cleanBackups) {
+    const result = cleanupServerBackups(serverName);
+    if (result.removed) {
+      logger.success("Backups removed.");
+    } else {
+      logger.warning("Failed to remove backups.");
+    }
+  } else {
+    logger.info("Backups kept. Run 'quicklify backup cleanup' later to remove orphans.");
+  }
+}
 
 export async function destroyCommand(query?: string): Promise<void> {
   const server = await resolveServer(query, "Select a server to destroy:");
@@ -45,12 +70,14 @@ export async function destroyCommand(query?: string): Promise<void> {
   if (result.success && result.cloudDeleted) {
     spinner.succeed(`Server "${server.name}" destroyed`);
     logger.success("Server has been removed from your cloud provider and local config.");
+    await promptBackupCleanup(server.name);
     return;
   }
 
   if (result.success && result.hint) {
     spinner.warn(`Server not found on ${server.provider} (may have been deleted manually)`);
     logger.info("Removed from local config.");
+    await promptBackupCleanup(server.name);
     return;
   }
 

@@ -2,9 +2,13 @@ import inquirer from "inquirer";
 import { destroyCommand } from "../../src/commands/destroy";
 import * as coreManage from "../../src/core/manage";
 import * as serverSelect from "../../src/utils/serverSelect";
+import * as coreBackup from "../../src/core/backup";
 
 jest.mock("../../src/core/manage");
 jest.mock("../../src/utils/serverSelect");
+jest.mock("../../src/core/backup");
+
+const mockedCoreBackup = coreBackup as jest.Mocked<typeof coreBackup>;
 
 const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
 const mockedCoreManage = coreManage as jest.Mocked<typeof coreManage>;
@@ -41,6 +45,9 @@ describe("destroyCommand", () => {
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
     jest.clearAllMocks();
+    // Default: no backups exist for servers
+    mockedCoreBackup.listBackups.mockReturnValue([]);
+    mockedCoreBackup.cleanupServerBackups.mockReturnValue({ removed: true, path: "/mock/path" });
   });
 
   afterEach(() => {
@@ -180,6 +187,69 @@ describe("destroyCommand", () => {
       "Select a server to destroy:",
     );
     expect(mockedCoreManage.destroyCloudServer).toHaveBeenCalledWith("coolify-test");
+  });
+
+  // ---- UX #11: backup cleanup prompt after destroy ----
+
+  it("should prompt to clean backups when backups exist after successful destroy", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ confirm: true })
+      .mockResolvedValueOnce({ confirmName: "coolify-test" })
+      .mockResolvedValueOnce({ cleanBackups: true }); // backup cleanup prompt
+    mockedCoreManage.destroyCloudServer.mockResolvedValue(destroySuccessResult);
+    mockedCoreBackup.listBackups.mockReturnValue(["2026-02-21_15-30-45-123"]);
+
+    await destroyCommand("1.2.3.4");
+
+    expect(mockedCoreBackup.cleanupServerBackups).toHaveBeenCalledWith("coolify-test");
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Backups removed");
+  });
+
+  it("should not prompt to clean backups when no backups exist", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ confirm: true })
+      .mockResolvedValueOnce({ confirmName: "coolify-test" });
+    mockedCoreManage.destroyCloudServer.mockResolvedValue(destroySuccessResult);
+    mockedCoreBackup.listBackups.mockReturnValue([]);
+
+    await destroyCommand("1.2.3.4");
+
+    // cleanupServerBackups should NOT be called
+    expect(mockedCoreBackup.cleanupServerBackups).not.toHaveBeenCalled();
+  });
+
+  it("should keep backups when user declines cleanup prompt", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ confirm: true })
+      .mockResolvedValueOnce({ confirmName: "coolify-test" })
+      .mockResolvedValueOnce({ cleanBackups: false }); // user declines
+    mockedCoreManage.destroyCloudServer.mockResolvedValue(destroySuccessResult);
+    mockedCoreBackup.listBackups.mockReturnValue(["2026-02-21_15-30-45-123"]);
+
+    await destroyCommand("1.2.3.4");
+
+    expect(mockedCoreBackup.cleanupServerBackups).not.toHaveBeenCalled();
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Backups kept");
+  });
+
+  it("should prompt backup cleanup when server not found on provider (hint path)", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ confirm: true })
+      .mockResolvedValueOnce({ confirmName: "coolify-test" })
+      .mockResolvedValueOnce({ cleanBackups: false });
+    mockedCoreManage.destroyCloudServer.mockResolvedValue(destroyNotFoundResult);
+    mockedCoreBackup.listBackups.mockReturnValue(["2026-02-21_15-30-45-123"]);
+
+    await destroyCommand("1.2.3.4");
+
+    // Prompt was called once for first confirm, once for confirmName, once for backups
+    expect(mockedInquirer.prompt).toHaveBeenCalledTimes(3);
   });
 
   // ---- BARE-03 regression: destroy works on bare servers ----

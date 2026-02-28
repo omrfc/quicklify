@@ -2,6 +2,7 @@ import inquirer from "inquirer";
 import { removeServer } from "../utils/config.js";
 import { resolveServer } from "../utils/serverSelect.js";
 import { logger } from "../utils/logger.js";
+import { listBackups, cleanupServerBackups } from "../core/backup.js";
 
 export async function removeCommand(query?: string): Promise<void> {
   const server = await resolveServer(query, "Select a server to remove:");
@@ -26,4 +27,27 @@ export async function removeCommand(query?: string): Promise<void> {
   logger.info(
     "The cloud server is still running. Use 'destroy' to also delete it from the provider.",
   );
+
+  // Offer to clean up backups
+  const backups = listBackups(server.name);
+  if (backups.length > 0) {
+    const { cleanBackups } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "cleanBackups",
+        message: `Found ${backups.length} backup(s) for "${server.name}". Remove them?`,
+        default: false,
+      },
+    ]);
+    if (cleanBackups) {
+      const result = cleanupServerBackups(server.name);
+      if (result.removed) {
+        logger.success("Backups removed.");
+      } else {
+        logger.warning("Failed to remove backups.");
+      }
+    } else {
+      logger.info("Backups kept. Run 'quicklify backup cleanup' later to remove orphans.");
+    }
+  }
 }

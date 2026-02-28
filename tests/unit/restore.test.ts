@@ -907,6 +907,80 @@ describe("restore", () => {
       });
     });
 
+    describe("UX #12 — cross-provider warning and mode mismatch block", () => {
+      it("should warn when restoring backup from different provider", async () => {
+        mockedSsh.checkSshAvailable.mockReturnValue(true);
+        // Server is on digitalocean, but manifest says hetzner
+        const doServer = { ...sampleServer, provider: "digitalocean" };
+        mockedConfig.findServers.mockReturnValue([doServer]);
+        mockedExistsSync.mockReturnValue(true);
+        mockedReadFileSync.mockReturnValue(JSON.stringify({
+          ...sampleManifest,
+          provider: "hetzner", // backup was from hetzner
+        }));
+        mockedInquirer.prompt = jest
+          .fn()
+          .mockResolvedValueOnce({ confirm: false }) as any; // cancel after warning
+
+        await restoreCommand("1.2.3.4", { backup: "my-backup" });
+
+        const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+        expect(output).toContain("hetzner");
+        expect(output).toContain("digitalocean");
+        expect(output).toContain("caution");
+      });
+
+      it("should block restore when mode is mismatched (coolify backup → bare server)", async () => {
+        mockedSsh.checkSshAvailable.mockReturnValue(true);
+        const bareServer = { ...sampleServer, mode: "bare" as const };
+        mockedConfig.findServers.mockReturnValue([bareServer]);
+        mockedExistsSync.mockReturnValue(true);
+        // Manifest has no mode (defaults to coolify)
+        mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
+
+        await restoreCommand("1.2.3.4", { backup: "my-backup" });
+
+        const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+        expect(output).toContain("Mode mismatch");
+        // Should not proceed to confirmation
+        expect(mockedInquirer.prompt).not.toHaveBeenCalled();
+      });
+
+      it("should block restore when mode is mismatched (bare backup → coolify server)", async () => {
+        mockedSsh.checkSshAvailable.mockReturnValue(true);
+        mockedConfig.findServers.mockReturnValue([sampleServer]); // coolify server
+        mockedExistsSync.mockReturnValue(true);
+        // Manifest has mode: bare
+        mockedReadFileSync.mockReturnValue(JSON.stringify({
+          ...sampleManifest,
+          mode: "bare",
+        }));
+
+        await restoreCommand("1.2.3.4", { backup: "my-backup" });
+
+        const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+        expect(output).toContain("Mode mismatch");
+        expect(mockedInquirer.prompt).not.toHaveBeenCalled();
+      });
+
+      it("should not block restore when provider matches", async () => {
+        mockedSsh.checkSshAvailable.mockReturnValue(true);
+        mockedConfig.findServers.mockReturnValue([sampleServer]);
+        mockedExistsSync.mockReturnValue(true);
+        mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
+        // Cancel at first confirm
+        mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: false }) as any;
+
+        await restoreCommand("1.2.3.4", { backup: "my-backup" });
+
+        const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+        // No mode mismatch, no cross-provider warning
+        expect(output).not.toContain("Mode mismatch");
+        expect(output).not.toContain("caution");
+        expect(output).toContain("cancelled");
+      });
+    });
+
     describe("path traversal protection", () => {
       it("should strip directory traversal from --backup option", async () => {
         mockedSsh.checkSshAvailable.mockReturnValue(true);

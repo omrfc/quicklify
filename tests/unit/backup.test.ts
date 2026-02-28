@@ -1,6 +1,7 @@
 import { mkdirSync, existsSync, writeFileSync, readdirSync } from "fs";
 import { spawn } from "child_process";
 import { EventEmitter } from "events";
+import inquirer from "inquirer";
 import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
 import * as serverSelect from "../../src/utils/serverSelect";
@@ -14,6 +15,8 @@ import {
   buildCoolifyVersionCommand,
   scpDownload,
   listBackups,
+  listOrphanBackups,
+  cleanupServerBackups,
 } from "../../src/commands/backup";
 
 jest.mock("fs", () => ({
@@ -22,6 +25,7 @@ jest.mock("fs", () => ({
   writeFileSync: jest.fn(),
   readFileSync: jest.fn(),
   readdirSync: jest.fn(),
+  rmSync: jest.fn(),
 }));
 jest.mock("child_process", () => ({
   spawn: jest.fn(),
@@ -30,10 +34,12 @@ jest.mock("child_process", () => ({
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");
 jest.mock("../../src/utils/serverSelect");
+jest.mock("inquirer");
 
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
 const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
+const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockedReaddirSync = readdirSync as jest.MockedFunction<typeof readdirSync>;
 const mockedWriteFileSync = writeFileSync as jest.MockedFunction<typeof writeFileSync>;
@@ -493,6 +499,62 @@ describe("backup", () => {
 
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("unknown");
+    });
+  });
+
+  // ---- cleanup subcommand tests ----
+
+  describe("backupCommand cleanup subcommand", () => {
+    it("should show success when no orphan backups found", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+      mockedExistsSync.mockReturnValue(false); // BACKUPS_DIR doesn't exist
+
+      await backupCommand("cleanup");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("No orphan backups found");
+    });
+
+    it("should show orphan list and cancel when user declines", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+      // BACKUPS_DIR exists, has an orphan directory not in active servers
+      mockedExistsSync.mockImplementation((p) => {
+        const path = String(p);
+        if (path.includes("backups") && !path.includes("old-server")) return true;
+        if (path.includes("old-server")) return true;
+        return path.includes("manifest.json");
+      });
+      mockedReaddirSync
+        .mockReturnValueOnce(["old-server"] as any) // listOrphanBackups reads BACKUPS_DIR
+        .mockReturnValueOnce(["2026-02-21_10-00-00-000"] as any); // listBackups for old-server
+      mockedInquirer.prompt.mockResolvedValue({ confirm: false } as any);
+
+      await backupCommand("cleanup");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("old-server");
+      expect(output).toContain("Cleanup cancelled");
+    });
+
+    it("should remove orphan backups when user confirms", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+      mockedExistsSync.mockImplementation((p) => {
+        const path = String(p);
+        if (path.includes("old-server")) return true;
+        return true;
+      });
+      mockedReaddirSync
+        .mockReturnValueOnce(["old-server"] as any)
+        .mockReturnValueOnce(["2026-02-21_10-00-00-000"] as any);
+      mockedInquirer.prompt.mockResolvedValue({ confirm: true } as any);
+
+      await backupCommand("cleanup");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("old-server");
+      // rmSync should be called to remove the directory
+      const { rmSync } = require("fs");
+      expect(rmSync).toHaveBeenCalled();
     });
   });
 

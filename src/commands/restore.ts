@@ -75,7 +75,11 @@ export async function restoreCommand(
         type: "list",
         name: "backup",
         message: "Select a backup to restore:",
-        choices: backups.map((b) => ({ name: b, value: b })),
+        choices: backups.map((b) => {
+          const m = loadManifest(join(getBackupDir(server.name), b));
+          const info = m ? ` [${m.provider}${m.mode === "bare" ? "/bare" : ""}]` : "";
+          return { name: `${b}${info}`, value: b };
+        }),
       },
     ]);
     selectedBackup = backup;
@@ -86,6 +90,23 @@ export async function restoreCommand(
 
   if (!manifest) {
     logger.error(`Invalid backup: manifest.json not found in ${backupPath}`);
+    return;
+  }
+
+  // Cross-provider warning
+  if (manifest.provider && manifest.provider !== server.provider) {
+    logger.warning(
+      `Backup was created on ${manifest.provider} but restoring to ${server.provider}. Proceed with caution.`,
+    );
+  }
+
+  // Mode mismatch block
+  const serverMode = server.mode || "coolify";
+  const backupMode = manifest.mode || "coolify";
+  if (serverMode !== backupMode) {
+    logger.error(
+      `Mode mismatch: backup is "${backupMode}" but server "${server.name}" is "${serverMode}". Cannot restore across modes.`,
+    );
     return;
   }
 

@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
+import inquirer from "inquirer";
 import { getServers } from "../utils/config.js";
 import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
@@ -17,6 +18,8 @@ import {
   listBackups,
   scpDownload,
   createBareBackup,
+  listOrphanBackups,
+  cleanupServerBackups,
 } from "../core/backup.js";
 
 // Re-export pure functions from core/backup.ts for backward compatibility
@@ -29,6 +32,8 @@ export {
   buildCoolifyVersionCommand,
   listBackups,
   scpDownload,
+  listOrphanBackups,
+  cleanupServerBackups,
 };
 
 // Single server backup (extracted for reuse)
@@ -143,6 +148,7 @@ async function backupSingleServer(server: ServerRecord, dryRun: boolean): Promis
   await sshExec(server.ip, buildCleanupCommand()).catch(() => {});
 
   logger.success(`[${server.name}] Backup saved to ${backupPath}`);
+  logger.info(`Provider: ${server.provider} | IP: ${server.ip} | Mode: ${server.mode || "coolify"}`);
   return true;
 }
 
@@ -177,12 +183,63 @@ async function backupAll(dryRun: boolean): Promise<void> {
   }
 }
 
+// Backup cleanup command
+
+async function backupCleanupCommand(): Promise<void> {
+  const servers = getServers();
+  const activeNames = servers.map((s) => s.name);
+  const orphans = listOrphanBackups(activeNames);
+
+  if (orphans.length === 0) {
+    logger.success("No orphan backups found. All backups belong to active servers.");
+    return;
+  }
+
+  logger.title(`Found ${orphans.length} orphan backup(s):`);
+  for (const name of orphans) {
+    const backupCount = listBackups(name).length;
+    logger.step(`${name} (${backupCount} backup${backupCount !== 1 ? "s" : ""})`);
+  }
+  console.log();
+
+  const { confirm } = await inquirer.prompt([
+    {
+      type: "confirm",
+      name: "confirm",
+      message: `Remove all ${orphans.length} orphan backup folder(s)?`,
+      default: false,
+    },
+  ]);
+
+  if (!confirm) {
+    logger.info("Cleanup cancelled.");
+    return;
+  }
+
+  let removed = 0;
+  for (const name of orphans) {
+    const result = cleanupServerBackups(name);
+    if (result.removed) {
+      logger.success(`Removed backups for "${name}"`);
+      removed++;
+    } else {
+      logger.warning(`Failed to remove backups for "${name}"`);
+    }
+  }
+  logger.success(`Cleaned up ${removed}/${orphans.length} orphan backup(s).`);
+}
+
 // Command
 
 export async function backupCommand(
   query?: string,
   options?: { dryRun?: boolean; all?: boolean },
 ): Promise<void> {
+  // Handle cleanup subcommand
+  if (query === "cleanup") {
+    return backupCleanupCommand();
+  }
+
   if (options?.all) {
     return backupAll(options?.dryRun || false);
   }
@@ -339,5 +396,6 @@ export async function backupCommand(
 
   logger.success(`Backup saved to ${backupPath}`);
   logger.info(`Coolify version: ${coolifyVersion}`);
+  logger.info(`Provider: ${server.provider} | IP: ${server.ip} | Mode: ${server.mode || "coolify"}`);
   logger.info("Files: coolify-backup.sql.gz, coolify-config.tar.gz, manifest.json");
 }
