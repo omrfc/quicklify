@@ -4,12 +4,14 @@ import chalk from "chalk";
 import { promptApiToken } from "../utils/serverSelect.js";
 import { addServerRecord } from "../core/manage.js";
 import { logger } from "../utils/logger.js";
+import type { ServerMode } from "../types/index.js";
 
 interface AddOptions {
   provider?: string;
   ip?: string;
   name?: string;
   skipVerify?: boolean;
+  mode?: string;
 }
 
 export async function addCommand(options: AddOptions = {}): Promise<void> {
@@ -70,12 +72,13 @@ export async function addCommand(options: AddOptions = {}): Promise<void> {
   // Step 4: Get server name
   let serverName = options.name;
   if (!serverName) {
+    const defaultName = options.mode === "bare" ? "bare-server" : "coolify-server";
     const { name } = await inquirer.prompt([
       {
         type: "input",
         name: "name",
         message: "Server name:",
-        default: "coolify-server",
+        default: defaultName,
         validate: (input: string) => {
           const trimmed = input.trim();
           if (!trimmed) return "Server name is required";
@@ -101,6 +104,7 @@ export async function addCommand(options: AddOptions = {}): Promise<void> {
     name: serverName!,
     skipVerify: options.skipVerify,
     apiToken,
+    ...(options.mode ? { mode: options.mode as ServerMode } : {}),
   });
 
   if (!result.success) {

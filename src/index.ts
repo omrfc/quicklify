@@ -189,12 +189,13 @@ program
 
 program
   .command("add")
-  .description("Add an existing Coolify server to Quicklify management")
+  .description("Add an existing server to Quicklify management")
   .option("--provider <provider>", "Cloud provider (hetzner, digitalocean, vultr, linode)")
   .option("--ip <ip>", "Server IP address")
   .option("--name <name>", "Server name")
   .option("--skip-verify", "Skip Coolify installation verification")
-  .action((options?: { provider?: string; ip?: string; name?: string; skipVerify?: boolean }) =>
+  .option("--mode <mode>", "Server mode: coolify (default) or bare")
+  .action((options?: { provider?: string; ip?: string; name?: string; skipVerify?: boolean; mode?: string }) =>
     addCommand(options),
   );
 

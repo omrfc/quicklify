@@ -3,7 +3,7 @@ import { createProviderWithToken } from "../utils/providerFactory.js";
 import { sshExec, checkSshAvailable } from "../utils/ssh.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { getProviderToken } from "./tokens.js";
-import type { ServerRecord } from "../types/index.js";
+import type { ServerRecord, ServerMode } from "../types/index.js";
 
 // ─── SAFE_MODE ────────────────────────────────────────────────────────────────
 
@@ -53,6 +53,7 @@ export interface AddServerParams {
   name: string;
   skipVerify?: boolean;
   apiToken?: string;
+  mode?: ServerMode;
 }
 
 export interface AddServerResult {
@@ -116,9 +117,12 @@ export async function addServerRecord(params: AddServerParams): Promise<AddServe
     };
   }
 
-  // Optional Coolify verification via SSH
+  // Resolve mode
+  const mode: ServerMode = params.mode || "coolify";
+
+  // Optional Coolify verification via SSH (skip entirely for bare mode)
   let coolifyStatus = "skipped";
-  if (!params.skipVerify) {
+  if (!params.skipVerify && mode !== "bare") {
     if (!checkSshAvailable()) {
       coolifyStatus = "ssh_unavailable";
     } else {
@@ -156,6 +160,7 @@ export async function addServerRecord(params: AddServerParams): Promise<AddServe
     region: "unknown",
     size: "unknown",
     createdAt: new Date().toISOString(),
+    mode,
   };
 
   saveServer(record);
