@@ -7,6 +7,7 @@ import { isBareServer } from "../utils/modeGuard.js";
 import { listBackups, getBackupDir } from "./backup.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
+import { isSafeMode } from "../core/manage.js";
 import {
   buildStopCoolifyCommand,
   buildStartCoolifyCommand,
@@ -45,9 +46,9 @@ export async function restoreCommand(
   }
 
   // SAFE_MODE check — applies before mode routing (blocks ALL restore operations)
-  if (process.env.SAFE_MODE === "true") {
+  if (isSafeMode()) {
     logger.error(
-      "Restore is blocked by SAFE_MODE. Set SAFE_MODE=false to allow restore operations.",
+      "Restore is blocked by SAFE_MODE. Set QUICKLIFY_SAFE_MODE=false to allow restore operations.",
     );
     return;
   }

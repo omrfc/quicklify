@@ -81,6 +81,7 @@ const coolifyManifest = {
 describe("restoreCommand — bare mode routing", () => {
   let consoleSpy: jest.SpyInstance;
   const originalSafeMode = process.env.SAFE_MODE;
+  const originalQuicklifySafeMode = process.env.QUICKLIFY_SAFE_MODE;
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
@@ -108,6 +109,11 @@ describe("restoreCommand — bare mode routing", () => {
       delete process.env.SAFE_MODE;
     } else {
       process.env.SAFE_MODE = originalSafeMode;
+    }
+    if (originalQuicklifySafeMode === undefined) {
+      delete process.env.QUICKLIFY_SAFE_MODE;
+    } else {
+      process.env.QUICKLIFY_SAFE_MODE = originalQuicklifySafeMode;
     }
   });
 
@@ -158,8 +164,8 @@ describe("restoreCommand — bare mode routing", () => {
     expect(mockedCoreBackup.restoreBareBackup).not.toHaveBeenCalled();
   });
 
-  it("should block bare restore with SAFE_MODE=true and error message", async () => {
-    process.env.SAFE_MODE = "true";
+  it("should block bare restore with QUICKLIFY_SAFE_MODE=true and error message", async () => {
+    process.env.QUICKLIFY_SAFE_MODE = "true";
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServers.mockReturnValue([bareServer]);
 
@@ -168,10 +174,12 @@ describe("restoreCommand — bare mode routing", () => {
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("SAFE_MODE");
     expect(mockedCoreBackup.restoreBareBackup).not.toHaveBeenCalled();
+
+    delete process.env.QUICKLIFY_SAFE_MODE;
   });
 
-  it("should block coolify restore with SAFE_MODE=true as well", async () => {
-    process.env.SAFE_MODE = "true";
+  it("should block coolify restore with QUICKLIFY_SAFE_MODE=true as well", async () => {
+    process.env.QUICKLIFY_SAFE_MODE = "true";
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServers.mockReturnValue([coolifyServer]);
 
@@ -181,6 +189,8 @@ describe("restoreCommand — bare mode routing", () => {
     expect(output).toContain("SAFE_MODE");
     // No core restore functions should be called
     expect(mockedCoreBackup.restoreBareBackup).not.toHaveBeenCalled();
+
+    delete process.env.QUICKLIFY_SAFE_MODE;
   });
 
   it("should show config restored message and service restart hint for bare restore success", async () => {

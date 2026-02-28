@@ -1,4 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import { serverInfoSchema, handleServerInfo } from "./tools/serverInfo.js";
 import { serverLogsSchema, handleServerLogs } from "./tools/serverLogs.js";
 import { serverManageSchema, handleServerManage } from "./tools/serverManage.js";
@@ -7,7 +10,10 @@ import { serverSecureSchema, handleServerSecure } from "./tools/serverSecure.js"
 import { serverBackupSchema, handleServerBackup } from "./tools/serverBackup.js";
 import { serverProvisionSchema, handleServerProvision } from "./tools/serverProvision.js";
 
-const pkg = { name: "quicklify-mcp", version: "1.1.0" };
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const pkgPath = join(__dirname, "..", "..", "package.json");
+const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { name: string; version: string };
 
 export function createMcpServer(): McpServer {
   const server = new McpServer(
