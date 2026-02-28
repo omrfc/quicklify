@@ -3,6 +3,7 @@ import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 import { COOLIFY_DB_CONTAINER } from "../constants.js";
+import { requireCoolifyMode } from "../utils/modeGuard.js";
 import {
   isValidDomain,
   sanitizeDomain,
@@ -46,6 +47,12 @@ export async function domainCommand(
 
   const server = await resolveServer(query, "Select a server for domain management:");
   if (!server) return;
+
+  const modeError = requireCoolifyMode(server, "domain");
+  if (modeError) {
+    logger.error(modeError);
+    return;
+  }
 
   const dryRun = options?.dryRun || false;
 
