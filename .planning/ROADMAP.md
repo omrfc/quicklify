@@ -81,7 +81,12 @@ Plans:
   2. Claude can provision a bare server via the MCP provision tool by passing `mode: "bare"` as a parameter
   3. MCP tool errors use the same format and messages as core/ error mappers
   4. All existing MCP tool schemas and behaviors are unchanged (no breaking changes for Claude integrations)
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Foundation: shared MCP utils module, restore.ts SAFE_MODE fix, server.ts dynamic version
+- [ ] 03-02-PLAN.md — Bare mode for serverProvision, serverManage, serverInfo tools
+- [ ] 03-03-PLAN.md — Bare mode for serverBackup, serverMaintain, serverLogs, serverSecure + description updates
 
 ## Progress
 
@@ -91,8 +96,8 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 1. CLI/Core Refactor | 5/5 | Complete   | 2026-02-28 | - |
 | 2. Bare Mode | 4/4 | Complete   | 2026-02-28 | - |
-| 3. MCP Refactor | v1.2.0 | 0/TBD | Not started | - |
+| 3. MCP Refactor | v1.2.0 | 0/3 | Planned | - |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-02-28 — Phase 2 planned: 4 plans in 3 waves for bare mode support*
+*Last updated: 2026-02-28 — Phase 3 planned: 3 plans in 2 waves for MCP refactor*
