@@ -6,6 +6,7 @@ import type { FirewallStatus, FirewallRule, FirewallProtocol } from "../types/in
 
 export const PROTECTED_PORTS = [22];
 export const COOLIFY_PORTS = [80, 443, 8000, 6001, 6002];
+export const BARE_PORTS = [80, 443];
 
 // ─── Pure Functions ─────────────────────────────────────────────────────────
 
@@ -23,6 +24,18 @@ export function buildFirewallSetupCommand(): string {
     "ufw default deny incoming",
     "ufw default allow outgoing",
     ...COOLIFY_PORTS.map((p) => `ufw allow ${p}/tcp`),
+    "ufw allow 22/tcp",
+    'echo "y" | ufw enable',
+  ];
+  return commands.join(" && ");
+}
+
+export function buildBareFirewallSetupCommand(): string {
+  const commands = [
+    "apt-get install -y ufw",
+    "ufw default deny incoming",
+    "ufw default allow outgoing",
+    ...BARE_PORTS.map((p) => `ufw allow ${p}/tcp`),
     "ufw allow 22/tcp",
     'echo "y" | ufw enable',
   ];

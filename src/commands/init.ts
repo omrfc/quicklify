@@ -17,7 +17,7 @@ import { getCoolifyCloudInit, getBareCloudInit } from "../utils/cloudInit.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { openBrowser } from "../utils/openBrowser.js";
-import { assertValidIp } from "../utils/ssh.js";
+import { assertValidIp, sshExec } from "../utils/ssh.js";
 import { findLocalSshKey, generateSshKey, getSshKeyName } from "../utils/sshKey.js";
 import { firewallSetup } from "./firewall.js";
 import { secureSetup } from "./secure.js";
@@ -168,6 +168,11 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
           break;
         }
         case 6: {
+          if (options.name) {
+            serverName = options.name;
+            step = 7;
+            break;
+          }
           const n = await getServerNameConfig();
           if (n === BACK_SIGNAL) {
             step = 5;
@@ -439,8 +444,47 @@ async function deployServer(
       ...(isBare ? { mode: "bare" as const } : { mode: "coolify" as const }),
     });
 
-    // Bare mode: show SSH info and exit early
+    // Bare mode: cloud-init wait + optional full setup + show SSH info
     if (isBare) {
+      // Wait for cloud-init to finish (BUG-5)
+      if (hasValidIp) {
+        const cloudInitSpinner = createSpinner("Waiting for cloud-init to finish...");
+        cloudInitSpinner.start();
+        try {
+          const ciResult = await sshExec(server.ip, "cloud-init status --wait");
+          if (ciResult.code === 0) {
+            cloudInitSpinner.succeed("Cloud-init completed");
+          } else {
+            cloudInitSpinner.warn("Cloud-init may not have finished — continuing anyway");
+          }
+        } catch {
+          cloudInitSpinner.warn("Could not check cloud-init status — continuing anyway");
+        }
+      }
+
+      // Full setup: firewall + secure (BUG-1)
+      if (fullSetup && hasValidIp) {
+        try {
+          spawnSync("ssh-keygen", ["-R", server.ip], { stdio: "ignore" });
+        } catch {
+          // ssh-keygen not available or no entry — harmless
+        }
+        logger.title("Running full setup (firewall + security)...");
+        try {
+          await firewallSetup(server.ip, serverName, false, true);
+        } catch (error: unknown) {
+          logger.warning(`Firewall setup failed: ${getErrorMessage(error)}`);
+        }
+        try {
+          await secureSetup(server.ip, serverName, undefined, false, true);
+        } catch (error: unknown) {
+          logger.warning(`Security setup failed: ${getErrorMessage(error)}`);
+        }
+      } else if (fullSetup && !hasValidIp) {
+        logger.warning("Skipping full setup: server IP not available.");
+      }
+
+      // Show bare server info
       logger.title("Bare Server Ready!");
       console.log();
       logger.success(`Bare server ready!`);
@@ -448,6 +492,12 @@ async function deployServer(
       logger.info(`IP: ${server.ip}`);
       logger.info("Mode: bare (no platform installed)");
       console.log();
+      if (!fullSetup) {
+        logger.info("  Secure your server:");
+        logger.step(`     quicklify firewall setup ${serverName}`);
+        logger.step(`     quicklify secure setup ${serverName}`);
+        console.log();
+      }
       logger.info("  Server saved to local config. Use 'quicklify list' to see all servers.");
       console.log();
       return;

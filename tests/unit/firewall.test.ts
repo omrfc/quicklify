@@ -7,10 +7,12 @@ import {
   isProtectedPort,
   buildUfwRuleCommand,
   buildFirewallSetupCommand,
+  buildBareFirewallSetupCommand,
   buildUfwStatusCommand,
   parseUfwStatus,
   PROTECTED_PORTS,
   COOLIFY_PORTS,
+  BARE_PORTS,
 } from "../../src/commands/firewall";
 
 jest.mock("../../src/utils/config");
@@ -193,6 +195,53 @@ describe("firewall", () => {
   describe("COOLIFY_PORTS", () => {
     it("should include standard Coolify ports", () => {
       expect(COOLIFY_PORTS).toEqual(expect.arrayContaining([80, 443, 8000, 6001, 6002]));
+    });
+  });
+
+  describe("BARE_PORTS", () => {
+    it("should include only web ports (80, 443) — not Coolify-specific ports", () => {
+      expect(BARE_PORTS).toEqual(expect.arrayContaining([80, 443]));
+    });
+
+    it("should NOT include Coolify-specific ports (8000, 6001, 6002)", () => {
+      expect(BARE_PORTS).not.toContain(8000);
+      expect(BARE_PORTS).not.toContain(6001);
+      expect(BARE_PORTS).not.toContain(6002);
+    });
+  });
+
+  describe("buildBareFirewallSetupCommand", () => {
+    it("should include apt-get install", () => {
+      const cmd = buildBareFirewallSetupCommand();
+      expect(cmd).toContain("apt-get install -y ufw");
+    });
+
+    it("should include default deny incoming", () => {
+      const cmd = buildBareFirewallSetupCommand();
+      expect(cmd).toContain("ufw default deny incoming");
+    });
+
+    it("should include bare ports (80, 443)", () => {
+      const cmd = buildBareFirewallSetupCommand();
+      expect(cmd).toContain("ufw allow 80/tcp");
+      expect(cmd).toContain("ufw allow 443/tcp");
+    });
+
+    it("should include SSH port 22", () => {
+      const cmd = buildBareFirewallSetupCommand();
+      expect(cmd).toContain("ufw allow 22/tcp");
+    });
+
+    it("should NOT include Coolify-specific ports", () => {
+      const cmd = buildBareFirewallSetupCommand();
+      expect(cmd).not.toContain("ufw allow 8000/tcp");
+      expect(cmd).not.toContain("ufw allow 6001/tcp");
+      expect(cmd).not.toContain("ufw allow 6002/tcp");
+    });
+
+    it("should enable UFW", () => {
+      const cmd = buildBareFirewallSetupCommand();
+      expect(cmd).toContain("ufw enable");
     });
   });
 
@@ -561,6 +610,36 @@ describe("firewall", () => {
       await firewallCommand("setup", "1.2.3.4");
 
       expect(mockedSsh.sshExec).toHaveBeenCalled();
+    });
+
+    it("should use bare firewall command (no Coolify ports) for bare-mode server (BUG-7)", async () => {
+      const bareServer = { ...sampleServer, mode: "bare" as const };
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([bareServer]);
+      mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+
+      await firewallCommand("setup", "1.2.3.4");
+
+      const calledCommand = mockedSsh.sshExec.mock.calls[0][1] as string;
+      // Should NOT contain Coolify-specific ports
+      expect(calledCommand).not.toContain("8000");
+      expect(calledCommand).not.toContain("6001");
+      expect(calledCommand).not.toContain("6002");
+      // Should contain basic web ports
+      expect(calledCommand).toContain("80");
+      expect(calledCommand).toContain("443");
+    });
+
+    it("should use Coolify firewall command for coolify-mode server (BUG-7 non-regression)", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+
+      await firewallCommand("setup", "1.2.3.4");
+
+      const calledCommand = mockedSsh.sshExec.mock.calls[0][1] as string;
+      // Should contain Coolify-specific ports
+      expect(calledCommand).toContain("8000");
     });
 
     it("should show no rules message when list returns active but empty", async () => {

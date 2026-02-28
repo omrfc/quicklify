@@ -3,23 +3,28 @@ import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
+import { isBareServer } from "../utils/modeGuard.js";
 import {
   PROTECTED_PORTS,
   COOLIFY_PORTS,
+  BARE_PORTS,
   isValidPort,
   isProtectedPort,
   buildUfwRuleCommand,
   buildFirewallSetupCommand,
+  buildBareFirewallSetupCommand,
   buildUfwStatusCommand,
   parseUfwStatus,
 } from "../core/firewall.js";
 export {
   PROTECTED_PORTS,
   COOLIFY_PORTS,
+  BARE_PORTS,
   isValidPort,
   isProtectedPort,
   buildUfwRuleCommand,
   buildFirewallSetupCommand,
+  buildBareFirewallSetupCommand,
   buildUfwStatusCommand,
   parseUfwStatus,
 };
@@ -49,9 +54,11 @@ export async function firewallCommand(
   const dryRun = options?.dryRun || false;
 
   switch (sub) {
-    case "setup":
-      await firewallSetup(server.ip, server.name, dryRun);
+    case "setup": {
+      const bare = isBareServer(server);
+      await firewallSetup(server.ip, server.name, dryRun, bare);
       break;
+    }
     case "add":
       await firewallAdd(server.ip, server.name, options, dryRun);
       break;
@@ -67,8 +74,13 @@ export async function firewallCommand(
   }
 }
 
-export async function firewallSetup(ip: string, name: string, dryRun: boolean): Promise<void> {
-  const command = buildFirewallSetupCommand();
+export async function firewallSetup(
+  ip: string,
+  name: string,
+  dryRun: boolean,
+  isBare?: boolean,
+): Promise<void> {
+  const command = isBare ? buildBareFirewallSetupCommand() : buildFirewallSetupCommand();
 
   if (dryRun) {
     logger.title("Dry Run - Firewall Setup");
@@ -94,7 +106,11 @@ export async function firewallSetup(ip: string, name: string, dryRun: boolean): 
       return;
     }
     spinner.succeed("Firewall configured successfully");
-    logger.success(`UFW enabled with Coolify ports (${COOLIFY_PORTS.join(", ")}) + SSH (22)`);
+    if (isBare) {
+      logger.success(`UFW enabled with web ports (${BARE_PORTS.join(", ")}) + SSH (22)`);
+    } else {
+      logger.success(`UFW enabled with Coolify ports (${COOLIFY_PORTS.join(", ")}) + SSH (22)`);
+    }
   } catch (error: unknown) {
     spinner.fail("Failed to setup firewall");
     logger.error(getErrorMessage(error));

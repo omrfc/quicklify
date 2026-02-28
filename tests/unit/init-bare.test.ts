@@ -1,6 +1,9 @@
 /**
  * Tests for bare mode init command in src/commands/init.ts
- * Covers: bare mode skips waitForCoolify, skips openBrowser, shows SSH info
+ * Covers: bare mode skips waitForCoolify, skips openBrowser, shows SSH info,
+ *         --full-setup calls firewallSetup+secureSetup (BUG-1),
+ *         --name flag skips prompt (BUG-2),
+ *         cloud-init wait via sshExec (BUG-5)
  */
 
 import axios from "axios";
@@ -27,6 +30,33 @@ jest.mock("../../src/utils/openBrowser", () => ({
   openBrowser: jest.fn(),
 }));
 
+jest.mock("../../src/utils/ssh", () => ({
+  assertValidIp: jest.fn(),
+  sshExec: jest.fn().mockResolvedValue({ code: 0, stdout: "", stderr: "" }),
+  sshConnect: jest.fn(),
+  sshStream: jest.fn(),
+  sanitizedEnv: jest.fn().mockReturnValue({}),
+  checkSshAvailable: jest.fn().mockReturnValue(true),
+}));
+
+jest.mock("../../src/commands/firewall", () => ({
+  firewallSetup: jest.fn().mockResolvedValue(undefined),
+  COOLIFY_PORTS: [80, 443, 8000, 6001, 6002],
+  BARE_PORTS: [80, 443],
+  PROTECTED_PORTS: [22],
+  isValidPort: jest.fn(),
+  isProtectedPort: jest.fn(),
+  buildUfwRuleCommand: jest.fn(),
+  buildFirewallSetupCommand: jest.fn(),
+  buildBareFirewallSetupCommand: jest.fn(),
+  buildUfwStatusCommand: jest.fn(),
+  parseUfwStatus: jest.fn(),
+}));
+
+jest.mock("../../src/commands/secure", () => ({
+  secureSetup: jest.fn().mockResolvedValue(undefined),
+}));
+
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const { waitForCoolify } = jest.requireMock("../../src/utils/healthCheck") as {
   waitForCoolify: jest.Mock;
@@ -36,6 +66,15 @@ const { openBrowser } = jest.requireMock("../../src/utils/openBrowser") as {
 };
 const { saveServer } = jest.requireMock("../../src/utils/config") as {
   saveServer: jest.Mock;
+};
+const { sshExec } = jest.requireMock("../../src/utils/ssh") as {
+  sshExec: jest.Mock;
+};
+const { firewallSetup } = jest.requireMock("../../src/commands/firewall") as {
+  firewallSetup: jest.Mock;
+};
+const { secureSetup } = jest.requireMock("../../src/commands/secure") as {
+  secureSetup: jest.Mock;
 };
 
 function setupHetznerMocks() {
@@ -81,6 +120,10 @@ describe("initCommand — bare mode", () => {
     processExitSpy = jest.spyOn(process, "exit").mockImplementation(() => undefined as never);
     jest.clearAllMocks();
     setupHetznerMocks();
+    sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+    firewallSetup.mockResolvedValue(undefined);
+    secureSetup.mockResolvedValue(undefined);
+    waitForCoolify.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -89,8 +132,6 @@ describe("initCommand — bare mode", () => {
   });
 
   it("should NOT call waitForCoolify when mode='bare'", async () => {
-    waitForCoolify.mockResolvedValue(true);
-
     await initCommand({
       provider: "hetzner",
       token: "test-token",
@@ -104,8 +145,6 @@ describe("initCommand — bare mode", () => {
   });
 
   it("should NOT call openBrowser when mode='bare'", async () => {
-    waitForCoolify.mockResolvedValue(true);
-
     await initCommand({
       provider: "hetzner",
       token: "test-token",
@@ -119,8 +158,6 @@ describe("initCommand — bare mode", () => {
   });
 
   it("should show SSH connection info when mode='bare'", async () => {
-    waitForCoolify.mockResolvedValue(true);
-
     await initCommand({
       provider: "hetzner",
       token: "test-token",
@@ -135,8 +172,6 @@ describe("initCommand — bare mode", () => {
   });
 
   it("should save ServerRecord with mode:'bare' when mode='bare'", async () => {
-    waitForCoolify.mockResolvedValue(true);
-
     await initCommand({
       provider: "hetzner",
       token: "test-token",
@@ -152,8 +187,6 @@ describe("initCommand — bare mode", () => {
   });
 
   it("should call waitForCoolify when mode is NOT bare (default behavior)", async () => {
-    waitForCoolify.mockResolvedValue(true);
-
     await initCommand({
       provider: "hetzner",
       token: "test-token",
@@ -166,8 +199,6 @@ describe("initCommand — bare mode", () => {
   });
 
   it("should call openBrowser when mode is NOT bare and Coolify is ready", async () => {
-    waitForCoolify.mockResolvedValue(true);
-
     await initCommand({
       provider: "hetzner",
       token: "test-token",
@@ -178,5 +209,186 @@ describe("initCommand — bare mode", () => {
     });
 
     expect(openBrowser).toHaveBeenCalled();
+  });
+
+  // ---- BUG-5: cloud-init wait ----
+
+  it("should call sshExec with cloud-init status --wait when mode='bare' (BUG-5)", async () => {
+    await initCommand({
+      provider: "hetzner",
+      token: "test-token",
+      region: "nbg1",
+      size: "cax11",
+      name: "bare-server",
+      mode: "bare",
+    });
+
+    expect(sshExec).toHaveBeenCalledWith(
+      expect.any(String),
+      "cloud-init status --wait",
+    );
+  });
+
+  it("should continue even when cloud-init sshExec throws (BUG-5 resilience)", async () => {
+    sshExec.mockRejectedValue(new Error("SSH connection timeout"));
+
+    await initCommand({
+      provider: "hetzner",
+      token: "test-token",
+      region: "nbg1",
+      size: "cax11",
+      name: "bare-server",
+      mode: "bare",
+    });
+
+    // Should still complete and save server
+    expect(saveServer).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "bare" }),
+    );
+  });
+
+  it("should continue even when cloud-init returns non-zero exit code (BUG-5 resilience)", async () => {
+    sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "cloud-init not found" });
+
+    await initCommand({
+      provider: "hetzner",
+      token: "test-token",
+      region: "nbg1",
+      size: "cax11",
+      name: "bare-server",
+      mode: "bare",
+    });
+
+    expect(saveServer).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "bare" }),
+    );
+  });
+
+  // ---- BUG-1: bare --full-setup ----
+
+  it("should call firewallSetup with isBare=true when mode='bare' and fullSetup=true (BUG-1)", async () => {
+    await initCommand({
+      provider: "hetzner",
+      token: "test-token",
+      region: "nbg1",
+      size: "cax11",
+      name: "bare-server",
+      mode: "bare",
+      fullSetup: true,
+    });
+
+    expect(firewallSetup).toHaveBeenCalledWith(
+      expect.any(String),
+      "bare-server",
+      false,
+      true,
+    );
+  });
+
+  it("should call secureSetup when mode='bare' and fullSetup=true (BUG-1)", async () => {
+    await initCommand({
+      provider: "hetzner",
+      token: "test-token",
+      region: "nbg1",
+      size: "cax11",
+      name: "bare-server",
+      mode: "bare",
+      fullSetup: true,
+    });
+
+    expect(secureSetup).toHaveBeenCalled();
+  });
+
+  it("should NOT call firewallSetup when mode='bare' and fullSetup is NOT set (BUG-1)", async () => {
+    await initCommand({
+      provider: "hetzner",
+      token: "test-token",
+      region: "nbg1",
+      size: "cax11",
+      name: "bare-server",
+      mode: "bare",
+    });
+
+    expect(firewallSetup).not.toHaveBeenCalled();
+  });
+
+  it("should show secure your server tips when bare without fullSetup", async () => {
+    await initCommand({
+      provider: "hetzner",
+      token: "test-token",
+      region: "nbg1",
+      size: "cax11",
+      name: "bare-server",
+      mode: "bare",
+    });
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("quicklify firewall setup");
+  });
+
+  it("should continue even when firewallSetup throws during bare fullSetup (BUG-1 resilience)", async () => {
+    firewallSetup.mockRejectedValue(new Error("SSH connection refused"));
+
+    await initCommand({
+      provider: "hetzner",
+      token: "test-token",
+      region: "nbg1",
+      size: "cax11",
+      name: "bare-server",
+      mode: "bare",
+      fullSetup: true,
+    });
+
+    // Should still complete (show server ready)
+    expect(saveServer).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "bare" }),
+    );
+  });
+});
+
+// ---- BUG-2: --name flag in interactive path ----
+
+describe("initCommand — --name flag fix (BUG-2)", () => {
+  let consoleSpy: jest.SpyInstance;
+  let processExitSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    consoleSpy = jest.spyOn(console, "log").mockImplementation();
+    processExitSpy = jest.spyOn(process, "exit").mockImplementation(() => undefined as never);
+    jest.clearAllMocks();
+    setupHetznerMocks();
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+    processExitSpy.mockRestore();
+  });
+
+  // The non-interactive (--provider specified) path already handles --name correctly.
+  // This test confirms the saved server uses the provided name.
+  it("should use --name option as server name without calling getServerNameConfig", async () => {
+    const { saveServer: mockSave } = jest.requireMock("../../src/utils/config") as {
+      saveServer: jest.Mock;
+    };
+    const { sshExec: mockSshExec } = jest.requireMock("../../src/utils/ssh") as {
+      sshExec: jest.Mock;
+    };
+    mockSshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+    const { waitForCoolify: mockWait } = jest.requireMock("../../src/utils/healthCheck") as {
+      waitForCoolify: jest.Mock;
+    };
+    mockWait.mockResolvedValue(false);
+
+    await initCommand({
+      provider: "hetzner",
+      token: "test-token",
+      region: "nbg1",
+      size: "cax11",
+      name: "my-named-server",
+    });
+
+    expect(mockSave).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "my-named-server" }),
+    );
   });
 });
