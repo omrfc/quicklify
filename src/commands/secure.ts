@@ -3,121 +3,22 @@ import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
-import type { SshdSetting, SecureAuditResult } from "../types/index.js";
-
-export function parseSshdConfig(content: string): SshdSetting[] {
-  const settings: SshdSetting[] = [];
-  const checks: { key: string; secureValue: string }[] = [
-    { key: "PasswordAuthentication", secureValue: "no" },
-    { key: "PermitRootLogin", secureValue: "prohibit-password" },
-    { key: "PubkeyAuthentication", secureValue: "yes" },
-    { key: "MaxAuthTries", secureValue: "3" },
-  ];
-
-  for (const check of checks) {
-    const regex = new RegExp(`^\\s*${check.key}\\s+(.+)`, "m");
-    const match = content.match(regex);
-
-    if (match) {
-      const value = match[1].trim();
-      settings.push({
-        key: check.key,
-        value,
-        status: value.toLowerCase() === check.secureValue.toLowerCase() ? "secure" : "insecure",
-      });
-    } else {
-      settings.push({
-        key: check.key,
-        value: "",
-        status: "missing",
-      });
-    }
-  }
-
-  return settings;
-}
-
-export function parseAuditResult(stdout: string): SecureAuditResult {
-  const sections = stdout.split("---SEPARATOR---");
-  const sshdContent = sections[0] || "";
-  const fail2banStatus = sections[1] || "";
-  const sshdSettings = parseSshdConfig(sshdContent);
-
-  // Find specific settings
-  const passwordAuth = sshdSettings.find((s) => s.key === "PasswordAuthentication") || {
-    key: "PasswordAuthentication",
-    value: "",
-    status: "missing" as const,
-  };
-  const rootLogin = sshdSettings.find((s) => s.key === "PermitRootLogin") || {
-    key: "PermitRootLogin",
-    value: "",
-    status: "missing" as const,
-  };
-
-  // Parse fail2ban
-  const fail2banInstalled =
-    fail2banStatus.includes("active") || fail2banStatus.includes("inactive");
-  const fail2banActive = fail2banStatus.includes("active (running)");
-
-  // Parse SSH port
-  const portMatch = sshdContent.match(/^\s*Port\s+(\d+)/m);
-  const sshPort = portMatch ? parseInt(portMatch[1], 10) : 22;
-
-  return {
-    passwordAuth,
-    rootLogin,
-    fail2ban: { installed: fail2banInstalled, active: fail2banActive },
-    sshPort,
-  };
-}
-
-export function buildHardeningCommand(options?: { port?: number }): string {
-  const commands = [
-    "cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak",
-    `sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config`,
-    `sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config`,
-    `sed -i 's/^#\\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config`,
-    `sed -i 's/^#\\?MaxAuthTries.*/MaxAuthTries 3/' /etc/ssh/sshd_config`,
-  ];
-
-  if (options?.port && options.port !== 22) {
-    commands.push(`sed -i 's/^#\\?Port.*/Port ${options.port}/' /etc/ssh/sshd_config`);
-  }
-
-  // Ubuntu/Debian uses 'ssh', RHEL/CentOS uses 'sshd'
-  commands.push("systemctl restart sshd 2>/dev/null || systemctl restart ssh");
-  return commands.join(" && ");
-}
-
-export function buildFail2banCommand(): string {
-  const jailContent = [
-    "[sshd]",
-    "enabled = true",
-    "port = ssh",
-    "filter = sshd",
-    "backend = systemd",
-    "maxretry = 5",
-    "bantime = 3600",
-    "findtime = 600",
-  ].join("\\n");
-
-  return [
-    "apt-get install -y fail2ban python3-systemd",
-    `printf '${jailContent}\\n' > /etc/fail2ban/jail.local`,
-    "systemctl enable fail2ban",
-    "systemctl restart fail2ban",
-  ].join(" && ");
-}
-
-export function buildAuditCommand(): string {
-  return `cat /etc/ssh/sshd_config && echo '---SEPARATOR---' && systemctl status fail2ban 2>&1 || true`;
-}
-
-export function buildKeyCheckCommand(): string {
-  return "test -f /root/.ssh/authorized_keys && wc -l < /root/.ssh/authorized_keys || echo 0";
-}
-
+import {
+  parseSshdConfig,
+  parseAuditResult,
+  buildHardeningCommand,
+  buildFail2banCommand,
+  buildAuditCommand,
+  buildKeyCheckCommand,
+} from "../core/secure.js";
+export {
+  parseSshdConfig,
+  parseAuditResult,
+  buildHardeningCommand,
+  buildFail2banCommand,
+  buildAuditCommand,
+  buildKeyCheckCommand,
+};
 export async function secureCommand(
   subcommand?: string,
   query?: string,
