@@ -1,6 +1,6 @@
-import { findServer } from "../../src/utils/config.js";
-import { getProviderToken } from "../../src/core/tokens.js";
-import type { ServerRecord } from "../../src/types/index.js";
+import { findServer } from "../utils/config.js";
+import { getProviderToken } from "../core/tokens.js";
+import type { ServerRecord } from "../types/index.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
