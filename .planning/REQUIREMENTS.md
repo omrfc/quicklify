@@ -24,8 +24,8 @@ Requirements for v1.2.0 — Generic Server Management. Each maps to roadmap phas
 - [ ] **BARE-05**: User can manage firewall on a bare server (setup, add/remove ports)
 - [ ] **BARE-06**: User can set custom domain on a bare server (with SSL)
 - [ ] **BARE-07**: User can backup/restore a bare server (system-level, no Coolify DB)
-- [ ] **BARE-08**: ServerRecord stores `mode: "coolify" | "bare"` to track server type
-- [ ] **BARE-09**: Existing Coolify commands continue working unchanged (backward compatible)
+- [x] **BARE-08**: ServerRecord stores `mode: "coolify" | "bare"` to track server type
+- [x] **BARE-09**: Existing Coolify commands continue working unchanged (backward compatible)
 
 ### MCP Refactor
 
@@ -79,8 +79,8 @@ Deferred to future milestones. Tracked but not in current roadmap.
 | BARE-05 | Phase 2 | Pending |
 | BARE-06 | Phase 2 | Pending |
 | BARE-07 | Phase 2 | Pending |
-| BARE-08 | Phase 2 | Pending |
-| BARE-09 | Phase 2 | Pending |
+| BARE-08 | Phase 2 | Complete |
+| BARE-09 | Phase 2 | Complete |
 | MCP-01 | Phase 3 | Pending |
 | MCP-02 | Phase 3 | Pending |
 | MCP-03 | Phase 3 | Pending |

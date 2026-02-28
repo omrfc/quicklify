@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-02-28T06:41:40.559Z"
+last_updated: "2026-02-28T07:22:03.515Z"
 progress:
-  total_phases: 1
+  total_phases: 2
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 9
+  completed_plans: 6
 ---
 
 ---
@@ -35,12 +35,12 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 
 ## Current Position
 
-Phase: 1 of 3 (CLI/Core Refactor)
-Plan: 5 of 5 in current phase — PHASE 1 COMPLETE
-Status: Phase 1 complete
-Last activity: 2026-02-28 — Completed plan 01-05 (init/status final verification, lint cleanup, phase 1 complete)
+Phase: 2 of 3 (Bare Mode)
+Plan: 1 of 4 complete in current phase
+Status: In progress — Plan 02-01 complete
+Last activity: 2026-02-28 — Completed plan 02-01 (foundation types, bare cloud-init, mode guard utilities)
 
-Progress: [██████████] 100% (Phase 1)
+Progress: [██████████] 100% (Phase 1) | [██░░░░░░░░] 25% (Phase 2)
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [██████████] 100% (Phase 1)
 - Trend: Phase 1 complete
 
 *Updated after each plan completion*
+| Phase 02-bare-mode P01 | 252 | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,7 @@ Recent decisions affecting current work:
 - [01-04] update.ts: delegates sshExec(COOLIFY_UPDATE_CMD) to executeCoolifyUpdate() from core/maintain.ts
 - [01-04] snapshot.ts: fully delegates createSnapshot/listSnapshots/deleteSnapshot to core/snapshot.ts
 - [Phase 01-cli-core-refactor]: init.ts uploadSshKeyToProvider stays local — CLI spinner output vs MCP stderr, intentional distinction not duplication
+- [Phase 02-bare-mode]: ServerMode type exported separately; getServers() normalizes mode at read time for backward compat; requireCoolifyMode returns string|null not throws; bare cloud-init uses UFW only
 
 ### Pending Todos
 
@@ -96,5 +98,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Completed 01-05-PLAN.md — Phase 1 complete, ready for Phase 2 (bare mode)
+Stopped at: Completed 02-01-PLAN.md — foundation types, bare cloud-init, and mode guard utilities
 Resume file: None
