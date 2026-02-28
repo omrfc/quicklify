@@ -1,6 +1,13 @@
 import { z } from "zod";
-import { getServers, findServer } from "../../utils/config.js";
+import { getServers } from "../../utils/config.js";
 import { fetchServerLogs, fetchServerMetrics } from "../../core/logs.js";
+import { isBareServer } from "../../utils/modeGuard.js";
+import {
+  resolveServerForMcp,
+  mcpSuccess,
+  mcpError,
+  type McpResponse,
+} from "../utils.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
 import type { LogService } from "../../core/logs.js";
 
@@ -12,7 +19,7 @@ export const serverLogsSchema = {
     "Server name or IP. Auto-selected if only one server exists.",
   ),
   service: z.enum(["coolify", "docker", "system"]).default("coolify").describe(
-    "Log source (only for 'logs' action): 'coolify' container, 'docker' service journal, 'system' full journal",
+    "Log source (only for 'logs' action): 'coolify' container (Coolify servers only), 'docker' service journal, 'system' full journal",
   ),
   lines: z.number().min(1).max(500).default(50).describe(
     "Number of log lines to fetch (only for 'logs' action, default: 50, max: 500)",
@@ -27,36 +34,22 @@ interface SuggestedAction {
   reason: string;
 }
 
-function resolveServer(params: { server?: string }, servers: ReturnType<typeof getServers>) {
-  if (params.server) {
-    return findServer(params.server);
-  }
-  if (servers.length === 1) {
-    return servers[0];
-  }
-  return undefined;
-}
-
 export async function handleServerLogs(params: {
   action: "logs" | "monitor";
   server?: string;
   service?: LogService;
   lines?: number;
   containers?: boolean;
-}): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
+}): Promise<McpResponse> {
   try {
     const servers = getServers();
     if (servers.length === 0) {
-      return {
-        content: [{ type: "text", text: JSON.stringify({
-          error: "No servers found",
-          suggested_actions: [{ command: "quicklify init", reason: "Deploy a server first" }],
-        }) }],
-        isError: true,
-      };
+      return mcpError("No servers found", undefined, [
+        { command: "quicklify init", reason: "Deploy a server first" },
+      ]);
     }
 
-    const server = resolveServer(params, servers);
+    const server = resolveServerForMcp(params, servers);
     if (!server) {
       if (params.server) {
         return {
@@ -80,6 +73,21 @@ export async function handleServerLogs(params: {
       case "logs": {
         const service: LogService = params.service ?? "coolify";
         const lines = params.lines ?? 50;
+
+        // Guard: bare servers cannot read coolify service logs
+        if (isBareServer(server) && service === "coolify") {
+          return mcpError(
+            "Coolify logs not available on bare servers",
+            "Use service: 'system' or 'docker' for bare servers",
+            [
+              {
+                command: `server_logs { action: 'logs', server: '${server.name}', service: 'system' }`,
+                reason: "View system journal instead",
+              },
+            ],
+          );
+        }
+
         const result = await fetchServerLogs(server.ip, service, lines);
 
         if (result.error) {
@@ -116,16 +124,14 @@ export async function handleServerLogs(params: {
           });
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            server: server.name,
-            ip: server.ip,
-            service,
-            lines,
-            logs: result.logs,
-            suggested_actions: suggestedActions,
-          }) }],
-        };
+        return mcpSuccess({
+          server: server.name,
+          ip: server.ip,
+          service,
+          lines,
+          logs: result.logs,
+          suggested_actions: suggestedActions,
+        });
       }
 
       case "monitor": {
@@ -157,21 +163,16 @@ export async function handleServerLogs(params: {
           });
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            server: server.name,
-            ip: server.ip,
-            metrics: result.metrics,
-            ...(result.containers ? { containers: result.containers } : {}),
-            suggested_actions: suggestedActions,
-          }) }],
-        };
+        return mcpSuccess({
+          server: server.name,
+          ip: server.ip,
+          metrics: result.metrics,
+          ...(result.containers ? { containers: result.containers } : {}),
+          suggested_actions: suggestedActions,
+        });
       }
     }
   } catch (error: unknown) {
-    return {
-      content: [{ type: "text", text: JSON.stringify({ error: getErrorMessage(error) }) }],
-      isError: true,
-    };
+    return mcpError(getErrorMessage(error));
   }
 }

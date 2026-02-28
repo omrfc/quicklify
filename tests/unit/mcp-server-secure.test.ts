@@ -946,3 +946,31 @@ describe("handleServerSecure — domain-info", () => {
     expect(result.isError).toBe(true);
   });
 });
+
+// ─── handleServerSecure: shared utils integration ─────────────────────────────
+
+describe("handleServerSecure — shared utils integration", () => {
+  it("returns error with isError=true when no servers found (via mcpError)", async () => {
+    mockedConfig.getServers.mockReturnValue([]);
+
+    const result = await handleServerSecure({ action: "secure-audit" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(data.error).toContain("No servers found");
+    // mcpError wraps in standard shape (no suggested_actions key unless provided)
+    expect(data.suggested_actions).toBeDefined();
+  });
+
+  it("returns available_servers when server not found by name", async () => {
+    mockedConfig.getServers.mockReturnValue([sampleServer]);
+    mockedConfig.findServer.mockReturnValue(undefined);
+
+    const result = await handleServerSecure({ action: "secure-audit", server: "nonexistent" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(data.error).toContain("Server not found: nonexistent");
+    expect(data.available_servers).toContain("coolify-test");
+  });
+});

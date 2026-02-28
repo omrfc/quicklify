@@ -23,7 +23,7 @@ export function createMcpServer(): McpServer {
 
   server.registerTool("server_info", {
     description:
-      "Get information about Quicklify-managed servers. Actions: 'list' all servers, 'status' check cloud provider + Coolify status, 'health' check Coolify reachability. Requires provider API tokens as environment variables (HETZNER_TOKEN, DIGITALOCEAN_TOKEN, VULTR_TOKEN, LINODE_TOKEN) for status checks. Avoid calling repeatedly in short intervals to prevent provider API rate limiting.",
+      "Get information about Quicklify-managed servers. Actions: 'list' all servers, 'status' check cloud provider + Coolify/bare status, 'health' check Coolify reachability or SSH access for bare servers. Requires provider API tokens as environment variables (HETZNER_TOKEN, DIGITALOCEAN_TOKEN, VULTR_TOKEN, LINODE_TOKEN) for status checks. Avoid calling repeatedly in short intervals to prevent provider API rate limiting.",
     inputSchema: serverInfoSchema,
     annotations: {
       title: "Server Information",
@@ -38,7 +38,7 @@ export function createMcpServer(): McpServer {
 
   server.registerTool("server_logs", {
     description:
-      "Fetch logs and system metrics from Quicklify-managed servers via SSH. Actions: 'logs' retrieves recent log lines from Coolify container, Docker service, or system journal. 'monitor' fetches CPU, RAM, and disk usage metrics. Requires SSH access to target server (root@ip). Note: live streaming (--follow) is not available via MCP — use the CLI for live log tailing.",
+      "Fetch logs and system metrics from Quicklify-managed servers via SSH. Actions: 'logs' retrieves recent log lines from Coolify container (Coolify servers only), Docker service, or system journal. Bare servers: use service 'system' or 'docker' (coolify service not available). 'monitor' fetches CPU, RAM, and disk usage metrics (works for all server modes). Requires SSH access to target server (root@ip). Note: live streaming (--follow) is not available via MCP — use the CLI for live log tailing.",
     inputSchema: serverLogsSchema,
     annotations: {
       title: "Server Logs & Metrics",
@@ -53,7 +53,7 @@ export function createMcpServer(): McpServer {
 
   server.registerTool("server_manage", {
     description:
-      "Manage Quicklify servers. Actions: 'add' registers an existing server to local config (validates API token, optionally verifies Coolify via SSH). 'remove' unregisters a server from local config only (cloud server keeps running). 'destroy' PERMANENTLY DELETES the server from the cloud provider and removes from local config. Requires provider API tokens as environment variables. Destroy is blocked when QUICKLIFY_SAFE_MODE=true.",
+      "Manage Quicklify servers. Actions: 'add' registers an existing Coolify or bare server to local config (validates API token, optionally verifies Coolify via SSH — pass mode:'bare' for servers without Coolify). 'remove' unregisters a server from local config only (cloud server keeps running). 'destroy' PERMANENTLY DELETES the server from the cloud provider and removes from local config. Requires provider API tokens as environment variables. Destroy is blocked when QUICKLIFY_SAFE_MODE=true.",
     inputSchema: serverManageSchema,
     annotations: {
       title: "Server Management",
@@ -68,7 +68,7 @@ export function createMcpServer(): McpServer {
 
   server.registerTool("server_maintain", {
     description:
-      "Maintain Quicklify servers. Actions: 'update' runs Coolify update via SSH, 'restart' reboots server via cloud provider API, 'maintain' runs full 5-step maintenance (status check → update → health check → reboot → final check). Snapshot not included — use server_backup tool. Requires SSH access for update, provider API tokens for restart/status. Manual servers: update works, restart not available.",
+      "Maintain Quicklify servers. Actions: 'update' runs Coolify update via SSH (Coolify servers only — bare servers are blocked), 'restart' reboots server via cloud provider API (works for both Coolify and bare servers), 'maintain' runs full 5-step maintenance (Coolify servers only — bare servers are blocked). Snapshot not included — use server_backup tool. Requires SSH access for update, provider API tokens for restart/status. Manual servers: restart not available.",
     inputSchema: serverMaintainSchema,
     annotations: {
       title: "Server Maintenance",
@@ -98,7 +98,7 @@ export function createMcpServer(): McpServer {
 
   server.registerTool("server_backup", {
     description:
-      "Backup and snapshot Quicklify servers. Backup: 'backup-create' dumps Coolify DB + config via SSH, 'backup-list' shows local backups, 'backup-restore' restores from backup (SAFE_MODE blocks this). Snapshot: 'snapshot-create'/'snapshot-list'/'snapshot-delete' manage cloud provider snapshots (requires provider API token). Snapshots not available for manually added servers. Backup uses SSH, snapshots use provider API.",
+      "Backup and snapshot Quicklify servers. Backup: 'backup-create' dumps Coolify DB + config via SSH (Coolify servers) or system config files (bare servers), 'backup-list' shows local backups, 'backup-restore' restores from backup — bare servers restore system config, Coolify servers restore DB+config (SAFE_MODE blocks restore). Snapshot: 'snapshot-create'/'snapshot-list'/'snapshot-delete' manage cloud provider snapshots (requires provider API token). Snapshots not available for manually added servers.",
     inputSchema: serverBackupSchema,
     annotations: {
       title: "Server Backup & Snapshots",
@@ -113,7 +113,7 @@ export function createMcpServer(): McpServer {
 
   server.registerTool("server_provision", {
     description:
-      "Provision a new Coolify server on a cloud provider. Creates VPS with Coolify auto-install via cloud-init. Requires provider API token as environment variable (HETZNER_TOKEN, DIGITALOCEAN_TOKEN, VULTR_TOKEN, LINODE_TOKEN). WARNING: Creates a billable cloud resource. Blocked when QUICKLIFY_SAFE_MODE=true. Server takes 3-5 minutes to fully initialize after provisioning.",
+      "Provision a new server on a cloud provider. Default: Coolify auto-install via cloud-init. Pass mode:'bare' for a generic VPS without Coolify (installs UFW and runs system updates only). Requires provider API token as environment variable (HETZNER_TOKEN, DIGITALOCEAN_TOKEN, VULTR_TOKEN, LINODE_TOKEN). WARNING: Creates a billable cloud resource. Blocked when QUICKLIFY_SAFE_MODE=true. Server takes 3-5 minutes to fully initialize after provisioning.",
     inputSchema: serverProvisionSchema,
     annotations: {
       title: "Server Provisioning",

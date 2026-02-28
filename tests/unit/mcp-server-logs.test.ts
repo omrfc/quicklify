@@ -485,3 +485,86 @@ describe("handleServerLogs — error handling", () => {
     expect(data.error).toBe("unexpected string error");
   });
 });
+
+// ─── MCP Handler: bare mode behavior ──────────────────────────────────────────
+
+const bareServer = {
+  id: "789",
+  name: "bare-server",
+  provider: "hetzner",
+  ip: "10.0.0.1",
+  region: "nbg1",
+  size: "cax11",
+  mode: "bare" as const,
+  createdAt: "2026-02-20T00:00:00Z",
+};
+
+describe("handleServerLogs — bare mode", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedConfig.getServers.mockReturnValue([bareServer]);
+    mockedConfig.findServer.mockReturnValue(bareServer);
+  });
+
+  it("should block coolify service on bare server with error and hint", async () => {
+    const result = await handleServerLogs({ action: "logs", server: "bare-server", service: "coolify" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(data.error).toContain("Coolify logs not available on bare servers");
+    expect(data.hint).toBeDefined();
+    expect(data.hint).toContain("system");
+  });
+
+  it("should include suggested action for system logs when coolify blocked", async () => {
+    const result = await handleServerLogs({ action: "logs", server: "bare-server", service: "coolify" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(data.suggested_actions).toBeDefined();
+    expect(data.suggested_actions.length).toBeGreaterThan(0);
+    const systemAction = data.suggested_actions.find(
+      (a: { command: string }) => a.command.includes("service: 'system'"),
+    );
+    expect(systemAction).toBeDefined();
+  });
+
+  it("should allow system service on bare server", async () => {
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "system logs here", stderr: "" });
+
+    const result = await handleServerLogs({ action: "logs", server: "bare-server", service: "system" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.logs).toBe("system logs here");
+    expect(data.service).toBe("system");
+  });
+
+  it("should allow docker service on bare server", async () => {
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "docker journal", stderr: "" });
+
+    const result = await handleServerLogs({ action: "logs", server: "bare-server", service: "docker" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.service).toBe("docker");
+  });
+
+  it("should allow monitor on bare server (mode-independent)", async () => {
+    const metricsOutput = [
+      "%Cpu(s):  5.0 us,  2.0 sy,  0.0 ni, 93.0 id",
+      "---SEPARATOR---",
+      "Mem:          8.0Gi       3.0Gi       4.0Gi",
+      "---SEPARATOR---",
+      "total            100G   50G   50G  50% -",
+    ].join("\n");
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: metricsOutput, stderr: "" });
+
+    const result = await handleServerLogs({ action: "monitor", server: "bare-server" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.metrics).toBeDefined();
+    expect(data.metrics.cpu).not.toBe("N/A");
+  });
+});

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getServers, findServer } from "../../utils/config.js";
+import { getServers } from "../../utils/config.js";
 import {
   applySecureSetup,
   runSecureAudit,
@@ -17,6 +17,12 @@ import {
   getDomain,
   checkDns,
 } from "../../core/domain.js";
+import {
+  resolveServerForMcp,
+  mcpSuccess,
+  mcpError,
+  type McpResponse,
+} from "../utils.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
 
 export const serverSecureSchema = {
@@ -46,16 +52,6 @@ export const serverSecureSchema = {
 
 type Action = z.infer<typeof serverSecureSchema.action>;
 
-function resolveServer(params: { server?: string }, servers: ReturnType<typeof getServers>) {
-  if (params.server) {
-    return findServer(params.server);
-  }
-  if (servers.length === 1) {
-    return servers[0];
-  }
-  return undefined;
-}
-
 export async function handleServerSecure(params: {
   action: Action;
   server?: string;
@@ -63,20 +59,16 @@ export async function handleServerSecure(params: {
   protocol?: "tcp" | "udp";
   domain?: string;
   ssl?: boolean;
-}): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
+}): Promise<McpResponse> {
   try {
     const servers = getServers();
     if (servers.length === 0) {
-      return {
-        content: [{ type: "text", text: JSON.stringify({
-          error: "No servers found",
-          suggested_actions: [{ command: "quicklify init", reason: "Deploy a server first" }],
-        }) }],
-        isError: true,
-      };
+      return mcpError("No servers found", undefined, [
+        { command: "quicklify init", reason: "Deploy a server first" },
+      ]);
     }
 
-    const server = resolveServer(params, servers);
+    const server = resolveServerForMcp(params, servers);
     if (!server) {
       if (params.server) {
         return {
@@ -156,21 +148,19 @@ export async function handleServerSecure(params: {
           ? [{ command: `server_secure { action: 'secure-setup', server: '${server.name}' }`, reason: "Improve security score" }]
           : [{ command: `server_secure { action: 'firewall-status', server: '${server.name}' }`, reason: "Check firewall configuration" }];
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            server: server.name,
-            ip: server.ip,
-            score: result.score,
-            maxScore: 100,
-            checks: {
-              passwordAuth: result.audit.passwordAuth,
-              rootLogin: result.audit.rootLogin,
-              fail2ban: result.audit.fail2ban,
-              sshPort: result.audit.sshPort,
-            },
-            suggested_actions: suggestedActions,
-          }) }],
-        };
+        return mcpSuccess({
+          server: server.name,
+          ip: server.ip,
+          score: result.score,
+          maxScore: 100,
+          checks: {
+            passwordAuth: result.audit.passwordAuth,
+            rootLogin: result.audit.rootLogin,
+            fail2ban: result.audit.fail2ban,
+            sshPort: result.audit.sshPort,
+          },
+          suggested_actions: suggestedActions,
+        });
       }
 
       case "firewall-setup": {
@@ -188,28 +178,23 @@ export async function handleServerSecure(params: {
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            success: true,
-            server: server.name,
-            ip: server.ip,
-            message: `UFW enabled with Coolify ports (${COOLIFY_PORTS.join(", ")}) + SSH (22)`,
-            suggested_actions: [
-              { command: `server_secure { action: 'firewall-status', server: '${server.name}' }`, reason: "Verify firewall rules" },
-            ],
-          }) }],
-        };
+        return mcpSuccess({
+          success: true,
+          server: server.name,
+          ip: server.ip,
+          message: `UFW enabled with Coolify ports (${COOLIFY_PORTS.join(", ")}) + SSH (22)`,
+          suggested_actions: [
+            { command: `server_secure { action: 'firewall-status', server: '${server.name}' }`, reason: "Verify firewall rules" },
+          ],
+        });
       }
 
       case "firewall-add": {
         if (params.port === undefined) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Port is required for firewall-add action",
-              hint: "Specify a port number (1-65535)",
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Port is required for firewall-add action",
+            "Specify a port number (1-65535)",
+          );
         }
 
         const result = await addFirewallRule(server.ip, params.port, params.protocol || "tcp");
@@ -226,28 +211,23 @@ export async function handleServerSecure(params: {
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            success: true,
-            server: server.name,
-            ip: server.ip,
-            message: `Port ${params.port}/${params.protocol || "tcp"} opened`,
-            suggested_actions: [
-              { command: `server_secure { action: 'firewall-status', server: '${server.name}' }`, reason: "Verify firewall rules" },
-            ],
-          }) }],
-        };
+        return mcpSuccess({
+          success: true,
+          server: server.name,
+          ip: server.ip,
+          message: `Port ${params.port}/${params.protocol || "tcp"} opened`,
+          suggested_actions: [
+            { command: `server_secure { action: 'firewall-status', server: '${server.name}' }`, reason: "Verify firewall rules" },
+          ],
+        });
       }
 
       case "firewall-remove": {
         if (params.port === undefined) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Port is required for firewall-remove action",
-              hint: "Specify a port number (1-65535)",
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Port is required for firewall-remove action",
+            "Specify a port number (1-65535)",
+          );
         }
 
         const result = await removeFirewallRule(server.ip, params.port, params.protocol || "tcp");
@@ -265,18 +245,16 @@ export async function handleServerSecure(params: {
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            success: true,
-            server: server.name,
-            ip: server.ip,
-            message: `Port ${params.port}/${params.protocol || "tcp"} closed`,
-            ...(result.warning ? { warning: result.warning } : {}),
-            suggested_actions: [
-              { command: `server_secure { action: 'firewall-status', server: '${server.name}' }`, reason: "Verify firewall rules" },
-            ],
-          }) }],
-        };
+        return mcpSuccess({
+          success: true,
+          server: server.name,
+          ip: server.ip,
+          message: `Port ${params.port}/${params.protocol || "tcp"} closed`,
+          ...(result.warning ? { warning: result.warning } : {}),
+          suggested_actions: [
+            { command: `server_secure { action: 'firewall-status', server: '${server.name}' }`, reason: "Verify firewall rules" },
+          ],
+        });
       }
 
       case "firewall-status": {
@@ -298,27 +276,22 @@ export async function handleServerSecure(params: {
           ? [{ command: `server_secure { action: 'firewall-setup', server: '${server.name}' }`, reason: "Enable firewall" }]
           : [{ command: `server_secure { action: 'firewall-add', server: '${server.name}', port: 3000 }`, reason: "Open additional ports if needed" }];
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            server: server.name,
-            ip: server.ip,
-            active: result.status.active,
-            rules: result.status.rules,
-            ruleCount: result.status.rules.length,
-            suggested_actions: suggestedActions,
-          }) }],
-        };
+        return mcpSuccess({
+          server: server.name,
+          ip: server.ip,
+          active: result.status.active,
+          rules: result.status.rules,
+          ruleCount: result.status.rules.length,
+          suggested_actions: suggestedActions,
+        });
       }
 
       case "domain-set": {
         if (!params.domain) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Domain is required for domain-set action",
-              hint: "Specify a domain name (e.g., coolify.example.com)",
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Domain is required for domain-set action",
+            "Specify a domain name (e.g., coolify.example.com)",
+          );
         }
 
         const result = await setDomain(server.ip, params.domain, params.ssl ?? true);
@@ -336,19 +309,17 @@ export async function handleServerSecure(params: {
         }
 
         const protocol = (params.ssl ?? true) ? "https" : "http";
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            success: true,
-            server: server.name,
-            ip: server.ip,
-            message: `Domain set to ${params.domain}`,
-            url: `${protocol}://${params.domain}`,
-            suggested_actions: [
-              { command: `server_secure { action: 'domain-check', server: '${server.name}', domain: '${params.domain}' }`, reason: "Verify DNS points to this server" },
-              { command: `server_info { action: 'health', server: '${server.name}' }`, reason: "Verify Coolify is accessible" },
-            ],
-          }) }],
-        };
+        return mcpSuccess({
+          success: true,
+          server: server.name,
+          ip: server.ip,
+          message: `Domain set to ${params.domain}`,
+          url: `${protocol}://${params.domain}`,
+          suggested_actions: [
+            { command: `server_secure { action: 'domain-check', server: '${server.name}', domain: '${params.domain}' }`, reason: "Verify DNS points to this server" },
+            { command: `server_info { action: 'health', server: '${server.name}' }`, reason: "Verify Coolify is accessible" },
+          ],
+        });
       }
 
       case "domain-remove": {
@@ -366,29 +337,24 @@ export async function handleServerSecure(params: {
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            success: true,
-            server: server.name,
-            ip: server.ip,
-            message: "Domain removed. Coolify reset to default.",
-            url: `http://${server.ip}:8000`,
-            suggested_actions: [
-              { command: `server_info { action: 'health', server: '${server.name}' }`, reason: "Verify Coolify is accessible" },
-            ],
-          }) }],
-        };
+        return mcpSuccess({
+          success: true,
+          server: server.name,
+          ip: server.ip,
+          message: "Domain removed. Coolify reset to default.",
+          url: `http://${server.ip}:8000`,
+          suggested_actions: [
+            { command: `server_info { action: 'health', server: '${server.name}' }`, reason: "Verify Coolify is accessible" },
+          ],
+        });
       }
 
       case "domain-check": {
         if (!params.domain) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: "Domain is required for domain-check action",
-              hint: "Specify a domain name to check DNS for",
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Domain is required for domain-check action",
+            "Specify a domain name to check DNS for",
+          );
         }
 
         const result = await checkDns(server.ip, params.domain);
@@ -406,19 +372,17 @@ export async function handleServerSecure(params: {
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            server: server.name,
-            ip: server.ip,
-            domain: params.domain,
-            resolvedIp: result.resolvedIp,
-            match: result.match,
-            ...(result.hint ? { hint: result.hint } : {}),
-            suggested_actions: result.match
-              ? [{ command: `server_secure { action: 'domain-set', server: '${server.name}', domain: '${params.domain}' }`, reason: "Set this domain as Coolify FQDN" }]
-              : [{ command: `server_secure { action: 'domain-info', server: '${server.name}' }`, reason: "Check current domain setting" }],
-          }) }],
-        };
+        return mcpSuccess({
+          server: server.name,
+          ip: server.ip,
+          domain: params.domain,
+          resolvedIp: result.resolvedIp,
+          match: result.match,
+          ...(result.hint ? { hint: result.hint } : {}),
+          suggested_actions: result.match
+            ? [{ command: `server_secure { action: 'domain-set', server: '${server.name}', domain: '${params.domain}' }`, reason: "Set this domain as Coolify FQDN" }]
+            : [{ command: `server_secure { action: 'domain-info', server: '${server.name}' }`, reason: "Check current domain setting" }],
+        });
       }
 
       case "domain-info": {
@@ -450,21 +414,16 @@ export async function handleServerSecure(params: {
           });
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            server: server.name,
-            ip: server.ip,
-            fqdn: result.fqdn,
-            message: result.fqdn ? `Current domain: ${result.fqdn}` : `No custom domain set. Default: http://${server.ip}:8000`,
-            suggested_actions: domainSuggestedActions,
-          }) }],
-        };
+        return mcpSuccess({
+          server: server.name,
+          ip: server.ip,
+          fqdn: result.fqdn,
+          message: result.fqdn ? `Current domain: ${result.fqdn}` : `No custom domain set. Default: http://${server.ip}:8000`,
+          suggested_actions: domainSuggestedActions,
+        });
       }
     }
   } catch (error: unknown) {
-    return {
-      content: [{ type: "text", text: JSON.stringify({ error: getErrorMessage(error) }) }],
-      isError: true,
-    };
+    return mcpError(getErrorMessage(error));
   }
 }
