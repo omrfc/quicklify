@@ -160,7 +160,14 @@ None.
 |---|-------------|------|--------|-----------|
 | 1 | Domain commands isBareServer guard + MCP tools mcpError consistency fix | 2026-02-28 | 41218f2 | [1-domain-commands-isbareserver-guard-mcp-t](./quick/1-domain-commands-isbareserver-guard-mcp-t/) |
 | 2 | BUG-1/2/5/6/7/8/13: bare --full-setup, --name flag, cloud-init wait, health query, bare firewall ports, restart bare msg, MCP SSH ENOENT | 2026-02-28 | 9bb0d21 | [2-bug-fixes-1-init-full-setup-bare-mode-2-](./quick/2-bug-fixes-1-init-full-setup-bare-mode-2-/) |
+| 3 | UX #3/4/9/10/11/12: dpkg lock msg, token source, firewall status rules, domain info, orphan backup cleanup, backup provider/IP display | 2026-03-01 | 0cd5e66 | [3-ux-improvements-3-dpkg-lock-message-4-to](./quick/3-ux-improvements-3-dpkg-lock-message-4-to/) |
+
+### Decisions (Quick Task 3)
+
+- [quick-3] Orphan backup cleanup implemented as "cleanup" subcommand of backup, not a separate top-level command
+- [quick-3] Cross-provider restore is a warning (informational); mode mismatch (coolify↔bare) is a hard block
+- [quick-3] Backup cleanup prompt added to both destroy and remove at the correct success exit points
 
 ## Session Continuity
 
-Last activity: 2026-02-28 - Completed quick task 2: 7 bug fixes for v1.2.0 pre-release (BUG-1/2/5/6/7/8/13)
+Last activity: 2026-03-01 - Completed quick task 3: 6 UX improvements (dpkg lock msg, token source, firewall rules, domain info, orphan backup cleanup, backup provider display)
