@@ -44,21 +44,15 @@ export async function handleServerMaintain(params: {
     const server = resolveServerForMcp(params, servers);
     if (!server) {
       if (params.server) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            error: `Server not found: ${params.server}`,
-            available_servers: servers.map((s) => s.name),
-          }) }],
-          isError: true,
-        };
+        return mcpError(
+          `Server not found: ${params.server}`,
+          `Available servers: ${servers.map((s) => s.name).join(", ")}`,
+        );
       }
-      return {
-        content: [{ type: "text", text: JSON.stringify({
-          error: "Multiple servers found. Specify which server to use.",
-          available_servers: servers.map((s) => ({ name: s.name, ip: s.ip })),
-        }) }],
-        isError: true,
-      };
+      return mcpError(
+        "Multiple servers found. Specify which server to use.",
+        `Available: ${servers.map((s) => s.name).join(", ")}`,
+      );
     }
 
     switch (params.action) {
@@ -110,25 +104,18 @@ export async function handleServerMaintain(params: {
         // Restart requires API token for cloud provider — no mode guard (works on both)
         const isManual = server.id.startsWith("manual-");
         if (isManual) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: `Cannot reboot manually added server via API`,
-              hint: `Use SSH: ssh root@${server.ip} reboot`,
-              server: { name: server.name, ip: server.ip },
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            "Cannot reboot manually added server via API",
+            `Use SSH: ssh root@${server.ip} reboot`,
+          );
         }
 
         const token = getProviderToken(server.provider);
         if (!token) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              error: `No API token found for provider: ${server.provider}`,
-              hint: `Set environment variable: ${server.provider.toUpperCase()}_TOKEN`,
-            }) }],
-            isError: true,
-          };
+          return mcpError(
+            `No API token found for provider: ${server.provider}`,
+            `Set environment variable: ${server.provider.toUpperCase()}_TOKEN`,
+          );
         }
 
         const result = await rebootAndWait(server, token);
@@ -183,16 +170,11 @@ export async function handleServerMaintain(params: {
         if (!isManual) {
           const envToken = getProviderToken(server.provider);
           if (!envToken) {
-            return {
-              content: [{ type: "text", text: JSON.stringify({
-                error: `No API token found for provider: ${server.provider}`,
-                hint: `Set environment variable: ${server.provider.toUpperCase()}_TOKEN`,
-                suggested_actions: [
-                  { command: `server_maintain { action: 'update', server: '${server.name}' }`, reason: "Run update only (no token needed)" },
-                ],
-              }) }],
-              isError: true,
-            };
+            return mcpError(
+              `No API token found for provider: ${server.provider}`,
+              `Set environment variable: ${server.provider.toUpperCase()}_TOKEN`,
+              [{ command: `server_maintain { action: 'update', server: '${server.name}' }`, reason: "Run update only (no token needed)" }],
+            );
           }
           token = envToken;
         }

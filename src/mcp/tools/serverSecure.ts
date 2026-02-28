@@ -72,21 +72,15 @@ export async function handleServerSecure(params: {
     const server = resolveServerForMcp(params, servers);
     if (!server) {
       if (params.server) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            error: `Server not found: ${params.server}`,
-            available_servers: servers.map((s) => s.name),
-          }) }],
-          isError: true,
-        };
+        return mcpError(
+          `Server not found: ${params.server}`,
+          `Available servers: ${servers.map((s) => s.name).join(", ")}`,
+        );
       }
-      return {
-        content: [{ type: "text", text: JSON.stringify({
-          error: "Multiple servers found. Specify which server to use.",
-          available_servers: servers.map((s) => ({ name: s.name, ip: s.ip })),
-        }) }],
-        isError: true,
-      };
+      return mcpError(
+        "Multiple servers found. Specify which server to use.",
+        `Available: ${servers.map((s) => s.name).join(", ")}`,
+      );
     }
 
     const domainActions = ["domain-set", "domain-remove", "domain-check", "domain-info"];

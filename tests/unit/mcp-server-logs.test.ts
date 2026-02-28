@@ -280,7 +280,7 @@ describe("handleServerLogs — logs", () => {
 
     expect(result.isError).toBe(true);
     expect(data.error).toContain("Multiple servers");
-    expect(data.available_servers).toHaveLength(2);
+    expect(data.hint).toContain("Available:");
   });
 
   it("should return error when specified server not found", async () => {
@@ -292,7 +292,7 @@ describe("handleServerLogs — logs", () => {
 
     expect(result.isError).toBe(true);
     expect(data.error).toContain("Server not found");
-    expect(data.available_servers).toContain("coolify-test");
+    expect(data.hint).toContain("coolify-test");
   });
 
   it("should find server by name", async () => {

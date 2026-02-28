@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { getServers } from "../../utils/config.js";
 import { isSafeMode } from "../../core/manage.js";
-import { getProviderToken } from "../../core/tokens.js";
 import {
   createBackup,
   createBareBackup,
@@ -20,6 +19,7 @@ import {
   resolveServerForMcp,
   mcpSuccess,
   mcpError,
+  requireProviderToken,
   type McpResponse,
 } from "../utils.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
@@ -61,21 +61,15 @@ export async function handleServerBackup(params: {
     const server = resolveServerForMcp(params, servers);
     if (!server) {
       if (params.server) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            error: `Server not found: ${params.server}`,
-            available_servers: servers.map((s) => s.name),
-          }) }],
-          isError: true,
-        };
+        return mcpError(
+          `Server not found: ${params.server}`,
+          `Available servers: ${servers.map((s) => s.name).join(", ")}`,
+        );
       }
-      return {
-        content: [{ type: "text", text: JSON.stringify({
-          error: "Multiple servers found. Specify which server to use.",
-          available_servers: servers.map((s) => ({ name: s.name, ip: s.ip })),
-        }) }],
-        isError: true,
-      };
+      return mcpError(
+        "Multiple servers found. Specify which server to use.",
+        `Available: ${servers.map((s) => s.name).join(", ")}`,
+      );
     }
 
     switch (params.action) {
@@ -230,7 +224,7 @@ export async function handleServerBackup(params: {
           );
         }
 
-        const tokenResult = requireToken(server.provider);
+        const tokenResult = requireProviderToken(server.provider);
         if ("error" in tokenResult) return tokenResult.error;
 
         const result = await createSnapshot(server, tokenResult.token);
@@ -269,7 +263,7 @@ export async function handleServerBackup(params: {
           );
         }
 
-        const tokenResult = requireToken(server.provider);
+        const tokenResult = requireProviderToken(server.provider);
         if ("error" in tokenResult) return tokenResult.error;
 
         const result = await listSnapshots(server, tokenResult.token);
@@ -324,7 +318,7 @@ export async function handleServerBackup(params: {
           );
         }
 
-        const tokenResult = requireToken(server.provider);
+        const tokenResult = requireProviderToken(server.provider);
         if ("error" in tokenResult) return tokenResult.error;
 
         if (!params.snapshotId) {
@@ -367,15 +361,3 @@ export async function handleServerBackup(params: {
   }
 }
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
-
-function requireToken(provider: string): { token: string } | { error: McpResponse } {
-  const token = getProviderToken(provider);
-  if (token) return { token };
-  return {
-    error: mcpError(
-      `No API token found for ${provider}`,
-      `Set ${provider.toUpperCase()}_TOKEN environment variable`,
-    ),
-  };
-}

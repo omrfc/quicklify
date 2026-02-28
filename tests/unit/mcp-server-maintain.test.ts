@@ -355,7 +355,7 @@ describe("handleServerMaintain — update", () => {
 
     expect(result.isError).toBe(true);
     expect(data.error).toContain("Multiple servers");
-    expect(data.available_servers).toHaveLength(2);
+    expect(data.hint).toContain("Available:");
   });
 
   it("should auto-select when single server", async () => {

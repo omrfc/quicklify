@@ -962,7 +962,7 @@ describe("handleServerSecure — shared utils integration", () => {
     expect(data.suggested_actions).toBeDefined();
   });
 
-  it("returns available_servers when server not found by name", async () => {
+  it("returns hint with available servers when server not found by name", async () => {
     mockedConfig.getServers.mockReturnValue([sampleServer]);
     mockedConfig.findServer.mockReturnValue(undefined);
 
@@ -971,6 +971,6 @@ describe("handleServerSecure — shared utils integration", () => {
 
     expect(result.isError).toBe(true);
     expect(data.error).toContain("Server not found: nonexistent");
-    expect(data.available_servers).toContain("coolify-test");
+    expect(data.hint).toContain("coolify-test");
   });
 });

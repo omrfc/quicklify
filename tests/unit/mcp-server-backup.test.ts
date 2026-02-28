@@ -587,7 +587,7 @@ describe("handleServerBackup - common", () => {
     const data = JSON.parse(result.content[0].text);
     expect(result.isError).toBe(true);
     expect(data.error).toContain("Multiple servers");
-    expect(data.available_servers).toHaveLength(2);
+    expect(data.hint).toContain("Available:");
   });
 
   test("catches unexpected errors", async () => {
