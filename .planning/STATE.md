@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: 2
+current_plan: 3
 status: executing
-last_updated: "2026-02-28T09:15:48.108Z"
+last_updated: "2026-02-28T09:18:59.498Z"
 last_activity: 2026-02-28
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 ---
@@ -55,7 +55,7 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 **Phase:** 3 of 3 (MCP Refactor)
-**Current Plan:** 2
+**Current Plan:** 3
 **Total Plans in Phase:** 4
 **Status:** Ready to execute
 **Last Activity:** 2026-02-28
@@ -86,6 +86,7 @@ Progress: [██████████] 100% (Phase 1) | [██████�
 | Phase 02-bare-mode P04 | 9m16s | 2 tasks | 6 files |
 | Phase 03-mcp-refactor P01 | 4m45s | 2 tasks | 6 files |
 | Phase 03-mcp-refactor P03-03 | 7m36s | 2 tasks | 9 files |
+| Phase 03-mcp-refactor P02 | 10m48s | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,9 @@ Recent decisions affecting current work:
 - [Phase 03-mcp-refactor]: serverMaintain update/maintain: bare mode blocked via requireCoolifyMode; restart is mode-independent (cloud API)
 - [Phase 03-mcp-refactor]: serverLogs: bare + coolify service returns error with hint (consistent with CLI logsCommand Phase 2 behavior)
 - [Phase 03-mcp-refactor]: serverBackup bare restore: adds hint about restarting services post-restore for bare servers
+- [Phase 03-mcp-refactor]: serverInfo health routes bare servers to SSH reachability (sshExec echo ok) rather than checkCoolifyHealth
+- [Phase 03-mcp-refactor]: health summary adds bare count separate from running/notReachable — bare servers are not reachability failures
+- [Phase 03-mcp-refactor]: remove action non-standard error fields (available_servers) kept as inline JSON — mcpError signature does not support arbitrary keys
 
 ### Pending Todos
 

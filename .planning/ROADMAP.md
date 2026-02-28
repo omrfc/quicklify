@@ -32,7 +32,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 
 - [x] **Phase 1: CLI/Core Refactor** - CLI commands delegate to core/ modules, eliminating duplicated business logic (completed 2026-02-28)
 - [x] **Phase 2: Bare Mode** - Users can provision and manage servers without Coolify using `--mode bare` (completed 2026-02-28)
-- [ ] **Phase 3: MCP Refactor** - MCP tools route through core/ and support bare mode via parameter
+- [x] **Phase 3: MCP Refactor** - MCP tools route through core/ and support bare mode via parameter (completed 2026-02-28)
 
 ## Phase Details
 
@@ -96,7 +96,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 1. CLI/Core Refactor | 5/5 | Complete   | 2026-02-28 | - |
 | 2. Bare Mode | 4/4 | Complete   | 2026-02-28 | - |
-| 3. MCP Refactor | 2/3 | In Progress|  | - |
+| 3. MCP Refactor | 3/3 | Complete   | 2026-02-28 | - |
 
 ---
 *Roadmap created: 2026-02-27*

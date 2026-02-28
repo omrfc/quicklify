@@ -30,7 +30,7 @@ Requirements for v1.2.0 — Generic Server Management. Each maps to roadmap phas
 ### MCP Refactor
 
 - [x] **MCP-01**: MCP tools import and use core/ modules instead of duplicating logic
-- [ ] **MCP-02**: MCP provision tool supports bare mode via parameter
+- [x] **MCP-02**: MCP provision tool supports bare mode via parameter
 - [x] **MCP-03**: MCP tools return consistent error format aligned with core/ error mappers
 - [x] **MCP-04**: No breaking changes to existing MCP tool schemas or behavior
 
@@ -82,7 +82,7 @@ Deferred to future milestones. Tracked but not in current roadmap.
 | BARE-08 | Phase 2 | Complete |
 | BARE-09 | Phase 2 | Complete |
 | MCP-01 | Phase 3 | Complete |
-| MCP-02 | Phase 3 | Pending |
+| MCP-02 | Phase 3 | Complete |
 | MCP-03 | Phase 3 | Complete |
 | MCP-04 | Phase 3 | Complete |
 
