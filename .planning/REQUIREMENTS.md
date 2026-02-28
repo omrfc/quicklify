@@ -67,9 +67,9 @@ Deferred to future milestones. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REF-01 | Phase 1 | Pending |
+| REF-01 | Phase 1 | Partial (01-02: secure/firewall/domain done) |
 | REF-02 | Phase 1 | Complete (01-01) |
-| REF-03 | Phase 1 | Pending |
+| REF-03 | Phase 1 | Partial (01-02: secure/firewall/domain done) |
 | REF-04 | Phase 1 | Complete (01-01) |
 | REF-05 | Phase 1 | Complete (01-01) |
 | BARE-01 | Phase 2 | Pending |
@@ -93,4 +93,4 @@ Deferred to future milestones. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-02-27*
-*Last updated: 2026-02-28 — Plan 01-01 completed REF-02, REF-04, REF-05*
+*Last updated: 2026-02-28 — Plan 01-02 completed REF-01 partial (secure/firewall/domain), REF-03 partial (secure/firewall/domain)*
