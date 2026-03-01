@@ -114,7 +114,7 @@ export function cleanupServerBackups(serverName: string): { removed: boolean; pa
  */
 export function assertSafePath(remotePath: string): void {
   // Reject any path containing shell metacharacters: ; | & $ ` ( ) < > \n \r \t space
-  if (/[;|&$`()\n\r\t ]/.test(remotePath)) {
+  if (/[;|&$`()<>\n\r\t ]/.test(remotePath)) {
     throw new Error(`Unsafe remote path rejected: contains shell metacharacters`);
   }
 }
