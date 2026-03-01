@@ -5,16 +5,26 @@ import { getProviderToken, collectProviderTokensFromEnv } from "../../core/token
 import { getErrorMessage } from "../../utils/errorMapper.js";
 import { isBareServer } from "../../utils/modeGuard.js";
 import { sshExec } from "../../utils/ssh.js";
+import { createProviderWithToken } from "../../utils/providerFactory.js";
 import { mcpSuccess, mcpError } from "../utils.js";
-import type { ServerRecord } from "../../types/index.js";
+import type { ServerRecord, ServerMode } from "../../types/index.js";
 import type { StatusResult } from "../../core/status.js";
 
 export const serverInfoSchema = {
-  action: z.enum(["list", "status", "health"]).describe(
-    "Action to perform: 'list' all servers, 'status' check server/cloud status, 'health' check Coolify reachability (or SSH reachability for bare servers)",
+  action: z.enum(["list", "status", "health", "sizes"]).describe(
+    "Action to perform: 'list' all servers, 'status' check server/cloud status, 'health' check Coolify reachability (or SSH reachability for bare servers), 'sizes' list available server types with prices for a provider+region",
   ),
   server: z.string().optional().describe(
     "Server name or IP. Required for single-server status/health. Omit for all servers.",
+  ),
+  provider: z.enum(["hetzner", "digitalocean", "vultr", "linode"]).optional().describe(
+    "Cloud provider (required for 'sizes' action)",
+  ),
+  region: z.string().optional().describe(
+    "Region/location ID (required for 'sizes' action, e.g. 'nbg1' for Hetzner, 'fra1' for DigitalOcean)",
+  ),
+  mode: z.enum(["coolify", "bare"]).optional().describe(
+    "Server mode filter for 'sizes' action. Coolify requires min 2GB RAM. Default: coolify",
   ),
 };
 
@@ -118,8 +128,11 @@ async function checkBareServerSsh(server: ServerRecord): Promise<boolean> {
 }
 
 export async function handleServerInfo(params: {
-  action: "list" | "status" | "health";
+  action: "list" | "status" | "health" | "sizes";
   server?: string;
+  provider?: "hetzner" | "digitalocean" | "vultr" | "linode";
+  region?: string;
+  mode?: ServerMode;
 }): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
   try {
     switch (params.action) {
@@ -288,6 +301,54 @@ export async function handleServerInfo(params: {
             bare: bareResults.length,
           },
           suggested_actions: suggestedActions,
+        });
+      }
+
+      case "sizes": {
+        if (!params.provider) {
+          return mcpError(
+            "Provider is required for 'sizes' action",
+            "Specify provider: 'hetzner', 'digitalocean', 'vultr', or 'linode'",
+          );
+        }
+        if (!params.region) {
+          return mcpError(
+            "Region is required for 'sizes' action",
+            "Specify region (e.g. 'nbg1' for Hetzner, 'fra1' for DigitalOcean, 'ewr' for Vultr, 'us-east' for Linode)",
+          );
+        }
+
+        const token = getProviderToken(params.provider);
+        if (!token) {
+          return mcpError(
+            `No API token found for provider: ${params.provider}`,
+            `Set environment variable: ${params.provider.toUpperCase()}_TOKEN`,
+          );
+        }
+
+        const provider = createProviderWithToken(params.provider, token);
+        const mode: ServerMode = params.mode ?? "coolify";
+        const sizes = await provider.getAvailableServerTypes(params.region, mode);
+
+        return mcpSuccess({
+          provider: params.provider,
+          region: params.region,
+          mode,
+          sizes: sizes.map((s) => ({
+            id: s.id,
+            name: s.name,
+            vcpu: s.vcpu,
+            ram: `${s.ram}GB`,
+            disk: `${s.disk}GB`,
+            price: s.price,
+          })),
+          total: sizes.length,
+          suggested_actions: [
+            {
+              command: `server_provision { provider: '${params.provider}', name: 'my-server', region: '${params.region}', size: '${sizes[0]?.id ?? "..."}', mode: '${mode}' }`,
+              reason: "Provision a server with one of these sizes",
+            },
+          ],
         });
       }
     }

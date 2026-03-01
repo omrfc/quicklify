@@ -409,6 +409,106 @@ describe("handleServerInfo — status with mode field", () => {
   });
 });
 
+describe("handleServerInfo — sizes", () => {
+  it("should return error when provider is missing", async () => {
+    const result = await handleServerInfo({ action: "sizes" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(data.error).toContain("Provider is required");
+  });
+
+  it("should return error when region is missing", async () => {
+    const result = await handleServerInfo({ action: "sizes", provider: "hetzner" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(data.error).toContain("Region is required");
+  });
+
+  it("should return error when API token is missing", async () => {
+    delete process.env.HETZNER_TOKEN;
+
+    const result = await handleServerInfo({ action: "sizes", provider: "hetzner", region: "nbg1" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(data.error).toContain("No API token");
+    expect(data.hint).toContain("HETZNER_TOKEN");
+  });
+
+  it("should return available server sizes with prices", async () => {
+    process.env.HETZNER_TOKEN = "test-token";
+    (mockProvider.getAvailableServerTypes as jest.Mock).mockResolvedValue([
+      { id: "cax11", name: "CAX11", vcpu: 2, ram: 4, disk: 40, price: "€3.29/mo" },
+      { id: "cx22", name: "CX22", vcpu: 2, ram: 4, disk: 40, price: "€4.35/mo" },
+    ]);
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+
+    const result = await handleServerInfo({ action: "sizes", provider: "hetzner", region: "nbg1" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.provider).toBe("hetzner");
+    expect(data.region).toBe("nbg1");
+    expect(data.mode).toBe("coolify");
+    expect(data.sizes).toHaveLength(2);
+    expect(data.sizes[0].id).toBe("cax11");
+    expect(data.sizes[0].price).toBe("€3.29/mo");
+    expect(data.sizes[0].ram).toBe("4GB");
+    expect(data.sizes[0].disk).toBe("40GB");
+    expect(data.total).toBe(2);
+    expect(data.suggested_actions).toBeDefined();
+  });
+
+  it("should pass mode parameter to getAvailableServerTypes", async () => {
+    process.env.HETZNER_TOKEN = "test-token";
+    (mockProvider.getAvailableServerTypes as jest.Mock).mockResolvedValue([]);
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+
+    await handleServerInfo({ action: "sizes", provider: "hetzner", region: "nbg1", mode: "bare" });
+
+    expect(mockProvider.getAvailableServerTypes).toHaveBeenCalledWith("nbg1", "bare");
+  });
+
+  it("should default mode to coolify when not specified", async () => {
+    process.env.HETZNER_TOKEN = "test-token";
+    (mockProvider.getAvailableServerTypes as jest.Mock).mockResolvedValue([]);
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+
+    const result = await handleServerInfo({ action: "sizes", provider: "hetzner", region: "nbg1" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.mode).toBe("coolify");
+    expect(mockProvider.getAvailableServerTypes).toHaveBeenCalledWith("nbg1", "coolify");
+  });
+
+  it("should handle provider API errors gracefully", async () => {
+    process.env.HETZNER_TOKEN = "test-token";
+    (mockProvider.getAvailableServerTypes as jest.Mock).mockRejectedValue(new Error("API rate limited"));
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+
+    const result = await handleServerInfo({ action: "sizes", provider: "hetzner", region: "nbg1" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(data.error).toBe("API rate limited");
+  });
+
+  it("should return empty sizes array for invalid region", async () => {
+    process.env.DIGITALOCEAN_TOKEN = "do-token";
+    (mockProvider.getAvailableServerTypes as jest.Mock).mockResolvedValue([]);
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+
+    const result = await handleServerInfo({ action: "sizes", provider: "digitalocean", region: "invalid-region" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBeUndefined();
+    expect(data.sizes).toEqual([]);
+    expect(data.total).toBe(0);
+  });
+});
+
 describe("handleServerInfo — error handling", () => {
   it("should catch unexpected errors and return isError", async () => {
     mockedConfig.getServers.mockImplementation(() => {
