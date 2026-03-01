@@ -14,6 +14,9 @@ jest.mock("../../src/utils/ssh", () => ({
   assertValidIp: jest.fn(),
   sshExec: jest.fn(),
   removeStaleHostKey: jest.fn(),
+  isHostKeyMismatch: jest.fn((stderr: string) =>
+    /Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED/i.test(stderr),
+  ),
   resolveSshPath: jest.fn().mockReturnValue("ssh"),
   checkSshAvailable: jest.fn().mockReturnValue(true),
   sanitizedEnv: jest.fn().mockReturnValue({}),

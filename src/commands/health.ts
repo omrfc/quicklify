@@ -1,6 +1,6 @@
 import { getServers, findServer } from "../utils/config.js";
 import { checkCoolifyHealth } from "../core/status.js";
-import { sshExec } from "../utils/ssh.js";
+import { sshExec, isHostKeyMismatch } from "../utils/ssh.js";
 import { isBareServer } from "../utils/modeGuard.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import type { ServerRecord } from "../types/index.js";
@@ -10,8 +10,6 @@ export interface HealthResult {
   status: "healthy" | "unhealthy" | "unreachable" | "host-key-mismatch";
   responseTime: number;
 }
-
-const HOST_KEY_PATTERN = /Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED/i;
 
 export async function checkServerHealth(server: ServerRecord): Promise<HealthResult> {
   const start = Date.now();
@@ -24,7 +22,7 @@ export async function checkServerHealth(server: ServerRecord): Promise<HealthRes
       if (result.code === 0) {
         return { server, status: "healthy", responseTime };
       }
-      if (HOST_KEY_PATTERN.test(result.stderr)) {
+      if (isHostKeyMismatch(result.stderr)) {
         return { server, status: "host-key-mismatch", responseTime };
       }
       return { server, status: "unreachable", responseTime };

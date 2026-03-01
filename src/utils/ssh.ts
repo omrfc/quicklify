@@ -87,10 +87,10 @@ export function removeStaleHostKey(ip: string): void {
   }
 }
 
-const HOST_KEY_PATTERNS = /Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED/i;
+export const HOST_KEY_PATTERN = /Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED/i;
 
-function isHostKeyMismatch(stderr: string): boolean {
-  return HOST_KEY_PATTERNS.test(stderr);
+export function isHostKeyMismatch(stderr: string): boolean {
+  return HOST_KEY_PATTERN.test(stderr);
 }
 
 export function sshConnect(ip: string): Promise<number> {
@@ -106,8 +106,7 @@ export function sshConnect(ip: string): Promise<number> {
   });
 }
 
-export function sshStream(ip: string, command: string, retried = false): Promise<number> {
-  assertValidIp(ip);
+function sshStreamInner(ip: string, command: string, retried: boolean): Promise<number> {
   const sshBin = resolveSshPath();
   return new Promise((resolve) => {
     const child = spawn(sshBin, ["-o", "StrictHostKeyChecking=accept-new", `root@${ip}`, command], {
@@ -116,13 +115,16 @@ export function sshStream(ip: string, command: string, retried = false): Promise
     });
     let stderr = "";
     child.stderr?.on("data", (data: Buffer) => {
-      stderr += data.toString();
+      // Cap stderr buffer — only need enough for host key pattern detection
+      if (stderr.length < 4096) {
+        stderr += data.toString();
+      }
     });
     child.on("close", (code) => {
       const exitCode = code ?? 0;
       if (exitCode !== 0 && !retried && isHostKeyMismatch(stderr)) {
         removeStaleHostKey(ip);
-        resolve(sshStream(ip, command, true));
+        resolve(sshStreamInner(ip, command, true));
       } else {
         resolve(exitCode);
       }
@@ -131,12 +133,16 @@ export function sshStream(ip: string, command: string, retried = false): Promise
   });
 }
 
-export function sshExec(
+export function sshStream(ip: string, command: string): Promise<number> {
+  assertValidIp(ip);
+  return sshStreamInner(ip, command, false);
+}
+
+function sshExecInner(
   ip: string,
   command: string,
-  retried = false,
+  retried: boolean,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
-  assertValidIp(ip);
   const sshBin = resolveSshPath();
   return new Promise((resolve) => {
     const child = spawn(sshBin, ["-o", "StrictHostKeyChecking=accept-new", `root@${ip}`, command], {
@@ -155,11 +161,19 @@ export function sshExec(
       const exitCode = code ?? 1;
       if (exitCode !== 0 && !retried && isHostKeyMismatch(stderr)) {
         removeStaleHostKey(ip);
-        resolve(sshExec(ip, command, true));
+        resolve(sshExecInner(ip, command, true));
       } else {
         resolve({ code: exitCode, stdout, stderr });
       }
     });
     child.on("error", (err) => resolve({ code: 1, stdout: "", stderr: err.message }));
   });
+}
+
+export function sshExec(
+  ip: string,
+  command: string,
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  assertValidIp(ip);
+  return sshExecInner(ip, command, false);
 }

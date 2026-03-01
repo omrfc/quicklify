@@ -115,7 +115,7 @@ const SSH_ERROR_PATTERNS: { pattern: RegExp; message: (ip?: string) => string }[
       `SSH authentication failed. Verify SSH key: ssh-copy-id root@${ip || "<server-ip>"}`,
   },
   {
-    pattern: /Host key verification failed/i,
+    pattern: /Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED/i,
     message: (ip) => `Host key changed. Run: ssh-keygen -R ${ip || "<server-ip>"} then retry.`,
   },
   {
