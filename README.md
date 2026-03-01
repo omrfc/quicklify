@@ -213,8 +213,8 @@ Requires Node.js 20 or later.
 **Server creation fails?**
 Run `quicklify doctor --check-tokens` to verify your API token and local environment.
 
-**Coolify not responding?**
-Use `quicklify status my-server --autostart` to check and auto-restart if needed.
+**Server not responding?**
+Use `quicklify status my-server --autostart` for Coolify servers, or `quicklify health` to check all servers at once.
 
 **Need to start fresh?**
 `quicklify destroy my-server` removes the cloud server entirely.
