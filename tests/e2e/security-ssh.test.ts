@@ -93,7 +93,7 @@ describe("security-ssh E2E", () => {
 
       expect(mockedSpawn).toHaveBeenCalledWith(
         "ssh",
-        ["-o", "StrictHostKeyChecking=accept-new", "root@1.2.3.4"],
+        ["-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=10", "root@1.2.3.4"],
         expect.any(Object),
       );
     });
@@ -108,7 +108,7 @@ describe("security-ssh E2E", () => {
 
       expect(mockedSpawn).toHaveBeenCalledWith(
         "ssh",
-        ["-o", "StrictHostKeyChecking=accept-new", "root@1.2.3.4", "uptime"],
+        ["-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=10", "root@1.2.3.4", "uptime"],
         expect.any(Object),
       );
     });
@@ -121,7 +121,7 @@ describe("security-ssh E2E", () => {
 
       expect(mockedSpawn).toHaveBeenCalledWith(
         "ssh",
-        ["-o", "StrictHostKeyChecking=accept-new", "root@1.2.3.4", "docker logs coolify --follow"],
+        ["-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=10", "root@1.2.3.4", "docker logs coolify --follow"],
         expect.any(Object),
       );
     });

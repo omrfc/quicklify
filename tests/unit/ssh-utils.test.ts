@@ -102,7 +102,7 @@ describe("ssh utils", () => {
       expect(code).toBe(0);
       expect(mockedSpawn).toHaveBeenCalledWith(
         "ssh",
-        ["-o", "StrictHostKeyChecking=accept-new", "root@1.2.3.4"],
+        ["-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=10", "root@1.2.3.4"],
         expect.objectContaining({ stdio: "inherit" }),
       );
     });
@@ -155,7 +155,7 @@ describe("ssh utils", () => {
       expect(code).toBe(0);
       expect(mockedSpawn).toHaveBeenCalledWith(
         "ssh",
-        ["-o", "StrictHostKeyChecking=accept-new", "root@1.2.3.4", "docker logs coolify --follow"],
+        ["-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=10", "root@1.2.3.4", "docker logs coolify --follow"],
         expect.objectContaining({ stdio: ["inherit", "inherit", "pipe"] }),
       );
     });
@@ -256,7 +256,7 @@ describe("ssh utils", () => {
       await sshExec("1.2.3.4", "uptime");
       expect(mockedSpawn).toHaveBeenCalledWith(
         "ssh",
-        ["-o", "StrictHostKeyChecking=accept-new", "root@1.2.3.4", "uptime"],
+        ["-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=10", "root@1.2.3.4", "uptime"],
         expect.objectContaining({ stdio: ["inherit", "pipe", "pipe"] }),
       );
     });
