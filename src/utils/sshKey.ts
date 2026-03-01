@@ -2,6 +2,7 @@ import { readFileSync, existsSync, mkdirSync } from "fs";
 import { spawnSync } from "child_process";
 import { homedir } from "os";
 import { join } from "path";
+import { sanitizedEnv } from "./ssh.js";
 
 const SSH_KEY_FILES = ["id_ed25519.pub", "id_rsa.pub", "id_ecdsa.pub"];
 
@@ -34,8 +35,10 @@ export function generateSshKey(): string | null {
     }
 
     // Generate key with no passphrase
+    // Use sanitizedEnv so tokens are not inherited by the ssh-keygen subprocess
     spawnSync("ssh-keygen", ["-t", "ed25519", "-f", keyPath, "-N", "", "-C", "quicklify"], {
       stdio: "pipe",
+      env: sanitizedEnv(),
     });
 
     const pubKeyPath = `${keyPath}.pub`;

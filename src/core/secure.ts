@@ -77,8 +77,14 @@ export function buildHardeningCommand(options?: { port?: number }): string {
     `sed -i 's/^#\\?MaxAuthTries.*/MaxAuthTries 3/' /etc/ssh/sshd_config`,
   ];
 
-  if (options?.port && options.port !== 22) {
-    commands.push(`sed -i 's/^#\\?Port.*/Port ${options.port}/' /etc/ssh/sshd_config`);
+  // Validate port is a safe integer in range 1-65535 before interpolating into sed command
+  const port = options?.port;
+  if (port !== undefined && port !== 22) {
+    const isValidPort = Number.isInteger(port) && port >= 1 && port <= 65535;
+    if (isValidPort) {
+      commands.push(`sed -i 's/^#\\?Port.*/Port ${port}/' /etc/ssh/sshd_config`);
+    }
+    // If port is invalid (NaN, negative, out of range), silently skip — no injection risk
   }
 
   commands.push("systemctl restart sshd 2>/dev/null || systemctl restart ssh");

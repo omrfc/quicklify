@@ -1,4 +1,5 @@
 import { exec } from "child_process";
+import { sanitizedEnv } from "./ssh.js";
 
 const SAFE_URL_PATTERN = /^https?:\/\/[\d.]+(?::\d+)?\/?$/;
 
@@ -59,7 +60,8 @@ export function openBrowser(url: string): void {
       ? `${command} "" "${url}"`
       : `${command} "${url}"`;
 
-  exec(fullCommand, () => {
+  // Use sanitizedEnv so tokens are not inherited by the browser subprocess
+  exec(fullCommand, { env: sanitizedEnv() }, () => {
     // Silent failure by design — browser open is best-effort
   });
 }

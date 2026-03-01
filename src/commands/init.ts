@@ -17,7 +17,7 @@ import { getCoolifyCloudInit, getBareCloudInit } from "../utils/cloudInit.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { openBrowser } from "../utils/openBrowser.js";
-import { assertValidIp, sshExec } from "../utils/ssh.js";
+import { assertValidIp, sanitizedEnv, sshExec } from "../utils/ssh.js";
 import { findLocalSshKey, generateSshKey, getSshKeyName } from "../utils/sshKey.js";
 import { firewallSetup } from "./firewall.js";
 import { secureSetup } from "./secure.js";
@@ -493,7 +493,8 @@ async function deployServer(
       // Full setup: firewall + secure (BUG-1)
       if (fullSetup && hasValidIp) {
         try {
-          spawnSync("ssh-keygen", ["-R", server.ip], { stdio: "ignore" });
+          assertValidIp(server.ip); // Defense-in-depth: IP validated before ssh-keygen
+          spawnSync("ssh-keygen", ["-R", server.ip], { stdio: "ignore", env: sanitizedEnv() });
         } catch {
           // ssh-keygen not available or no entry — harmless
         }
@@ -535,7 +536,8 @@ async function deployServer(
     if (fullSetup && ready) {
       // Clear stale known_hosts entry (cloud providers reuse IPs)
       try {
-        spawnSync("ssh-keygen", ["-R", server.ip], { stdio: "ignore" });
+        assertValidIp(server.ip); // Defense-in-depth: IP validated before ssh-keygen
+        spawnSync("ssh-keygen", ["-R", server.ip], { stdio: "ignore", env: sanitizedEnv() });
       } catch {
         // ssh-keygen not available or no entry — harmless
       }

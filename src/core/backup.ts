@@ -105,6 +105,20 @@ export function cleanupServerBackups(serverName: string): { removed: boolean; pa
   }
 }
 
+// ─── Path Validation ─────────────────────────────────────────────────────────
+
+/**
+ * Asserts that a remote SCP path does not contain shell metacharacters.
+ * Prevents command injection via crafted remotePath values.
+ * Allowed: alphanumeric, hyphens, underscores, dots, forward slashes.
+ */
+export function assertSafePath(remotePath: string): void {
+  // Reject any path containing shell metacharacters: ; | & $ ` ( ) < > \n \r \t space
+  if (/[;|&$`()\n\r\t ]/.test(remotePath)) {
+    throw new Error(`Unsafe remote path rejected: contains shell metacharacters`);
+  }
+}
+
 // ─── SCP Functions ───────────────────────────────────────────────────────────
 
 export function scpDownload(
@@ -113,6 +127,7 @@ export function scpDownload(
   localPath: string,
 ): Promise<{ code: number; stderr: string }> {
   assertValidIp(ip);
+  assertSafePath(remotePath);
   return new Promise((resolve) => {
     const child = spawn(
       "scp",
@@ -134,6 +149,7 @@ export function scpUpload(
   remotePath: string,
 ): Promise<{ code: number; stderr: string }> {
   assertValidIp(ip);
+  assertSafePath(remotePath);
   return new Promise((resolve) => {
     const child = spawn(
       "scp",

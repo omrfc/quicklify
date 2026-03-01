@@ -2,7 +2,7 @@ import { exec } from "child_process";
 import { isValidBrowserUrl, canOpenBrowser, openBrowser } from "../../src/utils/openBrowser";
 
 jest.mock("child_process", () => ({
-  exec: jest.fn((_cmd: string, _cb: () => void) => {}),
+  exec: jest.fn((_cmd: string, _opts: object, _cb: () => void) => {}),
 }));
 
 const mockedExec = exec as unknown as jest.MockedFunction<typeof exec>;
@@ -161,6 +161,7 @@ describe("openBrowser", () => {
       openBrowser("http://1.2.3.4:8000");
       expect(mockedExec).toHaveBeenCalledWith(
         'open "http://1.2.3.4:8000"',
+        expect.any(Object),
         expect.any(Function),
       );
     });
@@ -177,6 +178,7 @@ describe("openBrowser", () => {
       openBrowser("http://1.2.3.4:8000");
       expect(mockedExec).toHaveBeenCalledWith(
         'start "" "http://1.2.3.4:8000"',
+        expect.any(Object),
         expect.any(Function),
       );
     });
@@ -194,6 +196,7 @@ describe("openBrowser", () => {
       openBrowser("http://1.2.3.4:8000");
       expect(mockedExec).toHaveBeenCalledWith(
         'xdg-open "http://1.2.3.4:8000"',
+        expect.any(Object),
         expect.any(Function),
       );
     });
