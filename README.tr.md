@@ -10,13 +10,11 @@
 ![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
 [![Socket Badge](https://socket.dev/api/badge/npm/package/quicklify)](https://socket.dev/npm/package/quicklify)
 
-**Self-hosting basitleştirildi.**
-
-Sunucularınızı deploy edin, güvence altına alın, yedekleyin, snapshot alın ve bakımını yapın — güvenle.
+**Self-hosted PaaS'ınız, tamamen yönetilen. Deploy, güvenlik, yedekleme — tek komutla.**
 
 ## Quicklify Neden Var?
 
-Self-hosted Coolify sunucularının çoğu şu nedenlerle çöker:
+Self-hosted sunucuların çoğu şu nedenlerle çöker:
 
 - Yedekleme disiplini yok
 - Güncelleme stratejisi yok
@@ -24,19 +22,42 @@ Self-hosted Coolify sunucularının çoğu şu nedenlerle çöker:
 - İzleme yok
 - Snapshot rutini yok
 
-Coolify sunucunuza çocuk bakıcılığı yapmayı bırakın. Quicklify bunu çözmek için yapıldı.
+Sunucularınıza çocuk bakıcılığı yapmayı bırakın. Quicklify bunu çözmek için yapıldı.
 
 ## Hızlı Başlangıç
 
 ```bash
-# 1. Hetzner, DigitalOcean, Vultr veya Linode'dan API token'ınızı alın
-# 2. Kurulumu başlatın
-npx quicklify init
-
-# 3. Coolify'a http://<sunucu-ip>:8000 adresinden erişin
+# İnteraktif mod — komut ezberlemeye gerek yok
+npx quicklify
 ```
 
-Hepsi bu kadar. Quicklify sunucu oluşturma, SSH anahtar kurulumu, güvenlik duvarı yapılandırması ve Coolify kurulumunu otomatik yapar.
+`quicklify` komutunu argümansız çalıştırdığınızda **interaktif bir menü** açılır. Tüm işlemleri kategorilere göre görebilir, ok tuşlarıyla seçim yapabilir ve alt seçenekleri adım adım yapılandırabilirsiniz — komut adı veya flag ezberlemek zorunda değilsiniz.
+
+```
+? What would you like to do?
+  Server Management
+❯   Deploy a new server
+    Add an existing server
+    List all servers
+    Check server status
+    ...
+  Security
+    Harden SSH & fail2ban
+    Manage firewall (UFW)
+    ...
+```
+
+Her işlem alt seçenekler (sunucu modu, şablon, log kaynağı, port numarası vb.) içerir ve istediğiniz noktada ana menüye dönmek için **← Back** seçeneği sunar.
+
+Komutları zaten biliyorsanız, doğrudan da kullanabilirsiniz:
+
+```bash
+quicklify init                    # Yeni sunucu kur
+quicklify status sunucum          # Sunucu durumunu kontrol et
+quicklify backup --all            # Tüm sunucuları yedekle
+```
+
+Quicklify sunucu oluşturma, SSH anahtar kurulumu, güvenlik duvarı yapılandırması ve platform kurulumunu otomatik yapar.
 
 ## Quicklify'ı Farklı Kılan Ne?
 
@@ -47,27 +68,30 @@ Hepsi bu kadar. Quicklify sunucu oluşturma, SSH anahtar kurulumu, güvenlik duv
 | Güvenlik sonradan mı düşünülüyor? | Güvenlik duvarı, SSH sıkılaştırma, SSL ve güvenlik denetimi hazır |
 | Yedekleme? Belki bir gün... | Tek komutla yedekleme ve geri yükleme, manifest takibiyle |
 | Birden fazla sunucu mu yönetiyorsunuz? | Yedekleme, bakım, durum ve sağlıkta `--all` desteği |
-| Mevcut sunucu takip dışı mı? | `quicklify add` ile her Coolify sunucusunu yönetime alın |
+| Mevcut sunucu takip dışı mı? | `quicklify add` ile her sunucuyu yönetime alın |
+| Komutları ezberlemek mi? | `quicklify` yazın — interaktif menü sizi yönlendirir |
 
 ## Neler Yapabilirsiniz?
 
 ### Kurulum
 ```bash
-quicklify init                          # İnteraktif kurulum
+quicklify                               # İnteraktif menü (önerilen)
+quicklify init                          # İnteraktif kurulum (doğrudan)
 quicklify init --provider hetzner       # Otomatik kurulum
 quicklify init --config quicklify.yml   # YAML ile kurulum
 quicklify init --template production    # Şablon kullanarak
+quicklify init --mode bare              # Genel VPS (Coolify olmadan)
 ```
 
 ### Yönetim
 ```bash
 quicklify list                  # Sunucuları listele
-quicklify status sunucum        # Sunucu ve Coolify durumu
+quicklify status sunucum        # Sunucu durumu
 quicklify status --all          # Tüm sunucuları kontrol et
 quicklify ssh sunucum           # Sunucuya SSH bağlantısı
 quicklify restart sunucum       # Sunucuyu yeniden başlat
 quicklify destroy sunucum       # Bulut sunucusunu tamamen sil
-quicklify add                   # Mevcut Coolify sunucusu ekle
+quicklify add                   # Mevcut sunucu ekle
 quicklify remove sunucum        # Yerel yapılandırmadan kaldır
 quicklify config set key value  # Varsayılan yapılandırma yönet
 quicklify export                # Sunucu listesini JSON'a aktar
@@ -76,7 +100,7 @@ quicklify import servers.json   # JSON'dan sunucuları içe aktar
 
 ### Güncelleme ve Bakım
 ```bash
-quicklify update sunucum        # Coolify'ı güncelle
+quicklify update sunucum        # Coolify güncelle (Coolify sunucuları)
 quicklify maintain sunucum      # Tam bakım (snapshot + güncelleme + sağlık + yeniden başlatma)
 quicklify maintain --all        # Tüm sunucuları bakıma al
 ```
@@ -108,7 +132,7 @@ quicklify domain add sunucum --domain ornek.com  # Domain + SSL ayarla
 ### İzleme ve Hata Ayıklama
 ```bash
 quicklify monitor sunucum             # CPU, RAM, disk kullanımı
-quicklify logs sunucum                 # Coolify logları
+quicklify logs sunucum                 # Sunucu logları
 quicklify logs sunucum -f              # Logları canlı takip et
 quicklify health                       # Tüm sunucuların sağlık kontrolü
 quicklify doctor                       # Yerel ortam kontrolü
@@ -157,7 +181,7 @@ quicklify init --template production --provider hetzner
 
 ## Güvenlik
 
-Quicklify güvenlik öncelikli olarak geliştirilmektedir — 64 test suite'inde **1.750+ test**, özel güvenlik test suite'leri dahil.
+Quicklify güvenlik öncelikli olarak geliştirilmektedir — 76 test suite'inde **2.040+ test**, özel güvenlik test suite'leri dahil.
 
 - API token'ları asla diske kaydedilmez — çalışma zamanında sorulur veya ortam değişkenlerinden alınır
 - SSH anahtarları gerekirse otomatik oluşturulur (Ed25519)
@@ -229,21 +253,20 @@ Mevcut araçlar:
 | `server_maintain` | update, restart, maintain | Coolify güncelle, sunucuları yeniden başlat, tam bakım yap |
 | `server_secure` | secure, firewall, domain | SSH sıkılaştırma, güvenlik duvarı kuralları, domain/SSL yönetimi (10 alt komut) |
 | `server_backup` | backup, snapshot | Veritabanı yedekle/geri yükle ve VPS snapshot oluştur/yönet |
-| `server_provision` | create | Bulut sağlayıcılarda yeni Coolify sunucusu oluştur |
+| `server_provision` | create | Bulut sağlayıcılarda yeni sunucu oluştur |
 
 > Tüm yıkıcı işlemler (destroy, restore, snapshot-delete, provision, restart, maintain, snapshot-create) çalıştırılmak için `SAFE_MODE=false` gerektirir.
 
 ## Gelecek Planlar
 
 - Zamanlanmış bakım (cron tabanlı otomatik bakım)
-- Genel sunucu yönetimi (Coolify olmayan sunucular)
-- İnteraktif TUI arayüzü
+- Dokploy platform desteği (`--platform dokploy`)
 
 ## Felsefe
 
 > Altyapı sıkıcı, öngörülebilir ve güvenli olmalıdır.
 
-Quicklify bir script değildir. Coolify için DevOps güvenlik katmanınızdır.
+Quicklify bir script değildir. Self-hosted altyapınız için DevOps güvenlik katmanınızdır.
 
 ## Lisans
 

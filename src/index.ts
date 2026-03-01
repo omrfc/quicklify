@@ -5,6 +5,7 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { checkForUpdate } from "./utils/updateCheck.js";
+import { interactiveMenu } from "./commands/interactive.js";
 import { initCommand } from "./commands/init.js";
 import { listCommand } from "./commands/list.js";
 import { statusCommand } from "./commands/status.js";
@@ -228,5 +229,14 @@ program
     ) => snapshotCommand(subcommand, query, options),
   );
 
-await program.parseAsync();
+// If no arguments provided, show interactive menu
+const args = process.argv.slice(2);
+if (args.length === 0) {
+  const selected = await interactiveMenu();
+  if (selected) {
+    await program.parseAsync(["node", "quicklify", ...selected]);
+  }
+} else {
+  await program.parseAsync();
+}
 checkForUpdate(pkg.version).catch(() => {});

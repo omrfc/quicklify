@@ -67,7 +67,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
 
   const isNonInteractive = options.provider !== undefined;
 
-  logger.title("Quicklify - Deploy Coolify in minutes");
+  logger.title("Quicklify - Self-hosting, fully managed");
 
   let providerChoice: string;
   let apiToken: string;

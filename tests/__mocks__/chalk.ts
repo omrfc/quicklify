@@ -1,15 +1,15 @@
 const identity = (s: string) => s;
 
-const bold = Object.assign(identity, { cyan: identity });
+function chainable(): typeof identity & Record<string, typeof identity> {
+  const fn = Object.assign(identity, {}) as typeof identity & Record<string, typeof identity>;
+  return new Proxy(fn, {
+    get(_target, prop) {
+      if (prop === "call" || prop === "apply" || prop === "bind") return (fn as never)[prop as keyof typeof fn];
+      return chainable();
+    },
+  });
+}
 
-const chalk = {
-  blue: identity,
-  green: identity,
-  red: identity,
-  yellow: identity,
-  gray: identity,
-  cyan: identity,
-  bold,
-};
+const chalk = chainable();
 
 export default chalk;

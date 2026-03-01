@@ -10,13 +10,11 @@
 ![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
 [![Socket Badge](https://socket.dev/api/badge/npm/package/quicklify)](https://socket.dev/npm/package/quicklify)
 
-**Self-hosting made simple.**
-
-Deploy, secure, back up, snapshot, and maintain your servers with confidence.
+**Your self-hosted PaaS, fully managed. Deploy, secure, back up — one command at a time.**
 
 ## Why Quicklify Exists
 
-Most self-hosted Coolify servers break because:
+Most self-hosted servers break because:
 
 - No backup discipline
 - No update strategy
@@ -24,19 +22,42 @@ Most self-hosted Coolify servers break because:
 - No monitoring
 - No snapshot routine
 
-Stop babysitting your Coolify server. Quicklify was built to fix that.
+Stop babysitting your servers. Quicklify was built to fix that.
 
 ## Quick Start
 
 ```bash
-# 1. Get your API token from Hetzner, DigitalOcean, Vultr, or Linode
-# 2. Run the installer
-npx quicklify init
-
-# 3. Access Coolify at http://<your-ip>:8000
+# Interactive mode — no commands to memorize
+npx quicklify
 ```
 
-That's it. Quicklify handles server provisioning, SSH key setup, firewall configuration, and Coolify installation automatically.
+Running `quicklify` without any arguments launches an **interactive menu** where you can browse all available actions by category, pick what you need with arrow keys, and configure options step by step — no need to remember any command names or flags.
+
+```
+? What would you like to do?
+  Server Management
+❯   Deploy a new server
+    Add an existing server
+    List all servers
+    Check server status
+    ...
+  Security
+    Harden SSH & fail2ban
+    Manage firewall (UFW)
+    ...
+```
+
+Each action includes sub-options (server mode, template, log source, port number, etc.) and a **← Back** option to return to the main menu at any point.
+
+If you already know the commands, you can still use them directly:
+
+```bash
+quicklify init                    # Deploy a new server
+quicklify status my-server        # Check server status
+quicklify backup --all            # Backup all servers
+```
+
+Quicklify handles server provisioning, SSH key setup, firewall configuration, and platform installation automatically.
 
 ## What Makes Quicklify Different?
 
@@ -47,27 +68,30 @@ That's it. Quicklify handles server provisioning, SSH key setup, firewall config
 | Security is an afterthought? | Firewall, SSH hardening, SSL, and security audits built-in |
 | Backups? Maybe someday... | One-command backup & restore with manifest tracking |
 | Managing multiple servers? | `--all` flag across backup, maintain, status, and health |
-| Existing server not tracked? | `quicklify add` brings any Coolify server under management |
+| Existing server not tracked? | `quicklify add` brings any server under management |
+| Don't want to memorize commands? | Just run `quicklify` — interactive menu guides you |
 
 ## What Can You Do?
 
 ### Deploy
 ```bash
-quicklify init                          # Interactive setup
+quicklify                               # Interactive menu (recommended)
+quicklify init                          # Interactive setup (direct)
 quicklify init --provider hetzner       # Non-interactive
 quicklify init --config quicklify.yml   # From YAML config
 quicklify init --template production    # Use a template
+quicklify init --mode bare              # Generic VPS (no Coolify)
 ```
 
 ### Manage
 ```bash
 quicklify list                  # List all servers
-quicklify status my-server      # Check server & Coolify status
+quicklify status my-server      # Check server status
 quicklify status --all          # Check all servers
 quicklify ssh my-server         # SSH into server
 quicklify restart my-server     # Restart server
 quicklify destroy my-server     # Destroy cloud server entirely
-quicklify add                   # Add existing Coolify server
+quicklify add                   # Add existing server
 quicklify remove my-server      # Remove from local config
 quicklify config set key value  # Manage default configuration
 quicklify export                # Export server list to JSON
@@ -76,7 +100,7 @@ quicklify import servers.json   # Import servers from JSON
 
 ### Update & Maintain
 ```bash
-quicklify update my-server      # Update Coolify
+quicklify update my-server      # Update Coolify (Coolify servers)
 quicklify maintain my-server    # Full maintenance (snapshot + update + health + reboot)
 quicklify maintain --all        # Maintain all servers
 ```
@@ -108,7 +132,7 @@ quicklify domain add my-server --domain example.com  # Set domain + SSL
 ### Monitor & Debug
 ```bash
 quicklify monitor my-server             # CPU, RAM, disk usage
-quicklify logs my-server                 # View Coolify logs
+quicklify logs my-server                 # View server logs
 quicklify logs my-server -f              # Follow logs
 quicklify health                         # Health check all servers
 quicklify doctor                         # Check local environment
@@ -157,7 +181,7 @@ quicklify init --template production --provider hetzner
 
 ## Security
 
-Quicklify is built with security as a priority — **1,750+ tests** across 64 suites, including dedicated security test suites.
+Quicklify is built with security as a priority — **2,040+ tests** across 76 suites, including dedicated security test suites.
 
 - API tokens are never stored on disk — prompted at runtime or via environment variables
 - SSH keys are auto-generated if needed (Ed25519)
@@ -229,21 +253,20 @@ Available tools:
 | `server_maintain` | update, restart, maintain | Update Coolify, restart servers, run full maintenance |
 | `server_secure` | secure, firewall, domain | SSH hardening, firewall rules, domain/SSL management (10 subcommands) |
 | `server_backup` | backup, snapshot | Backup/restore databases and create/manage VPS snapshots |
-| `server_provision` | create | Provision new Coolify servers on cloud providers |
+| `server_provision` | create | Provision new servers on cloud providers |
 
 > All destructive operations (destroy, restore, snapshot-delete, provision, restart, maintain, snapshot-create) require `SAFE_MODE=false` to execute.
 
 ## What's Next
 
 - Scheduled maintenance (cron-based automatic upkeep)
-- Generic server management (non-Coolify servers)
-- Interactive TUI dashboard
+- Dokploy platform support (`--platform dokploy`)
 
 ## Philosophy
 
 > Infrastructure should be boring, predictable, and safe.
 
-Quicklify is not a script. It's your DevOps safety layer for Coolify.
+Quicklify is not a script. It's your DevOps safety layer for self-hosted infrastructure.
 
 ## License
 

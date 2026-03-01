@@ -26,7 +26,7 @@ npm run dev -- init
 4. **Run Tests**
 
 ```bash
-npm test                # Run all tests (1,758 tests, 64 suites)
+npm test                # Run all tests (2,047 tests, 76 suites)
 npm run test:watch      # Watch mode
 npm run test:coverage   # Coverage report
 ```
@@ -64,7 +64,8 @@ src/
 │   ├── add.ts            # Add an existing Coolify server
 │   ├── remove.ts         # Remove server from local config
 │   ├── maintain.ts       # Full maintenance cycle
-│   └── snapshot.ts       # Manage VPS snapshots
+│   ├── snapshot.ts       # Manage VPS snapshots
+│   └── interactive.ts    # Interactive menu (no-arg mode)
 ├── core/                   # Pure business logic (no CLI dependencies)
 │   ├── status.ts          # Server & Coolify status checks
 │   ├── tokens.ts          # Non-interactive token resolution from env vars

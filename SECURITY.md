@@ -33,7 +33,7 @@ Response time: Within 48 hours
 ### Input Validation (A1 — Injection)
 - All shell execution uses `spawn`/`spawnSync` with array arguments (never string interpolation into shell commands)
 - `assertValidIp()` — IPv4 format and octet range (0-255) validation applied before every SSH/SCP connection and before ssh-keygen calls (defense-in-depth)
-- `assertSafePath()` — rejects remote SCP paths containing shell metacharacters (`;`, `|`, `&`, `$`, `` ` ``, `(`, `)`, newlines, spaces)
+- `assertSafePath()` — rejects remote SCP paths containing shell metacharacters (`;`, `|`, `&`, `$`, `` ` ``, `(`, `)`, `<`, `>`, newlines, spaces)
 - Server name validation: 3-63 chars, lowercase alphanumeric + hyphens, must start with letter
 - `buildHardeningCommand()` — SSH port option validated as integer in range 1-65535 before interpolation into sed command
 - YAML config: 22+ security key patterns detected and warned
