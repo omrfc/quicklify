@@ -261,10 +261,11 @@ export class HetznerProvider implements CloudProvider {
       const dcResponse = await axios.get(`${this.baseUrl}/datacenters`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
-      const datacenter = dcResponse.data.datacenters.find(
-        (dc: HetznerDatacenter) => dc.location.name === location,
-      );
-      const availableIds: number[] = datacenter?.server_types?.available || [];
+      // Merge available IDs from ALL datacenters in same location (e.g. nbg1-dc3, nbg1-dc4)
+      // A single location can have multiple DCs with different server types (ARM vs x86)
+      const availableIds: number[] = dcResponse.data.datacenters
+        .filter((dc: HetznerDatacenter) => dc.location.name === location)
+        .flatMap((dc: HetznerDatacenter) => dc.server_types?.available || []);
 
       // Get server type details
       const response = await axios.get(`${this.baseUrl}/server_types`, {

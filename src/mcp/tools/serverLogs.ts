@@ -129,7 +129,7 @@ export async function handleServerLogs(params: {
       }
 
       case "monitor": {
-        const includeContainers = params.containers ?? false;
+        const includeContainers = isBareServer(server) ? false : (params.containers ?? false);
         const result = await fetchServerMetrics(server.ip, includeContainers);
 
         if (result.error) {

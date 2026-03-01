@@ -28,7 +28,7 @@ export async function monitorCommand(
       "top -bn1 | head -5 && echo '---SEPARATOR---' && free -h && echo '---SEPARATOR---' && df -h --total | grep -E '(Filesystem|total)'";
     if (options?.containers) {
       command +=
-        " && echo '---SEPARATOR---' && docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'";
+        " && echo '---SEPARATOR---' && (docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}' 2>/dev/null || echo 'Docker not installed')";
     }
 
     const result = await sshExec(server.ip, command);

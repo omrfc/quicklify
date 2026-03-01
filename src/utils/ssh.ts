@@ -136,12 +136,15 @@ function sshStreamInner(ip: string, command: string, retried: boolean): Promise<
       sshBin,
       [
         "-o", "StrictHostKeyChecking=accept-new",
+        "-o", "BatchMode=yes",
         "-o", `ConnectTimeout=${SSH_CONNECT_TIMEOUT}`,
         `root@${ip}`,
         command,
       ],
       {
-        stdio: ["inherit", "inherit", "pipe"],
+        // stdin "ignore" — streaming commands don't need user input.
+        // Also prevents MCP stdin (JSON-RPC) from leaking into SSH.
+        stdio: ["ignore", "inherit", "pipe"],
         env: sanitizedEnv(),
       },
     );
@@ -208,12 +211,15 @@ function sshExecInner(
       sshBin,
       [
         "-o", "StrictHostKeyChecking=accept-new",
+        "-o", "BatchMode=yes",
         "-o", `ConnectTimeout=${SSH_CONNECT_TIMEOUT}`,
         `root@${ip}`,
         command,
       ],
       {
-        stdio: ["inherit", "pipe", "pipe"],
+        // stdin must be "ignore" — not "inherit". MCP uses stdin for JSON-RPC transport;
+        // inheriting it would let SSH read MCP messages, causing silent failures.
+        stdio: ["ignore", "pipe", "pipe"],
         env: sanitizedEnv(),
       },
     );

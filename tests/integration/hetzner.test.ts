@@ -281,6 +281,49 @@ describe("HetznerProvider", () => {
       expect(types[0].id).toBe("cx22");
     });
 
+    it("should merge available IDs from multiple datacenters in same location (ARM + x86)", async () => {
+      // nbg1 has two DCs: dc3 (x86 types 1,2) and dc4 (ARM type 5)
+      const multiDcResponse = {
+        data: {
+          datacenters: [
+            { name: "nbg1-dc3", location: { name: "nbg1" }, server_types: { available: [1, 2] } },
+            { name: "nbg1-dc4", location: { name: "nbg1" }, server_types: { available: [5] } },
+            { name: "hel1-dc2", location: { name: "hel1" }, server_types: { available: [1] } },
+          ],
+        },
+      };
+
+      mockedAxios.get.mockResolvedValueOnce(multiDcResponse).mockResolvedValueOnce({
+        data: {
+          server_types: [
+            {
+              id: 1,
+              name: "cx22",
+              cores: 2,
+              memory: 4,
+              disk: 40,
+              prices: [{ location: "nbg1", price_monthly: { net: "3.49", gross: "4.15" } }],
+            },
+            {
+              id: 5,
+              name: "cax11",
+              cores: 2,
+              memory: 4,
+              disk: 40,
+              prices: [{ location: "nbg1", price_monthly: { net: "3.79", gross: "4.51" } }],
+            },
+          ],
+        },
+      });
+
+      const types = await provider.getAvailableServerTypes("nbg1");
+
+      // Both x86 (cx22 from dc3) and ARM (cax11 from dc4) should be included
+      expect(types).toHaveLength(2);
+      expect(types.map((t) => t.id)).toContain("cx22");
+      expect(types.map((t) => t.id)).toContain("cax11");
+    });
+
     it("should call datacenters and server_types endpoints", async () => {
       mockedAxios.get.mockResolvedValueOnce(mockDatacentersResponse).mockResolvedValueOnce({
         data: {
