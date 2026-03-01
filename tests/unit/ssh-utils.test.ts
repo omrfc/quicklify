@@ -13,6 +13,7 @@ import { spawn, execSync } from "child_process";
 import { existsSync } from "fs";
 import {
   checkSshAvailable,
+  removeStaleHostKey,
   resolveSshPath,
   sshConnect,
   sshExec,
@@ -146,7 +147,7 @@ describe("ssh utils", () => {
   });
 
   describe("sshStream", () => {
-    it("should spawn ssh with command and inherit stdio", async () => {
+    it("should spawn ssh with command and pipe stderr for host key detection", async () => {
       const mockCp = createMockProcess(0);
       mockedSpawn.mockReturnValue(mockCp);
 
@@ -155,7 +156,7 @@ describe("ssh utils", () => {
       expect(mockedSpawn).toHaveBeenCalledWith(
         "ssh",
         ["-o", "StrictHostKeyChecking=accept-new", "root@1.2.3.4", "docker logs coolify --follow"],
-        expect.objectContaining({ stdio: "inherit" }),
+        expect.objectContaining({ stdio: ["inherit", "inherit", "pipe"] }),
       );
     });
 
@@ -275,6 +276,218 @@ describe("ssh utils", () => {
 
     it("should throw error for invalid IP address", () => {
       expect(() => sshExec("localhost", "uptime")).toThrow("Invalid IP address");
+    });
+  });
+
+  describe("removeStaleHostKey", () => {
+    it("should call execSync with ssh-keygen -R and the IP", () => {
+      mockedExecSync.mockReturnValue(Buffer.from(""));
+      removeStaleHostKey("1.2.3.4");
+      expect(mockedExecSync).toHaveBeenCalledWith(
+        expect.stringContaining("ssh-keygen"),
+        expect.objectContaining({ stdio: "ignore" }),
+      );
+      const call = mockedExecSync.mock.calls.find((c) =>
+        typeof c[0] === "string" && c[0].includes("-R"),
+      );
+      expect(call).toBeDefined();
+      expect(call![0]).toContain("1.2.3.4");
+    });
+
+    it("should not throw when ssh-keygen fails", () => {
+      mockedExecSync.mockImplementation(() => {
+        throw new Error("ssh-keygen not found");
+      });
+      expect(() => removeStaleHostKey("1.2.3.4")).not.toThrow();
+    });
+
+    it("should throw for invalid IP", () => {
+      expect(() => removeStaleHostKey("not-an-ip")).toThrow("Invalid IP address");
+    });
+  });
+
+  describe("sshExec host key retry", () => {
+    it("should retry once when stderr contains 'Host key verification failed'", async () => {
+      // First call: host key mismatch
+      const mockCp1 = new EventEmitter() as any;
+      mockCp1.stdout = new EventEmitter();
+      mockCp1.stderr = new EventEmitter();
+
+      // Second call: success after key removal
+      const mockCp2 = new EventEmitter() as any;
+      mockCp2.stdout = new EventEmitter();
+      mockCp2.stderr = new EventEmitter();
+
+      mockedSpawn.mockReturnValueOnce(mockCp1).mockReturnValueOnce(mockCp2);
+      mockedExecSync.mockReturnValue(Buffer.from(""));
+
+      const promise = sshExec("1.2.3.4", "echo ok");
+      process.nextTick(() => {
+        mockCp1.stderr.emit("data", Buffer.from("Host key verification failed."));
+        mockCp1.emit("close", 255);
+        process.nextTick(() => {
+          mockCp2.stdout.emit("data", Buffer.from("ok"));
+          mockCp2.emit("close", 0);
+        });
+      });
+
+      const result = await promise;
+      expect(result.code).toBe(0);
+      expect(result.stdout).toBe("ok");
+      expect(mockedSpawn).toHaveBeenCalledTimes(2);
+      // Verify ssh-keygen -R was called
+      const keyScanCall = mockedExecSync.mock.calls.find((c) =>
+        typeof c[0] === "string" && c[0].includes("-R"),
+      );
+      expect(keyScanCall).toBeDefined();
+    });
+
+    it("should retry once when stderr contains 'REMOTE HOST IDENTIFICATION HAS CHANGED'", async () => {
+      const mockCp1 = new EventEmitter() as any;
+      mockCp1.stdout = new EventEmitter();
+      mockCp1.stderr = new EventEmitter();
+
+      const mockCp2 = new EventEmitter() as any;
+      mockCp2.stdout = new EventEmitter();
+      mockCp2.stderr = new EventEmitter();
+
+      mockedSpawn.mockReturnValueOnce(mockCp1).mockReturnValueOnce(mockCp2);
+      mockedExecSync.mockReturnValue(Buffer.from(""));
+
+      const promise = sshExec("1.2.3.4", "uptime");
+      process.nextTick(() => {
+        mockCp1.stderr.emit("data", Buffer.from("REMOTE HOST IDENTIFICATION HAS CHANGED!"));
+        mockCp1.emit("close", 255);
+        process.nextTick(() => {
+          mockCp2.emit("close", 0);
+        });
+      });
+
+      const result = await promise;
+      expect(result.code).toBe(0);
+      expect(mockedSpawn).toHaveBeenCalledTimes(2);
+    });
+
+    it("should NOT retry on other SSH errors (permission denied)", async () => {
+      const mockCp = new EventEmitter() as any;
+      mockCp.stdout = new EventEmitter();
+      mockCp.stderr = new EventEmitter();
+      mockedSpawn.mockReturnValue(mockCp);
+
+      const promise = sshExec("1.2.3.4", "uptime");
+      process.nextTick(() => {
+        mockCp.stderr.emit("data", Buffer.from("Permission denied (publickey)."));
+        mockCp.emit("close", 255);
+      });
+
+      const result = await promise;
+      expect(result.code).toBe(255);
+      expect(mockedSpawn).toHaveBeenCalledTimes(1);
+    });
+
+    it("should NOT retry more than once (no infinite loop)", async () => {
+      // Both calls return host key mismatch
+      const makeHostKeyMockCp = () => {
+        const cp = new EventEmitter() as any;
+        cp.stdout = new EventEmitter();
+        cp.stderr = new EventEmitter();
+        return cp;
+      };
+
+      const mockCp1 = makeHostKeyMockCp();
+      const mockCp2 = makeHostKeyMockCp();
+
+      mockedSpawn.mockReturnValueOnce(mockCp1).mockReturnValueOnce(mockCp2);
+      mockedExecSync.mockReturnValue(Buffer.from(""));
+
+      const promise = sshExec("1.2.3.4", "uptime");
+      process.nextTick(() => {
+        mockCp1.stderr.emit("data", Buffer.from("Host key verification failed."));
+        mockCp1.emit("close", 255);
+        process.nextTick(() => {
+          mockCp2.stderr.emit("data", Buffer.from("Host key verification failed."));
+          mockCp2.emit("close", 255);
+        });
+      });
+
+      const result = await promise;
+      // Second attempt returned 255, should return that (no third attempt)
+      expect(result.code).toBe(255);
+      expect(mockedSpawn).toHaveBeenCalledTimes(2);
+    });
+
+    it("should return retry result (not original failure) on host key fix", async () => {
+      const mockCp1 = new EventEmitter() as any;
+      mockCp1.stdout = new EventEmitter();
+      mockCp1.stderr = new EventEmitter();
+
+      const mockCp2 = new EventEmitter() as any;
+      mockCp2.stdout = new EventEmitter();
+      mockCp2.stderr = new EventEmitter();
+
+      mockedSpawn.mockReturnValueOnce(mockCp1).mockReturnValueOnce(mockCp2);
+      mockedExecSync.mockReturnValue(Buffer.from(""));
+
+      const promise = sshExec("1.2.3.4", "hostname");
+      process.nextTick(() => {
+        mockCp1.stderr.emit("data", Buffer.from("Host key verification failed."));
+        mockCp1.emit("close", 255);
+        process.nextTick(() => {
+          mockCp2.stdout.emit("data", Buffer.from("my-server"));
+          mockCp2.emit("close", 0);
+        });
+      });
+
+      const result = await promise;
+      // Should return second attempt's output, not original stderr
+      expect(result.stdout).toBe("my-server");
+      expect(result.stderr).toBe("");
+      expect(result.code).toBe(0);
+    });
+  });
+
+  describe("sshStream host key retry", () => {
+    it("should retry once when stderr contains host key mismatch pattern", async () => {
+      const mockCp1 = new EventEmitter() as any;
+      mockCp1.stdout = new EventEmitter();
+      mockCp1.stderr = new EventEmitter();
+
+      const mockCp2 = new EventEmitter() as any;
+      mockCp2.stdout = new EventEmitter();
+      mockCp2.stderr = new EventEmitter();
+
+      mockedSpawn.mockReturnValueOnce(mockCp1).mockReturnValueOnce(mockCp2);
+      mockedExecSync.mockReturnValue(Buffer.from(""));
+
+      const promise = sshStream("1.2.3.4", "journalctl -f");
+      process.nextTick(() => {
+        mockCp1.stderr.emit("data", Buffer.from("Host key verification failed."));
+        mockCp1.emit("close", 255);
+        process.nextTick(() => {
+          mockCp2.emit("close", 0);
+        });
+      });
+
+      const code = await promise;
+      expect(code).toBe(0);
+      expect(mockedSpawn).toHaveBeenCalledTimes(2);
+    });
+
+    it("should NOT retry on non-host-key errors", async () => {
+      const mockCp = new EventEmitter() as any;
+      mockCp.stdout = new EventEmitter();
+      mockCp.stderr = new EventEmitter();
+      mockedSpawn.mockReturnValue(mockCp);
+
+      const promise = sshStream("1.2.3.4", "journalctl -f");
+      process.nextTick(() => {
+        mockCp.stderr.emit("data", Buffer.from("Connection refused"));
+        mockCp.emit("close", 1);
+      });
+
+      const code = await promise;
+      expect(code).toBe(1);
+      expect(mockedSpawn).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -73,6 +73,26 @@ export function sanitizedEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
+/**
+ * Removes stale host key entry for the given IP from known_hosts.
+ * Silently ignores errors (ssh-keygen not available or no entry).
+ * IP is validated before use to prevent command injection.
+ */
+export function removeStaleHostKey(ip: string): void {
+  assertValidIp(ip);
+  try {
+    execSync(`ssh-keygen -R ${ip}`, { stdio: "ignore" });
+  } catch {
+    // Silently ignore — ssh-keygen may not be available or no entry exists
+  }
+}
+
+const HOST_KEY_PATTERNS = /Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED/i;
+
+function isHostKeyMismatch(stderr: string): boolean {
+  return HOST_KEY_PATTERNS.test(stderr);
+}
+
 export function sshConnect(ip: string): Promise<number> {
   assertValidIp(ip);
   const sshBin = resolveSshPath();
@@ -86,15 +106,27 @@ export function sshConnect(ip: string): Promise<number> {
   });
 }
 
-export function sshStream(ip: string, command: string): Promise<number> {
+export function sshStream(ip: string, command: string, retried = false): Promise<number> {
   assertValidIp(ip);
   const sshBin = resolveSshPath();
   return new Promise((resolve) => {
     const child = spawn(sshBin, ["-o", "StrictHostKeyChecking=accept-new", `root@${ip}`, command], {
-      stdio: "inherit",
+      stdio: ["inherit", "inherit", "pipe"],
       env: sanitizedEnv(),
     });
-    child.on("close", (code) => resolve(code ?? 0));
+    let stderr = "";
+    child.stderr?.on("data", (data: Buffer) => {
+      stderr += data.toString();
+    });
+    child.on("close", (code) => {
+      const exitCode = code ?? 0;
+      if (exitCode !== 0 && !retried && isHostKeyMismatch(stderr)) {
+        removeStaleHostKey(ip);
+        resolve(sshStream(ip, command, true));
+      } else {
+        resolve(exitCode);
+      }
+    });
     child.on("error", () => resolve(1));
   });
 }
@@ -102,6 +134,7 @@ export function sshStream(ip: string, command: string): Promise<number> {
 export function sshExec(
   ip: string,
   command: string,
+  retried = false,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   assertValidIp(ip);
   const sshBin = resolveSshPath();
@@ -118,7 +151,15 @@ export function sshExec(
     child.stderr?.on("data", (data: Buffer) => {
       stderr += data.toString();
     });
-    child.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }));
+    child.on("close", (code) => {
+      const exitCode = code ?? 1;
+      if (exitCode !== 0 && !retried && isHostKeyMismatch(stderr)) {
+        removeStaleHostKey(ip);
+        resolve(sshExec(ip, command, true));
+      } else {
+        resolve({ code: exitCode, stdout, stderr });
+      }
+    });
     child.on("error", (err) => resolve({ code: 1, stdout: "", stderr: err.message }));
   });
 }
