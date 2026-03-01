@@ -5,6 +5,17 @@ import { checkServerHealth, healthCommand } from "../../src/commands/health";
 
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/serverSelect");
+jest.mock("../../src/utils/ssh", () => ({
+  assertValidIp: jest.fn(),
+  sshExec: jest.fn(),
+  removeStaleHostKey: jest.fn(),
+  resolveSshPath: jest.fn().mockReturnValue("ssh"),
+  checkSshAvailable: jest.fn().mockReturnValue(true),
+  sanitizedEnv: jest.fn().mockReturnValue({}),
+}));
+
+import * as sshModule from "../../src/utils/ssh";
+const mockedSsh = sshModule as jest.Mocked<typeof sshModule>;
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedConfig = config as jest.Mocked<typeof config>;
@@ -111,7 +122,7 @@ describe("healthCommand", () => {
 
   // ---- Bare mode tests ----
 
-  describe("bare server guard", () => {
+  describe("bare server SSH health check", () => {
     const bareServer = {
       ...sampleServer,
       id: "bare-123",
@@ -120,37 +131,45 @@ describe("healthCommand", () => {
       mode: "bare" as const,
     };
 
-    it("should skip bare servers and warn when all servers are bare", async () => {
+    it("should check bare servers via SSH (not skip them)", async () => {
       mockedConfig.getServers.mockReturnValue([bareServer]);
+      mockedSsh.sshExec.mockResolvedValueOnce({ code: 0, stdout: "ok", stderr: "" });
 
       await healthCommand();
 
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("bare");
-      // No health check performed (no axios.get call)
+      // SSH check performed (not axios.get)
+      expect(mockedSsh.sshExec).toHaveBeenCalledWith(bareServer.ip, "echo ok");
       expect(mockedAxios.get).not.toHaveBeenCalled();
-    });
-
-    it("should skip bare servers but health-check coolify servers in mixed list", async () => {
-      mockedConfig.getServers.mockReturnValue([sampleServer, bareServer]);
-      mockedAxios.get.mockResolvedValueOnce({ data: {}, status: 200 });
-
-      await healthCommand();
-
-      // Only one health check (for coolify server, not bare)
-      expect(mockedAxios.get).toHaveBeenCalledTimes(1);
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("coolify-test");
-      // Health table should contain healthy coolify server only
+      expect(output).toContain("bare-test");
       expect(output).toContain("healthy");
     });
 
-    it("should show message when all servers are bare (no Coolify health checks run)", async () => {
+    it("should health-check both coolify and bare servers in mixed list", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer, bareServer]);
+      mockedAxios.get.mockResolvedValueOnce({ data: {}, status: 200 });
+      mockedSsh.sshExec.mockResolvedValueOnce({ code: 0, stdout: "ok", stderr: "" });
+
+      await healthCommand();
+
+      // One HTTP check (coolify), one SSH check (bare)
+      expect(mockedAxios.get).toHaveBeenCalledTimes(1);
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(1);
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("coolify-test");
+      expect(output).toContain("bare-test");
+      expect(output).toContain("healthy");
+    });
+
+    it("should show unreachable for bare server when SSH fails", async () => {
       mockedConfig.getServers.mockReturnValue([bareServer]);
+      mockedSsh.sshExec.mockResolvedValueOnce({ code: 255, stdout: "", stderr: "Connection refused" });
 
       await healthCommand();
 
       expect(mockedAxios.get).not.toHaveBeenCalled();
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("unreachable");
     });
   });
 
