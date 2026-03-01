@@ -162,6 +162,7 @@ None.
 | 2 | BUG-1/2/5/6/7/8/13: bare --full-setup, --name flag, cloud-init wait, health query, bare firewall ports, restart bare msg, MCP SSH ENOENT | 2026-02-28 | 9bb0d21 | [2-bug-fixes-1-init-full-setup-bare-mode-2-](./quick/2-bug-fixes-1-init-full-setup-bare-mode-2-/) |
 | 3 | UX #3/4/9/10/11/12: dpkg lock msg, token source, firewall status rules, domain info, orphan backup cleanup, backup provider/IP display | 2026-03-01 | 0cd5e66 | [3-ux-improvements-3-dpkg-lock-message-4-to](./quick/3-ux-improvements-3-dpkg-lock-message-4-to/) |
 | 4 | Host key auto-fix: removeStaleHostKey + sshExec/sshStream retry, health command bare server SSH check + host-key-mismatch status | 2026-03-01 | 3dc56cb | [4-host-key-auto-fix-ssh-ts-host-key-mismat](./quick/4-host-key-auto-fix-ssh-ts-host-key-mismat/) |
+| 5 | OWASP security audit: assertSafePath, port range validation, sanitizedEnv on all child processes, npm audit fix, SECURITY.md update | 2026-03-01 | 0188467 | [5-security-code-quality-audit](./quick/5-security-code-quality-audit/) |
 
 ### Decisions (Quick Task 3)
 
@@ -176,6 +177,13 @@ None.
 - [quick-4] retried=false parameter (not _inner function) used as retry guard — simpler and equally effective
 - [quick-4] host-key-mismatch as 4th HealthResult status (not merged with unreachable) for distinct actionable messaging
 
+### Decisions (Quick Task 5)
+
+- [quick-5] assertSafePath rejects shell metacharacters in SCP remote paths (semicolons, pipes, backticks, dollar signs, etc.)
+- [quick-5] sanitizedEnv applied to ALL child process spawns (openBrowser exec, sshKey spawnSync, init ssh-keygen) — not just SSH
+- [quick-5] minimatch 10.0.0-10.2.2 in test-exclude accepted as dev-only risk (no --force override per CLAUDE.md)
+- [quick-5] Port validation in buildHardeningCommand: Number.isInteger + range 1-65535; invalid port silently skipped (not error)
+
 ## Session Continuity
 
-Last activity: 2026-03-01 - Completed quick task 4: host key auto-fix in sshExec/sshStream + bare server SSH health checks with host-key-mismatch status
+Last activity: 2026-03-01 - Completed quick task 5: OWASP security audit — injection guards, full token isolation, npm audit fix, SECURITY.md
