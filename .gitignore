@@ -145,3 +145,4 @@ vite.config.ts.timestamp-*
 # Quicklify user config & export
 quicklify.yml
 quicklify-export.json
+servers.json

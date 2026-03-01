@@ -2,6 +2,57 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-03-01
+
+### Added
+- **Bare Mode** — Generic VPS support without Coolify (`--mode bare` on init/add)
+  - `ServerRecord.mode` field: `"coolify"` (default) or `"bare"`
+  - `requireCoolifyMode()` guard blocks Coolify-only operations on bare servers
+  - `getBareCloudInit()` — hardening-only cloud-init script (UFW + system updates)
+  - Bare mode support across all 23 CLI commands and 7 MCP tools
+  - 2GB RAM minimum removed for bare mode provisioning
+  - Backward compatibility: legacy records without `mode` field default to `"coolify"`
+- **Interactive Menu** — Run `quicklify` without arguments for a categorized menu
+  - 6 categories: Server Management, Security, Monitoring & Logs, Backup & Snapshots, Maintenance, Configuration
+  - Sub-option prompts for each action (mode, template, log source, port, etc.)
+  - `← Back` navigation to return to main menu at any point
+  - 49 new tests (`interactive.test.ts`)
+- **MCP `sizes` action** — `server_info` tool now supports listing available server types with prices per provider/region
+- **MCP shared utilities** — `src/mcp/utils.ts` with `resolveServerForMcp`, `mcpSuccess`, `mcpError`
+- **SSH host key auto-fix** — `removeStaleHostKey()` helper auto-removes stale known_hosts entries
+  - Health command detects host key mismatch and suggests fix
+  - SSH retry mechanism after stale key removal
+- **UX improvements** (6 enhancements):
+  - Better dpkg lock messaging during provisioning
+  - Token source display (env var vs prompt)
+  - Firewall status shows current rules inline
+  - Domain info shows current FQDN
+  - Orphan backup cleanup
+  - Backup/restore shows provider + IP context
+
+### Security
+- **OWASP hardening**: `assertSafePath()` for SCP paths (shell metacharacter check including `<>`)
+- **Port validation**: MCP port range restricted to 1-65535
+- **Token isolation**: `sanitizedEnv()` applied to all `spawn`/`exec`/`spawnSync` calls including `openBrowser`, `sshKey`, and `removeStaleHostKey`
+- **SECURITY.md**: Added OWASP Top 10 compliance table with detailed mitigation descriptions
+
+### Fixed
+- Init `--full-setup` crash on bare mode servers
+- Domain `--name` flag ignored on bare mode
+- Cloud-init completion wait missing
+- Bare mode showing incorrect port information
+- Health command missing query argument
+- Restart bare mode "command not found" message
+- MCP SSH path incorrect during provision
+
+### Changed
+- Test count: 1,758 → 2,047 (+289 new tests)
+- Test suites: 64 → 76 (+12 new suites)
+- Banner slogan updated to "Self-hosting, fully managed"
+- README interactive menu documentation with example output
+- LICENSE name correction: "omrfc" → "Ömer Faruk CAN"
+- `.gitignore`: added `servers.json`
+
 ## [1.1.0] - 2026-02-27
 
 ### Added

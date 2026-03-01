@@ -1,24 +1,38 @@
 # Quicklify
 
-> Self-hosting made simple. Deploy and manage your self-hosted infrastructure with one command.
+> Your self-hosted PaaS, fully managed. Deploy, secure, back up — one command at a time.
 
-Quicklify is an open-source CLI tool that automates the deployment, security, backup, and maintenance of self-hosted platforms (currently Coolify) on cloud VPS providers.
+Quicklify is an open-source CLI tool that automates the deployment, security, backup, and maintenance of self-hosted platforms on cloud VPS providers. Supports two modes: **Coolify** (self-hosted PaaS) and **Bare** (generic VPS without Coolify).
 
 ## Installation
 
 ```bash
-npx quicklify <command>
+npx quicklify            # Interactive menu (recommended)
+npx quicklify <command>  # Direct command
 # or
 npm install -g quicklify
 ```
 
 Requires Node.js 20+.
 
+## Server Modes
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| `coolify` | Deploys Coolify PaaS (default) | App hosting, CI/CD, databases |
+| `bare` | Generic VPS with hardening only | Custom setups, n8n, Node.js, etc. |
+
+```bash
+quicklify init --mode bare --provider hetzner   # Generic VPS
+quicklify add --mode bare                       # Register existing VPS
+```
+
 ## Commands (23 total)
 
 ### Deploy
-- `quicklify init` — Deploy a new Coolify instance (interactive or non-interactive)
+- `quicklify init` — Deploy a new server (interactive or non-interactive)
   - `--provider <name>` — hetzner, digitalocean, vultr, linode
+  - `--mode <mode>` — coolify (default), bare
   - `--token <token>` — API token (or use env vars: HETZNER_TOKEN, DIGITALOCEAN_TOKEN, etc.)
   - `--region <region>` — Server region
   - `--size <size>` — Server size
@@ -29,20 +43,20 @@ Requires Node.js 20+.
   - `--no-open` — Do not open browser after deployment
 
 ### Server Management
-- `quicklify list` — List all registered servers
-- `quicklify status [query]` — Check server and Coolify status (`--all`, `--autostart`)
+- `quicklify list` — List all registered servers (shows mode per server)
+- `quicklify status [query]` — Check server status (`--all`, `--autostart`)
 - `quicklify ssh [query]` — SSH into a server (`-c <command>`)
 - `quicklify restart [query]` — Restart a server via provider API
 - `quicklify destroy [query]` — Destroy a cloud server (with confirmation)
-- `quicklify add` — Add an existing Coolify server (`--skip-verify`)
+- `quicklify add` — Add an existing server (`--mode bare`, `--skip-verify`)
 - `quicklify remove [query]` — Remove from local config (no cloud action)
 - `quicklify config [subcommand]` — Manage default configuration
 - `quicklify export [path]` — Export server list to JSON
 - `quicklify import <path>` — Import servers from JSON
 
 ### Update & Maintain
-- `quicklify update [query]` — Update Coolify (`--all`)
-- `quicklify maintain [query]` — Full maintenance cycle: snapshot → status → update → health → reboot (`--all`, `--skip-reboot`, `--dry-run`)
+- `quicklify update [query]` — Update Coolify (`--all`) — Coolify mode only
+- `quicklify maintain [query]` — Full maintenance cycle (`--all`, `--skip-reboot`, `--dry-run`) — Coolify mode only
 
 ### Backup & Restore
 - `quicklify backup [query]` — Backup DB + config via SCP (`--all`, `--dry-run`)
@@ -75,7 +89,7 @@ Requires Node.js 20+.
 
 ## MCP Server (AI Integration)
 
-Quicklify includes a built-in Model Context Protocol (MCP) server for AI-powered server management.
+Built-in Model Context Protocol server for AI-powered server management. Works with Claude Code, Cursor, Windsurf, and other MCP-compatible clients.
 
 **Binary**: `quicklify-mcp` (stdio transport)
 
@@ -83,13 +97,13 @@ Quicklify includes a built-in Model Context Protocol (MCP) server for AI-powered
 
 | Tool | Actions | Description |
 |------|---------|-------------|
-| `server_info` | list, status, health | Query server information (readOnly) |
-| `server_logs` | logs, monitor | Fetch logs and system metrics via SSH (readOnly) |
+| `server_info` | list, status, health, sizes | Query server info, check status, list available sizes |
+| `server_logs` | logs, monitor | Fetch logs and system metrics via SSH |
 | `server_manage` | add, remove, destroy | Register, unregister, or destroy servers |
 | `server_maintain` | update, restart, maintain | Update Coolify, restart, full maintenance |
-| `server_secure` | secure-setup, secure-audit, firewall-setup, firewall-add, firewall-remove, firewall-status, domain-set, domain-remove, domain-check, domain-info | Security, firewall, domain management |
-| `server_backup` | backup-create, backup-list, backup-restore, snapshot-create, snapshot-list, snapshot-delete | Backup/restore + VPS snapshots |
-| `server_provision` | create | Provision new Coolify servers on cloud providers |
+| `server_secure` | secure-setup, secure-audit, firewall-*, domain-* | Security, firewall, domain management (10 actions) |
+| `server_backup` | backup-*, snapshot-* | Backup/restore + VPS snapshots (6 actions) |
+| `server_provision` | create | Provision new servers (Coolify or bare mode) |
 
 ### SAFE_MODE (default: enabled)
 
@@ -122,52 +136,22 @@ Destructive operations blocked by default: `destroy`, `restore`, `snapshot-delet
 - **HTTP**: Axios (provider API calls)
 - **Logging**: Chalk + Ora (spinners)
 - **Config**: YAML (js-yaml) + JSON
-- **MCP**: @modelcontextprotocol/sdk (MCP server) + Zod (input validation)
+- **MCP**: @modelcontextprotocol/sdk + Zod (input validation)
 - **Config Storage**: `~/.quicklify/` (servers.json, config.json, backups/)
-- **Testing**: Jest (1,758 tests, 64 suites, ~97% coverage)
+- **Testing**: Jest (2,047 tests, 76 suites, ~95% coverage)
 - **Linting**: ESLint 10 + typescript-eslint + Prettier
-
-## Typical Workflows
-
-### First-time deployment
-```bash
-export HETZNER_TOKEN=your-token
-npx quicklify init --provider hetzner --template production --full-setup
-```
-
-### Daily operations
-```bash
-quicklify status --all          # Check all servers
-quicklify backup --all          # Backup all servers
-quicklify maintain my-server    # Full maintenance cycle
-```
-
-### Security hardening
-```bash
-quicklify firewall setup my-server
-quicklify secure setup my-server
-quicklify domain add my-server --domain example.com
-quicklify secure audit my-server
-```
-
-### Disaster recovery
-```bash
-quicklify backup my-server
-quicklify snapshot create my-server
-quicklify restore my-server --backup 2026-02-25T10-00-00
-```
 
 ## Security Model
 
-- API tokens are NEVER stored on disk — runtime prompt or env vars only
-- SSH: IP validation (`assertValidIp` with octet range), env filtering (`sanitizedEnv`), StrictHostKeyChecking
-- Shell injection protection on all user inputs (spawnSync/spawn, no execSync)
+- API tokens NEVER stored on disk — runtime prompt or env vars only
+- SSH: IP validation (`assertValidIp`), env filtering (`sanitizedEnv`), StrictHostKeyChecking
+- Shell injection protection on all inputs (spawn/spawnSync, no execSync)
 - Provider errors sanitized (`stripSensitiveData`) — no token leakage
-- stderr sanitization (`sanitizeStderr`) — redacts IPs, paths, tokens, secrets (200 char limit)
+- stderr sanitization (`sanitizeStderr`) — redacts IPs, paths, tokens, secrets
+- Path traversal protection (`assertSafePath`) on backup/restore paths
 - YAML config: 22+ security key patterns detected and warned
 - Import/export: sensitive field stripping + strict file permissions (0o600)
 - MCP: SAFE_MODE blocks destructive ops, Zod schema validation, path traversal guards
-- Backup manifests: no IP persistence, file permissions 0o600
 
 ## Links
 

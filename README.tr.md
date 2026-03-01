@@ -1,5 +1,7 @@
 # quicklify
 
+> Self-hosted PaaS'ınız, tamamen yönetilen. Deploy, güvenlik, yedekleme — tek komutla.
+
 > [English](README.md) | Türkçe
 
 ![Tests](https://github.com/omrfc/quicklify/actions/workflows/ci.yml/badge.svg)
@@ -9,8 +11,7 @@
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
 [![Socket Badge](https://socket.dev/api/badge/npm/package/quicklify)](https://socket.dev/npm/package/quicklify)
-
-**Self-hosted PaaS'ınız, tamamen yönetilen. Deploy, güvenlik, yedekleme — tek komutla.**
+[![Website](https://img.shields.io/website?url=https%3A%2F%2Fquicklify.omrfc.dev&label=website)](https://quicklify.omrfc.dev)
 
 ## Quicklify Neden Var?
 
@@ -181,7 +182,7 @@ quicklify init --template production --provider hetzner
 
 ## Güvenlik
 
-Quicklify güvenlik öncelikli olarak geliştirilmektedir — 76 test suite'inde **2.040+ test**, özel güvenlik test suite'leri dahil.
+Quicklify güvenlik öncelikli olarak geliştirilmektedir — 76 test suite'inde **2.047 test**, özel güvenlik test suite'leri dahil.
 
 - API token'ları asla diske kaydedilmez — çalışma zamanında sorulur veya ortam değişkenlerinden alınır
 - SSH anahtarları gerekirse otomatik oluşturulur (Ed25519)

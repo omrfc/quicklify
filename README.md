@@ -1,5 +1,7 @@
 # quicklify
 
+> Your self-hosted PaaS, fully managed. Deploy, secure, back up — one command at a time.
+
 > English | [Türkçe](README.tr.md)
 
 ![Tests](https://github.com/omrfc/quicklify/actions/workflows/ci.yml/badge.svg)
@@ -9,8 +11,7 @@
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
 [![Socket Badge](https://socket.dev/api/badge/npm/package/quicklify)](https://socket.dev/npm/package/quicklify)
-
-**Your self-hosted PaaS, fully managed. Deploy, secure, back up — one command at a time.**
+[![Website](https://img.shields.io/website?url=https%3A%2F%2Fquicklify.omrfc.dev&label=website)](https://quicklify.omrfc.dev)
 
 ## Why Quicklify Exists
 
@@ -181,7 +182,7 @@ quicklify init --template production --provider hetzner
 
 ## Security
 
-Quicklify is built with security as a priority — **2,040+ tests** across 76 suites, including dedicated security test suites.
+Quicklify is built with security as a priority — **2,047 tests** across 76 suites, including dedicated security test suites.
 
 - API tokens are never stored on disk — prompted at runtime or via environment variables
 - SSH keys are auto-generated if needed (Ed25519)

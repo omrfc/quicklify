@@ -1,7 +1,7 @@
 {
   "name": "quicklify",
-  "version": "1.1.0",
-  "description": "Automate Coolify deployment on cloud providers",
+  "version": "1.2.0",
+  "description": "Deploy and manage self-hosted infrastructure on cloud providers",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
