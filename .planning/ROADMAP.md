@@ -57,8 +57,8 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
   4. Build succeeds and ESLint reports zero errors
 **Plans:** 2 plans
 Plans:
-- [ ] 04-01-PLAN.md — Centralize SUPPORTED_PROVIDERS and PROVIDER_ENV_KEYS in constants.ts
-- [ ] 04-02-PLAN.md — Consolidate stripSensitiveData() into providers/base.ts
+- [ ] 04-01-PLAN.md — Create PROVIDER_REGISTRY in constants.ts and update all 14 call sites (REF-01)
+- [ ] 04-02-PLAN.md — Move stripSensitiveData() to providers/base.ts, remove from 4 providers (REF-02)
 
 ### Phase 5: SCP Security Hardening
 **Goal**: SCP operations are safe for MCP mode (no stdin leak, no hang) and token inputs are always sanitized before use
@@ -93,10 +93,10 @@ Plans:
 | 1. CLI/Core Refactor | v1.2.0 | 5/5 | Complete | 2026-02-28 |
 | 2. Bare Mode | v1.2.0 | 4/4 | Complete | 2026-02-28 |
 | 3. MCP Refactor | v1.2.0 | 3/3 | Complete | 2026-02-28 |
-| 4. Provider & Utility Consolidation | v1.2.1 | 0/2 | Planning done | - |
+| 4. Provider & Utility Consolidation | v1.2.1 | 0/2 | Planned (Wave 1) | - |
 | 5. SCP Security Hardening | v1.2.1 | 0/TBD | Not started | - |
 | 6. init.ts Extract | v1.2.1 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-03-02 — Phase 4 plans created (2 plans, 1 wave)*
+*Last updated: 2026-03-02 — Phase 4 plans replanned (2 plans, 1 wave, 4 tasks total)*
