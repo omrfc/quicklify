@@ -3,6 +3,19 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
+last_updated: "2026-03-02T08:30:14.606Z"
+progress:
+  total_phases: 3
+  completed_phases: 3
+  total_plans: 6
+  completed_plans: 6
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: unknown
 last_updated: "2026-03-02T08:25:58.435Z"
 progress:
   total_phases: 3
@@ -59,16 +72,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-02)
 
 **Core value:** One-command server deployment and management across multiple cloud providers
-**Current focus:** v1.2.1 — Phase 4 complete; Phase 5 (SCP Security) next
+**Current focus:** v1.2.1 — ALL PHASES COMPLETE (Phases 4, 5, 6 done)
 
 ## Current Position
 
-Phase: 6 of 6 (init.ts Extract) — Plan 01 complete
-Plan: 1 of 2 complete
-Status: Phase 6 Plan 01 done (deployServer() extracted to core/deploy.ts); Phase 6 Plan 02 (unit tests for deploy.ts) remains
-Last activity: 2026-03-02 — Phase 6 Plan 01 executed (init.ts extract — deployServer() to core/deploy.ts)
+Phase: 6 of 6 (init.ts Extract) — COMPLETE
+Plan: 2 of 2 complete
+Status: Phase 6 fully complete — deployServer() extracted to core/deploy.ts (Plan 01) + unit tests for deploy.ts (Plan 02). v1.2.1 milestone ALL PHASES DONE.
+Last activity: 2026-03-02 — Phase 6 Plan 02 executed (unit tests for deployServer() — core-deploy.test.ts)
 
-Progress: [█████████░] 83%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -87,6 +100,7 @@ Progress: [█████████░] 83%
 | Phase 05-scp-security-hardening P02 | 5min | 2 tasks | 2 files |
 | Phase 05-scp-security-hardening P01 | 7 | 3 tasks | 3 files |
 | Phase 06-init-ts-extract P01 | 5min | 2 tasks | 2 files |
+| Phase 06 P02 | 2 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -109,6 +123,8 @@ Recent decisions affecting current work:
 - [Phase 05-01]: timeoutMs is optional 4th param in scpDownload/scpUpload for testability — existing callers unaffected
 - [Phase 05-01]: SEC-01: stdin='ignore' prevents MCP JSON-RPC stream corruption; SEC-02: BatchMode+timeout prevents CLI hang
 - [Phase 06-init-ts-extract]: deployServer() and uploadSshKeyToProvider() extracted verbatim from init.ts into core/deploy.ts — only import paths adjusted for cross-directory references
+- [Phase 06]: CloudProvider mock is inline object (not jest.mock of provider module) — deployServer() accepts pre-built provider instances, bypassing factory/axios
+- [Phase 06]: createMockProvider(overrides) helper pattern for DRY CloudProvider test setup with per-test override capability
 
 ### Pending Todos
 
@@ -121,5 +137,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 06-01-PLAN.md (init.ts Extract — deployServer extracted to core/deploy.ts) + created 06-01-SUMMARY.md
+Stopped at: Completed 06-02-PLAN.md (init.ts Extract — unit tests for deployServer() in core/deploy.ts) + created 06-02-SUMMARY.md. v1.2.1 milestone fully complete.
 Resume file: None

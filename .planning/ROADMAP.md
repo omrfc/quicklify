@@ -42,7 +42,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 
 - [x] **Phase 4: Provider & Utility Consolidation** - Centralize hardcoded provider lists and remove duplicate stripSensitiveData() (completed 2026-03-02)
 - [x] **Phase 5: SCP Security Hardening** - Fix SCP stdin leak, add timeout, trim token whitespace (completed 2026-03-02)
-- [ ] **Phase 6: init.ts Extract** - Extract deployServer() from 619-line init.ts to core/deploy.ts
+- [x] **Phase 6: init.ts Extract** - Extract deployServer() from 619-line init.ts to core/deploy.ts (completed 2026-03-02)
 
 ## Phase Details
 
@@ -95,7 +95,7 @@ Plans:
 | 3. MCP Refactor | v1.2.0 | 3/3 | Complete | 2026-02-28 |
 | 4. Provider & Utility Consolidation | 2/2 | Complete   | 2026-03-02 | - |
 | 5. SCP Security Hardening | 2/2 | Complete   | 2026-03-02 | - |
-| 6. init.ts Extract | 1/2 | In Progress|  | - |
+| 6. init.ts Extract | 2/2 | Complete   | 2026-03-02 | - |
 
 ---
 *Roadmap created: 2026-02-27*
