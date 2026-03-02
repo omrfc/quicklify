@@ -17,7 +17,7 @@ Dokploy (v1.3.0) öncesi altyapı sağlamlaştırma. Yeni feature yok — refact
 
 - [ ] **SEC-01**: `scpDownload()`/`scpUpload()` stdin `"ignore"` yapılır ve `-o BatchMode=yes` eklenir (MCP JSON-RPC stream corruption önleme)
 - [ ] **SEC-02**: `scpDownload()`/`scpUpload()`'a timeout eklenir (default 300s, ağ kesildiğinde CLI hang önleme)
-- [ ] **SEC-03**: `getProviderToken()` `.trim()` ekler ve whitespace-only string'leri `undefined` döner
+- [x] **SEC-03**: `getProviderToken()` `.trim()` ekler ve whitespace-only string'leri `undefined` döner
 
 ## Future Requirements
 
@@ -44,7 +44,7 @@ Deferred to v1.3.0+:
 | REF-02 | Phase 4 | Complete |
 | SEC-01 | Phase 5 | Pending |
 | SEC-02 | Phase 5 | Pending |
-| SEC-03 | Phase 5 | Pending |
+| SEC-03 | Phase 5 | Complete |
 | REF-03 | Phase 6 | Pending |
 
 **Coverage:**
