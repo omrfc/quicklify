@@ -36,7 +36,7 @@ export const PROVIDER_DISPLAY_NAMES: Record<SupportedProvider, string> = Object.
 ) as Record<SupportedProvider, string>;
 
 export function invalidProviderError(value: string): string {
-  return `Invalid provider: ${value}. Use ${SUPPORTED_PROVIDERS.map((p) => `"${p}"`).join(", ")}.`;
+  return `Invalid provider: "${value}". Use ${SUPPORTED_PROVIDERS.map((p) => `"${p}"`).join(", ")}.`;
 }
 
 // ─── Provider-specific IP wait configuration (IP assignment latency varies significantly)
