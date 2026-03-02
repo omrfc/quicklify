@@ -40,7 +40,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 
 **Milestone Goal:** Consolidate provider duplication, harden SCP security, and extract deployServer() from init.ts — preparing the codebase for Dokploy (v1.3.0) without adding new features.
 
-- [ ] **Phase 4: Provider & Utility Consolidation** - Centralize hardcoded provider lists and remove duplicate stripSensitiveData()
+- [x] **Phase 4: Provider & Utility Consolidation** - Centralize hardcoded provider lists and remove duplicate stripSensitiveData() (completed 2026-03-02)
 - [ ] **Phase 5: SCP Security Hardening** - Fix SCP stdin leak, add timeout, trim token whitespace
 - [ ] **Phase 6: init.ts Extract** - Extract deployServer() from 619-line init.ts to core/deploy.ts
 
@@ -55,7 +55,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
   2. `grep -rn 'function stripSensitiveData' src/providers/` returns only one match: `src/providers/base.ts`
   3. All 2047+ existing tests pass without modification
   4. Build succeeds and ESLint reports zero errors
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 04-01-PLAN.md — Create PROVIDER_REGISTRY in constants.ts and update all 14 call sites (REF-01)
 - [ ] 04-02-PLAN.md — Move stripSensitiveData() to providers/base.ts, remove from 4 providers (REF-02)
@@ -93,7 +93,7 @@ Plans:
 | 1. CLI/Core Refactor | v1.2.0 | 5/5 | Complete | 2026-02-28 |
 | 2. Bare Mode | v1.2.0 | 4/4 | Complete | 2026-02-28 |
 | 3. MCP Refactor | v1.2.0 | 3/3 | Complete | 2026-02-28 |
-| 4. Provider & Utility Consolidation | 1/2 | In Progress|  | - |
+| 4. Provider & Utility Consolidation | 2/2 | Complete   | 2026-03-02 | - |
 | 5. SCP Security Hardening | v1.2.1 | 0/TBD | Not started | - |
 | 6. init.ts Extract | v1.2.1 | 0/TBD | Not started | - |
 

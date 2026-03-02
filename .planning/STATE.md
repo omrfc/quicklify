@@ -58,6 +58,9 @@ Recent decisions affecting current work:
 - init.ts wizard state machine is NOT refactored — only deployServer() is extracted
 - stripSensitiveData moved to base.ts with axios import — base.ts is now a module with runtime dependency, not purely an interface file
 - Combined type+value import pattern adopted: `import { stripSensitiveData, type CloudProvider }` from single base.js statement
+- PROVIDER_REGISTRY in constants.ts is single source of truth; doctor.ts keeps local DOCTOR_VALIDATE_URLS (validate paths differ from apiBaseUrl)
+- invalidProviderError() quotes the provider value: 'Invalid provider: "aws".' (matches pre-existing test expectations)
+- SupportedProvider type exported from constants.ts, not types/index.ts (co-located with registry)
 
 ### Pending Todos
 
@@ -70,5 +73,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 04-02-PLAN.md (stripSensitiveData consolidation)
+Stopped at: Completed 04-01-PLAN.md (PROVIDER_REGISTRY centralization) + created 04-01-SUMMARY.md
 Resume file: None
