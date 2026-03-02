@@ -40,12 +40,12 @@ Deferred to v1.3.0+:
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REF-01 | Phase 1 | Pending |
-| REF-02 | Phase 1 | Pending |
-| SEC-01 | Phase 2 | Pending |
-| SEC-02 | Phase 2 | Pending |
-| SEC-03 | Phase 2 | Pending |
-| REF-03 | Phase 3 | Pending |
+| REF-01 | Phase 4 | Pending |
+| REF-02 | Phase 4 | Pending |
+| SEC-01 | Phase 5 | Pending |
+| SEC-02 | Phase 5 | Pending |
+| SEC-03 | Phase 5 | Pending |
+| REF-03 | Phase 6 | Pending |
 
 **Coverage:**
 - v1.2.1 requirements: 6 total
@@ -54,4 +54,4 @@ Deferred to v1.3.0+:
 
 ---
 *Requirements defined: 2026-03-02*
-*Last updated: 2026-03-02 after initial definition*
+*Last updated: 2026-03-02 — Traceability updated to phases 4-6*
