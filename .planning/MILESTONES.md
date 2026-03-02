@@ -1,4 +1,24 @@
 # Milestones
+## v1.2.1 — Refactor + Security Patch (Shipped: 2026-03-02)
+
+**Goal:** Consolidate provider duplication, harden SCP security, and extract deployServer() — preparing codebase for Dokploy (v1.3.0).
+
+**Phases completed:** 3 phases, 6 plans, 12 tasks
+**Tests:** 2047 → 2099 (+52 new)
+**Git range:** d701d0d..8f52a4c (29 commits)
+
+**Key accomplishments:**
+- Centralized 4-provider hardcoded lists across 14 files into single PROVIDER_REGISTRY in constants.ts
+- Deduplicated stripSensitiveData() from 4 provider files into single base.ts export
+- Hardened SCP with stdin=ignore, BatchMode=yes, 5-minute SIGTERM timeout (MCP stream safety)
+- Hardened getProviderToken() with .trim() + whitespace-only guard
+- Extracted deployServer() (~360 lines) from init.ts to core/deploy.ts (612→243 lines)
+- Added OWASP-driven sanitizeResponseData() whitelist for API error responses
+
+**Archive:** [v1.2.1-ROADMAP.md](./milestones/v1.2.1-ROADMAP.md) | [v1.2.1-REQUIREMENTS.md](./milestones/v1.2.1-REQUIREMENTS.md) | [v1.2.1-MILESTONE-AUDIT.md](./milestones/v1.2.1-MILESTONE-AUDIT.md)
+
+---
+
 
 ## v1.2.0 — Generic Server Management (Shipped: 2026-02-28)
 
