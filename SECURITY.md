@@ -28,7 +28,7 @@ Response time: Within 48 hours
 - Supported env vars: `HETZNER_TOKEN`, `DIGITALOCEAN_TOKEN`, `VULTR_TOKEN`, `LINODE_TOKEN`
 - API tokens collected via interactive secure prompts (masked input) when env vars are not set
 - `sanitizedEnv()` strips all keys containing TOKEN, SECRET, PASSWORD, CREDENTIAL from child process environments before every `spawn`/`spawnSync`/`exec` call
-- Provider errors sanitized via `stripSensitiveData()` — removes Authorization headers from axios errors before they reach error messages
+- Provider errors sanitized via `stripSensitiveData()` — removes Authorization headers, request data, response headers, and non-whitelisted response body fields from axios errors before they propagate via error cause chains
 
 ### Input Validation (A1 — Injection)
 - All shell execution uses `spawn`/`spawnSync` with array arguments (never string interpolation into shell commands)

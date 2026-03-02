@@ -26,7 +26,7 @@ npm run dev -- init
 4. **Run Tests**
 
 ```bash
-npm test                # Run all tests (2,047 tests, 76 suites)
+npm test                # Run all tests (2,099 tests, 78 suites)
 npm run test:watch      # Watch mode
 npm run test:coverage   # Coverage report
 ```

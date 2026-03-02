@@ -138,7 +138,7 @@ Destructive operations blocked by default: `destroy`, `restore`, `snapshot-delet
 - **Config**: YAML (js-yaml) + JSON
 - **MCP**: @modelcontextprotocol/sdk + Zod (input validation)
 - **Config Storage**: `~/.quicklify/` (servers.json, config.json, backups/)
-- **Testing**: Jest (2,047 tests, 76 suites, ~95% coverage)
+- **Testing**: Jest (2,099 tests, 78 suites, ~95% coverage)
 - **Linting**: ESLint 10 + typescript-eslint + Prettier
 
 ## Security Model

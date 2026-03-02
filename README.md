@@ -182,7 +182,7 @@ quicklify init --template production --provider hetzner
 
 ## Security
 
-Quicklify is built with security as a priority — **2,047 tests** across 76 suites, including dedicated security test suites.
+Quicklify is built with security as a priority — **2,099 tests** across 78 suites, including dedicated security test suites.
 
 - API tokens are never stored on disk — prompted at runtime or via environment variables
 - SSH keys are auto-generated if needed (Ed25519)

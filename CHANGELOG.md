@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1] - 2026-03-02
+
+### Security
+- **CRITICAL FIX**: `stripSensitiveData()` now sanitizes `error.response.data` and `error.response.headers` — prevents API tokens, rootPass, and other sensitive data from leaking via error cause chains
+  - Whitelist-based `sanitizeResponseData()` preserves only known error message fields (Hetzner `error.message`, DigitalOcean `message`, Vultr `error`, Linode `errors[].reason`)
+  - Response headers cleared to prevent `set-cookie` and tracking header exposure
+  - Linode `root_pass` reflection in error responses now stripped
+
+### Changed
+- **Refactoring**: Extracted `init.ts` command logic into `src/core/deploy.ts` (619 → 243 lines)
+- **Refactoring**: `PROVIDER_REGISTRY` centralized in `src/constants.ts` — single source of truth for provider metadata
+- **Refactoring**: `stripSensitiveData()` consolidated from 4 provider files into `src/providers/base.ts`
+- **Security**: SCP path hardening via `assertSafePath()` with shell metacharacter rejection
+- **Security**: Token sanitization via `sanitizedEnv()` applied to all remaining child process calls
+- Test count: 2,047 → 2,099 (+52 new tests)
+- Test suites: 76 → 78 (+2 new suites)
+
 ## [1.2.0] - 2026-03-01
 
 ### Added
