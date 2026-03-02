@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-02T08:02:08.205Z"
+last_updated: "2026-03-02T08:25:58.435Z"
 progress:
-  total_phases: 2
+  total_phases: 3
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
 ---
 
 ---
@@ -63,12 +63,12 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 
 ## Current Position
 
-Phase: 5 of 6 (SCP Security Hardening) — COMPLETE
-Plan: 2 of 2 complete
-Status: Phase 5 fully done (both Plans 01 and 02 complete); Phase 6 (init.ts Extract) remains
-Last activity: 2026-03-02 — Phase 5 Plan 01 executed (SCP stdin=ignore, BatchMode=yes, timeout)
+Phase: 6 of 6 (init.ts Extract) — Plan 01 complete
+Plan: 1 of 2 complete
+Status: Phase 6 Plan 01 done (deployServer() extracted to core/deploy.ts); Phase 6 Plan 02 (unit tests for deploy.ts) remains
+Last activity: 2026-03-02 — Phase 6 Plan 01 executed (init.ts extract — deployServer() to core/deploy.ts)
 
-Progress: [████████░░] 67%
+Progress: [█████████░] 83%
 
 ## Performance Metrics
 
@@ -86,6 +86,7 @@ Progress: [████████░░] 67%
 *Updated after each plan completion*
 | Phase 05-scp-security-hardening P02 | 5min | 2 tasks | 2 files |
 | Phase 05-scp-security-hardening P01 | 7 | 3 tasks | 3 files |
+| Phase 06-init-ts-extract P01 | 5min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,7 @@ Recent decisions affecting current work:
 - [Phase 05-01]: Error message uses 'timeout' not 'timed out' to match /timeout/i regex in tests
 - [Phase 05-01]: timeoutMs is optional 4th param in scpDownload/scpUpload for testability — existing callers unaffected
 - [Phase 05-01]: SEC-01: stdin='ignore' prevents MCP JSON-RPC stream corruption; SEC-02: BatchMode+timeout prevents CLI hang
+- [Phase 06-init-ts-extract]: deployServer() and uploadSshKeyToProvider() extracted verbatim from init.ts into core/deploy.ts — only import paths adjusted for cross-directory references
 
 ### Pending Todos
 
@@ -119,5 +121,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 05-01-PLAN.md (SCP security hardening — stdin ignore, BatchMode=yes, 5-min timeout) + created 05-01-SUMMARY.md
+Stopped at: Completed 06-01-PLAN.md (init.ts Extract — deployServer extracted to core/deploy.ts) + created 06-01-SUMMARY.md
 Resume file: None
