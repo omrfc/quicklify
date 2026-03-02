@@ -1,216 +1,169 @@
 # Architecture
 
-**Analysis Date:** 2026-02-27
+**Analysis Date:** 2026-03-02
 
 ## Pattern Overview
 
-**Overall:** Modular CLI + MCP Server with Plugin-style Provider Architecture
+**Overall:** Three-Layer CLI + MCP Server
 
 **Key Characteristics:**
-- Multi-layered architecture: CLI commands → Core business logic → Providers (cloud infrastructure abstraction)
-- Command-driven CLI using Commander.js with interactive prompts (Inquirer.js)
-- Provider pattern: CloudProvider interface with 4 concrete implementations (Hetzner, DigitalOcean, Vultr, Linode)
-- Dual-interface: CLI commands and MCP (Model Context Protocol) tools wrapping same business logic
-- Error handling with provider-specific and SSH-specific error mappers
-- Configuration persistence in ~/.quicklify/servers.json with backup isolation
+- Commands are thin wrappers: parse CLI args, call `resolveServer`, delegate to core functions, render output
+- Core holds all business logic: pure functions return `QuicklifyResult<T>` (no throws), async side-effectful functions communicate via SSH
+- Providers are cloud API plugins: all implement the `CloudProvider` interface from `src/providers/base.ts`
+- MCP server exposes the same core functions as 7 registered tools over stdio JSON-RPC
+- No database: server state persisted in `~/.quicklify/servers.json` (JSON flat file), backups in `~/.quicklify/backups/`
 
 ## Layers
 
 **Commands Layer:**
-- Purpose: CLI entry points and user interaction (prompts, output formatting, argument parsing)
+- Purpose: CLI argument parsing, interactive prompts, output rendering (spinners, chalk), error display
 - Location: `src/commands/`
-- Contains: 23 command handlers (init.ts, status.ts, backup.ts, firewall.ts, secure.ts, etc.)
-- Depends on: Core layer, Utils, Types, Providers
-- Used by: index.ts (main CLI), MCP tools
+- Contains: 23 command handlers (one file per command) + `interactive.ts` (category menu)
+- Depends on: `src/core/`, `src/utils/`, `src/types/index.ts`
+- Used by: `src/index.ts` (Commander.js `.action()` callbacks)
 
 **Core Layer:**
-- Purpose: Business logic and orchestration (not cloud-specific)
+- Purpose: Business logic, SSH orchestration, provider interactions, data persistence
 - Location: `src/core/`
-- Contains: status.ts, provision.ts, backup.ts, manage.ts, secure.ts, firewall.ts, domain.ts, logs.ts, maintain.ts, snapshot.ts, tokens.ts
-- Depends on: Providers, Utils, Types
-- Used by: Commands and MCP tools
+- Contains: `provision.ts`, `status.ts`, `backup.ts`, `manage.ts`, `tokens.ts`, `secure.ts`, `firewall.ts`, `domain.ts`, `logs.ts`, `maintain.ts`, `snapshot.ts`
+- Depends on: `src/utils/`, `src/providers/`, `src/types/index.ts`, `src/constants.ts`
+- Used by: `src/commands/` and `src/mcp/tools/`
 
 **Providers Layer:**
-- Purpose: Abstract cloud provider APIs and convert to unified interface
+- Purpose: Cloud provider API abstraction (HTTP calls via axios)
 - Location: `src/providers/`
-- Contains: base.ts (interface), hetzner.ts, digitalocean.ts, vultr.ts, linode.ts (implementations)
-- Depends on: axios, Types
-- Used by: Core modules, Commands
+- Contains: `base.ts` (interface), `hetzner.ts`, `digitalocean.ts`, `vultr.ts`, `linode.ts`
+- Depends on: `axios`, `src/types/index.ts`
+- Used by: `src/core/` via `src/utils/providerFactory.ts`
 
-**Utils Layer:**
-- Purpose: Cross-cutting utilities (config, SSH, prompts, error mapping, validation)
+**MCP Server:**
+- Purpose: Expose core operations as MCP tools for AI agent consumption via stdio JSON-RPC
+- Location: `src/mcp/`
+- Contains: `index.ts` (entry point), `server.ts` (tool registration), `utils.ts` (shared helpers), `tools/` (7 tool handlers)
+- Depends on: `src/core/`, `src/utils/config.ts`, `@modelcontextprotocol/sdk`
+- Used by: `bin/quicklify-mcp` binary
+
+**Utilities Layer:**
+- Purpose: Shared infrastructure: SSH execution, config I/O, provider factory, logging, error mapping, server selection
 - Location: `src/utils/`
-- Contains: config.ts (server registry), ssh.ts (SSH operations), prompts.ts (interactive selection), errorMapper.ts (error translation), serverSelect.ts (server lookup), etc.
-- Depends on: Types
-- Used by: Commands, Core, Providers
-
-**MCP Tools Layer:**
-- Purpose: Model Context Protocol server implementation for AI/Claude integration
-- Location: `src/mcp/tools/`
-- Contains: 7 tools (serverInfo.ts, serverLogs.ts, serverManage.ts, serverMaintain.ts, serverSecure.ts, serverBackup.ts, serverProvision.ts)
-- Depends on: Core, Utils, Providers, Types
-- Used by: MCP server (`src/mcp/server.ts`)
-
-**Types Layer:**
-- Purpose: Shared TypeScript interfaces and type definitions
-- Location: `src/types/index.ts`
-- Contains: ServerRecord, CloudProvider, Region, ServerSize, FirewallRule, BackupManifest, etc.
-- Depends on: Nothing
-- Used by: All layers
+- Contains: `ssh.ts`, `config.ts`, `providerFactory.ts`, `logger.ts`, `errorMapper.ts`, `serverSelect.ts`, `modeGuard.ts`, `cloudInit.ts`, `sshKey.ts`, `healthCheck.ts`, `templates.ts`, `yamlConfig.ts`, `configMerge.ts`, `defaults.ts`, `prompts.ts`, `openBrowser.ts`, `updateCheck.ts`
+- Depends on: `src/types/index.ts`, `src/constants.ts`
+- Used by: all layers
 
 ## Data Flow
 
-**Deployment (init command) Flow:**
+**CLI Command (e.g., `quicklify backup myserver`):**
 
-1. User invokes `quicklify init` with optional flags/YAML config
-2. `initCommand` loads config, validates template if provided
-3. Interactive prompts (providerFactory → specific provider for regions/sizes) gather user input
-4. `initCommand` calls `provider.uploadSshKey()` with auto-generated or user key
-5. `initCommand` calls `provider.createServer()` with cloud-init script (Coolify installation)
-6. Loop: Poll `provider.getServerStatus()` until IP assigned (provider-specific retry counts)
-7. Wait for Coolify to boot (provider-specific wait times)
-8. `healthCheck.waitForCoolify()` polls http://server-ip:8000 until responding
-9. `saveServer()` writes ServerRecord to ~/.quicklify/servers.json
-10. If --full-setup: runs `firewallSetup()` and `secureSetup()` via SSH
-11. Opens browser to Coolify dashboard
+1. `src/index.ts` parses args via Commander.js, calls `backupCommand(query, options)`
+2. `src/commands/backup.ts` calls `resolveServer(query)` from `src/utils/serverSelect.ts`
+3. `resolveServer` calls `findServers(query)` from `src/utils/config.ts` — reads `~/.quicklify/servers.json`
+4. Command checks mode via `isBareServer(server)` from `src/utils/modeGuard.ts`
+5. Command calls core helper: `createBareBackup(ip, name, provider)` or inline SSH steps via `sshExec(ip, cmd)`
+6. `sshExec` in `src/utils/ssh.ts` spawns `ssh root@<ip>` subprocess with `sanitizedEnv()`
+7. Result is written to `~/.quicklify/backups/<serverName>/<timestamp>/` with `manifest.json`
+8. `logger` (chalk + ora) renders final status
 
-**Status Check Flow:**
+**MCP Tool Call (e.g., `server_backup { action: "backup-create" }`):**
 
-1. User invokes `quicklify status <query>`
-2. `serverSelect.resolveServer()` searches ~/.quicklify/servers.json by IP or name
-3. `getCloudServerStatus()` calls provider API (if not manual server) → "running" / "stopped" / "error"
-4. `checkCoolifyHealth()` polls http://server-ip:8000 → "running" / "not reachable"
-5. Prints status table
-6. If `--autostart` and Coolify down but server running: `sshExec()` restart Coolify
+1. `bin/quicklify-mcp` starts `McpServer` with stdio transport
+2. `server.ts` dispatches to `handleServerBackup(params)` in `src/mcp/tools/serverBackup.ts`
+3. Tool handler calls `resolveServerForMcp(params, servers)` from `src/mcp/utils.ts`
+4. Handler calls the same core functions: `createBareBackup()` or `createBackup()`
+5. Returns `mcpSuccess({ ... })` or `mcpError("...", hint)` — both are JSON in MCP response envelope
 
-**Backup Flow:**
+**Server Provisioning Flow:**
 
-1. User invokes `quicklify backup <query>`
-2. SSH to server, execute Coolify backup script
-3. Generate BackupManifest JSON (server name, provider, timestamp, Coolify version, file list)
-4. Download backup tar.gz and manifest from server
-5. Store in ~/.quicklify/backups/<server-name>-<timestamp>/
-6. Report success with file size and path
-
-**Security Setup Flow:**
-
-1. User invokes `quicklify secure setup <query>` or `firewall setup <query>`
-2. Parse domain/SSL/port options (with --dry-run support)
-3. Generate shell commands for remote execution
-4. SSH execute with `sshExec(ip, commands)` or `sshExecPty(ip, commands)` for interactive
-5. Parse and display results (fail2ban status, SSH config changes, UFW rules)
+1. `initCommand` (interactive) or `handleServerProvision` (MCP) gathers `provider`, `region`, `size`, `name`, `mode`
+2. `getProviderToken(provider)` reads env var (e.g., `HETZNER_TOKEN`)
+3. `createProviderWithToken(provider, token)` in `src/utils/providerFactory.ts` returns `CloudProvider` instance
+4. `provider.validateToken(token)` → `provider.uploadSshKey(name, publicKey)` → `provider.createServer(config)`
+5. `cloudInit` script (from `src/utils/cloudInit.ts`) embeds Coolify auto-installer or bare setup into user-data
+6. Poll `provider.getServerStatus(id)` and `provider.getServerDetails(id)` until `running` and IP assigned
+7. `saveServer(record)` writes to `~/.quicklify/servers.json`
 
 **State Management:**
-
-- **Server Registry**: `~/.quicklify/servers.json` (persisted array of ServerRecord)
-  - Loaded at command start via `getServers()` from `src/utils/config.ts`
-  - Mutation: `saveServer()`, `removeServer()`
-  - Query: `findServer()`, `findServers()`
-
-- **Backups**: `~/.quicklify/backups/<server>-<timestamp>/` (directory per backup)
-  - BackupManifest.json holds metadata
-  - Tar.gz contains Coolify data
-
-- **Provider State**: Not persisted. Each operation requires API token (env vars or prompt)
-  - Tokens collected per-command via `promptApiToken()` or `collectProviderTokens()`
-
-- **Configuration**: No user config file (only YAML for one-time --config in init)
-  - Defaults hardcoded in `src/utils/defaults.ts` (OpenAI API, Coolify endpoints)
+- No in-memory state. Every operation reads `~/.quicklify/servers.json` fresh via `getServers()` from `src/utils/config.ts`
+- `getServers()` normalizes legacy records: sets `mode = "coolify"` if missing (backward compat)
+- Tokens are never stored; always read from env vars at call time via `getProviderToken(provider)` in `src/core/tokens.ts`
 
 ## Key Abstractions
 
-**CloudProvider Interface:**
-- Purpose: Abstract cloud provider differences (different APIs, regions, sizing)
-- Examples: `HetznerProvider`, `DigitalOceanProvider`, `VultrProvider`, `LinodeProvider`
-- Pattern: Factory pattern via `providerFactory.createProvider(name)` or `createProviderWithToken(name, token)`
-- Methods: validateToken, getRegions, getServerSizes, createServer, getServerStatus, destroyServer, rebootServer, createSnapshot, listSnapshots, deleteSnapshot
+**`CloudProvider` Interface:**
+- Purpose: Uniform contract for all cloud providers
+- Definition: `src/providers/base.ts`
+- Implementations: `src/providers/hetzner.ts`, `src/providers/digitalocean.ts`, `src/providers/vultr.ts`, `src/providers/linode.ts`
+- Pattern: Factory `createProviderWithToken(name, token)` in `src/utils/providerFactory.ts` — switch-case dispatcher
 
-**ServerRecord (Domain Model):**
-- Purpose: Unified representation of registered server across all providers
-- Example: `{ id: "abc123", name: "prod", provider: "hetzner", ip: "1.2.3.4", region: "nbg1", size: "cax11", createdAt: "2026-02-27T..." }`
-- Enables provider-agnostic operations (status, SSH, backup) by storing IP + provider reference
+**`QuicklifyResult<T>`:**
+- Purpose: Core functions return structured results, never throw (callers handle errors)
+- Definition: `src/types/index.ts`
+- Fields: `{ success: boolean; data?: T; error?: string; hint?: string }`
+- Used by: `src/core/provision.ts`, `src/core/manage.ts`, `src/core/backup.ts`
 
-**Core Module Functions:**
-- Purpose: Business logic that operates on servers (not CLI-specific)
-- Examples: `checkCoolifyHealth(ip)`, `getCloudServerStatus(server, token)`, `runBackup(server)`, `secureAudit(ip)`
-- Reusable by: Commands and MCP tools
+**`ServerRecord`:**
+- Purpose: Canonical server representation persisted to disk and passed between layers
+- Definition: `src/types/index.ts`
+- Fields: `id`, `name`, `provider`, `ip`, `region`, `size`, `createdAt`, `mode?: ServerMode`
+- `mode` distinguishes Coolify-installed servers (`"coolify"`) from generic bare VPS (`"bare"`)
 
-**Error Mappers:**
-- Purpose: Convert provider-specific / SSH-specific errors to user-friendly messages
-- Examples: `mapProviderError(error, provider)` → friendly message + link to token page, `mapSshError(error, ip)` → specific SSH troubleshooting
-- Pattern: Error code / pattern matching with contextual URLs
+**`ServerMode` ("coolify" | "bare"):**
+- Purpose: Gate Coolify-specific operations on bare servers
+- Enforced by: `requireCoolifyMode(server, commandName)` in `src/utils/modeGuard.ts`
+- Examples of guarded ops: `backup` (Coolify DB), `update` (Coolify update), `maintain`, `restore`
+- Bare-compatible ops: SSH access, firewall, secure, domain, system backup, restart (cloud API)
+
+**MCP Response Helpers:**
+- Purpose: Uniform JSON envelope for all MCP tool responses
+- Location: `src/mcp/utils.ts`
+- `mcpSuccess(data)` → `{ content: [{ type: "text", text: JSON.stringify(data) }] }`
+- `mcpError(error, hint?, suggestedActions?)` → same shape with `isError: true`
+- `resolveServerForMcp(params, servers)` — auto-selects single server if no `server` param provided
+- `requireProviderToken(provider)` — discriminated union return for token resolution
+
+**SAFE_MODE:**
+- Purpose: Block destructive operations in automated/untrusted contexts
+- Trigger: `QUICKLIFY_SAFE_MODE=true` env var
+- Enforced by: `isSafeMode()` in `src/core/manage.ts`
+- Blocks: `destroy`, `provision`, `restore` in MCP tools
 
 ## Entry Points
 
-**CLI Entry Point:**
-- Location: `bin/quicklify` (executable wrapper)
-- Actual Logic: `src/index.ts`
-- Triggers: User runs `quicklify <command> [options]`
-- Responsibilities: Parse commands/options, dispatch to command handlers, check for updates asynchronously
+**CLI Binary:**
+- Location: `bin/quicklify` — one-liner: `import('../dist/index.js')`
+- Compiled source: `src/index.ts` — Commander.js program setup + no-arg interactive menu trigger
+- Interactive mode: if `process.argv.slice(2).length === 0`, calls `interactiveMenu()` from `src/commands/interactive.ts`, then feeds result back into `program.parseAsync()`
 
-**MCP Server Entry Point:**
-- Location: `bin/quicklify-mcp` (executable wrapper)
-- Actual Logic: `src/mcp/server.ts` + `src/mcp/index.ts`
-- Triggers: Claude Desktop / AI framework connects to MCP server
-- Responsibilities: Register 7 tools, handle input validation, dispatch to tool handlers, return structured results
+**MCP Binary:**
+- Location: `bin/quicklify-mcp` (compiled from `src/mcp/index.ts`)
+- Starts `McpServer` with `StdioServerTransport` — communicates over stdin/stdout JSON-RPC
+- All logging must go to `process.stderr` (stdout reserved for MCP protocol)
 
 ## Error Handling
 
-**Strategy:** Layered error mapping with context-specific formatters
+**Strategy:** Errors at the provider/SSH level are caught and mapped to user-friendly messages. Core functions return `QuicklifyResult` (no throws). Commands handle results and call `logger.error()`.
 
 **Patterns:**
-
-1. **Provider Errors** (Axios HTTP responses):
-   - Caught in provider methods, re-thrown
-   - Commands catch and pass to `mapProviderError(error, provider)` → 401→token issue, 402→billing, 429→rate limit, 500→service down
-   - Output: User-friendly message + actionable link (token page, billing page)
-
-2. **SSH Errors** (command execution failures):
-   - Caught in `sshExec()`, stderr captured
-   - Commands catch and pass to `mapSshError(error, ip)` → connection refused, permission denied, host key changed, etc.
-   - stderr sanitized via `sanitizeStderr()` (removes paths, IP addresses, passwords, tokens)
-   - Output: Specific troubleshooting hint
-
-3. **Filesystem Errors** (ENOENT, EACCES, ENOSPC):
-   - Caught in config/backup operations
-   - Mapped via `mapFileSystemError()` → "File not found", "Permission denied", "Disk full"
-
-4. **Validation Errors** (Zod schemas):
-   - Input validation at command entry points
-   - Returns 400-like user prompt with field errors
-   - Example: Provider enum validation, IP address format, port range (1-65535)
-
-5. **Graceful Degradation**:
-   - Manual servers (id starts with "manual-") skip provider API calls
-   - Commands handle missing env vars via fallback to prompts
-   - Optional SSH features (e.g., autostart) fail silently if SSH unavailable
+- `getErrorMessage(error)` in `src/utils/errorMapper.ts` — safe extraction from unknown errors
+- `mapProviderError(error, provider)` — maps axios HTTP status codes (401, 402, 404, 429, 5xx) and network errors to hints
+- `mapSshError(error, ip)` — maps SSH stderr patterns (connection refused, permission denied, host key mismatch, dpkg lock) to user-friendly messages
+- `sanitizeStderr(stderr)` — redacts IPs, home paths, tokens from stderr before surfacing
+- `stripSensitiveData(error)` in each provider — removes axios config headers/data from error objects before re-throw
+- SSH host key mismatch: auto-detected via `isHostKeyMismatch(stderr)`, automatically retried after `removeStaleHostKey(ip)`
 
 ## Cross-Cutting Concerns
 
-**Logging:**
-- Framework: `src/utils/logger.ts` wrapping chalk for colors
-- Patterns: logger.title(), logger.info(), logger.success(), logger.warning(), logger.error()
-- Spinners: ora with .start(), .succeed(), .fail()
-- No structured logging (JSON); human-readable CLI output only
+**Logging:** `logger` object in `src/utils/logger.ts` — chalk-colored console output (`info`, `success`, `error`, `warning`, `title`, `step`). `createSpinner(text)` returns ora spinner. MCP tools write to `process.stderr` only.
 
 **Validation:**
-- Provider enum: Hardcoded switch in providerFactory validates provider name at creation time
-- Server lookup: Name/IP uniqueness not enforced (multiple servers can share name)
-- IP validation: `assertValidIp(ip)` checks format before SSH/HTTP operations
-- Port validation: Range 1-65535, SSH port collision checks in `secureSetup()`
-- Zod schemas for MCP tool inputs (strict validation before dispatch to handlers)
+- IP validation: `assertValidIp(ip)` in `src/utils/ssh.ts` — validates before every SSH call and cloud API call
+- Server name validation: `validateServerName(name)` in `src/core/manage.ts` — RFC-hostname pattern
+- Provider validation: `isValidProvider(provider)` in `src/core/manage.ts`
+- Remote path safety: `assertSafePath(path)` in `src/core/backup.ts` — rejects shell metacharacters in SCP paths
 
-**Authentication:**
-- Provider tokens: Environment variables (HETZNER_TOKEN, DIGITALOCEAN_TOKEN, VULTR_TOKEN, LINODE_TOKEN) or prompted
-- SSH keys: Auto-generated on first deploy (via `generateSshKey()`) or user-provided
-- No persistent auth storage; tokens ephemeral per command
-- MCP tools inherit token from parent process env (no separate auth layer)
+**Authentication:** No stored credentials. API tokens read from env vars via `getProviderToken(provider)` in `src/core/tokens.ts`. SSH uses key-based auth (key found via `findLocalSshKey()` in `src/utils/sshKey.ts` or generated if missing).
 
-**Rate Limiting:**
-- Provider-specific IP wait configs (retry counts + intervals vary by provider)
-- Coolify health check retry loop with exponential backoff
-- MCP tool descriptions warn against repeated calls to provider APIs
+**SSH Execution:** All remote commands go through `sshExec(ip, cmd)` or `sshStream(ip, cmd)` in `src/utils/ssh.ts`. Both use `sanitizedEnv()` to strip token/secret env vars before spawning subprocess. SSH binary resolved cross-platform via `resolveSshPath()`.
 
 ---
 
-*Architecture analysis: 2026-02-27*
+*Architecture analysis: 2026-03-02*

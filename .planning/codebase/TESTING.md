@@ -1,112 +1,104 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-02-27
+**Analysis Date:** 2026-03-02
 
 ## Test Framework
 
 **Runner:**
-- Jest 30.2.0
-- Config: `jest.config.cjs`
-- Test environment: Node.js
-- TypeScript: ts-jest transformer with `tsconfig.test.json`
+- Jest 30.x
+- Config: `jest.config.cjs` (CommonJS config, required for ESM project)
+- Transform: `ts-jest` with `tsconfig.test.json`
+- Test root: `tests/` directory
 
 **Assertion Library:**
-- Jest built-in matchers (no external assertion library)
-- Common matchers: `.toBe()`, `.toContain()`, `.toHaveBeenCalled()`, `.toHaveBeenCalledWith()`, `.rejects`, `.resolves`
+- Jest built-in (`expect`, matchers)
 
 **Run Commands:**
 ```bash
-npm test              # Run all tests
-npm run test:watch   # Watch mode for development
-npm run test:coverage # Generate coverage report (coverage/)
+npm test                   # Run all tests
+npm run test:watch         # Watch mode
+npm run test:coverage      # Run with coverage report
 ```
-
-**Coverage Threshold:**
-```javascript
-coverageThreshold: {
-  global: {
-    branches: 80,
-    functions: 80,
-    lines: 80,
-    statements: 80,
-  },
-}
-```
-
-Minimum 80% across all metrics required to pass CI.
 
 ## Test File Organization
 
 **Location:**
-- E2E tests: `tests/e2e/` (command flow integration)
-- Integration tests: `tests/integration/` (provider + SSH interactions)
-- Unit tests: `tests/unit/` (individual functions, utilities)
+- Separate `tests/` directory (NOT co-located with source)
+- Three-tier structure mirroring concern type: `unit/`, `integration/`, `e2e/`
 
 **Naming:**
-- `{feature}.test.ts` for feature tests: `init.test.ts`, `add.test.ts`, `status.test.ts`
-- `{module}.test.ts` for utility tests: `errorMapper.test.ts`, `config.test.ts`, `healthCheck.test.ts`
-- Edge cases in `{feature}-edge.test.ts`: `healthCheck-edge.test.ts`, `config-edge.test.ts`
+- Pattern: `<feature>.test.ts` or `<feature>-<variant>.test.ts`
+- Variants use suffixes: `-bare` (bare server mode), `-edge` (edge cases), `-safemode`, `-command`
+- Examples: `backup-bare.test.ts`, `config-edge.test.ts`, `restore-safemode.test.ts`
 
-**Test File Count:** 68 files across 4 test suites
+**Structure:**
+```
+tests/
+├── __mocks__/         # Manual module mocks (axios, chalk, ora, inquirer)
+├── unit/              # 50+ test files — core logic, utils, providers, MCP tools
+├── integration/       # 4 provider test files (hetzner, digitalocean, vultr, linode)
+└── e2e/               # 10 test files — full command flows, security scenarios
+```
 
 ## Test Structure
 
-**Organization Pattern:**
+**Suite Organization:**
 ```typescript
-describe("initCommand E2E", () => {
-  let consoleSpy: jest.SpyInstance;
-  let processExitSpy: jest.SpyInstance;
-
-  beforeEach(() => {
-    consoleSpy = jest.spyOn(console, "log").mockImplementation();
-    processExitSpy = jest.spyOn(process, "exit").mockImplementation((() => {}) as any);
-    jest.clearAllMocks();
+describe("checkCoolifyHealth", () => {
+  it("should return 'running' when Coolify responds", async () => {
+    mockedAxios.get.mockResolvedValueOnce({ status: 200 });
+    const result = await checkCoolifyHealth("1.2.3.4");
+    expect(result).toBe("running");
   });
+});
 
-  afterEach(() => {
-    consoleSpy.mockRestore();
-    processExitSpy.mockRestore();
-  });
-
-  describe("Hetzner flow", () => {
-    it("should complete full deployment flow successfully", async () => {
-      // Test body
-    });
-
-    it("should abort when user cancels deployment", async () => {
-      // Test body
-    });
-  });
-
-  describe("DigitalOcean flow", () => {
-    // Tests for DigitalOcean provider
+// Grouped by mode variant
+describe("checkServerStatus - bare mode", () => {
+  it("should return coolifyStatus='n/a' for bare server without calling checkCoolifyHealth", async () => {
+    const bareServer = { ...sampleServer, mode: "bare" as const };
+    ...
   });
 });
 ```
 
 **Patterns:**
-- `beforeEach()` sets up mocks and clears state
-- `afterEach()` restores all spies and patches
-- Nested `describe()` blocks group by feature/provider/scenario
-- Each `it()` tests single behavior (arrange → act → assert)
+- Setup: `beforeEach(() => { jest.clearAllMocks(); })` — always clear mocks between tests
+- Environment isolation: save/restore `process.env` in `beforeEach` / `afterAll`
+- Teardown: `consoleSpy.mockRestore()`, `processExitSpy.mockRestore()` in `afterEach`
+- Assertion: `expect(result).toBe(...)` for primitives, `expect(result).toEqual(...)` for objects
+- Negative assertions: `expect(spy).not.toHaveBeenCalled()`, `expect(output).not.toContain(secret)`
+
+**Test description convention:**
+- `it("should <verb> <result> when <condition>")` — explicit BDD-style wording
+- Error scenarios: `it("should return error when <condition>")`
+- Edge cases: `it("should handle <non-obvious scenario>")`
 
 ## Mocking
 
-**Framework:** Jest mocks with `jest.fn()`, `jest.spyOn()`, `jest.mock()`
+**Framework:** Jest built-in mocking (`jest.mock`, `jest.fn`, `jest.spyOn`)
 
-**Module Mocking (jest.config.cjs):**
-```javascript
-moduleNameMapper: {
-  '^axios$': '<rootDir>/tests/__mocks__/axios.ts',
-  '^ora$': '<rootDir>/tests/__mocks__/ora.ts',
-  '^inquirer$': '<rootDir>/tests/__mocks__/inquirer.ts',
-  '^chalk$': '<rootDir>/tests/__mocks__/chalk.ts',
-}
+**Global manual mocks** in `tests/__mocks__/` (auto-applied via `moduleNameMapper` in jest config):
+- `tests/__mocks__/axios.ts` — mock axios with `jest.fn()` for get/post/put/delete/patch, includes `isAxiosError` implementation
+- `tests/__mocks__/chalk.ts` — chainable proxy that returns identity function (no color codes in output)
+- `tests/__mocks__/ora.ts` — mock spinner with `jest.fn()` methods: `start`, `succeed`, `fail`, `warn`, `stop`
+- `tests/__mocks__/inquirer.ts` — mock with `jest.fn()` for `prompt`, includes `Separator` class
+
+**Module mocking patterns:**
+```typescript
+// Mock entire module
+jest.mock("../../src/utils/config");
+jest.mock("../../src/utils/providerFactory");
+
+// Cast for typed access
+const mockedConfig = config as jest.Mocked<typeof config>;
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+// Use typed mock in tests
+mockedAxios.get.mockResolvedValueOnce({ data: { servers: [] } });
+mockedConfig.getServers.mockReturnValue([sampleServer]);
 ```
 
-These modules are stubbed in `tests/__mocks__/` with Jest functions.
-
-**Function Mocking (Example from init.test.ts):**
+**Inline module factory mocks** for utilities that need specific return values across the whole file:
 ```typescript
 jest.mock("../../src/utils/healthCheck", () => ({
   waitForCoolify: jest.fn().mockResolvedValue(true),
@@ -120,246 +112,222 @@ jest.mock("../../src/utils/config", () => ({
 }));
 ```
 
-**Setup Pattern (init.test.ts):**
-```typescript
-const mockedAxios = axios as jest.Mocked<typeof axios>;
-const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
-
-// Chain promise rejections for sequence of API calls
-mockedAxios.get
-  .mockResolvedValueOnce({ data: { servers: [] } })        // Call 1
-  .mockResolvedValueOnce(hetznerLocationsResponse)          // Call 2
-  .mockResolvedValueOnce(hetznerServerTypesResponse)        // Call 3
-  .mockResolvedValueOnce(hetznerLocationsResponse)          // Call 4
-  .mockResolvedValueOnce(hetznerServerTypesResponse)        // Call 5
-  .mockResolvedValueOnce({ data: { server: { ... } } });   // Call 6
-```
-
 **What to Mock:**
-- External APIs (axios calls to Hetzner, DigitalOcean, etc.)
-- User input (inquirer prompts)
-- Filesystem (config saves, SSH key generation)
-- Timers (setTimeout for instant test execution)
-- Console output (logger, console.log)
+- External HTTP calls — always mock `axios` (no real network calls in tests)
+- File system — mock `src/utils/config` (no real ~/.quicklify file touched)
+- SSH operations — mock `src/utils/ssh` for tests involving SSH commands
+- Interactive prompts — mock `inquirer.prompt` with chained `mockResolvedValueOnce` calls
+- Browser opening — mock `src/utils/openBrowser`
+- Child process — mock `child_process` for `spawnSync`/`execSync` calls
+- `process.exit` — `jest.spyOn(process, "exit").mockImplementation(() => {})` to prevent test runner exit
 
 **What NOT to Mock:**
-- Core business logic (error mapping, type conversions)
-- Validation functions (IP address validation, server name validation)
-- Data structures (Config objects, ServerRecords)
-- Synchronous utilities (string formatting, defaults)
+- Pure utility logic that has no side effects (`errorMapper.ts`, `modeGuard.ts`, `configMerge.ts`)
+- Type narrowing and data transformation functions
+- The module under test itself
+
+**`jest.clearAllMocks()`** in every `beforeEach` — never leave stale mock state between tests.
 
 ## Fixtures and Factories
 
-**API Response Fixtures (init.test.ts):**
+**Test Data:**
 ```typescript
+// Inline constant fixtures — defined at top of test file, shared across describes
+const sampleServer = {
+  id: "123",
+  name: "coolify-test",
+  provider: "hetzner",
+  ip: "1.2.3.4",
+  region: "nbg1",
+  size: "cax11",
+  createdAt: "2026-02-20T00:00:00Z",
+};
+
+// Variant via spread
+const bareServer = { ...sampleServer, mode: "bare" as const };
+const manualServer = { ...sampleServer, id: "manual-abc123" };
+
+// Factory helper for parametric tests
+const makeRecord = (mode?: "coolify" | "bare"): ServerRecord => ({
+  id: "1",
+  name: "test-server",
+  provider: "hetzner",
+  ip: "1.2.3.4",
+  region: "nbg1",
+  size: "cax11",
+  createdAt: "2026-01-01T00:00:00Z",
+  ...(mode !== undefined ? { mode } : {}),
+});
+```
+
+**API Response Fixtures:**
+```typescript
+// Named mock response objects for provider APIs
 const hetznerLocationsResponse = {
-  data: {
-    locations: [
-      { name: "nbg1", city: "Nuremberg", country: "Germany" },
-      { name: "fsn1", city: "Falkenstein", country: "Germany" },
-    ],
-  },
+  data: { locations: [{ name: "nbg1", city: "Nuremberg", country: "Germany" }] },
 };
 
-const hetznerServerTypesResponse = {
-  data: {
-    server_types: [
-      {
-        name: "cax11",
-        cores: 2,
-        memory: 4,
-        disk: 40,
-        prices: [{ location: "nbg1", price_monthly: { gross: "3.85" } }],
-      },
-    ],
-  },
-};
+// Chained per-call returns for ordered API sequences
+mockedAxios.get
+  .mockResolvedValueOnce({ data: { servers: [] } })  // validateToken
+  .mockResolvedValueOnce(hetznerLocationsResponse)    // getAvailableLocations
+  .mockResolvedValueOnce({ data: { server: { status: "running" } } }); // getServerStatus
 ```
 
-**Mock Helper (init.test.ts):**
-```typescript
-function createAxiosError(
-  status: number | undefined,
-  code?: string,
-): Record<string, unknown> & Error {
-  const error = new Error("Request failed") as Error & Record<string, unknown>;
-  if (status !== undefined) {
-    error.response = {
-      status,
-      statusText: "Error",
-      data: {},
-      headers: {},
-      config: { headers: {} },
-    };
-  }
-  if (code) {
-    error.code = code;
-  }
-  error.config = { headers: {} };
-  return error;
-}
-```
-
-**Location:**
-- Fixtures defined at top of test file, above `describe()`
-- Helper functions in same file or imported from `__mocks__/`
-- No external fixture files (JSON) used
+**Location:** All fixtures defined inline in test files — no shared fixture files.
 
 ## Coverage
 
-**Requirements:** 80% minimum across branches, functions, lines, statements
+**Requirements:**
+- `coverageThreshold.global`: branches 80%, functions 80%, lines 80%, statements 80%
+- Actual: 95%+ across the project (2047 tests, 76 suites)
+- Configured in: `jest.config.cjs`
+
+**Coverage collection:**
+```javascript
+collectCoverageFrom: [
+  'src/**/*.ts',
+  '!src/index.ts',  // CLI entry point excluded
+],
+```
+
+**Coverage ignore:**
+- `/* istanbul ignore next */` used sparingly — only for untestable OS-specific branches and `process.exit` fallbacks (3 occurrences in entire codebase)
 
 **View Coverage:**
 ```bash
 npm run test:coverage
-# Generates: coverage/lcov-report/index.html (open in browser)
-```
-
-**Coverage Exclusions (jest.config.cjs):**
-```javascript
-collectCoverageFrom: [
-  'src/**/*.ts',
-  '!src/index.ts',  // Entry point with 23 command registrations
-],
+# Output written to: coverage/
 ```
 
 ## Test Types
 
-**Unit Tests (`tests/unit/`):**
-- Scope: Individual functions and modules in isolation
-- Approach: Mock external dependencies
-- Examples: `errorMapper.test.ts` tests error mapping functions, `config.test.ts` tests config loading
-- Count: ~40 files
+**Unit Tests** (`tests/unit/`, 50+ files):
+- Scope: Individual functions, utilities, core logic, MCP tool handlers
+- Each source module has a corresponding `*.test.ts` file
+- Provider `*-bare.test.ts` variants test bare server mode behavior
+- MCP tools tested as `mcp-server-*.test.ts` files
 
-**Integration Tests (`tests/integration/`):**
-- Scope: Multiple modules interacting (e.g., provider + SSH)
-- Approach: Mock external APIs, test workflow coordination
-- Examples: SSH key setup integration, provider token validation flow
-- Count: ~15 files
+**Integration Tests** (`tests/integration/`, 4 files):
+- Scope: Provider classes (`HetznerProvider`, `DigitalOceanProvider`, `VultrProvider`, `LinodeProvider`)
+- Tests full provider interface including all API methods
+- Uses mocked axios but tests the real provider class instances
+- Includes security tests: `cause chain sanitization` — verifies API tokens not leaked in error cause chains
 
-**E2E Tests (`tests/e2e/`):**
-- Scope: Full command execution flow (user → CLI → provider → result)
-- Approach: Mock all I/O (API, SSH, file system), test user interactions
-- Examples: `init.test.ts` (23 scenarios), `destroy.test.ts`, `status.test.ts`
-- Count: ~13 files
+**E2E Tests** (`tests/e2e/`, 10 files):
+- Scope: Full command flows (init, destroy, status) + security scenarios
+- `init.test.ts` — complete multi-provider deployment flow with prompt simulation
+- `security-*.test.ts` — dedicated security validation: token exposure, process.title masking, SSH key handling, domain injection
 
 ## Common Patterns
 
-**Async Testing (init.test.ts):**
+**Async Testing:**
 ```typescript
-it("should complete full deployment flow successfully", async () => {
-  // Setup mocks
-  mockedInquirer.prompt
-    .mockResolvedValueOnce({ provider: "hetzner" })
-    .mockResolvedValueOnce({ apiToken: "valid-token" });
+// Always async/await for async functions
+it("should return 'running' when Coolify responds", async () => {
+  mockedAxios.get.mockResolvedValueOnce({ status: 200 });
+  const result = await checkCoolifyHealth("1.2.3.4");
+  expect(result).toBe("running");
+});
 
-  mockedAxios.get.mockResolvedValueOnce(hetznerLocationsResponse);
-
-  // Act
-  await initCommand();
-
-  // Assert
-  expect(mockedAxios.get).toHaveBeenCalled();
-  expect(processExitSpy).not.toHaveBeenCalled();
+// Error path testing
+it("should reject when provider throws", async () => {
+  (mockProvider.getServerStatus as jest.Mock).mockRejectedValue(new Error("Unauthorized"));
+  await expect(getCloudServerStatus(server, "bad-token")).rejects.toThrow("Unauthorized");
 });
 ```
 
-**Error Testing (errorMapper.test.ts):**
+**Error Testing:**
 ```typescript
-it("should suggest new token for 401 on hetzner", () => {
-  const error = createAxiosError(401);
-  const result = mapProviderError(error, "hetzner");
-
-  expect(result).toContain("invalid or expired");
-  expect(result).toContain("console.hetzner.cloud");
+// Test that errors bubble up correctly
+it("should return error result when provider throws", async () => {
+  (mockProvider.getServerStatus as jest.Mock).mockRejectedValue(new Error("API failure"));
+  const result = await checkServerStatus(server, "bad-token");
+  expect(result.serverStatus).toBe("error");
+  expect(result.error).toBe("API failure");
 });
 
-it("should handle network error", async () => {
-  mockedAxios.get.mockRejectedValueOnce(new Error("Network failed"));
-
-  await expect(initCommand()).rejects.toThrow();
+// Test non-Error thrown values (always covered)
+it("should handle non-Error thrown values", async () => {
+  (mockProvider.getServerStatus as jest.Mock).mockRejectedValue("string error");
+  const result = await checkServerStatus(server, "bad-token");
+  expect(result.error).toBe("string error");
 });
 ```
 
-**Provider-Specific Tests:**
+**MCP Response Testing:**
 ```typescript
-describe("Hetzner flow", () => {
-  it("should complete Hetzner deployment", async () => { ... });
-});
+// MCP responses always parsed from JSON text
+const result = await handleServerInfo({ action: "list" });
+const data = JSON.parse(result.content[0].text);
+expect(data.servers).toHaveLength(2);
+expect(result.isError).toBeUndefined();  // success: no isError
 
-describe("DigitalOcean flow", () => {
-  it("should complete DO deployment", async () => { ... });
-});
-
-describe("Vultr flow", () => {
-  it("should complete Vultr deployment", async () => { ... });
-});
-
-describe("Linode flow", () => {
-  it("should complete Linode deployment (beta)", async () => { ... });
-});
+// Error MCP response
+expect(result.isError).toBe(true);
+expect(data.error).toContain("No servers found");
 ```
 
-**Spy on Native Functions (init.test.ts):**
+**Process.exit Spying:**
 ```typescript
+processExitSpy = jest.spyOn(process, "exit").mockImplementation((() => {}) as any);
+// ... run command ...
+expect(processExitSpy).toHaveBeenCalledWith(1);
+expect(processExitSpy).not.toHaveBeenCalled();
+```
+
+**Console Output Capture:**
+```typescript
+consoleSpy = jest.spyOn(console, "log").mockImplementation();
+// ... run command ...
+const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+expect(allOutput).toContain("1.2.3.4");
+expect(allOutput).not.toContain(secretToken);  // security assertion
+```
+
+**setTimeout override for speed (E2E tests):**
+```typescript
+// Make boot polling resolve instantly
+global.setTimeout = ((fn: Function) => { fn(); return 0; }) as any;
+// Restore in afterEach
+global.setTimeout = originalSetTimeout;
+```
+
+**Environment variable isolation:**
+```typescript
+const originalEnv = process.env;
 beforeEach(() => {
-  consoleSpy = jest.spyOn(console, "log").mockImplementation();
-  processExitSpy = jest.spyOn(process, "exit").mockImplementation((() => {}) as any);
+  process.env = { ...originalEnv };
+  delete process.env.HETZNER_TOKEN;
 });
-
-it("should show output to user", async () => {
-  await initCommand();
-
-  const allOutput = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-  expect(allOutput).toContain("1.2.3.4");
+afterAll(() => {
+  process.env = originalEnv;
 });
 ```
 
-**Time Mocking (init.test.ts):**
+**Mock Provider construction** — always build a full `CloudProvider` interface mock inline:
 ```typescript
-beforeEach(() => {
-  const originalSetTimeout = global.setTimeout;
-
-  // Make all setTimeout calls resolve instantly
-  global.setTimeout = ((fn: Function) => {
-    fn();
-    return 0;
-  }) as any;
-});
-
-afterEach(() => {
-  global.setTimeout = originalSetTimeout;
-});
+const mockProvider: CloudProvider = {
+  name: "hetzner",
+  displayName: "Hetzner Cloud",
+  validateToken: jest.fn().mockResolvedValue(true),
+  getRegions: jest.fn().mockReturnValue([]),
+  getServerSizes: jest.fn().mockReturnValue([]),
+  getAvailableLocations: jest.fn().mockResolvedValue([]),
+  getAvailableServerTypes: jest.fn().mockResolvedValue([]),
+  uploadSshKey: jest.fn(),
+  createServer: jest.fn(),
+  getServerStatus: jest.fn(),
+  getServerDetails: jest.fn(),
+  destroyServer: jest.fn(),
+  rebootServer: jest.fn(),
+  createSnapshot: jest.fn(),
+  listSnapshots: jest.fn(),
+  deleteSnapshot: jest.fn(),
+  getSnapshotCostEstimate: jest.fn(),
+};
 ```
-
-**Environment Variable Management (init.test.ts):**
-```typescript
-beforeEach(() => {
-  const savedEnv: Record<string, string | undefined> = {};
-
-  // Save and clear provider tokens so promptApiToken doesn't pick them up
-  for (const key of ["HETZNER_TOKEN", "DIGITALOCEAN_TOKEN", ...]) {
-    savedEnv[key] = process.env[key];
-    delete process.env[key];
-  }
-});
-
-afterEach(() => {
-  // Restore provider tokens
-  for (const key of ["HETZNER_TOKEN", "DIGITALOCEAN_TOKEN", ...]) {
-    if (savedEnv[key] !== undefined) process.env[key] = savedEnv[key];
-    else delete process.env[key];
-  }
-});
-```
-
-## Test Statistics
-
-- **Total Tests:** 1758 (as of v1.1.0)
-- **Test Suites:** 64
-- **Success Rate:** 100% on main branch (CI: 6/6 matrix passing)
-- **Coverage:** All files in `src/**/*.ts` except `src/index.ts` covered at 80%+ threshold
 
 ---
 
-*Testing analysis: 2026-02-27*
+*Testing analysis: 2026-03-02*

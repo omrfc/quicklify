@@ -1,224 +1,245 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-02-27
+**Analysis Date:** 2026-03-02
 
 ## Naming Patterns
 
 **Files:**
-- Kebab-case for file names: `error-mapper.ts`, `cloud-init.ts`, `server-select.ts`
-- Command files match command name: `init.ts`, `add.ts`, `remove.ts`, `status.ts`
-- Utils organized by domain: `logger.ts`, `errorMapper.ts`, `config.ts`, `ssh.ts`, `serverSelect.ts`
-- Suffixes denote purpose: `*.test.ts` for tests, `Factory.ts` for factory functions
+- Commands: `kebab-case.ts` matching CLI command name (e.g., `src/commands/init.ts`, `src/commands/backup.ts`)
+- Core business logic: `camelCase.ts` (e.g., `src/core/status.ts`, `src/core/manage.ts`)
+- Utilities: `camelCase.ts` (e.g., `src/utils/errorMapper.ts`, `src/utils/modeGuard.ts`)
+- Providers: `providerName.ts` all lowercase (e.g., `src/providers/hetzner.ts`)
+- MCP tools: `server<Feature>.ts` PascalCase feature (e.g., `src/mcp/tools/serverInfo.ts`)
+- Tests: `<feature>.test.ts` or `<feature>-<variant>.test.ts` (e.g., `backup-bare.test.ts`)
 
 **Functions:**
-- camelCase for all function names: `initCommand`, `createProvider`, `validateToken`, `mapProviderError`
-- Public exports prefix intent: `get*` for retrievers, `create*` for constructors, `map*` for mappers
-- Async functions are clearly async: `async function validateToken()`, `async function deployServer()`
-- Private/internal functions use helper naming: `uploadSshKeyToProvider`, `deployServer` (internal to init.ts)
+- Exported command entry points: `camelCase` verb+subject (e.g., `initCommand`, `backupCommand`, `firewallSetup`)
+- Core functions: descriptive camelCase verbs (e.g., `checkCoolifyHealth`, `getCloudServerStatus`, `checkAllServersStatus`)
+- MCP handlers: `handle<Feature>` prefix (e.g., `handleServerInfo`, `handleServerBackup`)
+- Predicates: `is<Condition>` or `requires<Condition>` (e.g., `isBareServer`, `isHostKeyMismatch`)
+- Guards: `assert<Invariant>` for throwing validators (e.g., `assertValidIp`)
+- Factory: `create<Entity>` (e.g., `createProvider`, `createProviderWithToken`, `createSpinner`)
 
 **Variables:**
-- camelCase for all variables: `providerChoice`, `apiToken`, `serverSize`, `isNonInteractive`
-- Boolean flags start with `is`, `has`, `can`, `should`: `isValid`, `hasValidIp`, `shouldRetry`
-- Constants in UPPER_SNAKE_CASE when module-level: `COOLIFY_RESTART_CMD`, `IP_WAIT`, `COOLIFY_MIN_WAIT`
-- Collections end in plural: `failedTypes`, `failedLocations`, `servers`, `rules`
+- camelCase throughout
+- Boolean flags: descriptive `isX`, `hasX` prefixes (e.g., `isNonInteractive`, `hasValidIp`, `isBare`, `sshReady`)
+- Mutable accumulation: past tense (e.g., `failedTypes`, `failedLocations`)
+- Prefix `_` for intentionally unused parameters (ESLint enforced via `argsIgnorePattern: "^_"`)
 
-**Types:**
-- PascalCase for interfaces: `CloudProvider`, `ServerRecord`, `InitOptions`, `DeploymentConfig`
-- Suffix types with purpose: `*Options` for command options, `*Config` for configuration, `*Result` for results
-- Union types use pipe syntax: `type TemplateName = "starter" | "production" | "dev"`
-- Readonly protocol methods denoted with `interface`: `export interface CloudProvider { ... }`
+**Types/Interfaces:**
+- Interfaces: PascalCase (e.g., `ServerRecord`, `CloudProvider`, `FirewallRule`)
+- Type aliases: PascalCase (e.g., `ServerMode`, `FirewallProtocol`, `TemplateName`)
+- Generic result type: `QuicklifyResult<T>` for core functions that return success/error without throwing
+- Provider-internal types: prefixed with provider name (e.g., `HetznerLocation`, `HetznerServerType`)
+
+**Constants:**
+- SCREAMING_SNAKE_CASE for true module-level constants (e.g., `COOLIFY_UPDATE_CMD`, `BOOT_MAX_ATTEMPTS`)
+- Record<string, ...> lookup tables: PascalCase (e.g., `IP_WAIT`, `COOLIFY_MIN_WAIT`)
 
 ## Code Style
 
 **Formatting:**
-- Prettier: `prettier@3.8.1`
-- Print width: 100 characters
-- Trailing commas: "all" (ES5-compatible)
-- Tab width: 2 spaces
-- Semicolons: required
+- Tool: Prettier 3.x
+- Configured via: `prettier --write "src/**/*.ts"` (no config file; uses defaults)
+- Line endings: consistent — no trailing whitespace
 
 **Linting:**
-- ESLint 10 with TypeScript support: `@typescript-eslint`, `@eslint/js`
+- Tool: ESLint 10 with `typescript-eslint` + `eslint-config-prettier`
 - Config: `eslint.config.js` (flat config format)
-- Key rule: Unused variables trigger error unless prefixed with `_`
-  ```typescript
-  @typescript-eslint/no-unused-vars: ["error", { argsIgnorePattern: "^_" }]
-  ```
-- ESLint ignores: `dist/`, `coverage/`, `tests/`, `jest.config.cjs`
+- Key rules:
+  - `@typescript-eslint/no-unused-vars: error` — unused vars are errors; `_` prefix exempts params
+  - `@typescript-eslint/recommended` ruleset — full TypeScript best practices
+  - `eslint-config-prettier` — disables formatting rules conflicting with Prettier
+  - Tests are excluded from linting (`"ignores": ["tests/"]`)
 
 ## Import Organization
 
-**Order:**
-1. Node.js built-ins: `import { readFileSync } from "fs"`
-2. Third-party packages: `import axios from "axios"`, `import { Command } from "commander"`
-3. Local relative imports: `import { initCommand } from "./commands/init.js"`
-4. Type-only imports: `import type { ServerRecord } from "../types/index.js"`
+**ESM-native project** — all imports use `.js` extension even for TypeScript source files (resolved by tsconfig paths).
 
-**Path Aliases:**
-- No path aliases configured. All imports use relative paths with `.js` extensions (ESM)
-- Format: `import { func } from "../utils/module.js"`
+**Order (enforced by convention, not plugin):**
+1. Node built-ins (`child_process`, `fs`, `path`, `os`, `url`)
+2. Third-party packages (`axios`, `chalk`, `ora`, `inquirer`, `commander`, `zod`)
+3. Internal absolute imports (providers, utils, core, types, constants)
 
-**File extensions:**
-- All import paths include `.js` extension (required for ESM in Node.js `"type": "module"`)
-- Example: `import { saveServer } from "../utils/config.js"`
+**Import style:**
+- Named imports preferred: `import { createProvider, createProviderWithToken } from "../utils/providerFactory.js"`
+- `type` imports for interfaces/types: `import type { ServerRecord } from "../types/index.js"`
+- Default imports only for libraries that export a default (e.g., `import axios from "axios"`)
+- No barrel files / index.ts re-exports — each module imported directly by path
+
+**Path aliases:**
+- No aliases configured — all paths are relative (e.g., `"../utils/errorMapper.js"`)
 
 ## Error Handling
 
-**Patterns:**
-- Centralized error mapping: `errorMapper.ts` provides domain-specific error handlers
-- HTTP errors: `mapProviderError(error, provider)` maps API status codes to user messages
-- SSH errors: `mapSshError(error, ip)` provides connection-specific guidance
-- File system errors: `mapFileSystemError(error)` handles POSIX error codes
-- Generic fallback: `getErrorMessage(error)` extracts string from any error type
+**Strategy — two-tier system:**
 
-**Strategy:**
-- Errors caught with `try-catch` containing `error: unknown`
-- Cast to Error type for message extraction: `error instanceof Error ? error.message : String(error)`
-- Axios errors checked with `axios.isAxiosError(error)` before accessing `.response`
-- Sensitive data sanitization: `sanitizeStderr()` redacts paths, IPs, passwords before logging
-
-**Example (init.ts):**
+**Commands/providers throw errors.** All provider API calls wrap errors and rethrow with user-friendly context:
 ```typescript
-try {
-  server = await providerWithToken.createServer({...});
-  serverSpinner.succeed(`Server created (ID: ${server.id})`);
-} catch (createError: unknown) {
-  serverSpinner.fail("Server creation failed");
-  const errorMsg = getErrorMessage(createError);
+// Provider pattern — always wrap with { cause: error }
+throw new Error(
+  `Failed to create server: ${error instanceof Error ? error.message : String(error)}`,
+  { cause: error },
+);
+```
 
-  if (errorMsg.includes("already")) {
-    // Handle specific case
-  } else {
-    throw createError; // Re-throw if unhandled
+**Core functions return `QuicklifyResult<T>`.** No exceptions propagate to CLI layer:
+```typescript
+// Core pattern — catch and return error shape
+try {
+  const result = await doWork();
+  return { success: true, data: result };
+} catch (error: unknown) {
+  return { success: false, error: getErrorMessage(error) };
+}
+```
+
+**MCP tools use `mcpSuccess` / `mcpError`** from `src/mcp/utils.ts` — never throw, always return shaped response.
+
+**Error extraction — always use `getErrorMessage()`** from `src/utils/errorMapper.ts`:
+```typescript
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return String(error);
+}
+```
+
+**Sensitive data stripping** — Axios error objects are sanitized before being used as `cause`:
+```typescript
+function stripSensitiveData(error: unknown): void {
+  if (axios.isAxiosError(error)) {
+    if (error.config) {
+      error.config.headers = undefined;   // strip auth headers
+      error.config.data = undefined;       // strip request body
+    }
+    (error as ...).request = undefined;    // strip request object
   }
 }
 ```
+
+**SSH error mapping** — `mapSshError()` in `src/utils/errorMapper.ts` maps stderr patterns to user-friendly messages (11 patterns). Returns `""` for unrecognized errors.
+
+**Provider error mapping** — `mapProviderError()` maps HTTP status codes + message patterns to actionable hints. Returns `""` for unrecognized errors.
+
+**catch (error: unknown)** — always type catch binding as `unknown`, never `any`.
+
+## Security Patterns
+
+**IP validation before all SSH operations:**
+```typescript
+// ALWAYS call assertValidIp before using IP in spawn/exec
+assertValidIp(ip);
+sshExecInner(ip, command, false);
+```
+
+**Sanitized environment for child processes:**
+```typescript
+// Strip TOKEN/SECRET/PASSWORD/CREDENTIAL env vars before spawning
+sanitizedEnv()  // src/utils/ssh.ts — removes sensitive keys before any spawn()
+```
+
+**Process title masking when `--token` flag used:**
+```typescript
+// Prevent token from appearing in process list
+process.title = "quicklify";
+```
+
+**SAFE_MODE guard for destructive MCP operations:**
+```typescript
+if (process.env.QUICKLIFY_SAFE_MODE === "true") {
+  return mcpError("Destroy is disabled in SAFE_MODE", "Set QUICKLIFY_SAFE_MODE=false to allow...");
+}
+```
+
+**Stderr sanitization before logging:**
+```typescript
+sanitizeStderr(stderr)  // src/utils/errorMapper.ts — redacts home paths, IPs, password=, token=, secret= patterns
+```
+
+**Config directory security:**
+```typescript
+mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });   // restricted permissions
+writeFileSync(SERVERS_FILE, ..., { mode: 0o600 });          // only owner can read
+```
+
+**Host key mismatch auto-retry:**
+- SSH commands auto-detect REMOTE HOST IDENTIFICATION HAS CHANGED in stderr
+- Auto-removes stale key via `ssh-keygen -R <ip>` (IP validated before use)
+- Retries once — single auto-heal, no infinite loop
+
+**Token sourcing priority:**
+1. Environment variable (preferred, warned if missing)
+2. Interactive prompt (fallback for CLI)
+3. `--token` flag (accepted but warned — visible in shell history)
 
 ## Logging
 
-**Framework:** Custom logger object in `src/utils/logger.ts`
+**Framework:** Custom `logger` object in `src/utils/logger.ts` wrapping `chalk` + `console.log`
 
-**API:**
+**Logger API:**
 ```typescript
-logger.info(message)      // ℹ blue info
-logger.success(message)   // ✔ green success
-logger.error(message)     // ✖ red error
-logger.warning(message)   // ⚠ yellow warning
-logger.title(message)     // Bold cyan with blank lines around
-logger.step(message)      // → gray step indicator
+logger.info("...")     // blue ℹ  — informational
+logger.success("...")  // green ✔ — success confirmation
+logger.error("...")    // red ✖   — error message
+logger.warning("...")  // yellow ⚠ — non-fatal warning
+logger.title("...")    // bold cyan — section header (blank lines before/after)
+logger.step("...")     // gray →   — instructional next-step hint
 ```
 
-**Spinner:**
+**Spinner pattern for async operations:**
 ```typescript
-const spinner = createSpinner("Loading...");
+const spinner = createSpinner("Creating VPS server...");
 spinner.start();
-spinner.succeed("Done!");     // or .fail(), .warn()
+// ... async work ...
+spinner.succeed("Server created (ID: 123)");
+// or
+spinner.fail("Server creation failed");
+// or
+spinner.warn("Cloud-init may not have finished");
 ```
 
-**Patterns:**
-- One-liner status updates via spinners for operations
-- Multi-step processes logged as `logger.title()` → steps → `logger.step()`
-- Errors logged immediately when caught: `logger.error(getErrorMessage(error))`
-- CLI commands end with summary: `logger.success()` or `logger.error()` + context
-
-**Example (add.ts):**
-```typescript
-const verifySpinner = ora("Verifying Coolify installation...").start();
-try {
-  const result = await sshExec(serverIp, "curl -s ...");
-  if (result.code === 0) {
-    verifySpinner.succeed("Coolify is running");
-  }
-} catch {
-  verifySpinner.warn("Could not verify Coolify. Server added anyway.");
-}
-```
+**No raw `console.log` for user messages** — only `logger.*` or `spinner.*`. Raw `console.log()` used only for blank lines.
 
 ## Comments
 
 **When to Comment:**
-- Complex algorithm logic (e.g., IP wait configuration with provider-specific timing)
-- Non-obvious error handling branches (e.g., why certain API errors are retried)
-- Provider-specific quirks (e.g., "DO/Vultr/Linode assign IP after boot")
-- Magic numbers with reasoning (e.g., "30s timeout based on typical boot time")
+- Constants with non-obvious values (e.g., `// 30s (instant IP)` next to `attempts: 10, interval: 3000`)
+- Security decisions (e.g., `// stdin must be "ignore" — not "inherit". MCP uses stdin for JSON-RPC transport`)
+- Non-obvious behavior (e.g., `// Key already exists → find by matching public key`)
+- `/* istanbul ignore next */` only for truly untestable branches (process.exit, OS platform guards)
 
-**JSDoc/TSDoc:**
-- Used for exported functions and types
-- Include `@param`, `@returns`, `@throws` for clarity
-- Not consistently enforced but present in core modules
+**No JSDoc** — functions are self-documenting by name. JSDoc-style comments are used sparingly for exported utilities in MCP layer.
 
-**Example (init.ts line 28-34):**
-```typescript
-// Provider-specific IP wait configuration (IP assignment latency varies significantly)
-const IP_WAIT: Record<string, { attempts: number; interval: number }> = {
-  hetzner:      { attempts: 10, interval: 3000 },   // 30s (instant IP)
-  digitalocean: { attempts: 20, interval: 3000 },   // 60s
-  vultr:        { attempts: 40, interval: 5000 },   // 200s (slowest IP assignment)
-  linode:       { attempts: 30, interval: 5000 },   // 150s
-};
-```
+**Section dividers in complex files** using `// ─── Section Name ───` Unicode separator lines (visible in `src/mcp/utils.ts`, `src/core/manage.ts`).
 
 ## Function Design
 
-**Size:** Aim for single-responsibility functions under 150 lines. Complex flows broken into sub-functions.
+**Size:** No strict limit enforced. Commands like `initCommand` (`src/commands/init.ts`, 619 lines) are large because they orchestrate multi-step user flows. Core utility functions are small (5–30 lines).
 
 **Parameters:**
-- Named options objects preferred over positional: `options: InitOptions = {}`
-- Destructured in function body when needed
-- Type annotations required on all params
+- Options objects for commands (e.g., `initCommand(options: InitOptions = {})`)
+- Direct typed parameters for utilities (e.g., `assertValidIp(ip: string): void`)
+- Private implementation details via `Xinner` pattern (e.g., `sshExecInner`, `sshStreamInner`) — public function validates, private does work
 
 **Return Values:**
-- Explicit return types on all functions: `async function deployServer(...): Promise<void>`
-- Void used for side-effect functions (logging, saving files)
-- Never return `null` — use `undefined` or throw error
-
-**Example (init.ts line 44-68):**
-```typescript
-export async function initCommand(options: InitOptions = {}): Promise<void> {
-  // Load YAML config if --config flag provided
-  if (options.config) {
-    const { config: yamlConfig, warnings } = loadYamlConfig(options.config);
-    for (const w of warnings) {
-      logger.warning(w);
-    }
-    const merged = mergeConfig(options, yamlConfig);
-    // Apply merged values back to options
-    if (merged.provider && !options.provider) options.provider = merged.provider;
-    ...
-  }
-}
-```
+- `Promise<void>` for commands (side-effect only)
+- `Promise<string>` for status checks returning simple values
+- `Promise<QuicklifyResult<T>>` for core operations that can fail gracefully
+- `McpResponse` for all MCP tool handlers (never throws)
+- Predicates return `boolean`; guard functions return `void` (throw on violation)
 
 ## Module Design
 
 **Exports:**
-- Named exports for functions: `export function initCommand() {}`
-- Default exports avoided (single purpose per file)
-- Types exported with `export interface`, `export type`
+- Named exports only — no default exports from project source files
+- Types exported alongside implementations (same file or `src/types/index.ts`)
+- Exported for testing: `export { CONFIG_DIR, SERVERS_FILE, BACKUPS_DIR }` in `src/utils/config.ts`
 
 **Barrel Files:**
-- No barrel files (index.ts) in src/commands/ or src/utils/
-- Each module imported directly from its file path
-- Main entry in `src/index.ts` imports 23 command functions explicitly
-
-**Closures & Scoping:**
-- Constants declared at module top: `const IP_WAIT`, `const COOLIFY_MIN_WAIT`
-- Helper functions declared before public export
-- No shared mutable state between invocations
-
-**Example (errorMapper.ts structure):**
-```typescript
-// Module constants
-const PROVIDER_URLS: Record<string, ProviderUrls> = { ... };
-const SENSITIVE_PATTERNS = [ ... ];
-const FS_ERROR_CODES: Record<string, string> = { ... };
-
-// Exported utilities
-export function getProviderDisplayName(provider: string): string { ... }
-export function mapProviderError(error: unknown, provider: string): string { ... }
-export function getErrorMessage(error: unknown): string { ... }
-```
+- None. Consumers import directly from the module path.
+- `src/types/index.ts` serves as the single type registry — all shared interfaces live here.
 
 ---
 
-*Convention analysis: 2026-02-27*
+*Convention analysis: 2026-03-02*
