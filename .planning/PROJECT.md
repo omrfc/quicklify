@@ -34,9 +34,14 @@ One-command server deployment and management across multiple cloud providers, ac
 
 ### Active
 
-<!-- Next milestone scope -->
+<!-- Current milestone: v1.2.1 — Refactor + Security Patch -->
 
-(None yet — define with /gsd:new-milestone)
+- [ ] Provider list centralization (SUPPORTED_PROVIDERS + PROVIDER_ENV_KEYS constants)
+- [ ] init.ts refactor — extract deployServer() to core/deploy.ts
+- [ ] stripSensitiveData consolidation to providers/base.ts
+- [ ] SCP stdin=ignore + BatchMode=yes (MCP stream corruption prevention)
+- [ ] SCP timeout for download/upload operations
+- [ ] Token whitespace trim in getProviderToken()
 
 ### Out of Scope
 
@@ -47,9 +52,9 @@ One-command server deployment and management across multiple cloud providers, ac
 
 ## Context
 
-- Published on npm as `quicklify` (v1.1.0 — v1.2.0 not yet published)
+- Published on npm as `quicklify` (v1.2.0 published 2026-03-01)
 - 23 CLI commands + 7 MCP tools
-- 1921 tests across 74 suites (95%+ coverage)
+- 2047 tests across 76 suites (95%+ coverage)
 - CI: GitHub Actions (3 OS x 2 Node versions = 6 matrix)
 - Codebase: ~11,800 LOC TypeScript
 - Architecture: Commands (thin wrappers) → Core (business logic) → Providers (plugin pattern)
@@ -78,4 +83,4 @@ One-command server deployment and management across multiple cloud providers, ac
 | requireCoolifyMode guard pattern | Consistent mode checking across CLI and MCP | ✓ Good |
 
 ---
-*Last updated: 2026-02-28 after v1.2.0 milestone*
+*Last updated: 2026-03-02 after v1.2.1 milestone start*
