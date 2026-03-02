@@ -5,6 +5,7 @@ import { promptApiToken } from "../utils/serverSelect.js";
 import { addServerRecord } from "../core/manage.js";
 import { logger } from "../utils/logger.js";
 import type { ServerMode } from "../types/index.js";
+import { SUPPORTED_PROVIDERS, PROVIDER_DISPLAY_NAMES, invalidProviderError } from "../constants.js";
 
 interface AddOptions {
   provider?: string;
@@ -23,20 +24,17 @@ export async function addCommand(options: AddOptions = {}): Promise<void> {
         type: "list",
         name: "provider",
         message: "Select cloud provider:",
-        choices: [
-          { name: "Hetzner Cloud", value: "hetzner" },
-          { name: "DigitalOcean", value: "digitalocean" },
-          { name: "Vultr", value: "vultr" },
-          { name: "Linode (Akamai)", value: "linode" },
-        ],
+        choices: SUPPORTED_PROVIDERS.map((p) => ({
+          name: PROVIDER_DISPLAY_NAMES[p],
+          value: p,
+        })),
       },
     ]);
     providerName = provider;
   }
 
-  const validProviders = ["hetzner", "digitalocean", "vultr", "linode"];
-  if (!validProviders.includes(providerName!)) {
-    logger.error(`Invalid provider: ${providerName}. Use: ${validProviders.join(", ")}`);
+  if (!(SUPPORTED_PROVIDERS as readonly string[]).includes(providerName!)) {
+    logger.error(invalidProviderError(providerName!));
     process.exit(1);
     return;
   }

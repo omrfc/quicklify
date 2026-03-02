@@ -9,6 +9,8 @@ import { createProviderWithToken } from "../../utils/providerFactory.js";
 import { mcpSuccess, mcpError } from "../utils.js";
 import type { ServerRecord, ServerMode } from "../../types/index.js";
 import type { StatusResult } from "../../core/status.js";
+import { SUPPORTED_PROVIDERS } from "../../constants.js";
+import type { SupportedProvider } from "../../constants.js";
 
 export const serverInfoSchema = {
   action: z.enum(["list", "status", "health", "sizes"]).describe(
@@ -17,7 +19,7 @@ export const serverInfoSchema = {
   server: z.string().optional().describe(
     "Server name or IP. Required for single-server status/health. Omit for all servers.",
   ),
-  provider: z.enum(["hetzner", "digitalocean", "vultr", "linode"]).optional().describe(
+  provider: z.enum(SUPPORTED_PROVIDERS).optional().describe(
     "Cloud provider (required for 'sizes' action)",
   ),
   region: z.string().optional().describe(
@@ -130,7 +132,7 @@ async function checkBareServerSsh(server: ServerRecord): Promise<boolean> {
 export async function handleServerInfo(params: {
   action: "list" | "status" | "health" | "sizes";
   server?: string;
-  provider?: "hetzner" | "digitalocean" | "vultr" | "linode";
+  provider?: SupportedProvider;
   region?: string;
   mode?: ServerMode;
 }): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {

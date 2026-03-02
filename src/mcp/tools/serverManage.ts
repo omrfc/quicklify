@@ -7,6 +7,7 @@ import {
   destroyCloudServer,
 } from "../../core/manage.js";
 import { mcpSuccess, mcpError } from "../utils.js";
+import { SUPPORTED_PROVIDERS } from "../../constants.js";
 
 export const serverManageSchema = {
   action: z.enum(["add", "remove", "destroy"]).describe(
@@ -15,7 +16,7 @@ export const serverManageSchema = {
   server: z.string().optional().describe(
     "Server name or IP (required for 'remove' and 'destroy' actions)",
   ),
-  provider: z.enum(["hetzner", "digitalocean", "vultr", "linode"]).optional().describe(
+  provider: z.enum(SUPPORTED_PROVIDERS).optional().describe(
     "Cloud provider: 'hetzner', 'digitalocean', 'vultr', 'linode' (required for 'add' action)",
   ),
   ip: z.string().optional().describe(

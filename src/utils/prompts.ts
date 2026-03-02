@@ -1,6 +1,7 @@
 import inquirer from "inquirer";
 import type { CloudProvider } from "../providers/base.js";
 import type { DeploymentConfig, ServerMode } from "../types/index.js";
+import { SUPPORTED_PROVIDERS, PROVIDER_DISPLAY_NAMES } from "../constants.js";
 
 export const BACK_SIGNAL = "__BACK__";
 
@@ -10,12 +11,10 @@ export async function getProviderConfig(): Promise<{ provider: string }> {
       type: "list",
       name: "provider",
       message: "Select cloud provider:",
-      choices: [
-        { name: "Hetzner Cloud", value: "hetzner" },
-        { name: "DigitalOcean", value: "digitalocean" },
-        { name: "Vultr", value: "vultr" },
-        { name: "Linode (Akamai)", value: "linode" },
-      ],
+      choices: SUPPORTED_PROVIDERS.map((p) => ({
+        name: PROVIDER_DISPLAY_NAMES[p],
+        value: p,
+      })),
     },
   ]);
 

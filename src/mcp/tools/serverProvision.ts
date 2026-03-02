@@ -2,12 +2,14 @@ import { z } from "zod";
 import { isSafeMode } from "../../core/manage.js";
 import { provisionServer } from "../../core/provision.js";
 import { mcpSuccess, mcpError } from "../utils.js";
+import { SUPPORTED_PROVIDERS } from "../../constants.js";
+import type { SupportedProvider } from "../../constants.js";
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
 export const serverProvisionSchema = {
   provider: z
-    .enum(["hetzner", "digitalocean", "vultr", "linode"])
+    .enum(SUPPORTED_PROVIDERS)
     .describe("Cloud provider to create server on"),
   region: z
     .string()
@@ -43,7 +45,7 @@ export const serverProvisionSchema = {
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
 export async function handleServerProvision(params: {
-  provider: "hetzner" | "digitalocean" | "vultr" | "linode";
+  provider: SupportedProvider;
   region?: string;
   size?: string;
   name: string;

@@ -24,7 +24,7 @@ import { secureSetup } from "./secure.js";
 import { loadYamlConfig } from "../utils/yamlConfig.js";
 import { mergeConfig } from "../utils/configMerge.js";
 import { getTemplate, getTemplateDefaults, VALID_TEMPLATE_NAMES } from "../utils/templates.js";
-import { IP_WAIT, COOLIFY_MIN_WAIT } from "../constants.js";
+import { IP_WAIT, COOLIFY_MIN_WAIT, SUPPORTED_PROVIDERS, PROVIDER_ENV_KEYS, invalidProviderError } from "../constants.js";
 
 export async function initCommand(options: InitOptions = {}): Promise<void> {
   // Load YAML config if --config flag provided
@@ -78,10 +78,8 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
 
   // Step 1: Select cloud provider
   if (options.provider) {
-    if (!["hetzner", "digitalocean", "vultr", "linode"].includes(options.provider)) {
-      logger.error(
-        `Invalid provider: ${options.provider}. Use "hetzner", "digitalocean", "vultr", or "linode".`,
-      );
+    if (!(SUPPORTED_PROVIDERS as readonly string[]).includes(options.provider)) {
+      logger.error(invalidProviderError(options.provider));
       process.exit(1);
       return;
     }
@@ -110,22 +108,16 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
       "Token passed via --token flag is visible in shell history. Use environment variables instead: export HETZNER_TOKEN=...",
     );
     process.title = "quicklify";
-  } else if (providerChoice === "hetzner" && process.env.HETZNER_TOKEN) {
-    apiToken = process.env.HETZNER_TOKEN;
-    tokenSource = "HETZNER_TOKEN env var";
-  } else if (providerChoice === "digitalocean" && process.env.DIGITALOCEAN_TOKEN) {
-    apiToken = process.env.DIGITALOCEAN_TOKEN;
-    tokenSource = "DIGITALOCEAN_TOKEN env var";
-  } else if (providerChoice === "vultr" && process.env.VULTR_TOKEN) {
-    apiToken = process.env.VULTR_TOKEN;
-    tokenSource = "VULTR_TOKEN env var";
-  } else if (providerChoice === "linode" && process.env.LINODE_TOKEN) {
-    apiToken = process.env.LINODE_TOKEN;
-    tokenSource = "LINODE_TOKEN env var";
   } else {
-    const config = await getDeploymentConfig(provider);
-    apiToken = config.apiToken;
-    tokenSource = "interactive prompt";
+    const envKey = PROVIDER_ENV_KEYS[providerChoice as keyof typeof PROVIDER_ENV_KEYS];
+    if (envKey && process.env[envKey]) {
+      apiToken = process.env[envKey]!;
+      tokenSource = `${envKey} env var`;
+    } else {
+      const config = await getDeploymentConfig(provider);
+      apiToken = config.apiToken;
+      tokenSource = "interactive prompt";
+    }
   }
 
   // Step 3: Validate API token
