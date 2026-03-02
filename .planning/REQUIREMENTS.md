@@ -10,7 +10,7 @@ Dokploy (v1.3.0) öncesi altyapı sağlamlaştırma. Yeni feature yok — refact
 ### Refactor
 
 - [ ] **REF-01**: Provider listesi (`SUPPORTED_PROVIDERS`) ve env key mapping (`PROVIDER_ENV_KEYS`) `src/constants.ts`'de merkezileşir, 8+ dosyadaki hardcoded liste kaldırılır
-- [ ] **REF-02**: `stripSensitiveData()` fonksiyonu 4 provider dosyasından `src/providers/base.ts`'ye taşınır, duplicate kaldırılır
+- [x] **REF-02**: `stripSensitiveData()` fonksiyonu 4 provider dosyasından `src/providers/base.ts`'ye taşınır, duplicate kaldırılır
 - [ ] **REF-03**: `src/commands/init.ts`'deki ~320 satırlık `deployServer()` fonksiyonu `src/core/deploy.ts`'ye extract edilir, init.ts thin wizard wrapper kalır
 
 ### Security
@@ -41,7 +41,7 @@ Deferred to v1.3.0+:
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | REF-01 | Phase 4 | Pending |
-| REF-02 | Phase 4 | Pending |
+| REF-02 | Phase 4 | Complete |
 | SEC-01 | Phase 5 | Pending |
 | SEC-02 | Phase 5 | Pending |
 | SEC-03 | Phase 5 | Pending |
