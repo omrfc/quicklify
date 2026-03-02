@@ -2,6 +2,7 @@ import inquirer from "inquirer";
 import { getServers, findServers } from "./config.js";
 import { logger } from "./logger.js";
 import type { ServerRecord } from "../types/index.js";
+import { PROVIDER_ENV_KEYS } from "../constants.js";
 
 export async function collectProviderTokens(servers: ServerRecord[]): Promise<Map<string, string>> {
   const tokenMap = new Map<string, string>();
@@ -68,13 +69,7 @@ export async function resolveServer(
 }
 
 export async function promptApiToken(providerName: string): Promise<string> {
-  const envKeys: Record<string, string> = {
-    hetzner: "HETZNER_TOKEN",
-    digitalocean: "DIGITALOCEAN_TOKEN",
-    vultr: "VULTR_TOKEN",
-    linode: "LINODE_TOKEN",
-  };
-  const envKey = envKeys[providerName];
+  const envKey = PROVIDER_ENV_KEYS[providerName as keyof typeof PROVIDER_ENV_KEYS];
   if (envKey && process.env[envKey]) {
     return process.env[envKey]!;
   }

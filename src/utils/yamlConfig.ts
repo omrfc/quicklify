@@ -3,6 +3,7 @@ import yaml from "js-yaml";
 import type { QuicklifyYamlConfig } from "../types/index.js";
 import { VALID_TEMPLATE_NAMES } from "./templates.js";
 import type { TemplateName } from "../types/index.js";
+import { SUPPORTED_PROVIDERS, invalidProviderError } from "../constants.js";
 
 const KNOWN_KEYS = new Set([
   "template",
@@ -72,10 +73,8 @@ export function validateYamlConfig(raw: unknown): YamlLoadResult {
       warnings.push(
         'Invalid provider: must be a string ("hetzner", "digitalocean", "vultr", or "linode")',
       );
-    } else if (!["hetzner", "digitalocean", "vultr", "linode"].includes(obj.provider)) {
-      warnings.push(
-        `Invalid provider: "${obj.provider}". Use "hetzner", "digitalocean", "vultr", or "linode".`,
-      );
+    } else if (!(SUPPORTED_PROVIDERS as readonly string[]).includes(obj.provider)) {
+      warnings.push(invalidProviderError(obj.provider));
     } else {
       config.provider = obj.provider;
     }

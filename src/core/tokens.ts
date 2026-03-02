@@ -1,14 +1,8 @@
 import type { ServerRecord } from "../types/index.js";
-
-const ENV_KEYS: Record<string, string> = {
-  hetzner: "HETZNER_TOKEN",
-  digitalocean: "DIGITALOCEAN_TOKEN",
-  vultr: "VULTR_TOKEN",
-  linode: "LINODE_TOKEN",
-};
+import { PROVIDER_ENV_KEYS } from "../constants.js";
 
 export function getProviderToken(provider: string): string | undefined {
-  const envKey = ENV_KEYS[provider];
+  const envKey = PROVIDER_ENV_KEYS[provider as keyof typeof PROVIDER_ENV_KEYS];
   return envKey ? process.env[envKey] : undefined;
 }
 

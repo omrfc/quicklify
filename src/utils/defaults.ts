@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import type { QuicklifyConfig } from "../types/index.js";
+import { SUPPORTED_PROVIDERS, invalidProviderError } from "../constants.js";
 
 const CONFIG_DIR = join(homedir(), ".quicklify");
 const DEFAULTS_FILE = join(CONFIG_DIR, "config.json");
@@ -30,8 +31,8 @@ export function setDefault(key: string, value: string): void {
   if (!VALID_KEYS.includes(key)) {
     throw new Error(`Invalid config key: ${key}. Valid keys: ${VALID_KEYS.join(", ")}`);
   }
-  if (key === "provider" && !["hetzner", "digitalocean", "vultr", "linode"].includes(value)) {
-    throw new Error(`Invalid provider: ${value}. Use "hetzner", "digitalocean", "vultr", or "linode".`);
+  if (key === "provider" && !(SUPPORTED_PROVIDERS as readonly string[]).includes(value)) {
+    throw new Error(invalidProviderError(value));
   }
   ensureConfigDir();
   const config = getDefaults();

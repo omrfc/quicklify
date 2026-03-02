@@ -5,41 +5,24 @@ import { getServers } from "../utils/config.js";
 import { checkSshAvailable } from "../utils/ssh.js";
 import { logger } from "../utils/logger.js";
 import { CONFIG_DIR } from "../utils/config.js";
+import { PROVIDER_REGISTRY } from "../constants.js";
 
-const PROVIDER_CONFIG: Record<
-  string,
-  { envVar: string; displayName: string; validateUrl: string }
-> = {
-  hetzner: {
-    envVar: "HETZNER_TOKEN",
-    displayName: "Hetzner",
-    validateUrl: "https://api.hetzner.cloud/v1/servers?per_page=1",
-  },
-  digitalocean: {
-    envVar: "DIGITALOCEAN_TOKEN",
-    displayName: "DigitalOcean",
-    validateUrl: "https://api.digitalocean.com/v2/account",
-  },
-  vultr: {
-    envVar: "VULTR_TOKEN",
-    displayName: "Vultr",
-    validateUrl: "https://api.vultr.com/v2/account",
-  },
-  linode: {
-    envVar: "LINODE_TOKEN",
-    displayName: "Linode",
-    validateUrl: "https://api.linode.com/v4/profile",
-  },
+// Validation endpoints differ from base API URLs (provider-specific paths)
+const DOCTOR_VALIDATE_URLS: Record<string, string> = {
+  hetzner: "https://api.hetzner.cloud/v1/servers?per_page=1",
+  digitalocean: "https://api.digitalocean.com/v2/account",
+  vultr: "https://api.vultr.com/v2/account",
+  linode: "https://api.linode.com/v4/profile",
 };
 
 async function validateToken(provider: string, token: string): Promise<boolean> {
-  const config = PROVIDER_CONFIG[provider];
-  if (!config) {
+  const validateUrl = DOCTOR_VALIDATE_URLS[provider];
+  if (!validateUrl) {
     return false;
   }
 
   try {
-    await axios.get(config.validateUrl, {
+    await axios.get(validateUrl, {
       headers: { Authorization: `Bearer ${token}` },
       timeout: 10000,
     });
@@ -64,24 +47,24 @@ export async function checkProviderTokens(): Promise<void> {
   logger.title("Provider Token Validation");
 
   for (const provider of providers) {
-    const config = PROVIDER_CONFIG[provider];
-    if (!config) {
+    const registryEntry = PROVIDER_REGISTRY[provider as keyof typeof PROVIDER_REGISTRY];
+    if (!registryEntry) {
       logger.warning(`${provider}: Unknown provider, skipping token check`);
       continue;
     }
 
-    const token = process.env[config.envVar];
+    const token = process.env[registryEntry.envKey];
 
     if (!token) {
-      logger.warning(`${config.displayName}: ${config.envVar} not set in environment`);
+      logger.warning(`${registryEntry.displayName}: ${registryEntry.envKey} not set in environment`);
       continue;
     }
 
     const isValid = await validateToken(provider, token);
     if (isValid) {
-      logger.success(`${config.displayName}: Token is valid`);
+      logger.success(`${registryEntry.displayName}: Token is valid`);
     } else {
-      logger.error(`${config.displayName}: Token is invalid or expired`);
+      logger.error(`${registryEntry.displayName}: Token is invalid or expired`);
     }
   }
 }

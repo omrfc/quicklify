@@ -9,7 +9,7 @@ import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { assertValidIp } from "../utils/ssh.js";
 import type { CloudProvider } from "../providers/base.js";
 import type { ServerRecord, ServerMode } from "../types/index.js";
-import { IP_WAIT, BOOT_MAX_ATTEMPTS, BOOT_INTERVAL } from "../constants.js";
+import { IP_WAIT, BOOT_MAX_ATTEMPTS, BOOT_INTERVAL, invalidProviderError } from "../constants.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -69,7 +69,7 @@ export async function provisionServer(config: ProvisionConfig): Promise<Provisio
   if (!isValidProvider(config.provider)) {
     return {
       success: false,
-      error: `Invalid provider: ${config.provider}. Valid: hetzner, digitalocean, vultr, linode`,
+      error: invalidProviderError(config.provider),
     };
   }
 

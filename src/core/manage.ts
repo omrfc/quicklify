@@ -4,6 +4,7 @@ import { sshExec, checkSshAvailable } from "../utils/ssh.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { getProviderToken } from "./tokens.js";
 import type { ServerRecord, ServerMode } from "../types/index.js";
+import { SUPPORTED_PROVIDERS, invalidProviderError } from "../constants.js";
 
 // ─── SAFE_MODE ────────────────────────────────────────────────────────────────
 
@@ -13,10 +14,8 @@ export function isSafeMode(): boolean {
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
-const VALID_PROVIDERS = ["hetzner", "digitalocean", "vultr", "linode"];
-
 export function isValidProvider(provider: string): boolean {
-  return VALID_PROVIDERS.includes(provider);
+  return (SUPPORTED_PROVIDERS as readonly string[]).includes(provider);
 }
 
 export function validateIpAddress(ip: string): string | null {
@@ -68,7 +67,7 @@ export async function addServerRecord(params: AddServerParams): Promise<AddServe
   if (!isValidProvider(params.provider)) {
     return {
       success: false,
-      error: `Invalid provider: ${params.provider}. Valid: ${VALID_PROVIDERS.join(", ")}`,
+      error: invalidProviderError(params.provider),
     };
   }
 

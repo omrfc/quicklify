@@ -75,7 +75,7 @@ describe("defaults", () => {
 
     it("should throw for invalid provider", () => {
       mockedExistsSync.mockReturnValue(false);
-      expect(() => setDefault("provider", "aws")).toThrow("Invalid provider: aws");
+      expect(() => setDefault("provider", "aws")).toThrow('Invalid provider: "aws"');
     });
 
     it("should accept valid keys", () => {
