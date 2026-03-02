@@ -71,7 +71,7 @@ export function validateYamlConfig(raw: unknown): YamlLoadResult {
   if (obj.provider !== undefined) {
     if (typeof obj.provider !== "string") {
       warnings.push(
-        'Invalid provider: must be a string ("hetzner", "digitalocean", "vultr", or "linode")',
+        `Invalid provider: must be a string (${SUPPORTED_PROVIDERS.map((p) => `"${p}"`).join(", ")})`,
       );
     } else if (!(SUPPORTED_PROVIDERS as readonly string[]).includes(obj.provider)) {
       warnings.push(invalidProviderError(obj.provider));
