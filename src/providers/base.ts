@@ -1,3 +1,4 @@
+import axios from "axios";
 import type {
   Region,
   ServerSize,
@@ -25,4 +26,14 @@ export interface CloudProvider {
   listSnapshots(serverId: string): Promise<SnapshotInfo[]>;
   deleteSnapshot(snapshotId: string): Promise<void>;
   getSnapshotCostEstimate(serverId: string): Promise<string>;
+}
+
+export function stripSensitiveData(error: unknown): void {
+  if (axios.isAxiosError(error)) {
+    if (error.config) {
+      error.config.headers = undefined as unknown as typeof error.config.headers;
+      error.config.data = undefined;
+    }
+    (error as unknown as Record<string, unknown>).request = undefined;
+  }
 }

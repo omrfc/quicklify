@@ -1,17 +1,7 @@
 import crypto from "crypto";
 import axios from "axios";
-import type { CloudProvider } from "./base.js";
+import { stripSensitiveData, type CloudProvider } from "./base.js";
 import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
-
-function stripSensitiveData(error: unknown): void {
-  if (axios.isAxiosError(error)) {
-    if (error.config) {
-      error.config.headers = undefined as unknown as typeof error.config.headers;
-      error.config.data = undefined;
-    }
-    (error as unknown as Record<string, unknown>).request = undefined;
-  }
-}
 
 interface LinodeType {
   id: string;
