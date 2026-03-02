@@ -4,6 +4,7 @@ import { spawn } from "child_process";
 import { sshExec, assertValidIp, sanitizedEnv } from "../utils/ssh.js";
 import { BACKUPS_DIR } from "../utils/config.js";
 import { getErrorMessage, mapSshError, sanitizeStderr } from "../utils/errorMapper.js";
+import { SCP_TIMEOUT_MS } from "../constants.js";
 import type { BackupManifest } from "../types/index.js";
 
 // ─── Pure Functions (Backup) ─────────────────────────────────────────────────
@@ -125,14 +126,17 @@ export function scpDownload(
   ip: string,
   remotePath: string,
   localPath: string,
+  timeoutMs: number = SCP_TIMEOUT_MS,
 ): Promise<{ code: number; stderr: string }> {
   assertValidIp(ip);
   assertSafePath(remotePath);
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    // stdin must be "ignore" — not "inherit". MCP uses stdin for JSON-RPC transport;
+    // inheriting it would corrupt the stream. BatchMode=yes prevents interactive prompts.
     const child = spawn(
       "scp",
-      ["-o", "StrictHostKeyChecking=accept-new", `root@${ip}:${remotePath}`, localPath],
-      { stdio: ["inherit", "pipe", "pipe"], env: sanitizedEnv() },
+      ["-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new", `root@${ip}:${remotePath}`, localPath],
+      { stdio: ["ignore", "pipe", "pipe"], env: sanitizedEnv() },
     );
     let stderr = "";
     child.stderr?.on("data", (data: Buffer) => {
@@ -140,6 +144,14 @@ export function scpDownload(
     });
     child.on("close", (code) => resolve({ code: code ?? 1, stderr }));
     child.on("error", (err) => resolve({ code: 1, stderr: err.message }));
+
+    const timer = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error(`SCP download timeout after ${timeoutMs}ms`));
+    }, timeoutMs);
+    // Clear timer when the process exits normally
+    child.on("close", () => clearTimeout(timer));
+    child.on("error", () => clearTimeout(timer));
   });
 }
 
@@ -147,14 +159,17 @@ export function scpUpload(
   ip: string,
   localPath: string,
   remotePath: string,
+  timeoutMs: number = SCP_TIMEOUT_MS,
 ): Promise<{ code: number; stderr: string }> {
   assertValidIp(ip);
   assertSafePath(remotePath);
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    // stdin must be "ignore" — not "inherit". MCP uses stdin for JSON-RPC transport;
+    // inheriting it would corrupt the stream. BatchMode=yes prevents interactive prompts.
     const child = spawn(
       "scp",
-      ["-o", "StrictHostKeyChecking=accept-new", localPath, `root@${ip}:${remotePath}`],
-      { stdio: ["inherit", "pipe", "pipe"], env: sanitizedEnv() },
+      ["-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new", localPath, `root@${ip}:${remotePath}`],
+      { stdio: ["ignore", "pipe", "pipe"], env: sanitizedEnv() },
     );
     let stderr = "";
     child.stderr?.on("data", (data: Buffer) => {
@@ -162,6 +177,14 @@ export function scpUpload(
     });
     child.on("close", (code) => resolve({ code: code ?? 1, stderr }));
     child.on("error", (err) => resolve({ code: 1, stderr: err.message }));
+
+    const timer = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error(`SCP upload timeout after ${timeoutMs}ms`));
+    }, timeoutMs);
+    // Clear timer when the process exits normally
+    child.on("close", () => clearTimeout(timer));
+    child.on("error", () => clearTimeout(timer));
   });
 }
 

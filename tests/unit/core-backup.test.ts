@@ -442,7 +442,12 @@ describe("SCP security hardening (SEC-01, SEC-02)", () => {
 
       const promise = scpDownload("1.2.3.4", "/tmp/file.gz", "/local/file.gz");
       jest.advanceTimersByTime(300_001);
-      await expect(promise).rejects.toThrow(/timeout/i);
+      // Flush microtasks so the rejection propagates before we check
+      await Promise.resolve();
+      let caughtError: Error | undefined;
+      await promise.catch((e: Error) => { caughtError = e; });
+      expect(caughtError).toBeDefined();
+      expect(caughtError!.message).toMatch(/timeout/i);
       jest.useRealTimers();
     });
 
@@ -457,6 +462,7 @@ describe("SCP security hardening (SEC-01, SEC-02)", () => {
 
       const promise = scpDownload("1.2.3.4", "/tmp/file.gz", "/local/file.gz");
       jest.advanceTimersByTime(300_001);
+      await Promise.resolve();
       await promise.catch(() => {});
       expect(hangingProc.kill).toHaveBeenCalledWith("SIGTERM");
       jest.useRealTimers();
@@ -490,7 +496,12 @@ describe("SCP security hardening (SEC-01, SEC-02)", () => {
 
       const promise = scpUpload("1.2.3.4", "/local/file.gz", "/tmp/file.gz");
       jest.advanceTimersByTime(300_001);
-      await expect(promise).rejects.toThrow(/timeout/i);
+      // Flush microtasks so the rejection propagates before we check
+      await Promise.resolve();
+      let caughtError: Error | undefined;
+      await promise.catch((e: Error) => { caughtError = e; });
+      expect(caughtError).toBeDefined();
+      expect(caughtError!.message).toMatch(/timeout/i);
       jest.useRealTimers();
     });
 
@@ -505,6 +516,7 @@ describe("SCP security hardening (SEC-01, SEC-02)", () => {
 
       const promise = scpUpload("1.2.3.4", "/local/file.gz", "/tmp/file.gz");
       jest.advanceTimersByTime(300_001);
+      await Promise.resolve();
       await promise.catch(() => {});
       expect(hangingProc.kill).toHaveBeenCalledWith("SIGTERM");
       jest.useRealTimers();
