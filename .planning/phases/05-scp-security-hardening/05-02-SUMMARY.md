@@ -92,6 +92,14 @@ None - no external service configuration required.
 - Phase 05-02 (this plan) is fully complete
 - Phase 6 (init.ts extract) can follow after Phase 5 completion
 
+## Self-Check: PASSED
+
+- src/core/tokens.ts: FOUND
+- tests/unit/core-tokens.test.ts: FOUND
+- .planning/phases/05-scp-security-hardening/05-02-SUMMARY.md: FOUND
+- commit 6cefcf8 (feat): FOUND
+- commit afca551 (docs): FOUND
+
 ---
 *Phase: 05-scp-security-hardening*
 *Completed: 2026-03-02*
