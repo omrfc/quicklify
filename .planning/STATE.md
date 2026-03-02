@@ -3,6 +3,19 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
+last_updated: "2026-03-02T07:57:26.491Z"
+progress:
+  total_phases: 2
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: unknown
 last_updated: "2026-03-02T07:54:07.141Z"
 progress:
   total_phases: 2
@@ -37,12 +50,12 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 
 ## Current Position
 
-Phase: 5 of 6 (SCP Security Hardening) — IN PROGRESS
-Plan: 2 of 2 complete (Phase 5 Plan 02 complete; Plan 01 GREEN implementation pending)
-Status: Phase 5 Plan 02 done; Phase 5 Plan 01 GREEN phase and Phase 6 remain
-Last activity: 2026-03-02 — Phase 5 Plan 02 executed (getProviderToken whitespace hardening)
+Phase: 5 of 6 (SCP Security Hardening) — COMPLETE
+Plan: 2 of 2 complete
+Status: Phase 5 fully done (both Plans 01 and 02 complete); Phase 6 (init.ts Extract) remains
+Last activity: 2026-03-02 — Phase 5 Plan 01 executed (SCP stdin=ignore, BatchMode=yes, timeout)
 
-Progress: [█████░░░░░] 50%
+Progress: [████████░░] 67%
 
 ## Performance Metrics
 
@@ -59,6 +72,7 @@ Progress: [█████░░░░░] 50%
 
 *Updated after each plan completion*
 | Phase 05-scp-security-hardening P02 | 5min | 2 tasks | 2 files |
+| Phase 05-scp-security-hardening P01 | 7 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -77,6 +91,9 @@ Recent decisions affecting current work:
 - SupportedProvider type exported from constants.ts, not types/index.ts (co-located with registry)
 - [Phase 05-scp-security-hardening]: Use trimmed || undefined (not ?? undefined) in getProviderToken() — || treats empty string as falsy, ?? would pass empty string through (the bug being fixed)
 - [Phase 05-scp-security-hardening]: Token sanitization applied once at getProviderToken() boundary, not at call sites — DRY and consistent
+- [Phase 05-01]: Error message uses 'timeout' not 'timed out' to match /timeout/i regex in tests
+- [Phase 05-01]: timeoutMs is optional 4th param in scpDownload/scpUpload for testability — existing callers unaffected
+- [Phase 05-01]: SEC-01: stdin='ignore' prevents MCP JSON-RPC stream corruption; SEC-02: BatchMode+timeout prevents CLI hang
 
 ### Pending Todos
 
@@ -89,5 +106,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 05-02-PLAN.md (getProviderToken whitespace hardening) + created 05-02-SUMMARY.md
+Stopped at: Completed 05-01-PLAN.md (SCP security hardening — stdin ignore, BatchMode=yes, 5-min timeout) + created 05-01-SUMMARY.md
 Resume file: None
