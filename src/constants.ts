@@ -56,6 +56,9 @@ export const COOLIFY_MIN_WAIT: Record<string, number> = {
 export const BOOT_MAX_ATTEMPTS = 30;
 export const BOOT_INTERVAL = 1000;
 
+// SCP file transfer timeout — prevents CLI hang on network failures (MCP + interactive mode)
+export const SCP_TIMEOUT_MS = 300_000; // 5 minutes
+
 // Coolify commands
 export const COOLIFY_UPDATE_CMD = "curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash";
 export const COOLIFY_RESTART_CMD =

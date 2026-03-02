@@ -11,6 +11,8 @@ import {
   formatTimestamp,
   getBackupDir,
   loadManifest,
+  scpDownload,
+  scpUpload,
 } from "../../src/core/backup";
 
 jest.mock("fs", () => ({
@@ -403,6 +405,109 @@ describe("core/backup — bare backup/restore", () => {
 
       const result = await restoreBareBackup("1.2.3.4", "bare-server", "2026-02-28_08-00-00-000");
       expect(result.success).toBe(false);
+    });
+  });
+});
+
+describe("SCP security hardening (SEC-01, SEC-02)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("scpDownload", () => {
+    it("should spawn with stdio[0] === 'ignore' (not 'inherit')", async () => {
+      mockedSpawn.mockReturnValue(createMockProcess(0));
+      await scpDownload("1.2.3.4", "/tmp/file.gz", "/local/file.gz");
+      const [, , opts] = mockedSpawn.mock.calls[0];
+      expect((opts as any).stdio[0]).toBe("ignore");
+    });
+
+    it("should include -o BatchMode=yes in SCP args", async () => {
+      mockedSpawn.mockReturnValue(createMockProcess(0));
+      await scpDownload("1.2.3.4", "/tmp/file.gz", "/local/file.gz");
+      const [, args] = mockedSpawn.mock.calls[0];
+      const argsStr = (args as string[]).join(" ");
+      expect(argsStr).toContain("BatchMode=yes");
+    });
+
+    it("should reject with timeout error when SCP hangs", async () => {
+      jest.useFakeTimers();
+      // Process that never closes
+      const hangingProc = new EventEmitter() as any;
+      hangingProc.stdout = new EventEmitter();
+      hangingProc.stderr = new EventEmitter();
+      hangingProc.stdin = null;
+      hangingProc.kill = jest.fn();
+      mockedSpawn.mockReturnValue(hangingProc);
+
+      const promise = scpDownload("1.2.3.4", "/tmp/file.gz", "/local/file.gz");
+      jest.advanceTimersByTime(300_001);
+      await expect(promise).rejects.toThrow(/timeout/i);
+      jest.useRealTimers();
+    });
+
+    it("should kill the child process (SIGTERM) on timeout", async () => {
+      jest.useFakeTimers();
+      const hangingProc = new EventEmitter() as any;
+      hangingProc.stdout = new EventEmitter();
+      hangingProc.stderr = new EventEmitter();
+      hangingProc.stdin = null;
+      hangingProc.kill = jest.fn();
+      mockedSpawn.mockReturnValue(hangingProc);
+
+      const promise = scpDownload("1.2.3.4", "/tmp/file.gz", "/local/file.gz");
+      jest.advanceTimersByTime(300_001);
+      await promise.catch(() => {});
+      expect(hangingProc.kill).toHaveBeenCalledWith("SIGTERM");
+      jest.useRealTimers();
+    });
+  });
+
+  describe("scpUpload", () => {
+    it("should spawn with stdio[0] === 'ignore' (not 'inherit')", async () => {
+      mockedSpawn.mockReturnValue(createMockProcess(0));
+      await scpUpload("1.2.3.4", "/local/file.gz", "/tmp/file.gz");
+      const [, , opts] = mockedSpawn.mock.calls[0];
+      expect((opts as any).stdio[0]).toBe("ignore");
+    });
+
+    it("should include -o BatchMode=yes in SCP args", async () => {
+      mockedSpawn.mockReturnValue(createMockProcess(0));
+      await scpUpload("1.2.3.4", "/local/file.gz", "/tmp/file.gz");
+      const [, args] = mockedSpawn.mock.calls[0];
+      const argsStr = (args as string[]).join(" ");
+      expect(argsStr).toContain("BatchMode=yes");
+    });
+
+    it("should reject with timeout error when SCP hangs", async () => {
+      jest.useFakeTimers();
+      const hangingProc = new EventEmitter() as any;
+      hangingProc.stdout = new EventEmitter();
+      hangingProc.stderr = new EventEmitter();
+      hangingProc.stdin = null;
+      hangingProc.kill = jest.fn();
+      mockedSpawn.mockReturnValue(hangingProc);
+
+      const promise = scpUpload("1.2.3.4", "/local/file.gz", "/tmp/file.gz");
+      jest.advanceTimersByTime(300_001);
+      await expect(promise).rejects.toThrow(/timeout/i);
+      jest.useRealTimers();
+    });
+
+    it("should kill the child process (SIGTERM) on timeout", async () => {
+      jest.useFakeTimers();
+      const hangingProc = new EventEmitter() as any;
+      hangingProc.stdout = new EventEmitter();
+      hangingProc.stderr = new EventEmitter();
+      hangingProc.stdin = null;
+      hangingProc.kill = jest.fn();
+      mockedSpawn.mockReturnValue(hangingProc);
+
+      const promise = scpUpload("1.2.3.4", "/local/file.gz", "/tmp/file.gz");
+      jest.advanceTimersByTime(300_001);
+      await promise.catch(() => {});
+      expect(hangingProc.kill).toHaveBeenCalledWith("SIGTERM");
+      jest.useRealTimers();
     });
   });
 });
