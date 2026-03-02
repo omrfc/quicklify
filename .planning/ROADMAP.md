@@ -55,7 +55,10 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
   2. `grep -rn 'function stripSensitiveData' src/providers/` returns only one match: `src/providers/base.ts`
   3. All 2047+ existing tests pass without modification
   4. Build succeeds and ESLint reports zero errors
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 04-01-PLAN.md — Centralize SUPPORTED_PROVIDERS and PROVIDER_ENV_KEYS in constants.ts
+- [ ] 04-02-PLAN.md — Consolidate stripSensitiveData() into providers/base.ts
 
 ### Phase 5: SCP Security Hardening
 **Goal**: SCP operations are safe for MCP mode (no stdin leak, no hang) and token inputs are always sanitized before use
@@ -90,10 +93,10 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 | 1. CLI/Core Refactor | v1.2.0 | 5/5 | Complete | 2026-02-28 |
 | 2. Bare Mode | v1.2.0 | 4/4 | Complete | 2026-02-28 |
 | 3. MCP Refactor | v1.2.0 | 3/3 | Complete | 2026-02-28 |
-| 4. Provider & Utility Consolidation | v1.2.1 | 0/TBD | Not started | - |
+| 4. Provider & Utility Consolidation | v1.2.1 | 0/2 | Planning done | - |
 | 5. SCP Security Hardening | v1.2.1 | 0/TBD | Not started | - |
 | 6. init.ts Extract | v1.2.1 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-03-02 — v1.2.1 milestone phases 4-6 added*
+*Last updated: 2026-03-02 — Phase 4 plans created (2 plans, 1 wave)*
