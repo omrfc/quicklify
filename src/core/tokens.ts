@@ -3,7 +3,9 @@ import { PROVIDER_ENV_KEYS } from "../constants.js";
 
 export function getProviderToken(provider: string): string | undefined {
   const envKey = PROVIDER_ENV_KEYS[provider as keyof typeof PROVIDER_ENV_KEYS];
-  return envKey ? process.env[envKey] : undefined;
+  const raw = envKey ? process.env[envKey] : undefined;
+  const trimmed = raw?.trim();
+  return trimmed || undefined;
 }
 
 export function collectProviderTokensFromEnv(

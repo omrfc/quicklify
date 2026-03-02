@@ -39,6 +39,31 @@ describe("getProviderToken", () => {
   it("should return undefined for unknown provider", () => {
     expect(getProviderToken("aws")).toBeUndefined();
   });
+
+  it("should return undefined when env var is whitespace-only (spaces)", () => {
+    process.env.HETZNER_TOKEN = "   ";
+    expect(getProviderToken("hetzner")).toBeUndefined();
+  });
+
+  it("should return undefined when env var is whitespace-only (tab + newline)", () => {
+    process.env.HETZNER_TOKEN = "\t\n";
+    expect(getProviderToken("hetzner")).toBeUndefined();
+  });
+
+  it("should return trimmed token when env var has leading whitespace", () => {
+    process.env.HETZNER_TOKEN = "  actual-token";
+    expect(getProviderToken("hetzner")).toBe("actual-token");
+  });
+
+  it("should return trimmed token when env var has trailing whitespace", () => {
+    process.env.HETZNER_TOKEN = "actual-token  ";
+    expect(getProviderToken("hetzner")).toBe("actual-token");
+  });
+
+  it("should return trimmed token when env var has surrounding whitespace", () => {
+    process.env.HETZNER_TOKEN = "  actual-token\n";
+    expect(getProviderToken("hetzner")).toBe("actual-token");
+  });
 });
 
 describe("collectProviderTokensFromEnv", () => {
