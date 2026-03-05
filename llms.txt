@@ -1,16 +1,16 @@
-# Quicklify
+# Kastell
 
-> Your self-hosted PaaS, fully managed. Deploy, secure, back up — one command at a time.
+> Autonomous security and maintenance layer for self-hosted infrastructure.
 
-Quicklify is an open-source CLI tool that automates the deployment, security, backup, and maintenance of self-hosted platforms on cloud VPS providers. Supports two modes: **Coolify** (self-hosted PaaS) and **Bare** (generic VPS without Coolify).
+Kastell is an open-source CLI tool that automates the deployment, security, backup, and maintenance of self-hosted platforms on cloud VPS providers. Supports two modes: **Coolify** (self-hosted PaaS) and **Bare** (generic VPS without Coolify).
 
 ## Installation
 
 ```bash
-npx quicklify            # Interactive menu (recommended)
-npx quicklify <command>  # Direct command
+npx kastell            # Interactive menu (recommended)
+npx kastell <command>  # Direct command
 # or
-npm install -g quicklify
+npm install -g kastell
 ```
 
 Requires Node.js 20+.
@@ -23,60 +23,60 @@ Requires Node.js 20+.
 | `bare` | Generic VPS with hardening only | Custom setups, n8n, Node.js, etc. |
 
 ```bash
-quicklify init --mode bare --provider hetzner   # Generic VPS
-quicklify add --mode bare                       # Register existing VPS
+kastell init --mode bare --provider hetzner   # Generic VPS
+kastell add --mode bare                       # Register existing VPS
 ```
 
 ## Commands (23 total)
 
 ### Deploy
-- `quicklify init` — Deploy a new server (interactive or non-interactive)
-  - `--provider <name>` — hetzner, digitalocean, vultr, linode
-  - `--mode <mode>` — coolify (default), bare
-  - `--token <token>` — API token (or use env vars: HETZNER_TOKEN, DIGITALOCEAN_TOKEN, etc.)
-  - `--region <region>` — Server region
-  - `--size <size>` — Server size
-  - `--name <name>` — Server name
-  - `--config <path>` — Load from YAML config file
-  - `--template <name>` — starter, production, dev
-  - `--full-setup` — Auto-configure firewall + SSH hardening
-  - `--no-open` — Do not open browser after deployment
+- `kastell init` -- Deploy a new server (interactive or non-interactive)
+  - `--provider <name>` -- hetzner, digitalocean, vultr, linode
+  - `--mode <mode>` -- coolify (default), bare
+  - `--token <token>` -- API token (or use env vars: HETZNER_TOKEN, DIGITALOCEAN_TOKEN, etc.)
+  - `--region <region>` -- Server region
+  - `--size <size>` -- Server size
+  - `--name <name>` -- Server name
+  - `--config <path>` -- Load from YAML config file
+  - `--template <name>` -- starter, production, dev
+  - `--full-setup` -- Auto-configure firewall + SSH hardening
+  - `--no-open` -- Do not open browser after deployment
 
 ### Server Management
-- `quicklify list` — List all registered servers (shows mode per server)
-- `quicklify status [query]` — Check server status (`--all`, `--autostart`)
-- `quicklify ssh [query]` — SSH into a server (`-c <command>`)
-- `quicklify restart [query]` — Restart a server via provider API
-- `quicklify destroy [query]` — Destroy a cloud server (with confirmation)
-- `quicklify add` — Add an existing server (`--mode bare`, `--skip-verify`)
-- `quicklify remove [query]` — Remove from local config (no cloud action)
-- `quicklify config [subcommand]` — Manage default configuration
-- `quicklify export [path]` — Export server list to JSON
-- `quicklify import <path>` — Import servers from JSON
+- `kastell list` -- List all registered servers (shows mode per server)
+- `kastell status [query]` -- Check server status (`--all`, `--autostart`)
+- `kastell ssh [query]` -- SSH into a server (`-c <command>`)
+- `kastell restart [query]` -- Restart a server via provider API
+- `kastell destroy [query]` -- Destroy a cloud server (with confirmation)
+- `kastell add` -- Add an existing server (`--mode bare`, `--skip-verify`)
+- `kastell remove [query]` -- Remove from local config (no cloud action)
+- `kastell config [subcommand]` -- Manage default configuration
+- `kastell export [path]` -- Export server list to JSON
+- `kastell import <path>` -- Import servers from JSON
 
 ### Update & Maintain
-- `quicklify update [query]` — Update Coolify (`--all`) — Coolify mode only
-- `quicklify maintain [query]` — Full maintenance cycle (`--all`, `--skip-reboot`, `--dry-run`) — Coolify mode only
+- `kastell update [query]` -- Update Coolify (`--all`) -- Coolify mode only
+- `kastell maintain [query]` -- Full maintenance cycle (`--all`, `--skip-reboot`, `--dry-run`) -- Coolify mode only
 
 ### Backup & Restore
-- `quicklify backup [query]` — Backup DB + config via SCP (`--all`, `--dry-run`)
-- `quicklify restore [query]` — Restore from backup (`--backup <timestamp>`, `--dry-run`)
+- `kastell backup [query]` -- Backup DB + config via SCP (`--all`, `--dry-run`)
+- `kastell restore [query]` -- Restore from backup (`--backup <timestamp>`, `--dry-run`)
 
 ### Snapshots
-- `quicklify snapshot create [query]` — Create VPS snapshot with cost estimate
-- `quicklify snapshot list [query]` — List snapshots (`--all`)
-- `quicklify snapshot delete [query]` — Delete a snapshot
+- `kastell snapshot create [query]` -- Create VPS snapshot with cost estimate
+- `kastell snapshot list [query]` -- List snapshots (`--all`)
+- `kastell snapshot delete [query]` -- Delete a snapshot
 
 ### Security
-- `quicklify firewall <subcommand> [query]` — Manage UFW (setup, add, remove, list, status)
-- `quicklify domain <subcommand> [query]` — Manage domain + SSL (add, remove, check, list)
-- `quicklify secure <subcommand> [query]` — SSH hardening + fail2ban (setup, status, audit)
+- `kastell firewall <subcommand> [query]` -- Manage UFW (setup, add, remove, list, status)
+- `kastell domain <subcommand> [query]` -- Manage domain + SSL (add, remove, check, list)
+- `kastell secure <subcommand> [query]` -- SSH hardening + fail2ban (setup, status, audit)
 
 ### Diagnostics
-- `quicklify monitor [query]` — CPU, RAM, disk usage (`--containers`)
-- `quicklify logs [query]` — View logs (`-f` follow, `-s` service, `-n` lines)
-- `quicklify health` — Health check all servers
-- `quicklify doctor` — Check local environment (`--check-tokens`)
+- `kastell monitor [query]` -- CPU, RAM, disk usage (`--containers`)
+- `kastell logs [query]` -- View logs (`-f` follow, `-s` service, `-n` lines)
+- `kastell health` -- Health check all servers
+- `kastell doctor` -- Check local environment (`--check-tokens`)
 
 ## Supported Providers
 
@@ -91,7 +91,7 @@ quicklify add --mode bare                       # Register existing VPS
 
 Built-in Model Context Protocol server for AI-powered server management. Works with Claude Code, Cursor, Windsurf, and other MCP-compatible clients.
 
-**Binary**: `quicklify-mcp` (stdio transport)
+**Binary**: `kastell-mcp` (stdio transport)
 
 ### Available Tools (7)
 
@@ -107,16 +107,16 @@ Built-in Model Context Protocol server for AI-powered server management. Works w
 
 ### SAFE_MODE (default: enabled)
 
-Destructive operations blocked by default: `destroy`, `restore`, `snapshot-delete`, `provision`, `restart`, `maintain`, `snapshot-create`. Set `QUICKLIFY_SAFE_MODE=false` to enable.
+Destructive operations blocked by default: `destroy`, `restore`, `snapshot-delete`, `provision`, `restart`, `maintain`, `snapshot-create`. Set `KASTELL_SAFE_MODE=false` to enable.
 
 ### MCP Configuration
 
 ```json
 {
   "mcpServers": {
-    "quicklify": {
+    "kastell": {
       "command": "npx",
-      "args": ["-y", "-p", "quicklify", "quicklify-mcp"],
+      "args": ["-y", "-p", "kastell", "kastell-mcp"],
       "env": {
         "HETZNER_TOKEN": "your-token",
         "DIGITALOCEAN_TOKEN": "your-token",
@@ -137,17 +137,17 @@ Destructive operations blocked by default: `destroy`, `restore`, `snapshot-delet
 - **Logging**: Chalk + Ora (spinners)
 - **Config**: YAML (js-yaml) + JSON
 - **MCP**: @modelcontextprotocol/sdk + Zod (input validation)
-- **Config Storage**: `~/.quicklify/` (servers.json, config.json, backups/)
+- **Config Storage**: `~/.kastell/` (servers.json, config.json, backups/)
 - **Testing**: Jest (2,099 tests, 78 suites, ~95% coverage)
 - **Linting**: ESLint 10 + typescript-eslint + Prettier
 
 ## Security Model
 
-- API tokens NEVER stored on disk — runtime prompt or env vars only
+- API tokens NEVER stored on disk -- runtime prompt or env vars only
 - SSH: IP validation (`assertValidIp`), env filtering (`sanitizedEnv`), StrictHostKeyChecking
 - Shell injection protection on all inputs (spawn/spawnSync, no execSync)
-- Provider errors sanitized (`stripSensitiveData`) — no token leakage
-- stderr sanitization (`sanitizeStderr`) — redacts IPs, paths, tokens, secrets
+- Provider errors sanitized (`stripSensitiveData`) -- no token leakage
+- stderr sanitization (`sanitizeStderr`) -- redacts IPs, paths, tokens, secrets
 - Path traversal protection (`assertSafePath`) on backup/restore paths
 - YAML config: 22+ security key patterns detected and warned
 - Import/export: sensitive field stripping + strict file permissions (0o600)
@@ -156,6 +156,7 @@ Destructive operations blocked by default: `destroy`, `restore`, `snapshot-delet
 ## Links
 
 - Repository: https://github.com/omrfc/quicklify
-- npm: https://www.npmjs.com/package/quicklify
+- npm: https://www.npmjs.com/package/kastell
+- Website: https://kastell.dev
 - Issues: https://github.com/omrfc/quicklify/issues
-- License: MIT
+- License: Apache-2.0

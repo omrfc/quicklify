@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-03-05
+
+### Breaking Changes
+- **Package renamed**: `quicklify` is now `kastell` on npm. Install with `npm install -g kastell`
+- **Binary renamed**: `quicklify` CLI is now `kastell`, `quicklify-mcp` is now `kastell-mcp`
+- **License changed**: MIT -> Apache License 2.0 (patent protection added)
+
+### Added
+- **Config migration**: Automatic migration from `~/.quicklify` to `~/.kastell` on first run (copies entire directory, `.migrated` flag prevents re-migration)
+- **NOTICE file**: Apache 2.0 attribution notice added
+
+### Changed
+- **Package identity**: name `kastell`, version `1.3.0`, homepage `https://kastell.dev`
+- **Environment variable**: `KASTELL_SAFE_MODE` is now the primary env var for MCP safe mode. `QUICKLIFY_SAFE_MODE` still works with a one-time deprecation warning (backward compat until v2.0)
+- **Internal types**: `QuicklifyYamlConfig` -> `KastellYamlConfig`, `QuicklifyConfig` -> `KastellConfig`, `QuicklifyResult` -> `KastellResult`
+- **Config directory**: `~/.quicklify/` -> `~/.kastell/` (automatic migration on first run)
+- **SSH key prefix**: `quicklify-` -> `kastell-` for auto-generated SSH keys
+- **Snapshot prefix**: `quicklify-` -> `kastell-` for new snapshots (existing `quicklify-*` snapshots still recognized via dual-prefix filter)
+- **Export filename**: Default export changed from `quicklify-export.json` to `kastell-export.json`
+- **Update check**: Now queries `registry.npmjs.org/kastell/latest`
+- **All documentation**: README.md, README.tr.md, SECURITY.md, CONTRIBUTING.md, llms.txt updated to Kastell branding
+- **Example config**: `quicklify.yml` renamed to `kastell.yml`
+- **MCP config**: Server name changed from `quicklify` to `kastell`
+
+### Deprecated
+- `quicklify` npm package (will show deprecation notice pointing to `kastell`)
+- `QUICKLIFY_SAFE_MODE` env var (use `KASTELL_SAFE_MODE` instead, removed in v2.0)
+
 ## [1.2.1] - 2026-03-02
 
 ### Security

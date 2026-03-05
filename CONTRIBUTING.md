@@ -1,4 +1,4 @@
-# Contributing to Quicklify
+# Contributing to Kastell
 
 Thanks for your interest in contributing! This guide will help you get started.
 
@@ -8,7 +8,7 @@ Thanks for your interest in contributing! This guide will help you get started.
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/quicklify.git
-cd quicklify
+cd kastell
 ```
 
 2. **Install Dependencies**
@@ -96,7 +96,7 @@ src/
 │   └── index.ts          # Shared TypeScript types and interfaces
 └── utils/
     ├── cloudInit.ts      # Cloud-init script generator
-    ├── config.ts         # Server record CRUD (~/.quicklify/)
+    ├── config.ts         # Server record CRUD (~/.kastell/)
     ├── configMerge.ts    # Multi-source config merge logic
     ├── defaults.ts       # Default config management
     ├── errorMapper.ts    # Provider/SSH/FS error → actionable hints

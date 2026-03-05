@@ -1,19 +1,19 @@
-# quicklify
+# Kastell
 
-> Your self-hosted PaaS, fully managed. Deploy, secure, back up — one command at a time.
+> Autonomous security and maintenance layer for self-hosted infrastructure.
 
-> English | [Türkçe](README.tr.md)
+> English | [Turkce](README.tr.md)
 
 ![Tests](https://github.com/omrfc/quicklify/actions/workflows/ci.yml/badge.svg)
 [![Coverage](https://codecov.io/gh/omrfc/quicklify/branch/main/graph/badge.svg)](https://codecov.io/gh/omrfc/quicklify)
-![npm](https://img.shields.io/npm/v/quicklify)
-![Downloads](https://img.shields.io/npm/dt/quicklify)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![npm](https://img.shields.io/npm/v/kastell)
+![Downloads](https://img.shields.io/npm/dt/kastell)
+![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 ![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
-[![Socket Badge](https://socket.dev/api/badge/npm/package/quicklify)](https://socket.dev/npm/package/quicklify)
-[![Website](https://img.shields.io/website?url=https%3A%2F%2Fquicklify.omrfc.dev&label=website)](https://quicklify.omrfc.dev)
+[![Socket Badge](https://socket.dev/api/badge/npm/package/kastell)](https://socket.dev/npm/package/kastell)
+[![Website](https://img.shields.io/website?url=https%3A%2F%2Fkastell.dev&label=website)](https://kastell.dev)
 
-## Why Quicklify Exists
+## Why Kastell Exists
 
 Most self-hosted servers break because:
 
@@ -23,21 +23,21 @@ Most self-hosted servers break because:
 - No monitoring
 - No snapshot routine
 
-Stop babysitting your servers. Quicklify was built to fix that.
+Stop babysitting your servers. Kastell was built to fix that.
 
 ## Quick Start
 
 ```bash
-# Interactive mode — no commands to memorize
-npx quicklify
+# Interactive mode -- no commands to memorize
+npx kastell
 ```
 
-Running `quicklify` without any arguments launches an **interactive menu** where you can browse all available actions by category, pick what you need with arrow keys, and configure options step by step — no need to remember any command names or flags.
+Running `kastell` without any arguments launches an **interactive menu** where you can browse all available actions by category, pick what you need with arrow keys, and configure options step by step -- no need to remember any command names or flags.
 
 ```
 ? What would you like to do?
   Server Management
-❯   Deploy a new server
+>   Deploy a new server
     Add an existing server
     List all servers
     Check server status
@@ -48,19 +48,19 @@ Running `quicklify` without any arguments launches an **interactive menu** where
     ...
 ```
 
-Each action includes sub-options (server mode, template, log source, port number, etc.) and a **← Back** option to return to the main menu at any point.
+Each action includes sub-options (server mode, template, log source, port number, etc.) and a **<- Back** option to return to the main menu at any point.
 
 If you already know the commands, you can still use them directly:
 
 ```bash
-quicklify init                    # Deploy a new server
-quicklify status my-server        # Check server status
-quicklify backup --all            # Backup all servers
+kastell init                    # Deploy a new server
+kastell status my-server        # Check server status
+kastell backup --all            # Backup all servers
 ```
 
-Quicklify handles server provisioning, SSH key setup, firewall configuration, and platform installation automatically.
+Kastell handles server provisioning, SSH key setup, firewall configuration, and platform installation automatically.
 
-## What Makes Quicklify Different?
+## What Makes Kastell Different?
 
 | Problem | Solution |
 |---------|----------|
@@ -69,93 +69,93 @@ Quicklify handles server provisioning, SSH key setup, firewall configuration, an
 | Security is an afterthought? | Firewall, SSH hardening, SSL, and security audits built-in |
 | Backups? Maybe someday... | One-command backup & restore with manifest tracking |
 | Managing multiple servers? | `--all` flag across backup, maintain, status, and health |
-| Existing server not tracked? | `quicklify add` brings any server under management |
-| Don't want to memorize commands? | Just run `quicklify` — interactive menu guides you |
+| Existing server not tracked? | `kastell add` brings any server under management |
+| Don't want to memorize commands? | Just run `kastell` -- interactive menu guides you |
 
 ## What Can You Do?
 
 ### Deploy
 ```bash
-quicklify                               # Interactive menu (recommended)
-quicklify init                          # Interactive setup (direct)
-quicklify init --provider hetzner       # Non-interactive
-quicklify init --config quicklify.yml   # From YAML config
-quicklify init --template production    # Use a template
-quicklify init --mode bare              # Generic VPS (no Coolify)
+kastell                               # Interactive menu (recommended)
+kastell init                          # Interactive setup (direct)
+kastell init --provider hetzner       # Non-interactive
+kastell init --config kastell.yml     # From YAML config
+kastell init --template production    # Use a template
+kastell init --mode bare              # Generic VPS (no Coolify)
 ```
 
 ### Manage
 ```bash
-quicklify list                  # List all servers
-quicklify status my-server      # Check server status
-quicklify status --all          # Check all servers
-quicklify ssh my-server         # SSH into server
-quicklify restart my-server     # Restart server
-quicklify destroy my-server     # Destroy cloud server entirely
-quicklify add                   # Add existing server
-quicklify remove my-server      # Remove from local config
-quicklify config set key value  # Manage default configuration
-quicklify export                # Export server list to JSON
-quicklify import servers.json   # Import servers from JSON
+kastell list                  # List all servers
+kastell status my-server      # Check server status
+kastell status --all          # Check all servers
+kastell ssh my-server         # SSH into server
+kastell restart my-server     # Restart server
+kastell destroy my-server     # Destroy cloud server entirely
+kastell add                   # Add existing server
+kastell remove my-server      # Remove from local config
+kastell config set key value  # Manage default configuration
+kastell export                # Export server list to JSON
+kastell import servers.json   # Import servers from JSON
 ```
 
 ### Update & Maintain
 ```bash
-quicklify update my-server      # Update Coolify (Coolify servers)
-quicklify maintain my-server    # Full maintenance (snapshot + update + health + reboot)
-quicklify maintain --all        # Maintain all servers
+kastell update my-server      # Update Coolify (Coolify servers)
+kastell maintain my-server    # Full maintenance (snapshot + update + health + reboot)
+kastell maintain --all        # Maintain all servers
 ```
 
 ### Back Up & Restore
 ```bash
-quicklify backup my-server      # Backup DB + config
-quicklify backup --all          # Backup all servers
-quicklify restore my-server     # Restore from backup
+kastell backup my-server      # Backup DB + config
+kastell backup --all          # Backup all servers
+kastell restore my-server     # Restore from backup
 ```
 
 ### Snapshots
 ```bash
-quicklify snapshot create my-server   # Create VPS snapshot (with cost estimate)
-quicklify snapshot list my-server     # List snapshots
-quicklify snapshot list --all         # List all snapshots across servers
-quicklify snapshot delete my-server   # Delete a snapshot
+kastell snapshot create my-server   # Create VPS snapshot (with cost estimate)
+kastell snapshot list my-server     # List snapshots
+kastell snapshot list --all         # List all snapshots across servers
+kastell snapshot delete my-server   # Delete a snapshot
 ```
 
 ### Security
 ```bash
-quicklify firewall status my-server   # Check firewall
-quicklify firewall setup my-server    # Configure UFW
-quicklify secure audit my-server      # Security audit
-quicklify secure setup my-server      # SSH hardening + fail2ban
-quicklify domain add my-server --domain example.com  # Set domain + SSL
+kastell firewall status my-server   # Check firewall
+kastell firewall setup my-server    # Configure UFW
+kastell secure audit my-server      # Security audit
+kastell secure setup my-server      # SSH hardening + fail2ban
+kastell domain add my-server --domain example.com  # Set domain + SSL
 ```
 
 ### Monitor & Debug
 ```bash
-quicklify monitor my-server             # CPU, RAM, disk usage
-quicklify logs my-server                 # View server logs
-quicklify logs my-server -f              # Follow logs
-quicklify health                         # Health check all servers
-quicklify doctor                         # Check local environment
+kastell monitor my-server             # CPU, RAM, disk usage
+kastell logs my-server                 # View server logs
+kastell logs my-server -f              # Follow logs
+kastell health                         # Health check all servers
+kastell doctor                         # Check local environment
 ```
 
 ## Supported Providers
 
 | Provider | Status | Regions | Starting Price |
 |----------|--------|---------|---------------|
-| [Hetzner Cloud](https://hetzner.cloud) | Stable | EU, US | ~€4/mo |
+| [Hetzner Cloud](https://hetzner.cloud) | Stable | EU, US | ~EUR4/mo |
 | [DigitalOcean](https://digitalocean.com) | Stable | Global | ~$18/mo |
 | [Vultr](https://vultr.com) | Stable | Global | ~$10/mo |
 | [Linode (Akamai)](https://linode.com) | Beta | Global | ~$24/mo |
 
-> Prices reflect the default starter template per provider. You can choose a different size during setup. Linode support is in beta — community testing welcome.
+> Prices reflect the default starter template per provider. You can choose a different size during setup. Linode support is in beta -- community testing welcome.
 
 ## YAML Config
 
 Deploy with a single config file:
 
 ```yaml
-# quicklify.yml
+# kastell.yml
 provider: hetzner
 region: nbg1
 size: cax11
@@ -165,26 +165,26 @@ domain: coolify.example.com
 ```
 
 ```bash
-quicklify init --config quicklify.yml
+kastell init --config kastell.yml
 ```
 
 ## Templates
 
 | Template | Best For | Includes |
 |----------|----------|----------|
-| `starter` | Testing, side projects | 1–2 vCPU, 2–4 GB RAM |
-| `production` | Live applications | 2–4 vCPU, 4–8 GB RAM, full hardening |
+| `starter` | Testing, side projects | 1-2 vCPU, 2-4 GB RAM |
+| `production` | Live applications | 2-4 vCPU, 4-8 GB RAM, full hardening |
 | `dev` | Development & CI/CD | Same as starter, no hardening |
 
 ```bash
-quicklify init --template production --provider hetzner
+kastell init --template production --provider hetzner
 ```
 
 ## Security
 
-Quicklify is built with security as a priority — **2,099 tests** across 78 suites, including dedicated security test suites.
+Kastell is built with security as a priority -- **2,099 tests** across 78 suites, including dedicated security test suites.
 
-- API tokens are never stored on disk — prompted at runtime or via environment variables
+- API tokens are never stored on disk -- prompted at runtime or via environment variables
 - SSH keys are auto-generated if needed (Ed25519)
 - All SSH connections use `StrictHostKeyChecking=accept-new` with IP validation (octet range) and environment filtering
 - Shell injection protection on all user-facing inputs (`spawn`/`spawnSync`, no `execSync`)
@@ -199,11 +199,11 @@ Quicklify is built with security as a priority — **2,099 tests** across 78 sui
 
 ```bash
 # Run directly (recommended)
-npx quicklify <command>
+npx kastell <command>
 
 # Or install globally
-npm install -g quicklify
-quicklify <command>
+npm install -g kastell
+kastell <command>
 ```
 
 Requires Node.js 20 or later.
@@ -211,13 +211,13 @@ Requires Node.js 20 or later.
 ## Troubleshooting
 
 **Server creation fails?**
-Run `quicklify doctor --check-tokens` to verify your API token and local environment.
+Run `kastell doctor --check-tokens` to verify your API token and local environment.
 
 **Server not responding?**
-Use `quicklify status my-server --autostart` for Coolify servers, or `quicklify health` to check all servers at once.
+Use `kastell status my-server --autostart` for Coolify servers, or `kastell health` to check all servers at once.
 
 **Need to start fresh?**
-`quicklify destroy my-server` removes the cloud server entirely.
+`kastell destroy my-server` removes the cloud server entirely.
 
 ## Contributing
 
@@ -225,14 +225,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and contr
 
 ## MCP Server (AI Integration)
 
-Quicklify includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server for AI-powered server management. Works with Claude Code, Cursor, Windsurf, and other MCP-compatible clients.
+Kastell includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server for AI-powered server management. Works with Claude Code, Cursor, Windsurf, and other MCP-compatible clients.
 
 ```json
 {
   "mcpServers": {
-    "quicklify": {
+    "kastell": {
       "command": "npx",
-      "args": ["-y", "-p", "quicklify", "quicklify-mcp"],
+      "args": ["-y", "-p", "kastell", "kastell-mcp"],
       "env": {
         "HETZNER_TOKEN": "your-token",
         "DIGITALOCEAN_TOKEN": "your-token",
@@ -267,16 +267,16 @@ Available tools:
 
 > Infrastructure should be boring, predictable, and safe.
 
-Quicklify is not a script. It's your DevOps safety layer for self-hosted infrastructure.
+Kastell is not a script. It's your DevOps safety layer for self-hosted infrastructure.
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+Apache 2.0 -- see [LICENSE](LICENSE)
 
 ## Support
 
-- [GitHub Issues](https://github.com/omrfc/quicklify/issues) — Bug reports and feature requests
-- [Changelog](CHANGELOG.md) — Version history
+- [GitHub Issues](https://github.com/omrfc/quicklify/issues) -- Bug reports and feature requests
+- [Changelog](CHANGELOG.md) -- Version history
 
 ---
 

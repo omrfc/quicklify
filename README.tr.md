@@ -1,43 +1,43 @@
-# quicklify
+# Kastell
 
-> Self-hosted PaaS'ınız, tamamen yönetilen. Deploy, güvenlik, yedekleme — tek komutla.
+> Self-hosted altyapiniz icin otonom guvenlik ve bakim katmani.
 
-> [English](README.md) | Türkçe
+> [English](README.md) | Turkce
 
 ![Tests](https://github.com/omrfc/quicklify/actions/workflows/ci.yml/badge.svg)
 [![Coverage](https://codecov.io/gh/omrfc/quicklify/branch/main/graph/badge.svg)](https://codecov.io/gh/omrfc/quicklify)
-![npm](https://img.shields.io/npm/v/quicklify)
-![Downloads](https://img.shields.io/npm/dt/quicklify)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![npm](https://img.shields.io/npm/v/kastell)
+![Downloads](https://img.shields.io/npm/dt/kastell)
+![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 ![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
-[![Socket Badge](https://socket.dev/api/badge/npm/package/quicklify)](https://socket.dev/npm/package/quicklify)
-[![Website](https://img.shields.io/website?url=https%3A%2F%2Fquicklify.omrfc.dev&label=website)](https://quicklify.omrfc.dev)
+[![Socket Badge](https://socket.dev/api/badge/npm/package/kastell)](https://socket.dev/npm/package/kastell)
+[![Website](https://img.shields.io/website?url=https%3A%2F%2Fkastell.dev&label=website)](https://kastell.dev)
 
-## Quicklify Neden Var?
+## Kastell Neden Var?
 
-Self-hosted sunucuların çoğu şu nedenlerle çöker:
+Self-hosted sunucularin cogu su nedenlerle coker:
 
 - Yedekleme disiplini yok
-- Güncelleme stratejisi yok
-- Güvenlik sıkılaştırması yok
-- İzleme yok
+- Guncelleme stratejisi yok
+- Guvenlik sikilastirmasi yok
+- Izleme yok
 - Snapshot rutini yok
 
-Sunucularınıza çocuk bakıcılığı yapmayı bırakın. Quicklify bunu çözmek için yapıldı.
+Sunuculariniza cocuk bakiciligi yapmayi birakin. Kastell bunu cozmek icin yapildi.
 
-## Hızlı Başlangıç
+## Hizli Baslangic
 
 ```bash
-# İnteraktif mod — komut ezberlemeye gerek yok
-npx quicklify
+# Interaktif mod -- komut ezberlemeye gerek yok
+npx kastell
 ```
 
-`quicklify` komutunu argümansız çalıştırdığınızda **interaktif bir menü** açılır. Tüm işlemleri kategorilere göre görebilir, ok tuşlarıyla seçim yapabilir ve alt seçenekleri adım adım yapılandırabilirsiniz — komut adı veya flag ezberlemek zorunda değilsiniz.
+`kastell` komutunu argumansiz calistirdiginizda **interaktif bir menu** acilir. Tum islemleri kategorilere gore gorebilir, ok tuslariyla secim yapabilir ve alt secenekleri adim adim yapilandirabilirsiniz -- komut adi veya flag ezberlemek zorunda degilsiniz.
 
 ```
 ? What would you like to do?
   Server Management
-❯   Deploy a new server
+>   Deploy a new server
     Add an existing server
     List all servers
     Check server status
@@ -48,114 +48,114 @@ npx quicklify
     ...
 ```
 
-Her işlem alt seçenekler (sunucu modu, şablon, log kaynağı, port numarası vb.) içerir ve istediğiniz noktada ana menüye dönmek için **← Back** seçeneği sunar.
+Her islem alt secenekler (sunucu modu, sablon, log kaynagi, port numarasi vb.) icerir ve istediginiz noktada ana menuye donmek icin **<- Back** secenegi sunar.
 
-Komutları zaten biliyorsanız, doğrudan da kullanabilirsiniz:
+Komutlari zaten biliyorsaniz, dogrudan da kullanabilirsiniz:
 
 ```bash
-quicklify init                    # Yeni sunucu kur
-quicklify status sunucum          # Sunucu durumunu kontrol et
-quicklify backup --all            # Tüm sunucuları yedekle
+kastell init                    # Yeni sunucu kur
+kastell status sunucum          # Sunucu durumunu kontrol et
+kastell backup --all            # Tum sunuculari yedekle
 ```
 
-Quicklify sunucu oluşturma, SSH anahtar kurulumu, güvenlik duvarı yapılandırması ve platform kurulumunu otomatik yapar.
+Kastell sunucu olusturma, SSH anahtar kurulumu, guvenlik duvari yapilandirmasi ve platform kurulumunu otomatik yapar.
 
-## Quicklify'ı Farklı Kılan Ne?
+## Kastell'i Farkli Kilan Ne?
 
-| Problem | Çözüm |
+| Problem | Cozum |
 |---------|-------|
-| Güncelleme sunucuyu bozdu mu? | `maintain` ile güncelleme öncesi snapshot koruması |
-| Sunucunuz sağlıklı mı bilmiyor musunuz? | Yerleşik izleme, sağlık kontrolleri ve `doctor` tanılama |
-| Güvenlik sonradan mı düşünülüyor? | Güvenlik duvarı, SSH sıkılaştırma, SSL ve güvenlik denetimi hazır |
-| Yedekleme? Belki bir gün... | Tek komutla yedekleme ve geri yükleme, manifest takibiyle |
-| Birden fazla sunucu mu yönetiyorsunuz? | Yedekleme, bakım, durum ve sağlıkta `--all` desteği |
-| Mevcut sunucu takip dışı mı? | `quicklify add` ile her sunucuyu yönetime alın |
-| Komutları ezberlemek mi? | `quicklify` yazın — interaktif menü sizi yönlendirir |
+| Guncelleme sunucuyu bozdu mu? | `maintain` ile guncelleme oncesi snapshot korumasi |
+| Sunucunuz saglikli mi bilmiyor musunuz? | Yerlesik izleme, saglik kontrolleri ve `doctor` tanilama |
+| Guvenlik sonradan mi dusunuluyor? | Guvenlik duvari, SSH sikilastirma, SSL ve guvenlik denetimi hazir |
+| Yedekleme? Belki bir gun... | Tek komutla yedekleme ve geri yukleme, manifest takibiyle |
+| Birden fazla sunucu mu yonetiyorsunuz? | Yedekleme, bakim, durum ve saglikta `--all` destegi |
+| Mevcut sunucu takip disi mi? | `kastell add` ile her sunucuyu yonetime alin |
+| Komutlari ezberlemek mi? | `kastell` yazin -- interaktif menu sizi yonlendirir |
 
 ## Neler Yapabilirsiniz?
 
 ### Kurulum
 ```bash
-quicklify                               # İnteraktif menü (önerilen)
-quicklify init                          # İnteraktif kurulum (doğrudan)
-quicklify init --provider hetzner       # Otomatik kurulum
-quicklify init --config quicklify.yml   # YAML ile kurulum
-quicklify init --template production    # Şablon kullanarak
-quicklify init --mode bare              # Genel VPS (Coolify olmadan)
+kastell                               # Interaktif menu (onerilen)
+kastell init                          # Interaktif kurulum (dogrudan)
+kastell init --provider hetzner       # Otomatik kurulum
+kastell init --config kastell.yml     # YAML ile kurulum
+kastell init --template production    # Sablon kullanarak
+kastell init --mode bare              # Genel VPS (Coolify olmadan)
 ```
 
-### Yönetim
+### Yonetim
 ```bash
-quicklify list                  # Sunucuları listele
-quicklify status sunucum        # Sunucu durumu
-quicklify status --all          # Tüm sunucuları kontrol et
-quicklify ssh sunucum           # Sunucuya SSH bağlantısı
-quicklify restart sunucum       # Sunucuyu yeniden başlat
-quicklify destroy sunucum       # Bulut sunucusunu tamamen sil
-quicklify add                   # Mevcut sunucu ekle
-quicklify remove sunucum        # Yerel yapılandırmadan kaldır
-quicklify config set key value  # Varsayılan yapılandırma yönet
-quicklify export                # Sunucu listesini JSON'a aktar
-quicklify import servers.json   # JSON'dan sunucuları içe aktar
+kastell list                  # Sunuculari listele
+kastell status sunucum        # Sunucu durumu
+kastell status --all          # Tum sunuculari kontrol et
+kastell ssh sunucum           # Sunucuya SSH baglantisi
+kastell restart sunucum       # Sunucuyu yeniden baslat
+kastell destroy sunucum       # Bulut sunucusunu tamamen sil
+kastell add                   # Mevcut sunucu ekle
+kastell remove sunucum        # Yerel yapilandirmadan kaldir
+kastell config set key value  # Varsayilan yapilandirma yonet
+kastell export                # Sunucu listesini JSON'a aktar
+kastell import servers.json   # JSON'dan sunuculari ice aktar
 ```
 
-### Güncelleme ve Bakım
+### Guncelleme ve Bakim
 ```bash
-quicklify update sunucum        # Coolify güncelle (Coolify sunucuları)
-quicklify maintain sunucum      # Tam bakım (snapshot + güncelleme + sağlık + yeniden başlatma)
-quicklify maintain --all        # Tüm sunucuları bakıma al
+kastell update sunucum        # Coolify guncelle (Coolify sunuculari)
+kastell maintain sunucum      # Tam bakim (snapshot + guncelleme + saglik + yeniden baslatma)
+kastell maintain --all        # Tum sunuculari bakima al
 ```
 
-### Yedekleme ve Geri Yükleme
+### Yedekleme ve Geri Yukleme
 ```bash
-quicklify backup sunucum        # Veritabanı + yapılandırma yedeği
-quicklify backup --all          # Tüm sunucuları yedekle
-quicklify restore sunucum       # Yedekten geri yükle
+kastell backup sunucum        # Veritabani + yapilandirma yedegi
+kastell backup --all          # Tum sunuculari yedekle
+kastell restore sunucum       # Yedekten geri yukle
 ```
 
 ### Snapshot'lar
 ```bash
-quicklify snapshot create sunucum   # VPS snapshot'ı oluştur (maliyet tahminiyle)
-quicklify snapshot list sunucum     # Snapshot'ları listele
-quicklify snapshot list --all       # Tüm sunuculardaki snapshot'ları listele
-quicklify snapshot delete sunucum   # Snapshot sil
+kastell snapshot create sunucum   # VPS snapshot'i olustur (maliyet tahminiyle)
+kastell snapshot list sunucum     # Snapshot'lari listele
+kastell snapshot list --all       # Tum sunuculardaki snapshot'lari listele
+kastell snapshot delete sunucum   # Snapshot sil
 ```
 
-### Güvenlik
+### Guvenlik
 ```bash
-quicklify firewall status sunucum   # Güvenlik duvarı durumu
-quicklify firewall setup sunucum    # UFW yapılandırması
-quicklify secure audit sunucum      # Güvenlik denetimi
-quicklify secure setup sunucum      # SSH sıkılaştırma + fail2ban
-quicklify domain add sunucum --domain ornek.com  # Domain + SSL ayarla
+kastell firewall status sunucum   # Guvenlik duvari durumu
+kastell firewall setup sunucum    # UFW yapilandirmasi
+kastell secure audit sunucum      # Guvenlik denetimi
+kastell secure setup sunucum      # SSH sikilastirma + fail2ban
+kastell domain add sunucum --domain ornek.com  # Domain + SSL ayarla
 ```
 
-### İzleme ve Hata Ayıklama
+### Izleme ve Hata Ayiklama
 ```bash
-quicklify monitor sunucum             # CPU, RAM, disk kullanımı
-quicklify logs sunucum                 # Sunucu logları
-quicklify logs sunucum -f              # Logları canlı takip et
-quicklify health                       # Tüm sunucuların sağlık kontrolü
-quicklify doctor                       # Yerel ortam kontrolü
+kastell monitor sunucum             # CPU, RAM, disk kullanimi
+kastell logs sunucum                 # Sunucu loglari
+kastell logs sunucum -f              # Loglari canli takip et
+kastell health                       # Tum sunucularin saglik kontrolu
+kastell doctor                       # Yerel ortam kontrolu
 ```
 
-## Desteklenen Sağlayıcılar
+## Desteklenen Saglayicilar
 
-| Sağlayıcı | Durum | Bölgeler | Başlangıç Fiyatı |
+| Saglayici | Durum | Bolgeler | Baslangic Fiyati |
 |-----------|-------|----------|------------------|
-| [Hetzner Cloud](https://hetzner.cloud) | Kararlı | Avrupa, ABD | ~€4/ay |
-| [DigitalOcean](https://digitalocean.com) | Kararlı | Küresel | ~$18/ay |
-| [Vultr](https://vultr.com) | Kararlı | Küresel | ~$10/ay |
-| [Linode (Akamai)](https://linode.com) | Beta | Küresel | ~$24/ay |
+| [Hetzner Cloud](https://hetzner.cloud) | Kararli | Avrupa, ABD | ~EUR4/ay |
+| [DigitalOcean](https://digitalocean.com) | Kararli | Kuresel | ~$18/ay |
+| [Vultr](https://vultr.com) | Kararli | Kuresel | ~$10/ay |
+| [Linode (Akamai)](https://linode.com) | Beta | Kuresel | ~$24/ay |
 
-> Fiyatlar provider başına varsayılan starter şablonunu yansıtır. Kurulum sırasında farklı boyut seçebilirsiniz. Linode desteği beta aşamasındadır — topluluk testleri memnuniyetle karşılanır.
+> Fiyatlar provider basina varsayilan starter sablonunu yansitir. Kurulum sirasinda farkli boyut secebilirsiniz. Linode destegi beta asamasindadir -- topluluk testleri memnuniyetle karsilanir.
 
-## YAML Yapılandırması
+## YAML Yapilandirmasi
 
-Tek bir yapılandırma dosyasıyla kurulum yapın:
+Tek bir yapilandirma dosyasiyla kurulum yapin:
 
 ```yaml
-# quicklify.yml
+# kastell.yml
 provider: hetzner
 region: nbg1
 size: cax11
@@ -165,74 +165,74 @@ domain: coolify.ornek.com
 ```
 
 ```bash
-quicklify init --config quicklify.yml
+kastell init --config kastell.yml
 ```
 
-## Şablonlar
+## Sablonlar
 
-| Şablon | Kullanım Alanı | İçerik |
+| Sablon | Kullanim Alani | Icerik |
 |--------|---------------|--------|
-| `starter` | Test, yan projeler | 1–2 vCPU, 2–4 GB RAM |
-| `production` | Canlı uygulamalar | 2–4 vCPU, 4–8 GB RAM, tam sıkılaştırma |
-| `dev` | Geliştirme ve CI/CD | Starter ile aynı, sıkılaştırma yok |
+| `starter` | Test, yan projeler | 1-2 vCPU, 2-4 GB RAM |
+| `production` | Canli uygulamalar | 2-4 vCPU, 4-8 GB RAM, tam sikilastirma |
+| `dev` | Gelistirme ve CI/CD | Starter ile ayni, sikilastirma yok |
 
 ```bash
-quicklify init --template production --provider hetzner
+kastell init --template production --provider hetzner
 ```
 
-## Güvenlik
+## Guvenlik
 
-Quicklify güvenlik öncelikli olarak geliştirilmektedir — 78 test suite'inde **2.099 test**, özel güvenlik test suite'leri dahil.
+Kastell guvenlik oncelikli olarak gelistirilmektedir -- 78 test suite'inde **2.099 test**, ozel guvenlik test suite'leri dahil.
 
-- API token'ları asla diske kaydedilmez — çalışma zamanında sorulur veya ortam değişkenlerinden alınır
-- SSH anahtarları gerekirse otomatik oluşturulur (Ed25519)
-- Tüm SSH bağlantıları `StrictHostKeyChecking=accept-new` ile IP doğrulama (oktet aralığı) ve ortam filtreleme kullanır
-- Tüm kullanıcı girdilerinde shell injection koruması (`spawn`/`spawnSync`, `execSync` yok)
-- Provider hata mesajları token sızıntısını önlemek için temizlenir
-- stderr temizleme — hata çıktısından IP'ler, home dizinleri, token'lar ve gizli veriler otomatik redakte edilir
-- Yapılandırma dosyasında token tespiti (22+ anahtar pattern, büyük/küçük harf duyarsız, iç içe yapılar)
-- İçe/dışa aktarma işlemleri hassas alanları temizler ve dosya izinlerini sıkılaştırır (`0o600`)
-- `--full-setup` güvenlik duvarı ve SSH sıkılaştırmasını otomatik etkinleştirir
-- MCP: SAFE_MODE (varsayılan: açık) tüm yıkıcı işlemleri engeller, tüm girdilerde Zod şema doğrulaması, yedek geri yüklemede path traversal koruması
+- API token'lari asla diske kaydedilmez -- calisma zamaninda sorulur veya ortam degiskenlerinden alinir
+- SSH anahtarlari gerekirse otomatik olusturulur (Ed25519)
+- Tum SSH baglantilari `StrictHostKeyChecking=accept-new` ile IP dogrulama (oktet araligi) ve ortam filtreleme kullanir
+- Tum kullanici girdilerinde shell injection korumasi (`spawn`/`spawnSync`, `execSync` yok)
+- Provider hata mesajlari token sizintisini onlemek icin temizlenir
+- stderr temizleme -- hata ciktisindan IP'ler, home dizinleri, token'lar ve gizli veriler otomatik redakte edilir
+- Yapilandirma dosyasinda token tespiti (22+ anahtar pattern, buyuk/kucuk harf duyarsiz, ic ice yapilar)
+- Ice/disa aktarma islemleri hassas alanlari temizler ve dosya izinlerini sikilastirir (`0o600`)
+- `--full-setup` guvenlik duvari ve SSH sikilastirmasini otomatik etkinlestirir
+- MCP: SAFE_MODE (varsayilan: acik) tum yikici islemleri engeller, tum girdilerde Zod sema dogrulamasi, yedek geri yuklemede path traversal korumasi
 
 ## Kurulum
 
 ```bash
-# Doğrudan çalıştırın (önerilen)
-npx quicklify <komut>
+# Dogrudan calistirin (onerilen)
+npx kastell <komut>
 
 # Veya global olarak kurun
-npm install -g quicklify
-quicklify <komut>
+npm install -g kastell
+kastell <komut>
 ```
 
-Node.js 20 veya üstü gereklidir.
+Node.js 20 veya ustu gereklidir.
 
 ## Sorun Giderme
 
-**Sunucu oluşturma başarısız mı?**
-API token'ınızı ve yerel ortamınızı doğrulamak için `quicklify doctor --check-tokens` komutunu çalıştırın.
+**Sunucu olusturma basarisiz mi?**
+API token'inizi ve yerel ortaminizi dogrulamak icin `kastell doctor --check-tokens` komutunu calistirin.
 
-**Coolify yanıt vermiyor mu?**
-Durumu kontrol edip gerekirse otomatik yeniden başlatmak için `quicklify status sunucum --autostart` kullanın.
+**Coolify yanit vermiyor mu?**
+Durumu kontrol edip gerekirse otomatik yeniden baslatmak icin `kastell status sunucum --autostart` kullanin.
 
-**Sıfırdan başlamak mı istiyorsunuz?**
-`quicklify destroy sunucum` bulut sunucusunu tamamen kaldırır.
+**Sifirdan baslamak mi istiyorsunuz?**
+`kastell destroy sunucum` bulut sunucusunu tamamen kaldirir.
 
-## Katkıda Bulunma
+## Katkida Bulunma
 
-Geliştirme ortamı kurulumu, test ve katkı rehberi için [CONTRIBUTING.md](CONTRIBUTING.md) dosyasına bakın.
+Gelistirme ortami kurulumu, test ve katki rehberi icin [CONTRIBUTING.md](CONTRIBUTING.md) dosyasina bakin.
 
 ## MCP Sunucusu (Yapay Zeka Entegrasyonu)
 
-Quicklify, yapay zeka destekli sunucu yönetimi için yerleşik bir [Model Context Protocol](https://modelcontextprotocol.io/) sunucusu içerir. Claude Code, Cursor, Windsurf ve diğer MCP uyumlu istemcilerle çalışır.
+Kastell, yapay zeka destekli sunucu yonetimi icin yerlesik bir [Model Context Protocol](https://modelcontextprotocol.io/) sunucusu icerir. Claude Code, Cursor, Windsurf ve diger MCP uyumlu istemcilerle calisir.
 
 ```json
 {
   "mcpServers": {
-    "quicklify": {
+    "kastell": {
       "command": "npx",
-      "args": ["-y", "-p", "quicklify", "quicklify-mcp"],
+      "args": ["-y", "-p", "kastell", "kastell-mcp"],
       "env": {
         "HETZNER_TOKEN": "token-buraya",
         "DIGITALOCEAN_TOKEN": "token-buraya",
@@ -244,40 +244,40 @@ Quicklify, yapay zeka destekli sunucu yönetimi için yerleşik bir [Model Conte
 }
 ```
 
-Mevcut araçlar:
+Mevcut araclar:
 
-| Araç | Eylemler | Açıklama |
+| Arac | Eylemler | Aciklama |
 |------|----------|----------|
-| `server_info` | list, status, health | Sunucu bilgilerini sorgula, bulut sağlayıcı ve Coolify durumunu kontrol et |
-| `server_logs` | logs, monitor | SSH ile Coolify/Docker loglarını ve sistem metriklerini getir |
-| `server_manage` | add, remove, destroy | Sunucuları kaydet, kaldır veya bulut sunucusunu sil |
-| `server_maintain` | update, restart, maintain | Coolify güncelle, sunucuları yeniden başlat, tam bakım yap |
-| `server_secure` | secure, firewall, domain | SSH sıkılaştırma, güvenlik duvarı kuralları, domain/SSL yönetimi (10 alt komut) |
-| `server_backup` | backup, snapshot | Veritabanı yedekle/geri yükle ve VPS snapshot oluştur/yönet |
-| `server_provision` | create | Bulut sağlayıcılarda yeni sunucu oluştur |
+| `server_info` | list, status, health | Sunucu bilgilerini sorgula, bulut saglayici ve Coolify durumunu kontrol et |
+| `server_logs` | logs, monitor | SSH ile Coolify/Docker loglarini ve sistem metriklerini getir |
+| `server_manage` | add, remove, destroy | Sunuculari kaydet, kaldir veya bulut sunucusunu sil |
+| `server_maintain` | update, restart, maintain | Coolify guncelle, sunuculari yeniden baslat, tam bakim yap |
+| `server_secure` | secure, firewall, domain | SSH sikilastirma, guvenlik duvari kurallari, domain/SSL yonetimi (10 alt komut) |
+| `server_backup` | backup, snapshot | Veritabani yedekle/geri yukle ve VPS snapshot olustur/yonet |
+| `server_provision` | create | Bulut saglayicilarda yeni sunucu olustur |
 
-> Tüm yıkıcı işlemler (destroy, restore, snapshot-delete, provision, restart, maintain, snapshot-create) çalıştırılmak için `SAFE_MODE=false` gerektirir.
+> Tum yikici islemler (destroy, restore, snapshot-delete, provision, restart, maintain, snapshot-create) calistirilmak icin `SAFE_MODE=false` gerektirir.
 
 ## Gelecek Planlar
 
-- Zamanlanmış bakım (cron tabanlı otomatik bakım)
-- Dokploy platform desteği (`--platform dokploy`)
+- Zamanlanmis bakim (cron tabanli otomatik bakim)
+- Dokploy platform destegi (`--platform dokploy`)
 
 ## Felsefe
 
-> Altyapı sıkıcı, öngörülebilir ve güvenli olmalıdır.
+> Altyapi sikici, ongorulebilir ve guvenli olmalidir.
 
-Quicklify bir script değildir. Self-hosted altyapınız için DevOps güvenlik katmanınızdır.
+Kastell bir script degildir. Self-hosted altyapiniz icin DevOps guvenlik katmaninizdir.
 
 ## Lisans
 
-MIT — [LICENSE](LICENSE) dosyasına bakın
+Apache 2.0 -- [LICENSE](LICENSE) dosyasina bakin
 
 ## Destek
 
-- [GitHub Issues](https://github.com/omrfc/quicklify/issues) — Hata bildirimleri ve özellik istekleri
-- [Changelog](CHANGELOG.md) — Sürüm geçmişi
+- [GitHub Issues](https://github.com/omrfc/quicklify/issues) -- Hata bildirimleri ve ozellik istekleri
+- [Changelog](CHANGELOG.md) -- Surum gecmisi
 
 ---
 
-[@omrfc](https://github.com/omrfc) tarafından geliştirilmektedir.
+[@omrfc](https://github.com/omrfc) tarafindan gelistirilmektedir.

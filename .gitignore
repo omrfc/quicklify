@@ -142,7 +142,7 @@ vite.config.ts.timestamp-*
 .claude/settings.local.json
 .mcp.json
 
-# Quicklify user config & export
-quicklify.yml
-quicklify-export.json
+# Kastell user config & export
+kastell.yml
+kastell-export.json
 servers.json

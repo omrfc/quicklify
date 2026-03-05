@@ -9,7 +9,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in Quicklify:
+If you discover a security vulnerability in Kastell:
 
 1. **DO NOT** open a public issue
 2. Email: hello@omrfc.dev
@@ -47,7 +47,7 @@ Response time: Within 48 hours
 - SSRF defense: `assertValidIp()` on all Coolify health check targets
 
 ### File System Security (A5 — Security Misconfiguration)
-- Config directory (`~/.quicklify/`) created with `0o700` permissions (owner only)
+- Config directory (`~/.kastell/`) created with `0o700` permissions (owner only)
 - Server config file written with `0o600` permissions (owner read/write only)
 - Backup directories created with `0o700` permissions
 - Backup manifest files written with `0o600` permissions
@@ -64,7 +64,7 @@ Response time: Within 48 hours
 - Remote SCP paths validated by `assertSafePath()` before use
 
 ### Access Control (A3 — Broken Access Control)
-- **SAFE_MODE** (`QUICKLIFY_SAFE_MODE=true`, default enabled for MCP) blocks destructive operations: `destroy`, `restore`, `snapshot-delete`, `provision`, `restart`, `maintain`, `snapshot-create`
+- **SAFE_MODE** (`KASTELL_SAFE_MODE=true`, default enabled for MCP) blocks destructive operations: `destroy`, `restore`, `snapshot-delete`, `provision`, `restart`, `maintain`, `snapshot-create`
 - Mode guard (`requireCoolifyMode()`) prevents Coolify-specific operations on bare servers
 
 ### Import/Export Security
@@ -107,8 +107,8 @@ All production dependencies use audited, versioned packages:
 ### Dev Dependencies
 One moderate-severity ReDoS vulnerability remains in `test-exclude` → `glob` → `minimatch@10.0.0-10.2.2` (jest code coverage toolchain). This is a dev-only dependency not present in production builds. Remediation is blocked by the dependency chain — `npm audit fix --force` would cause lock file breakage per project policy. Risk accepted as dev-only, not exploitable in production.
 
-Security scan: https://socket.dev/npm/package/quicklify
+Security scan: https://socket.dev/npm/package/kastell
 
 ## HTTP Usage
 
-Quicklify accesses Coolify at `http://IP:8000` during initial setup. This is expected because SSL/TLS is not configured on a fresh Coolify installation. Users are warned to set up a domain and enable SSL for production use.
+Kastell accesses Coolify at `http://IP:8000` during initial setup. This is expected because SSL/TLS is not configured on a fresh Coolify installation. Users are warned to set up a domain and enable SSL for production use.

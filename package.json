@@ -1,18 +1,19 @@
 {
-  "name": "quicklify",
-  "version": "1.2.1",
-  "description": "Deploy and manage self-hosted infrastructure on cloud providers",
+  "name": "kastell",
+  "version": "1.3.0",
+  "description": "Autonomous security and maintenance layer for self-hosted infrastructure",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "quicklify": "bin/quicklify",
-    "quicklify-mcp": "bin/quicklify-mcp"
+    "kastell": "bin/kastell",
+    "kastell-mcp": "bin/kastell-mcp"
   },
   "files": [
     "bin/",
     "dist/",
     "README.md",
     "LICENSE",
+    "NOTICE",
     "SECURITY.md"
   ],
   "scripts": {
@@ -28,26 +29,28 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "keywords": [
+    "kastell",
     "coolify",
     "deployment",
     "hetzner",
     "digitalocean",
     "vultr",
     "linode",
-    "droplet",
     "cli",
     "vps",
     "cloud",
     "automation",
     "self-hosted",
-    "paas",
+    "server-security",
+    "server-maintenance",
+    "infrastructure",
     "devops",
     "server"
   ],
   "engines": {
     "node": ">=20.0.0"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/omrfc/quicklify.git"
@@ -55,7 +58,7 @@
   "bugs": {
     "url": "https://github.com/omrfc/quicklify/issues"
   },
-  "homepage": "https://quicklify.omrfc.dev",
+  "homepage": "https://kastell.dev",
   "author": {
     "name": "Ömer",
     "email": "hello@omrfc.dev",
