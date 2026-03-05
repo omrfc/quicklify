@@ -92,6 +92,15 @@ Autonomous server security and maintenance across multiple cloud providers. Guar
 - v1.2.1 shipped: PROVIDER_REGISTRY centralization, SCP security hardening, init.ts extract
 - **Target audience**: Indie hackers (Y1) → Micro-DevOps teams (Y2) → SaaS compliance (Y3)
 
+### CLAUDE.md Yapisi (2026-03-05 yeniden yapilandirildi)
+IF-ELSE router pattern uygulandi — context bloat onleme:
+- **Global `~/.claude/CLAUDE.md`** (32 satir): Router — durustluk + compaction kurtarma + kural yonlendirici
+- **`~/.claude/rules/`** (8 dosya): coding, git, security, post-task, research, subagent, contract, learning
+- **`~/.claude/lessons/global.md`**: Global lessons learned
+- **Kastell `CLAUDE.md`** (57 satir): Tech stack + skill routing + architecture + conventions
+- **Kastell `.claude/skills/`** (5 dosya): cli-command, mcp-tool, provider, publish, testing
+- Kurallar kosullu yukleniyor — her oturumda sadece gerekli dosyalar okunur
+
 ## Constraints
 
 - **Node.js**: 20+ required (engines field in package.json)
