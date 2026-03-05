@@ -70,12 +70,12 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
   3. `grep -ri "quicklify" src/` returns zero hits (excluding historical CHANGELOG entries), and all test files reference "kastell"
   4. LICENSE file contains Apache 2.0 text, NOTICE file exists, and README/docs reflect the Kastell brand and license
   5. `npm info kastell version` returns `1.3.0` and `npm info quicklify deprecated` shows the deprecation message pointing to kastell
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 07-01: TBD
-- [ ] 07-02: TBD
-- [ ] 07-03: TBD
+- [ ] 07-01-PLAN.md — Foundation: types, config paths, env vars, migration logic
+- [ ] 07-02-PLAN.md — Source + tests: remaining src/ string replacements and all test updates
+- [ ] 07-03-PLAN.md — Packaging + docs: bin scripts, package.json, license, documentation
 
 ### Phase 8: Platform Adapter Foundation
 **Goal**: A `PlatformAdapter` interface exists, existing Coolify functionality is extracted into `CoolifyAdapter` with zero behavior change, and core modules route through the adapter factory
@@ -121,10 +121,10 @@ Plans:
 | 4. Provider & Utility Consolidation | v1.2.1 | 2/2 | Complete | 2026-03-02 |
 | 5. SCP Security Hardening | v1.2.1 | 2/2 | Complete | 2026-03-02 |
 | 6. init.ts Extract | v1.2.1 | 2/2 | Complete | 2026-03-02 |
-| 7. Kastell Rebrand | v1.3 | 0/? | Not started | - |
+| 7. Kastell Rebrand | v1.3 | 0/3 | Planned | - |
 | 8. Platform Adapter Foundation | v1.3 | 0/? | Not started | - |
 | 9. Dokploy Adapter | v1.3 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-03-05 — v1.3 phases 7-9 added (Kastell Rebrand + Dokploy Adapter)*
+*Last updated: 2026-03-05 — Phase 7 planned (3 plans in 3 waves)*
