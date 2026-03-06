@@ -29,13 +29,18 @@ export interface ServerResult {
 
 export type ServerMode = "coolify" | "bare";
 
+export type Platform = "coolify" | "dokploy";
+
 export interface DeploymentConfig {
   provider: string;
   apiToken: string;
   region: string;
   serverSize: string;
   serverName: string;
+  /** @deprecated Use platform field. Kept for backward compat */
   mode?: ServerMode;
+  /** Platform adapter. undefined = bare (no platform) */
+  platform?: Platform;
 }
 
 export interface ServerRecord {
@@ -46,7 +51,10 @@ export interface ServerRecord {
   region: string;
   size: string;
   createdAt: string;
+  /** @deprecated Use platform field. Kept for backward compat */
   mode?: ServerMode;
+  /** Platform adapter. undefined = bare (no platform) */
+  platform?: Platform;
 }
 
 export interface InitOptions {
@@ -140,6 +148,8 @@ export interface BackupManifest {
   coolifyVersion: string;
   files: string[];
   mode?: ServerMode;
+  /** Platform adapter. undefined = bare (no platform) */
+  platform?: Platform;
 }
 
 // Result pattern for core/ functions (no exceptions thrown)
