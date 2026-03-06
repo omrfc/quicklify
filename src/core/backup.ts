@@ -5,7 +5,7 @@ import { sshExec, assertValidIp, sanitizedEnv } from "../utils/ssh.js";
 import { BACKUPS_DIR } from "../utils/config.js";
 import { getErrorMessage, mapSshError, sanitizeStderr } from "../utils/errorMapper.js";
 import { SCP_TIMEOUT_MS } from "../constants.js";
-import type { BackupManifest } from "../types/index.js";
+import type { BackupManifest, Platform } from "../types/index.js";
 import { getAdapter } from "../adapters/factory.js";
 
 // ─── Pure Functions (Backup) ─────────────────────────────────────────────────
@@ -366,8 +366,9 @@ export async function createBackup(
   ip: string,
   serverName: string,
   provider: string,
+  platform: Platform = "coolify",
 ): Promise<BackupResult> {
-  const adapter = getAdapter("coolify");
+  const adapter = getAdapter(platform);
   return adapter.createBackup(ip, serverName, provider);
 }
 

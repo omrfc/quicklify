@@ -9,7 +9,7 @@ import { getTemplateDefaults } from "../utils/templates.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { assertValidIp } from "../utils/ssh.js";
 import type { CloudProvider } from "../providers/base.js";
-import type { ServerRecord, ServerMode, Platform } from "../types/index.js";
+import type { ServerRecord, Platform } from "../types/index.js";
 import { IP_WAIT, BOOT_MAX_ATTEMPTS, BOOT_INTERVAL, invalidProviderError } from "../constants.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -20,7 +20,8 @@ export interface ProvisionConfig {
   size?: string;
   name: string;
   template?: string;
-  mode?: ServerMode;
+  /** @deprecated Use platform field. Accepts "coolify", "dokploy", or "bare" for backward compat. */
+  mode?: string;
 }
 
 export interface ProvisionResult {
@@ -124,8 +125,9 @@ export async function provisionServer(config: ProvisionConfig): Promise<Provisio
   const sshKeyIds = await uploadSshKeyBestEffort(provider);
 
   // 8. Generate cloud-init
-  const mode: ServerMode = config.mode || "coolify";
-  const platform: Platform | undefined = mode === "bare" ? undefined : "coolify";
+  const modeStr = config.mode || "coolify";
+  const isBare = modeStr === "bare";
+  const platform: Platform | undefined = isBare ? undefined : (modeStr === "dokploy" ? "dokploy" : "coolify");
   const cloudInit = platform
     ? getAdapter(platform).getCloudInit(config.name)
     : getBareCloudInit(config.name);
@@ -210,8 +212,8 @@ export async function provisionServer(config: ProvisionConfig): Promise<Provisio
     region,
     size,
     createdAt: new Date().toISOString(),
-    mode,
-    platform: mode === "bare" ? undefined : ("coolify" as const),
+    mode: isBare ? ("bare" as const) : ("coolify" as const),
+    platform,
   };
   saveServer(record);
 

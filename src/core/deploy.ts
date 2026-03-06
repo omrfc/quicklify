@@ -63,7 +63,7 @@ export async function deployServer(
     // Upload SSH key before creating server
     const sshKeyIds = await uploadSshKeyToProvider(providerWithToken);
     const isBare = mode === "bare";
-    const platform: Platform | undefined = isBare ? undefined : "coolify";
+    const platform: Platform | undefined = isBare ? undefined : (mode === "dokploy" ? "dokploy" : "coolify");
     const cloudInit = platform
       ? getAdapter(platform).getCloudInit(serverName)
       : getBareCloudInit(serverName);
@@ -202,7 +202,8 @@ export async function deployServer(
     // Health check polling instead of blind wait (skip if no valid IP or bare mode)
     const hasValidIp = server.ip !== "0.0.0.0" && server.ip !== "pending" && server.ip !== "";
     const minWait = COOLIFY_MIN_WAIT[providerChoice] || 60000;
-    const ready = !isBare && hasValidIp ? await waitForCoolify(server.ip, minWait) : false;
+    const platformPort = platform === "dokploy" ? 3000 : 8000;
+    const ready = !isBare && hasValidIp ? await waitForCoolify(server.ip, minWait, 5000, 60, platformPort) : false;
 
     // Save server record to config
     saveServer({
@@ -215,7 +216,7 @@ export async function deployServer(
       createdAt: new Date().toISOString(),
       ...(isBare
         ? { mode: "bare" as const }
-        : { mode: "coolify" as const, platform: "coolify" as const }),
+        : { mode: "coolify" as const, platform }),
     });
 
     // Bare mode: cloud-init wait + optional full setup + show SSH info
@@ -298,6 +299,9 @@ export async function deployServer(
       return;
     }
 
+    // Platform display name for messages
+    const platformName = platform === "dokploy" ? "Dokploy" : "Coolify";
+
     // Full setup: auto-configure firewall + SSH hardening
     if (fullSetup && ready) {
       // Clear stale known_hosts entry (cloud providers reuse IPs)
@@ -320,7 +324,7 @@ export async function deployServer(
         logger.warning(`Security setup failed: ${getErrorMessage(error)}`);
       }
     } else if (fullSetup && !ready) {
-      logger.warning("Skipping full setup: Coolify is not ready yet.");
+      logger.warning(`Skipping full setup: ${platformName} is not ready yet.`);
       logger.info("Run manually later: kastell firewall setup && kastell secure setup");
     }
 
@@ -328,15 +332,15 @@ export async function deployServer(
     logger.title("Deployment Successful!");
     console.log();
     logger.success(`Server IP: ${server.ip}`);
-    logger.success(`Access Coolify: http://${server.ip}:8000`);
+    logger.success(`Access ${platformName}: http://${server.ip}:${platformPort}`);
     console.log();
     if (ready) {
-      logger.info("Coolify is ready! Open the URL above to get started.");
+      logger.info(`${platformName} is ready! Open the URL above to get started.`);
       if (!noOpen && hasValidIp) {
-        openBrowser(`http://${server.ip}:8000`);
+        openBrowser(`http://${server.ip}:${platformPort}`);
       }
     } else {
-      logger.warning("Coolify did not respond yet. Please check in a few minutes.");
+      logger.warning(`${platformName} did not respond yet. Please check in a few minutes.`);
       logger.info(`You can check status later with: kastell status ${server.ip}`);
     }
 
