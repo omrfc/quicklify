@@ -22,12 +22,12 @@ Requirements for Kastell Rebrand + Dokploy Adapter release. Each maps to roadmap
 
 ### Adapter Foundation
 
-- [ ] **ADAPT-01**: `PlatformAdapter` interface tanimlanir (cloudInit, healthCheck, backup, status metodlari)
-- [ ] **ADAPT-02**: `CoolifyAdapter` mevcut Coolify logic'inden refactor edilir (davranis degisikligi sifir)
-- [ ] **ADAPT-03**: `ServerRecord` tipi `platform` alani kazanir, geriye donuk uyumluluk korunur
-- [ ] **ADAPT-04**: `getAdapter(platform)` factory fonksiyonu olusturulur
+- [x] **ADAPT-01**: `PlatformAdapter` interface tanimlanir (cloudInit, healthCheck, backup, status metodlari)
+- [x] **ADAPT-02**: `CoolifyAdapter` mevcut Coolify logic'inden refactor edilir (davranis degisikligi sifir)
+- [x] **ADAPT-03**: `ServerRecord` tipi `platform` alani kazanir, geriye donuk uyumluluk korunur
+- [x] **ADAPT-04**: `getAdapter(platform)` factory fonksiyonu olusturulur
 - [ ] **ADAPT-05**: `core/deploy.ts`, `core/status.ts`, `core/backup.ts` adapter uzerinden calisir
-- [ ] **ADAPT-06**: `modeGuard.ts` platform-aware hale gelir (`requireManagedMode()`)
+- [x] **ADAPT-06**: `modeGuard.ts` platform-aware hale gelir (`requireManagedMode()`)
 - [ ] **ADAPT-07**: Mevcut 2099 test gecmeye devam eder (sifir regresyon)
 
 ### Dokploy
@@ -82,12 +82,12 @@ Requirements for Kastell Rebrand + Dokploy Adapter release. Each maps to roadmap
 | BRAND-08 | Phase 7 | Complete |
 | BRAND-09 | Phase 7 | Complete |
 | BRAND-10 | Phase 7 | Complete |
-| ADAPT-01 | Phase 8 | Pending |
-| ADAPT-02 | Phase 8 | Pending |
-| ADAPT-03 | Phase 8 | Pending |
-| ADAPT-04 | Phase 8 | Pending |
+| ADAPT-01 | Phase 8 | Complete |
+| ADAPT-02 | Phase 8 | Complete |
+| ADAPT-03 | Phase 8 | Complete |
+| ADAPT-04 | Phase 8 | Complete |
 | ADAPT-05 | Phase 8 | Pending |
-| ADAPT-06 | Phase 8 | Pending |
+| ADAPT-06 | Phase 8 | Complete |
 | ADAPT-07 | Phase 8 | Pending |
 | DOKP-01 | Phase 9 | Pending |
 | DOKP-02 | Phase 9 | Pending |

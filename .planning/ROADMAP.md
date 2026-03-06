@@ -90,7 +90,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — Adapter layer: types, PlatformAdapter interface, CoolifyAdapter, factory, modeGuard evolution
+- [x] 08-01-PLAN.md — Adapter layer: types, PlatformAdapter interface, CoolifyAdapter, factory, modeGuard evolution
 - [ ] 08-02-PLAN.md — Core routing: deploy/provision/status/backup through adapter, requireManagedMode migration
 
 ### Phase 9: Dokploy Adapter
@@ -121,7 +121,7 @@ Plans:
 | 5. SCP Security Hardening | v1.2.1 | 2/2 | Complete | 2026-03-02 |
 | 6. init.ts Extract | v1.2.1 | 2/2 | Complete | 2026-03-02 |
 | 7. Kastell Rebrand | v1.3 | 3/3 | Complete | 2026-03-05 |
-| 8. Platform Adapter Foundation | v1.3 | 0/2 | Planned | - |
+| 8. Platform Adapter Foundation | v1.3 | 1/2 | In Progress | - |
 | 9. Dokploy Adapter | v1.3 | 0/? | Not started | - |
 
 ---
