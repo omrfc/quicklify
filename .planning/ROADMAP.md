@@ -57,6 +57,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 - [x] **Phase 7: Kastell Rebrand** - Quicklify identity fully replaced with Kastell across CLI, packages, config, docs, and CI
 - [x] **Phase 8: Platform Adapter Foundation** - Adapter abstraction layer established, existing Coolify logic extracted into adapter pattern with zero behavior change
 - [x] **Phase 9: Dokploy Adapter** - Dokploy servers can be provisioned, monitored, and backed up through CLI and MCP
+- [ ] **Phase 10: Fix addServerRecord Platform Routing** - Close integration gaps in kastell add path for Dokploy servers
 
 ## Phase Details
 
@@ -109,6 +110,20 @@ Plans:
 - [x] 09-01-PLAN.md — DokployAdapter implementation + factory registration + unit tests
 - [x] 09-02-PLAN.md — CLI/MCP integration: deploy, provision, backup routing, interactive menu, MCP schema
 
+### Phase 10: Fix addServerRecord Platform Routing
+**Goal**: `kastell add --mode dokploy` correctly stores `platform: "dokploy"` in the server record, and health verification uses the correct platform's port and container check
+**Depends on**: Phase 9
+**Requirements**: DOKP-05, ADAPT-03
+**Gap Closure:** Closes INT-01, INT-02, and broken flow from v1.3 milestone audit
+**Success Criteria** (what must be TRUE):
+  1. `kastell add --mode dokploy` creates a server record with `platform: "dokploy"` — subsequent operations (backup, status) use DokployAdapter
+  2. Health verification during `kastell add` uses the correct port for the platform (3000 for Dokploy, 8000 for Coolify) instead of hardcoding Coolify values
+  3. All existing tests pass with zero regressions, and new tests cover both integration gaps
+**Plans**: TBD
+
+Plans:
+- [ ] 10-01-PLAN.md — Fix platform derivation and platform-aware health verification in addServerRecord
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -122,7 +137,8 @@ Plans:
 | 7. Kastell Rebrand | v1.3 | 3/3 | Complete | 2026-03-05 |
 | 8. Platform Adapter Foundation | v1.3 | 2/2 | Complete | 2026-03-06 |
 | 9. Dokploy Adapter | v1.3 | 2/2 | Complete | 2026-03-06 |
+| 10. Fix addServerRecord Platform Routing | v1.3 | 0/1 | Pending | — |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-03-06 — Phase 9 complete (v1.3 milestone done: 3 phases, 7 plans)*
+*Last updated: 2026-03-06 — Phase 10 added (gap closure for INT-01, INT-02 from audit)*
