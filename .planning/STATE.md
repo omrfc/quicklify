@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Kastell Rebrand + Dokploy
 status: executing
-stopped_at: "Completed 08-01-PLAN.md"
-last_updated: "2026-03-06T06:30:32Z"
-last_activity: "2026-03-06 — Plan 08-01 executed: adapter layer (types, interface, CoolifyAdapter, factory, modeGuard)"
+stopped_at: "Completed 08-02-PLAN.md"
+last_updated: "2026-03-06T06:40:47Z"
+last_activity: "2026-03-06 — Plan 08-02 executed: core routing through adapter, requireManagedMode migration"
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
-  percent: 80
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -22,30 +22,30 @@ See: .planning/PROJECT.md (updated 2026-03-05)
 
 **Brand:** Kastell (kastell.dev | npm: kastell | GitHub: kastelldev)
 **Core value:** Autonomous server security and maintenance across multiple cloud providers
-**Current focus:** v1.3 Phase 8 -- Platform Adapter Foundation
+**Current focus:** v1.3 Phase 8 -- Platform Adapter Foundation COMPLETE
 
 ## Current Position
 
-Phase: 8 of 9 (Platform Adapter Foundation)
-Plan: 1 of 2 in current phase -- COMPLETE
-Status: Executing Phase 8
-Last activity: 2026-03-06 -- Plan 08-01 executed: adapter layer (types, interface, CoolifyAdapter, factory, modeGuard)
+Phase: 8 of 9 (Platform Adapter Foundation) -- COMPLETE
+Plan: 2 of 2 in current phase -- COMPLETE
+Status: Phase 8 Complete
+Last activity: 2026-03-06 -- Plan 08-02 executed: core routing through adapter, requireManagedMode migration
 
-Progress: [████████░░] 80% (v1.3)
+Progress: [██████████] 100% (v1.3 phases 7-8)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4 (v1.3)
+- Total plans completed: 5 (v1.3)
 - Average duration: 10min
-- Total execution time: 41min
+- Total execution time: 48min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 7. Kastell Rebrand | 3/3 | 33min | 11min |
-| 8. Platform Adapter Foundation | 1/2 | 8min | 8min |
+| 8. Platform Adapter Foundation | 2/2 | 15min | 7.5min |
 | 9. Dokploy Adapter | 0/? | - | - |
 
 ## Accumulated Context
@@ -73,6 +73,10 @@ Recent decisions affecting current work:
 - isBareServer reimplemented to use resolvePlatform() for consistent normalization
 - requireCoolifyMode kept as backward compat alias calling requireManagedMode
 - mode fields marked @deprecated in JSDoc while keeping full backward compat
+- deploy.ts and provision.ts derive platform from mode at call site (not via resolvePlatform for new records)
+- backup.ts createBackup delegates entirely to CoolifyAdapter, other exports preserved for backward compat
+- status.ts uses resolvePlatform + getAdapter for health check routing (handles legacy mode normalization)
+- All 5 requireCoolifyMode call sites switched to requireManagedMode (same behavior, clearer intent)
 
 ### Pending Todos
 
@@ -84,7 +88,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-06T06:30:32Z
-Stopped at: Completed 08-01-PLAN.md
-Resume file: .planning/phases/08-platform-adapter-foundation/08-01-SUMMARY.md
-Next action: Execute 08-02-PLAN.md (core routing through adapter)
+Last session: 2026-03-06T06:40:47Z
+Stopped at: Completed 08-02-PLAN.md
+Resume file: .planning/phases/08-platform-adapter-foundation/08-02-SUMMARY.md
+Next action: Phase 9 (Dokploy Adapter) when ready
