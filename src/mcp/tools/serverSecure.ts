@@ -23,7 +23,7 @@ import {
   mcpError,
   type McpResponse,
 } from "../utils.js";
-import { requireCoolifyMode } from "../../utils/modeGuard.js";
+import { requireManagedMode } from "../../utils/modeGuard.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
 
 export const serverSecureSchema = {
@@ -85,7 +85,7 @@ export async function handleServerSecure(params: {
 
     const domainActions = ["domain-set", "domain-remove", "domain-check", "domain-info"];
     if (domainActions.includes(params.action)) {
-      const modeError = requireCoolifyMode(server, params.action);
+      const modeError = requireManagedMode(server, params.action);
       if (modeError) {
         return mcpError(modeError, "Domain management requires Coolify. Use SSH for bare server DNS configuration.");
       }

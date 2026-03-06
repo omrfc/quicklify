@@ -5,7 +5,7 @@ import { checkSshAvailable } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
-import { isBareServer, requireCoolifyMode } from "../utils/modeGuard.js";
+import { isBareServer, requireManagedMode } from "../utils/modeGuard.js";
 import type { ServerRecord } from "../types/index.js";
 import {
   executeCoolifyUpdate,
@@ -311,7 +311,7 @@ export async function maintainCommand(query?: string, options?: MaintainOptions)
   const server = await resolveServer(query, "Select a server to maintain:");
   if (!server) return;
 
-  const modeError = requireCoolifyMode(server, "maintain");
+  const modeError = requireManagedMode(server, "maintain");
   if (modeError) {
     logger.error(modeError);
     return;

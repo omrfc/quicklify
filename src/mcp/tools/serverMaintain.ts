@@ -7,7 +7,7 @@ import {
   rebootAndWait,
   maintainServer,
 } from "../../core/maintain.js";
-import { requireCoolifyMode } from "../../utils/modeGuard.js";
+import { requireManagedMode } from "../../utils/modeGuard.js";
 import {
   resolveServerForMcp,
   mcpSuccess,
@@ -58,7 +58,7 @@ export async function handleServerMaintain(params: {
     switch (params.action) {
       case "update": {
         // Guard: update requires Coolify
-        const modeError = requireCoolifyMode(server, "update");
+        const modeError = requireManagedMode(server, "update");
         if (modeError) {
           return mcpError(modeError, "Use SSH to manage bare servers directly");
         }
@@ -150,7 +150,7 @@ export async function handleServerMaintain(params: {
 
       case "maintain": {
         // Guard: maintain requires Coolify
-        const modeError = requireCoolifyMode(server, "maintain");
+        const modeError = requireManagedMode(server, "maintain");
         if (modeError) {
           return mcpError(modeError, "Use SSH to manage bare servers directly");
         }

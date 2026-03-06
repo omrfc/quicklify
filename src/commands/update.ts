@@ -6,7 +6,7 @@ import { createProviderWithToken } from "../utils/providerFactory.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { executeCoolifyUpdate } from "../core/maintain.js";
-import { isBareServer, requireCoolifyMode } from "../utils/modeGuard.js";
+import { isBareServer, requireManagedMode } from "../utils/modeGuard.js";
 
 interface UpdateOptions {
   all?: boolean;
@@ -125,7 +125,7 @@ export async function updateCommand(query?: string, options?: UpdateOptions): Pr
   const server = await resolveServer(query, "Select a server to update:");
   if (!server) return;
 
-  const modeError = requireCoolifyMode(server, "update");
+  const modeError = requireManagedMode(server, "update");
   if (modeError) {
     logger.error(modeError);
     return;
