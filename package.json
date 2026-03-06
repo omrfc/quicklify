@@ -1,7 +1,7 @@
 {
   "name": "kastell",
   "version": "1.3.0",
-  "description": "Autonomous security and maintenance layer for self-hosted infrastructure",
+  "description": "CLI toolkit for provisioning, securing, and managing self-hosted servers",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -53,16 +53,20 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/omrfc/quicklify.git"
+    "url": "https://github.com/omrfc/kastell.git"
   },
   "bugs": {
-    "url": "https://github.com/omrfc/quicklify/issues"
+    "url": "https://github.com/omrfc/kastell/issues"
   },
-  "homepage": "https://kastell.dev",
+  "homepage": "https://github.com/omrfc/kastell",
   "author": {
     "name": "Ömer",
     "email": "hello@omrfc.dev",
     "url": "https://omrfc.dev"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/omrfc"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",

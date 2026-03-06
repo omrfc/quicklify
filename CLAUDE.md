@@ -1,6 +1,6 @@
 # Kastell (formerly Quicklify)
 
-Autonomous security and maintenance layer for self-hosted infrastructure.
+CLI toolkit for provisioning, securing, and managing self-hosted servers.
 
 ## Tech Stack
 

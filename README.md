@@ -1,15 +1,15 @@
 # Kastell
 
-> Autonomous security and maintenance layer for self-hosted infrastructure.
+> CLI toolkit for provisioning, securing, and managing self-hosted servers.
 
 > English | [Turkce](README.tr.md)
 
-![Tests](https://github.com/omrfc/quicklify/actions/workflows/ci.yml/badge.svg)
-[![Coverage](https://codecov.io/gh/omrfc/quicklify/branch/main/graph/badge.svg)](https://codecov.io/gh/omrfc/quicklify)
+![Tests](https://github.com/omrfc/kastell/actions/workflows/ci.yml/badge.svg)
+[![Coverage](https://codecov.io/gh/omrfc/kastell/branch/main/graph/badge.svg)](https://codecov.io/gh/omrfc/kastell)
 ![npm](https://img.shields.io/npm/v/kastell)
 ![Downloads](https://img.shields.io/npm/dt/kastell)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
-![GitHub stars](https://img.shields.io/github/stars/omrfc/quicklify?style=flat-square)
+![GitHub stars](https://img.shields.io/github/stars/omrfc/kastell?style=flat-square)
 [![Socket Badge](https://socket.dev/api/badge/npm/package/kastell)](https://socket.dev/npm/package/kastell)
 [![Website](https://img.shields.io/website?url=https%3A%2F%2Fkastell.dev&label=website)](https://kastell.dev)
 
@@ -182,7 +182,7 @@ kastell init --template production --provider hetzner
 
 ## Security
 
-Kastell is built with security as a priority -- **2,099 tests** across 78 suites, including dedicated security test suites.
+Kastell is built with security as a priority -- **2,191 tests** across 84 suites, including dedicated security test suites.
 
 - API tokens are never stored on disk -- prompted at runtime or via environment variables
 - SSH keys are auto-generated if needed (Ed25519)
@@ -260,8 +260,9 @@ Available tools:
 
 ## What's Next
 
-- Scheduled maintenance (cron-based automatic upkeep)
-- Dokploy platform support (`--platform dokploy`)
+- Dokploy update/maintain/logs support (v1.4)
+- TUI improvements and technical debt cleanup (v1.4)
+- Scheduled maintenance and autonomous security patrol (v2.0)
 
 ## Philosophy
 
@@ -275,7 +276,7 @@ Apache 2.0 -- see [LICENSE](LICENSE)
 
 ## Support
 
-- [GitHub Issues](https://github.com/omrfc/quicklify/issues) -- Bug reports and feature requests
+- [GitHub Issues](https://github.com/omrfc/kastell/issues) -- Bug reports and feature requests
 - [Changelog](CHANGELOG.md) -- Version history
 
 ---

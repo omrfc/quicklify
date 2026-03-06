@@ -7,7 +7,7 @@ Thanks for your interest in contributing! This guide will help you get started.
 1. **Fork & Clone**
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/quicklify.git
+git clone https://github.com/YOUR_USERNAME/kastell.git
 cd kastell
 ```
 
@@ -26,7 +26,7 @@ npm run dev -- init
 4. **Run Tests**
 
 ```bash
-npm test                # Run all tests (2,099 tests, 78 suites)
+npm test                # Run all tests (2,191 tests, 84 suites)
 npm run test:watch      # Watch mode
 npm run test:coverage   # Coverage report
 ```
@@ -216,4 +216,4 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ## Questions?
 
-Open a [GitHub Discussion](https://github.com/omrfc/quicklify/discussions) or [Issue](https://github.com/omrfc/quicklify/issues).
+Open a [GitHub Discussion](https://github.com/omrfc/kastell/discussions) or [Issue](https://github.com/omrfc/kastell/issues).

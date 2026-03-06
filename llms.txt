@@ -1,6 +1,6 @@
 # Kastell
 
-> Autonomous security and maintenance layer for self-hosted infrastructure.
+> CLI toolkit for provisioning, securing, and managing self-hosted servers.
 
 Kastell is an open-source CLI tool that automates the deployment, security, backup, and maintenance of self-hosted platforms on cloud VPS providers. Supports two modes: **Coolify** (self-hosted PaaS) and **Bare** (generic VPS without Coolify).
 
@@ -138,7 +138,7 @@ Destructive operations blocked by default: `destroy`, `restore`, `snapshot-delet
 - **Config**: YAML (js-yaml) + JSON
 - **MCP**: @modelcontextprotocol/sdk + Zod (input validation)
 - **Config Storage**: `~/.kastell/` (servers.json, config.json, backups/)
-- **Testing**: Jest (2,099 tests, 78 suites, ~95% coverage)
+- **Testing**: Jest (2,191 tests, 84 suites, ~95% coverage)
 - **Linting**: ESLint 10 + typescript-eslint + Prettier
 
 ## Security Model
@@ -155,8 +155,8 @@ Destructive operations blocked by default: `destroy`, `restore`, `snapshot-delet
 
 ## Links
 
-- Repository: https://github.com/omrfc/quicklify
+- Repository: https://github.com/omrfc/kastell
 - npm: https://www.npmjs.com/package/kastell
 - Website: https://kastell.dev
-- Issues: https://github.com/omrfc/quicklify/issues
+- Issues: https://github.com/omrfc/kastell/issues
 - License: Apache-2.0

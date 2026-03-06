@@ -139,8 +139,14 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 # Claude Code settings
+.claude/skills/
 .claude/settings.local.json
 .mcp.json
+
+# Personal notes & internal planning
+TODO.md
+LESSONS.md
+.planning/
 
 # Kastell user config & export
 kastell.yml
