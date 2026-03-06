@@ -3,6 +3,21 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Kastell Rebrand + Dokploy
 status: executing
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-03-06T06:47:34.034Z"
+last_activity: "2026-03-06 -- Plan 08-02 executed: core routing through adapter, requireManagedMode migration"
+progress:
+  total_phases: 3
+  completed_phases: 2
+  total_plans: 5
+  completed_plans: 5
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.3
+milestone_name: Kastell Rebrand + Dokploy
+status: executing
 stopped_at: "Completed 08-02-PLAN.md"
 last_updated: "2026-03-06T06:40:47Z"
 last_activity: "2026-03-06 — Plan 08-02 executed: core routing through adapter, requireManagedMode migration"
