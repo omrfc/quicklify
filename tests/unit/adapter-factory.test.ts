@@ -48,6 +48,11 @@ describe("getAdapter", () => {
     expect(adapter.name).toBe("coolify");
   });
 
+  it("should return an adapter with name 'dokploy' for platform 'dokploy'", () => {
+    const adapter = getAdapter("dokploy");
+    expect(adapter.name).toBe("dokploy");
+  });
+
   it("should throw for unknown platform", () => {
     expect(() => getAdapter("unknown" as any)).toThrow("Unknown platform: unknown");
   });
