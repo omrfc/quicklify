@@ -2,6 +2,7 @@ import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec, sshStream } from "../utils/ssh.js";
 import { logger } from "../utils/logger.js";
 import { isBareServer } from "../utils/modeGuard.js";
+import { resolvePlatform } from "../adapters/factory.js";
 import { buildLogCommand } from "../core/logs.js";
 import type { LogService } from "../core/logs.js";
 
@@ -25,12 +26,31 @@ export async function logsCommand(
     return;
   }
 
-  // For bare servers, default to "system" if no explicit service specified
-  const defaultService: LogService = isBareServer(server) ? "system" : "coolify";
+  // Determine default service based on platform
+  const platform = resolvePlatform(server);
+  const defaultService: LogService = isBareServer(server)
+    ? "system"
+    : platform === "dokploy"
+      ? "dokploy"
+      : "coolify";
   const service: LogService = (options?.service as LogService) || defaultService;
-  const validServices: LogService[] = ["coolify", "docker", "system"];
+  const validServices: LogService[] = ["coolify", "dokploy", "docker", "system"];
   if (!validServices.includes(service)) {
     logger.error(`Invalid service: ${service}. Choose from: ${validServices.join(", ")}`);
+    return;
+  }
+
+  // Cross-platform log validation
+  if (platform === "dokploy" && service === "coolify") {
+    logger.error(
+      "Coolify logs are not available for Dokploy servers. Use --service dokploy or --service docker instead.",
+    );
+    return;
+  }
+  if (platform === "coolify" && service === "dokploy") {
+    logger.error(
+      "Dokploy logs are not available for Coolify servers. Use --service coolify or --service docker instead.",
+    );
     return;
   }
 

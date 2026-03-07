@@ -5,9 +5,8 @@ import { checkSshAvailable } from "../utils/ssh.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
-import { executeCoolifyUpdate } from "../core/maintain.js";
 import { isBareServer, requireManagedMode } from "../utils/modeGuard.js";
-import { resolvePlatform } from "../adapters/factory.js";
+import { getAdapter, resolvePlatform } from "../adapters/factory.js";
 
 interface UpdateOptions {
   all?: boolean;
@@ -19,7 +18,11 @@ async function updateSingleServer(
   serverId: string,
   provider: string,
   apiToken: string,
+  platform: string,
 ): Promise<boolean> {
+  const adapter = getAdapter(platform as any);
+  const adapterDisplayName = adapter.name.charAt(0).toUpperCase() + adapter.name.slice(1);
+
   const spinner = createSpinner(`Validating ${serverName}...`);
   spinner.start();
 
@@ -43,24 +46,25 @@ async function updateSingleServer(
     }
   }
 
-  logger.info(`Updating platform on ${serverName} (${serverIp})...`);
+  logger.info(`Updating ${adapterDisplayName} on ${serverName} (${serverIp})...`);
 
-  const result = await executeCoolifyUpdate(serverIp);
+  const result = await adapter.update(serverIp);
 
   if (result.output) console.log(result.output);
 
   if (result.success) {
-    logger.success(`${serverName}: Platform update completed!`);
+    logger.success(`${serverName}: ${adapterDisplayName} update completed!`);
     return true;
   } else {
-    logger.error(`${serverName}: Update failed with exit code`);
+    logger.error(`${serverName}: Update failed`);
+    if (result.error) logger.error(result.error);
     return false;
   }
 }
 
 async function updateAll(): Promise<void> {
   if (!checkSshAvailable()) {
-    logger.error("SSH client not found. Required for Coolify update.");
+    logger.error("SSH client not found. Required for platform update.");
     return;
   }
 
@@ -74,7 +78,7 @@ async function updateAll(): Promise<void> {
     {
       type: "confirm",
       name: "confirm",
-      message: `Update Coolify on all ${servers.length} server(s)? This may cause brief downtime.`,
+      message: `Update platform on all ${servers.length} server(s)? This may cause brief downtime.`,
       default: false,
     },
   ]);
@@ -98,15 +102,13 @@ async function updateAll(): Promise<void> {
       continue;
     }
     const serverPlatform = resolvePlatform(server);
-    if (serverPlatform === "dokploy") {
-      logger.warning(
-        `Skipping ${server.name}: Dokploy update is not yet supported. Coming in v1.4.`,
-      );
+    if (!serverPlatform) {
+      logger.warning(`Skipping ${server.name}: no platform detected.`);
       console.log();
       continue;
     }
     const token = tokenMap.get(server.provider)!;
-    const ok = await updateSingleServer(server.name, server.ip, server.id, server.provider, token);
+    const ok = await updateSingleServer(server.name, server.ip, server.id, server.provider, token, serverPlatform);
     if (ok) succeeded++;
     else failed++;
     console.log();
@@ -125,7 +127,7 @@ export async function updateCommand(query?: string, options?: UpdateOptions): Pr
   }
 
   if (!checkSshAvailable()) {
-    logger.error("SSH client not found. Required for Coolify update.");
+    logger.error("SSH client not found. Required for platform update.");
     logger.info("Windows: Settings > Apps > Optional Features > OpenSSH Client");
     logger.info("Linux/macOS: SSH is usually pre-installed.");
     return;
@@ -141,17 +143,19 @@ export async function updateCommand(query?: string, options?: UpdateOptions): Pr
   }
 
   const platform = resolvePlatform(server);
-  if (platform === "dokploy") {
-    logger.warning("Dokploy update is not yet supported. Coming in v1.4.");
-    logger.info("You can update Dokploy manually: ssh into server and run the Dokploy update script.");
+  if (!platform) {
+    logger.error("No platform detected for this server.");
     return;
   }
+
+  const adapter = getAdapter(platform);
+  const adapterDisplayName = adapter.name.charAt(0).toUpperCase() + adapter.name.slice(1);
 
   const { confirm } = await inquirer.prompt([
     {
       type: "confirm",
       name: "confirm",
-      message: `Update Coolify on "${server.name}" (${server.ip})? This may cause brief downtime.`,
+      message: `Update ${adapterDisplayName} on "${server.name}" (${server.ip})? This may cause brief downtime.`,
       default: false,
     },
   ]);
@@ -186,19 +190,18 @@ export async function updateCommand(query?: string, options?: UpdateOptions): Pr
     }
   }
 
-  logger.info("Running Coolify update script...");
+  logger.info(`Running ${adapterDisplayName} update script...`);
   logger.info("This may take several minutes. Please wait.");
   console.log();
 
-  const result = await executeCoolifyUpdate(server.ip);
+  const result = await adapter.update(server.ip);
 
   if (result.output) console.log(result.output);
 
   if (result.success) {
-    logger.success("Coolify update completed successfully!");
-    logger.info(`Access Coolify: http://${server.ip}:8000`);
+    logger.success(`${adapterDisplayName} update completed successfully!`);
   } else {
-    logger.error(`Update failed with exit code ${result.error ?? ""}`);
+    logger.error(`Update failed${result.error ? `: ${result.error}` : ""}`);
     logger.info("Check the output above for details.");
   }
 }

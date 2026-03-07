@@ -227,13 +227,14 @@ describe("updateCommand", () => {
         update: jest.fn(async () => ({ success: true })),
         getLogCommand: jest.fn(() => ""),
       };
-      jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
+      const spy = jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
 
       await updateCommand("10.0.0.1");
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("update completed");
       expect(output).not.toContain("not yet supported");
       expect(mockAdapter.update).toHaveBeenCalledWith("10.0.0.1");
+      spy.mockRestore();
     });
 
     it("should not skip Dokploy in --all mode", async () => {
@@ -253,12 +254,13 @@ describe("updateCommand", () => {
         update: jest.fn(async () => ({ success: true })),
         getLogCommand: jest.fn(() => ""),
       };
-      jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
+      const spy = jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
 
       await updateCommand(undefined, { all: true });
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).not.toContain("not yet supported");
       expect(mockAdapter.update).toHaveBeenCalled();
+      spy.mockRestore();
     });
   });
 
