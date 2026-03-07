@@ -409,6 +409,28 @@ describe("core/backup — bare backup/restore", () => {
   });
 });
 
+describe("SCP binary path resolution (BUGF-01)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("scpDownload should use resolveScpPath result as spawn binary", async () => {
+    mockedSsh.resolveScpPath = jest.fn().mockReturnValue("/custom/path/scp.exe");
+    mockedSpawn.mockReturnValue(createMockProcess(0));
+    await scpDownload("1.2.3.4", "/tmp/file.gz", "/local/file.gz");
+    const [binary] = mockedSpawn.mock.calls[0];
+    expect(binary).toBe("/custom/path/scp.exe");
+  });
+
+  it("scpUpload should use resolveScpPath result as spawn binary", async () => {
+    mockedSsh.resolveScpPath = jest.fn().mockReturnValue("/custom/path/scp.exe");
+    mockedSpawn.mockReturnValue(createMockProcess(0));
+    await scpUpload("1.2.3.4", "/local/file.gz", "/tmp/file.gz");
+    const [binary] = mockedSpawn.mock.calls[0];
+    expect(binary).toBe("/custom/path/scp.exe");
+  });
+});
+
 describe("SCP security hardening (SEC-01, SEC-02)", () => {
   beforeEach(() => {
     jest.clearAllMocks();

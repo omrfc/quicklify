@@ -1,7 +1,7 @@
 import { mkdirSync, existsSync, writeFileSync, readFileSync, readdirSync, rmSync } from "fs";
 import { join, resolve } from "path";
 import { spawn } from "child_process";
-import { sshExec, assertValidIp, sanitizedEnv } from "../utils/ssh.js";
+import { sshExec, assertValidIp, sanitizedEnv, resolveScpPath } from "../utils/ssh.js";
 import { BACKUPS_DIR } from "../utils/config.js";
 import { getErrorMessage, mapSshError, sanitizeStderr } from "../utils/errorMapper.js";
 import { SCP_TIMEOUT_MS } from "../constants.js";
@@ -134,8 +134,9 @@ export function scpDownload(
   return new Promise((resolve, reject) => {
     // stdin must be "ignore" — not "inherit". MCP uses stdin for JSON-RPC transport;
     // inheriting it would corrupt the stream. BatchMode=yes prevents interactive prompts.
+    const scpBin = resolveScpPath();
     const child = spawn(
-      "scp",
+      scpBin,
       ["-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new", `root@${ip}:${remotePath}`, localPath],
       { stdio: ["ignore", "pipe", "pipe"], env: sanitizedEnv() },
     );
@@ -167,8 +168,9 @@ export function scpUpload(
   return new Promise((resolve, reject) => {
     // stdin must be "ignore" — not "inherit". MCP uses stdin for JSON-RPC transport;
     // inheriting it would corrupt the stream. BatchMode=yes prevents interactive prompts.
+    const scpBin = resolveScpPath();
     const child = spawn(
-      "scp",
+      scpBin,
       ["-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new", localPath, `root@${ip}:${remotePath}`],
       { stdio: ["ignore", "pipe", "pipe"], env: sanitizedEnv() },
     );

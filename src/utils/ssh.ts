@@ -1,6 +1,6 @@
 import { spawn, execSync, type ChildProcess } from "child_process";
 import { existsSync } from "fs";
-import { join } from "path";
+import { dirname, join } from "path";
 
 /** Default SSH connect timeout in seconds */
 const SSH_CONNECT_TIMEOUT = 10;
@@ -42,6 +42,15 @@ export function resolveSshPath(): string {
   // Fallback — return "ssh" and let it fail with a clearer error
   cachedSshPath = "ssh";
   return cachedSshPath;
+}
+
+export function resolveScpPath(): string {
+  const sshPath = resolveSshPath();
+  if (sshPath === "ssh") return "scp";
+  // Derive SCP binary from SSH binary path (sibling in same directory)
+  const dir = dirname(sshPath);
+  const ext = sshPath.endsWith(".exe") ? ".exe" : "";
+  return join(dir, `scp${ext}`);
 }
 
 export function checkSshAvailable(): boolean {

@@ -98,10 +98,9 @@ Plans:
   1. User can run SCP operations (backup download/upload) on Windows without path resolution errors
   2. User can view accurate server metrics (CPU, RAM, disk) on servers with non-English locales
   3. User gets correct security audit results on Ubuntu 22.04+ servers that use sshd_config Include directives
-**Plans**: 2 plans
+**Plans**: 1 plan
 Plans:
-- [ ] 11-01-PLAN.md — Extend PlatformAdapter interface, implement adapter methods, add pollHealth()
-- [ ] 11-02-PLAN.md — Refactor core/commands to adapter dispatch, remove Dokploy guards
+- [ ] 12-01-PLAN.md — Fix SCP Windows path, locale-dependent metrics, sshd_config Include directives
 
 ### Phase 13: Developer Experience
 **Goal**: Users have safer, more productive workflows with preview mode, shell completions, config validation, and update awareness
@@ -274,7 +273,7 @@ Plans:
 | 8. Platform Adapter Foundation | v1.3 | 2/2 | Complete | 2026-03-06 |
 | 9. Dokploy Adapter | v1.3 | 2/2 | Complete | 2026-03-06 |
 | 10. Fix addServerRecord Platform Routing | v1.3 | 1/1 | Complete | 2026-03-06 |
-| 11. Dokploy Lifecycle Completion | 2/2 | Complete   | 2026-03-07 | - |
+| 11. Dokploy Lifecycle Completion | 2/2 | Complete    | 2026-03-07 | - |
 | 12. Bug Fixes | v1.4 | 0/? | Not started | - |
 | 13. Developer Experience | v1.4 | 0/? | Not started | - |
 | 14. TUI Enhancements | v1.4 | 0/? | Not started | - |
