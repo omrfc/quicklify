@@ -4,6 +4,7 @@ import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
 import * as serverSelect from "../../src/utils/serverSelect";
 import * as providerFactory from "../../src/utils/providerFactory";
+import * as adapterFactory from "../../src/adapters/factory";
 import { updateCommand } from "../../src/commands/update";
 import type { CloudProvider } from "../../src/providers/base";
 
@@ -195,6 +196,69 @@ describe("updateCommand", () => {
       await updateCommand("1.2.3.4");
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("update completed successfully");
+    });
+  });
+
+  // ---- Dokploy server tests ----
+
+  describe("dokploy server", () => {
+    const dokployServer = {
+      ...sampleServer,
+      id: "dok-123",
+      name: "dokploy-test",
+      ip: "10.0.0.1",
+      platform: "dokploy" as const,
+    };
+
+    it("should update Dokploy server (not skip)", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedServerSelect.resolveServer.mockResolvedValue(dokployServer);
+      mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+      mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+
+      const mockAdapter = {
+        name: "dokploy",
+        getCloudInit: jest.fn(() => ""),
+        healthCheck: jest.fn(async () => ({ status: "running" as const })),
+        createBackup: jest.fn(async () => ({ success: true })),
+        getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
+        update: jest.fn(async () => ({ success: true })),
+        getLogCommand: jest.fn(() => ""),
+      };
+      jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
+
+      await updateCommand("10.0.0.1");
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("update completed");
+      expect(output).not.toContain("not yet supported");
+      expect(mockAdapter.update).toHaveBeenCalledWith("10.0.0.1");
+    });
+
+    it("should not skip Dokploy in --all mode", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.getServers.mockReturnValue([dokployServer]);
+      mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+      mockedServerSelect.collectProviderTokens.mockResolvedValue(new Map([["hetzner", "h-token"]]));
+      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+
+      const mockAdapter = {
+        name: "dokploy",
+        getCloudInit: jest.fn(() => ""),
+        healthCheck: jest.fn(async () => ({ status: "running" as const })),
+        createBackup: jest.fn(async () => ({ success: true })),
+        getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
+        update: jest.fn(async () => ({ success: true })),
+        getLogCommand: jest.fn(() => ""),
+      };
+      jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
+
+      await updateCommand(undefined, { all: true });
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).not.toContain("not yet supported");
+      expect(mockAdapter.update).toHaveBeenCalled();
     });
   });
 

@@ -156,6 +156,69 @@ describe("logsCommand", () => {
     expect(output).not.toContain("Log stream ended");
   });
 
+  // ---- Dokploy service tests ----
+
+  describe("dokploy server", () => {
+    const dokployServer = {
+      id: "dok-123",
+      name: "dokploy-test",
+      provider: "hetzner",
+      ip: "10.0.0.1",
+      region: "nbg1",
+      size: "cax11",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      platform: "dokploy" as const,
+    };
+
+    it("should accept 'dokploy' as valid service", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([dokployServer]);
+      mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "dokploy log", stderr: "" });
+
+      await logsCommand("10.0.0.1", { service: "dokploy" });
+
+      expect(mockedSsh.sshExec).toHaveBeenCalledWith(
+        "10.0.0.1",
+        "docker service logs dokploy_dokploy --tail 50",
+      );
+    });
+
+    it("should default to 'dokploy' service on Dokploy server", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([dokployServer]);
+      mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+
+      await logsCommand("10.0.0.1");
+
+      expect(mockedSsh.sshExec).toHaveBeenCalledWith(
+        "10.0.0.1",
+        expect.stringContaining("docker service logs dokploy_dokploy"),
+      );
+    });
+
+    it("should error when using --service coolify on Dokploy server", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([dokployServer]);
+
+      await logsCommand("10.0.0.1", { service: "coolify" });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Coolify logs are not available for Dokploy");
+      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+    });
+
+    it("should error when using --service dokploy on Coolify server", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+
+      await logsCommand("1.2.3.4", { service: "dokploy" });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Dokploy logs are not available for Coolify");
+      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+    });
+  });
+
   // ---- Bare mode tests ----
 
   describe("bare server + service guard", () => {
