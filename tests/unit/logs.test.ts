@@ -1,6 +1,7 @@
 import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
 import { logsCommand, buildLogCommand } from "../../src/commands/logs";
+import { buildMonitorCommand } from "../../src/core/logs";
 
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");
@@ -17,6 +18,24 @@ const sampleServer = {
   size: "cax11",
   createdAt: "2026-01-01T00:00:00.000Z",
 };
+
+describe("buildMonitorCommand locale safety (BUGF-02)", () => {
+  it("should include LANG=C LC_ALL=C prefix on metric commands", () => {
+    const cmd = buildMonitorCommand(false);
+    expect(cmd).toContain("LANG=C LC_ALL=C top");
+    expect(cmd).toContain("LANG=C LC_ALL=C free");
+    expect(cmd).toContain("LANG=C LC_ALL=C df");
+  });
+
+  it("should include LANG=C LC_ALL=C prefix with containers too", () => {
+    const cmd = buildMonitorCommand(true);
+    expect(cmd).toContain("LANG=C LC_ALL=C top");
+    expect(cmd).toContain("LANG=C LC_ALL=C free");
+    expect(cmd).toContain("LANG=C LC_ALL=C df");
+    // docker ps does NOT need locale prefix
+    expect(cmd).not.toContain("LANG=C LC_ALL=C docker");
+  });
+});
 
 describe("logsCommand", () => {
   let consoleSpy: jest.SpyInstance;

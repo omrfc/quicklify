@@ -1,6 +1,7 @@
 import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
 import { monitorCommand, parseMetrics } from "../../src/commands/monitor";
+import { buildMonitorCommand } from "../../src/core/logs";
 
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");
@@ -198,6 +199,20 @@ describe("monitorCommand", () => {
     await monitorCommand("1.2.3.4");
 
     expect(mockedSsh.sshExec).toHaveBeenCalled();
+  });
+
+  it("should use locale-safe monitor command (BUGF-02)", async () => {
+    mockedSsh.checkSshAvailable.mockReturnValue(true);
+    mockedConfig.findServers.mockReturnValue([sampleServer]);
+    const combined = `${sampleTopOutput}\n---SEPARATOR---\n${sampleFreeOutput}\n---SEPARATOR---\n${sampleDfOutput}`;
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: combined, stderr: "" });
+
+    await monitorCommand("1.2.3.4");
+
+    // The command sent via sshExec should match buildMonitorCommand output (with LANG=C)
+    const sentCommand = mockedSsh.sshExec.mock.calls[0][1];
+    expect(sentCommand).toBe(buildMonitorCommand(false));
+    expect(sentCommand).toContain("LANG=C LC_ALL=C");
   });
 
   it("should handle containers option with insufficient sections", async () => {

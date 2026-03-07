@@ -51,7 +51,7 @@ export function buildLogCommand(service: LogService, lines: number, follow: bool
 
 export function buildMonitorCommand(includeContainers: boolean): string {
   let command =
-    "top -bn1 | head -5 && echo '---SEPARATOR---' && free -h && echo '---SEPARATOR---' && df -h --total | grep -E '(Filesystem|total)'";
+    "LANG=C LC_ALL=C top -bn1 | head -5 && echo '---SEPARATOR---' && LANG=C LC_ALL=C free -h && echo '---SEPARATOR---' && LANG=C LC_ALL=C df -h --total | grep -E '(Filesystem|total)'";
   if (includeContainers) {
     command +=
       " && echo '---SEPARATOR---' && (docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}' 2>/dev/null || echo 'Docker not installed')";

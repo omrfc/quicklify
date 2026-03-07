@@ -2,7 +2,7 @@ import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
-import { parseMetrics } from "../core/logs.js";
+import { buildMonitorCommand, parseMetrics } from "../core/logs.js";
 import type { SystemMetrics } from "../core/logs.js";
 
 export { parseMetrics, type SystemMetrics };
@@ -24,12 +24,7 @@ export async function monitorCommand(
 
   try {
     // Gather all metrics in a single SSH command
-    let command =
-      "top -bn1 | head -5 && echo '---SEPARATOR---' && free -h && echo '---SEPARATOR---' && df -h --total | grep -E '(Filesystem|total)'";
-    if (options?.containers) {
-      command +=
-        " && echo '---SEPARATOR---' && (docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}' 2>/dev/null || echo 'Docker not installed')";
-    }
+    const command = buildMonitorCommand(options?.containers ?? false);
 
     const result = await sshExec(server.ip, command);
 
