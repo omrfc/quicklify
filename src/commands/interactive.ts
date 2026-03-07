@@ -6,79 +6,87 @@ const BACK = "__back__";
 interface MenuAction {
   name: string;
   value: string;
+  description?: string;
 }
 
 interface MenuCategory {
   label: string;
+  emoji: string;
   actions: MenuAction[];
 }
 
 const MENU: MenuCategory[] = [
   {
     label: "Server Management",
+    emoji: "\uD83D\uDDA5\uFE0F",
     actions: [
-      { name: "Deploy a new server", value: "init" },
-      { name: "Add an existing server", value: "add" },
-      { name: "List all servers", value: "list" },
-      { name: "Check server status", value: "status" },
-      { name: "SSH into a server", value: "ssh" },
-      { name: "Restart a server", value: "restart" },
-      { name: "Remove from config", value: "remove" },
-      { name: "Destroy a server", value: "destroy" },
+      { name: "Deploy a new server", value: "init", description: "Provision a VPS on Hetzner, DigitalOcean, Vultr, or Linode" },
+      { name: "Add an existing server", value: "add", description: "Register an existing server in your Kastell config" },
+      { name: "List all servers", value: "list", description: "Show all managed servers with status overview" },
+      { name: "Check server status", value: "status", description: "Check uptime, resources, and platform health" },
+      { name: "SSH into a server", value: "ssh", description: "Open an SSH session or run a remote command" },
+      { name: "Restart a server", value: "restart", description: "Reboot a managed server via provider API" },
+      { name: "Remove from config", value: "remove", description: "Remove a server from local config without destroying it" },
+      { name: "Destroy a server", value: "destroy", description: "Permanently delete a server from the cloud provider" },
     ],
   },
   {
     label: "Security",
+    emoji: "\uD83D\uDD12",
     actions: [
-      { name: "Harden SSH & fail2ban", value: "secure" },
-      { name: "Manage firewall (UFW)", value: "firewall" },
-      { name: "Manage domain & SSL", value: "domain" },
+      { name: "Harden SSH & fail2ban", value: "secure", description: "Configure SSH security and brute-force protection" },
+      { name: "Manage firewall (UFW)", value: "firewall", description: "View, add, or remove UFW firewall port rules" },
+      { name: "Manage domain & SSL", value: "domain", description: "Set custom domains and configure SSL certificates" },
     ],
   },
   {
     label: "Monitoring & Logs",
+    emoji: "\uD83D\uDCCA",
     actions: [
-      { name: "View server logs", value: "logs" },
-      { name: "Monitor resources (CPU/RAM/Disk)", value: "monitor" },
-      { name: "Health check", value: "health" },
+      { name: "View server logs", value: "logs", description: "View Coolify, Dokploy, Docker, or system logs" },
+      { name: "Monitor resources (CPU/RAM/Disk)", value: "monitor", description: "Live resource usage with optional Docker container list" },
+      { name: "Health check", value: "health", description: "Verify platform and server connectivity" },
     ],
   },
   {
     label: "Backup & Snapshots",
+    emoji: "\uD83D\uDCBE",
     actions: [
-      { name: "Create a backup", value: "backup" },
-      { name: "Restore from backup", value: "restore" },
-      { name: "Manage snapshots", value: "snapshot" },
+      { name: "Create a backup", value: "backup", description: "Download server configuration backup via SCP" },
+      { name: "Restore from backup", value: "restore", description: "Restore a previously downloaded backup to a server" },
+      { name: "Manage snapshots", value: "snapshot", description: "List, create, or delete provider-level snapshots" },
     ],
   },
   {
     label: "Maintenance",
+    emoji: "\uD83D\uDD27",
     actions: [
-      { name: "Update platform (Coolify/Dokploy)", value: "update" },
-      { name: "Full maintenance cycle", value: "maintain" },
-      { name: "Check local environment", value: "doctor" },
+      { name: "Update platform (Coolify/Dokploy)", value: "update", description: "Update Coolify or Dokploy to the latest version" },
+      { name: "Full maintenance cycle", value: "maintain", description: "Update + security patches + disk cleanup + Docker prune" },
+      { name: "Check local environment", value: "doctor", description: "Verify local tools, config, and optional API tokens" },
     ],
   },
   {
     label: "Configuration",
+    emoji: "\u2699\uFE0F",
     actions: [
-      { name: "Manage defaults", value: "config" },
-      { name: "Export server list", value: "export" },
-      { name: "Import server list", value: "import" },
+      { name: "Manage defaults", value: "config", description: "Set default provider, region, and server template" },
+      { name: "Export server list", value: "export", description: "Export server configuration to a JSON file" },
+      { name: "Import server list", value: "import", description: "Import servers from a previously exported JSON file" },
     ],
   },
 ];
 
 type SeparatorInstance = InstanceType<typeof inquirer.Separator>;
-type Choice = { name: string; value: string } | SeparatorInstance;
+type Choice = { name: string; value: string; description?: string } | SeparatorInstance;
 
 function buildMainChoices(): Choice[] {
   const choices: Choice[] = [];
 
   for (const category of MENU) {
-    choices.push(new inquirer.Separator(chalk.yellow.bold(`  ${category.label}`)));
+    choices.push(new inquirer.Separator(chalk.yellow.bold(`  ${category.emoji}  ${category.label}`)));
     for (const action of category.actions) {
-      choices.push({ name: `    ${action.name}`, value: action.value });
+      choices.push({ name: `    ${action.name}`, value: action.value, description: action.description });
     }
   }
 
