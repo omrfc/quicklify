@@ -2,6 +2,8 @@ import axios from "axios";
 import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
 import { maintainCommand } from "../../src/commands/maintain";
+import { pollHealth } from "../../src/core/maintain";
+import type { PlatformAdapter } from "../../src/adapters/interface";
 
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");
@@ -600,5 +602,45 @@ describe("maintainCommand", () => {
 
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
     expect(output).toContain("curl: network error");
+  });
+});
+
+describe("pollHealth", () => {
+  function createMockAdapter(healthResults: Array<"running" | "not reachable">): PlatformAdapter {
+    let callIndex = 0;
+    return {
+      name: "test",
+      getCloudInit: jest.fn(() => ""),
+      healthCheck: jest.fn(async () => {
+        const status = healthResults[callIndex] ?? "not reachable";
+        callIndex++;
+        return { status };
+      }),
+      createBackup: jest.fn(async () => ({ success: true })),
+      getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
+      update: jest.fn(async () => ({ success: true })),
+      getLogCommand: jest.fn(() => ""),
+    };
+  }
+
+  it("should return true when adapter.healthCheck returns 'running' on first attempt", async () => {
+    const adapter = createMockAdapter(["running"]);
+    const result = await pollHealth(adapter, "1.2.3.4", 3, 0);
+    expect(result).toBe(true);
+    expect(adapter.healthCheck).toHaveBeenCalledTimes(1);
+  });
+
+  it("should return true when adapter.healthCheck returns 'running' on 3rd attempt", async () => {
+    const adapter = createMockAdapter(["not reachable", "not reachable", "running"]);
+    const result = await pollHealth(adapter, "1.2.3.4", 5, 0);
+    expect(result).toBe(true);
+    expect(adapter.healthCheck).toHaveBeenCalledTimes(3);
+  });
+
+  it("should return false when all attempts return 'not reachable'", async () => {
+    const adapter = createMockAdapter(["not reachable", "not reachable", "not reachable"]);
+    const result = await pollHealth(adapter, "1.2.3.4", 3, 0);
+    expect(result).toBe(false);
+    expect(adapter.healthCheck).toHaveBeenCalledTimes(3);
   });
 });

@@ -3,6 +3,7 @@ import { createProviderWithToken } from "../utils/providerFactory.js";
 import { checkCoolifyHealth, getCloudServerStatus } from "./status.js";
 import { getErrorMessage, mapSshError, mapProviderError } from "../utils/errorMapper.js";
 import type { ServerRecord } from "../types/index.js";
+import type { PlatformAdapter, UpdateResult } from "../adapters/interface.js";
 import { COOLIFY_UPDATE_CMD } from "../constants.js";
 import { resolvePlatform } from "../adapters/factory.js";
 
@@ -25,12 +26,7 @@ export interface MaintainResult {
   success: boolean;
 }
 
-export interface UpdateResult {
-  success: boolean;
-  output?: string;
-  error?: string;
-  hint?: string;
-}
+export type { UpdateResult } from "../adapters/interface.js";
 
 export interface RestartResult {
   success: boolean;
@@ -71,6 +67,22 @@ export async function pollCoolifyHealth(
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const status = await checkCoolifyHealth(ip);
     if (status === "running") return true;
+    if (attempt < maxAttempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+  return false;
+}
+
+export async function pollHealth(
+  adapter: PlatformAdapter,
+  ip: string,
+  maxAttempts: number,
+  intervalMs: number,
+): Promise<boolean> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const result = await adapter.healthCheck(ip);
+    if (result.status === "running") return true;
     if (attempt < maxAttempts - 1) {
       await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }
