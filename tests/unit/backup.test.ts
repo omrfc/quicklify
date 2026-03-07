@@ -84,6 +84,7 @@ describe("backup", () => {
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
     jest.clearAllMocks();
+    mockedSsh.resolveScpPath.mockReturnValue("scp");
   });
 
   afterEach(() => {
