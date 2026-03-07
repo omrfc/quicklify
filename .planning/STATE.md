@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: TUI + Dokploy + DX
 status: active
-stopped_at: "Completed 12-01-PLAN.md -- Phase 12 complete"
-last_updated: "2026-03-07T09:37:46Z"
-last_activity: 2026-03-07 — Completed 12-01 bug fixes (SCP path, locale, sshd -T)
+stopped_at: "Completed 13-02-PLAN.md"
+last_updated: "2026-03-07T10:10:56Z"
+last_activity: 2026-03-07 — Completed 13-02 shell completions (bash/zsh/fish)
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
 ---
 
 # Project State
@@ -21,16 +21,16 @@ See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Brand:** Kastell (kastell.dev | npm: kastell | GitHub: kastelldev)
 **Core value:** Autonomous server security and maintenance across multiple cloud providers
-**Current focus:** Phase 12 complete, next: Phase 13 - DX Improvements
+**Current focus:** Phase 13 - DX Improvements (2/3 plans complete)
 
 ## Current Position
 
-Phase: 12 of 15 (Bug Fixes) -- COMPLETE
-Plan: 1 of 1 in current phase (all done)
-Status: Phase 12 complete
-Last activity: 2026-03-07 — Completed 12-01 bug fixes (SCP path, locale, sshd -T)
+Phase: 13 of 15 (Developer Experience)
+Plan: 2 of 3 in current phase
+Status: 13-02 complete, 13-03 remaining
+Last activity: 2026-03-07 — Completed 13-02 shell completions (bash/zsh/fish)
 
-Progress: [####------] 40% v1.4 (2/5 phases complete)
+Progress: [#####-----] 50% v1.4 (plans: 4/5 complete across phases 11-13)
 
 ## Performance Metrics
 
@@ -50,6 +50,7 @@ Progress: [####------] 40% v1.4 (2/5 phases complete)
 | 10. Fix addServerRecord | 1/1 | ~5min | 5min |
 | 11. Dokploy Lifecycle | 2/2 | 18min | 9min |
 | 12. Bug Fixes | 1/1 | 10min | 10min |
+| 13. DX (so far) | 2/3 | ~18min | ~9min |
 
 ## Accumulated Context
 
@@ -70,6 +71,8 @@ Recent decisions affecting current work:
 - [12-01]: LANG=C prefix on top/free/df but NOT docker ps
 - [12-01]: monitor.ts refactored to use buildMonitorCommand() eliminating duplication
 - [12-01]: sshd -T with || cat fallback for audit command
+- [13-02]: Static hardcoded completion scripts, not runtime-derived from Commander
+- [13-02]: Three separate generator functions for clean shell-specific separation
 
 ### Pending Todos
 
@@ -81,6 +84,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-07T09:37:46Z
-Stopped at: Completed 12-01-PLAN.md -- Phase 12 complete
-Next action: `/gsd:plan-phase 13` or `/gsd:execute-phase 13-01`
+Last session: 2026-03-07T10:10:56Z
+Stopped at: Completed 13-02-PLAN.md
+Next action: `/gsd:execute-phase 13-03`

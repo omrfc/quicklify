@@ -111,10 +111,11 @@ Plans:
   2. User can run `kastell completions bash|zsh|fish` and get a working completion script for their shell
   3. User gets clear, actionable validation errors when their servers.yaml config file has structural or type errors
   4. User sees a notification about available updates when running `kastell --version` and a newer version exists on npm
-**Plans**: 2 plans
+**Plans**: 3 plans
 Plans:
-- [ ] 11-01-PLAN.md — Extend PlatformAdapter interface, implement adapter methods, add pollHealth()
-- [ ] 11-02-PLAN.md — Refactor core/commands to adapter dispatch, remove Dokploy guards
+- [ ] 13-01-PLAN.md — Add --dry-run to destroy/update/restart/remove + --version update notification
+- [ ] 13-02-PLAN.md — Shell completions command (bash/zsh/fish)
+- [ ] 13-03-PLAN.md — Zod config validation migration + config validate subcommand
 
 ### Phase 14: TUI Enhancements
 **Goal**: Interactive menu looks polished, branded, and is easier to navigate
@@ -273,12 +274,12 @@ Plans:
 | 8. Platform Adapter Foundation | v1.3 | 2/2 | Complete | 2026-03-06 |
 | 9. Dokploy Adapter | v1.3 | 2/2 | Complete | 2026-03-06 |
 | 10. Fix addServerRecord Platform Routing | v1.3 | 1/1 | Complete | 2026-03-06 |
-| 11. Dokploy Lifecycle Completion | 2/2 | Complete    | 2026-03-07 | - |
-| 12. Bug Fixes | 1/1 | Complete   | 2026-03-07 | - |
-| 13. Developer Experience | v1.4 | 0/? | Not started | - |
+| 11. Dokploy Lifecycle Completion | v1.4 | 2/2 | Complete | 2026-03-07 |
+| 12. Bug Fixes | v1.4 | 1/1 | Complete | 2026-03-07 |
+| 13. Developer Experience | 1/3 | In Progress|  | - |
 | 14. TUI Enhancements | v1.4 | 0/? | Not started | - |
 | 15. Documentation | v1.4 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-03-07 — v1.4 phases 11-15 added*
+*Last updated: 2026-03-07 — Phase 13 plans created (3 plans, Wave 1)*
