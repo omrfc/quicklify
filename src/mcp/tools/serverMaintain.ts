@@ -3,10 +3,10 @@ import { getServers } from "../../utils/config.js";
 import { getProviderToken } from "../../core/tokens.js";
 import { isSafeMode } from "../../core/manage.js";
 import {
-  executeCoolifyUpdate,
   rebootAndWait,
   maintainServer,
 } from "../../core/maintain.js";
+import { getAdapter, resolvePlatform } from "../../adapters/factory.js";
 import { requireManagedMode } from "../../utils/modeGuard.js";
 import {
   resolveServerForMcp,
@@ -63,7 +63,12 @@ export async function handleServerMaintain(params: {
           return mcpError(modeError, "Use SSH to manage bare servers directly");
         }
 
-        const result = await executeCoolifyUpdate(server.ip);
+        const platform = resolvePlatform(server);
+        const adapter = platform ? getAdapter(platform) : null;
+        if (!adapter) {
+          return mcpError("No platform adapter available for this server");
+        }
+        const result = await adapter.update(server.ip);
 
         if (!result.success) {
           return {
@@ -84,7 +89,7 @@ export async function handleServerMaintain(params: {
           success: true,
           server: server.name,
           ip: server.ip,
-          message: "Coolify update completed successfully",
+          message: `${adapter.name.charAt(0).toUpperCase() + adapter.name.slice(1)} update completed successfully`,
           suggested_actions: [
             { command: `server_info { action: 'health', server: '${server.name}' }`, reason: "Verify Coolify is running after update" },
             { command: `server_logs { action: 'logs', server: '${server.name}' }`, reason: "Check logs after update" },

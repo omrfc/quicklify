@@ -5,11 +5,10 @@ import * as status from "../../src/core/status";
 import * as maintain from "../../src/core/maintain";
 import { handleServerMaintain } from "../../src/mcp/tools/serverMaintain";
 import {
-  executeCoolifyUpdate,
-  pollCoolifyHealth,
   rebootAndWait,
   maintainServer,
 } from "../../src/core/maintain";
+import * as adapterFactory from "../../src/adapters/factory";
 import type { CloudProvider } from "../../src/providers/base";
 
 jest.mock("../../src/utils/config");
@@ -93,73 +92,6 @@ afterAll(() => {
   process.env = originalEnv;
 });
 
-// ─── Core: executeCoolifyUpdate ──────────────────────────────────────────────
-
-describe("executeCoolifyUpdate", () => {
-  it("should succeed when SSH command exits 0", async () => {
-    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "Updated OK", stderr: "" });
-
-    const result = await executeCoolifyUpdate("1.2.3.4");
-
-    expect(result.success).toBe(true);
-    expect(result.output).toBe("Updated OK");
-    expect(mockedSsh.assertValidIp).toHaveBeenCalledWith("1.2.3.4");
-  });
-
-  it("should fail when SSH command exits non-zero", async () => {
-    mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "Permission denied" });
-
-    const result = await executeCoolifyUpdate("1.2.3.4");
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain("exit code 1");
-    expect(result.output).toBe("Permission denied");
-  });
-
-  it("should handle SSH connection error with hint", async () => {
-    mockedSsh.sshExec.mockRejectedValue(new Error("Connection refused"));
-
-    const result = await executeCoolifyUpdate("1.2.3.4");
-
-    expect(result.success).toBe(false);
-    expect(result.error).toBe("Connection refused");
-  });
-});
-
-// ─── Core: pollCoolifyHealth ─────────────────────────────────────────────────
-
-describe("pollCoolifyHealth", () => {
-  it("should return true on first success", async () => {
-    mockedStatus.checkCoolifyHealth.mockResolvedValue("running");
-
-    const result = await pollCoolifyHealth("1.2.3.4", 3, 10);
-
-    expect(result).toBe(true);
-    expect(mockedStatus.checkCoolifyHealth).toHaveBeenCalledTimes(1);
-  });
-
-  it("should retry and succeed on later attempt", async () => {
-    mockedStatus.checkCoolifyHealth
-      .mockResolvedValueOnce("not reachable")
-      .mockResolvedValueOnce("not reachable")
-      .mockResolvedValueOnce("running");
-
-    const result = await pollCoolifyHealth("1.2.3.4", 5, 10);
-
-    expect(result).toBe(true);
-    expect(mockedStatus.checkCoolifyHealth).toHaveBeenCalledTimes(3);
-  });
-
-  it("should return false after max attempts", async () => {
-    mockedStatus.checkCoolifyHealth.mockResolvedValue("not reachable");
-
-    const result = await pollCoolifyHealth("1.2.3.4", 3, 10);
-
-    expect(result).toBe(false);
-    expect(mockedStatus.checkCoolifyHealth).toHaveBeenCalledTimes(3);
-  });
-});
-
 // ─── Core: rebootAndWait ─────────────────────────────────────────────────────
 
 describe("rebootAndWait", () => {
@@ -208,10 +140,24 @@ describe("rebootAndWait", () => {
 // ─── Core: maintainServer ────────────────────────────────────────────────────
 
 describe("maintainServer", () => {
+  function createMockPlatformAdapter(overrides?: Record<string, jest.Mock>) {
+    return {
+      name: "coolify",
+      getCloudInit: jest.fn(() => ""),
+      healthCheck: jest.fn(async () => ({ status: "running" as const })),
+      createBackup: jest.fn(async () => ({ success: true })),
+      getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
+      update: jest.fn(async () => ({ success: true })),
+      getLogCommand: jest.fn(() => ""),
+      ...overrides,
+    };
+  }
+
   it("should complete all 5 steps successfully", async () => {
+    const mockAdapter = createMockPlatformAdapter();
+    jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
+
     mockedStatus.getCloudServerStatus.mockResolvedValue("running");
-    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "OK", stderr: "" });
-    mockedStatus.checkCoolifyHealth.mockResolvedValue("running");
     (mockProvider.rebootServer as jest.Mock).mockResolvedValue(undefined);
     (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
     mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
@@ -228,6 +174,9 @@ describe("maintainServer", () => {
   });
 
   it("should abort when server is not running (Step 1)", async () => {
+    const mockAdapter = createMockPlatformAdapter();
+    jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
+
     mockedStatus.getCloudServerStatus.mockResolvedValue("stopped");
 
     const result = await maintainServer(sampleServer, "test-token", testConfig);
@@ -241,6 +190,9 @@ describe("maintainServer", () => {
   });
 
   it("should abort when Step 1 API fails", async () => {
+    const mockAdapter = createMockPlatformAdapter();
+    jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
+
     mockedStatus.getCloudServerStatus.mockRejectedValue(new Error("API error"));
 
     const result = await maintainServer(sampleServer, "test-token", testConfig);
@@ -251,8 +203,12 @@ describe("maintainServer", () => {
   });
 
   it("should abort when update fails (Step 2)", async () => {
+    const mockAdapter = createMockPlatformAdapter({
+      update: jest.fn(async () => ({ success: false, error: "Connection refused" })),
+    });
+    jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
+
     mockedStatus.getCloudServerStatus.mockResolvedValue("running");
-    mockedSsh.sshExec.mockRejectedValue(new Error("Connection refused"));
 
     const result = await maintainServer(sampleServer, "test-token", testConfig);
 
@@ -263,9 +219,12 @@ describe("maintainServer", () => {
   });
 
   it("should continue when health check fails (Step 3 — partial success)", async () => {
+    const mockAdapter = createMockPlatformAdapter({
+      healthCheck: jest.fn(async () => ({ status: "not reachable" as const })),
+    });
+    jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
+
     mockedStatus.getCloudServerStatus.mockResolvedValue("running");
-    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "OK", stderr: "" });
-    mockedStatus.checkCoolifyHealth.mockResolvedValue("not reachable");
     (mockProvider.rebootServer as jest.Mock).mockResolvedValue(undefined);
     (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
     mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
@@ -280,8 +239,8 @@ describe("maintainServer", () => {
   });
 
   it("should skip Steps 1, 4, 5 for manual servers", async () => {
-    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "OK", stderr: "" });
-    mockedStatus.checkCoolifyHealth.mockResolvedValue("running");
+    const mockAdapter = createMockPlatformAdapter();
+    jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
 
     const result = await maintainServer(manualServer, "", testConfig);
 
@@ -294,9 +253,10 @@ describe("maintainServer", () => {
   });
 
   it("should skip Steps 4 and 5 when skipReboot is true", async () => {
+    const mockAdapter = createMockPlatformAdapter();
+    jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
+
     mockedStatus.getCloudServerStatus.mockResolvedValue("running");
-    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "OK", stderr: "" });
-    mockedStatus.checkCoolifyHealth.mockResolvedValue("running");
 
     const result = await maintainServer(sampleServer, "test-token", { ...testConfig, skipReboot: true });
 
@@ -370,16 +330,25 @@ describe("handleServerMaintain — update", () => {
     expect(data.server).toBe("coolify-test");
   });
 
-  it("should return error on SSH failure", async () => {
+  it("should return error on update failure", async () => {
     mockedConfig.getServers.mockReturnValue([sampleServer]);
     mockedConfig.findServer.mockReturnValue(sampleServer);
-    mockedSsh.sshExec.mockRejectedValue(new Error("Connection refused"));
+    const spy = jest.spyOn(adapterFactory, "getAdapter").mockReturnValue({
+      name: "coolify",
+      getCloudInit: jest.fn(() => ""),
+      healthCheck: jest.fn(async () => ({ status: "running" as const })),
+      createBackup: jest.fn(async () => ({ success: true })),
+      getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
+      update: jest.fn(async () => ({ success: false, error: "Connection refused" })),
+      getLogCommand: jest.fn(() => ""),
+    });
 
     const result = await handleServerMaintain({ action: "update", server: "coolify-test" });
     const data = JSON.parse(result.content[0].text);
 
     expect(result.isError).toBe(true);
     expect(data.error).toBe("Connection refused");
+    spy.mockRestore();
   });
 });
 

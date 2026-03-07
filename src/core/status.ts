@@ -12,6 +12,7 @@ export interface StatusResult {
   error?: string;
 }
 
+/** @deprecated Use getAdapter(platform).healthCheck(ip) instead. Kept for health.ts and status.ts legacy callers. */
 export async function checkCoolifyHealth(ip: string): Promise<"running" | "not reachable"> {
   assertValidIp(ip);
   try {

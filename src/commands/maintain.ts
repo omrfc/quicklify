@@ -8,9 +8,9 @@ import { createProviderWithToken } from "../utils/providerFactory.js";
 import { isBareServer, requireManagedMode } from "../utils/modeGuard.js";
 import type { ServerRecord } from "../types/index.js";
 import {
-  executeCoolifyUpdate,
-  pollCoolifyHealth,
+  pollHealth,
 } from "../core/maintain.js";
+import { getAdapter, resolvePlatform } from "../adapters/factory.js";
 
 interface MaintainOptions {
   skipReboot?: boolean;
@@ -29,19 +29,23 @@ interface MaintainResult {
 }
 
 function showDryRun(server: ServerRecord, skipReboot: boolean): void {
+  const platform = resolvePlatform(server);
+  const adapterName = platform ? getAdapter(platform).name : "platform";
+  const displayName = adapterName.charAt(0).toUpperCase() + adapterName.slice(1);
+
   logger.title("Dry Run: Maintenance Steps");
   logger.step(`Target: ${server.name} (${server.ip})`);
   console.log();
   logger.step("Step 0: Offer snapshot creation (cost estimate from API)");
   logger.step("Step 1: Check server status via provider API");
-  logger.step("Step 2: Update Coolify via SSH (curl install script)");
-  logger.step("Step 3: Health check — poll http://<ip>:8000");
+  logger.step(`Step 2: Update ${displayName} via SSH (install script)`);
+  logger.step(`Step 3: Health check — poll ${displayName} endpoint`);
   if (skipReboot) {
     logger.step("Step 4: Reboot — SKIPPED (--skip-reboot)");
     logger.step("Step 5: Final check — SKIPPED (no reboot)");
   } else {
     logger.step("Step 4: Reboot server via provider API");
-    logger.step("Step 5: Final check — server + Coolify running");
+    logger.step(`Step 5: Final check — server + ${displayName} running`);
   }
   console.log();
   logger.info("No changes applied (dry run).");
@@ -127,11 +131,22 @@ async function maintainSingleServer(
     }
   }
 
-  // Step 2: Coolify update via core
-  const updateSpinner = createSpinner("Step 2: Updating Coolify...");
+  // Step 2: Platform update via adapter
+  const platform = resolvePlatform(server);
+  const adapter = platform ? getAdapter(platform) : null;
+  const adapterDisplayName = adapter
+    ? adapter.name.charAt(0).toUpperCase() + adapter.name.slice(1)
+    : "Platform";
+
+  const updateSpinner = createSpinner(`Step 2: Updating ${adapterDisplayName}...`);
   updateSpinner.start();
 
-  const updateResult = await executeCoolifyUpdate(server.ip);
+  if (!adapter) {
+    updateSpinner.fail("Step 2: No platform adapter available");
+    return result;
+  }
+
+  const updateResult = await adapter.update(server.ip);
   if (!updateResult.success) {
     updateSpinner.fail(`Step 2: Update failed`);
     if (updateResult.output) logger.error(updateResult.output.trim());
@@ -139,19 +154,19 @@ async function maintainSingleServer(
     if (updateResult.hint) logger.info(updateResult.hint);
     return result;
   }
-  updateSpinner.succeed("Step 2: Coolify updated");
+  updateSpinner.succeed(`Step 2: ${adapterDisplayName} updated`);
   result.update = true;
 
-  // Step 3: Health check after update via core
-  const healthSpinner = createSpinner("Step 3: Checking Coolify health...");
+  // Step 3: Health check after update via adapter
+  const healthSpinner = createSpinner(`Step 3: Checking ${adapterDisplayName} health...`);
   healthSpinner.start();
 
-  const healthOk = await pollCoolifyHealth(server.ip, 12, 5000);
+  const healthOk = await pollHealth(adapter, server.ip, 12, 5000);
   if (!healthOk) {
-    healthSpinner.fail("Step 3: Coolify did not respond after update");
+    healthSpinner.fail(`Step 3: ${adapterDisplayName} did not respond after update`);
     return result;
   }
-  healthSpinner.succeed("Step 3: Coolify is healthy");
+  healthSpinner.succeed(`Step 3: ${adapterDisplayName} is healthy`);
   result.healthCheck = true;
 
   // Step 4: Reboot (optional)
@@ -209,13 +224,13 @@ async function maintainSingleServer(
         return result;
       }
 
-      // Check Coolify health after reboot
-      const coolifyBack = await pollCoolifyHealth(server.ip, 12, 5000);
-      if (coolifyBack) {
-        finalSpinner.succeed("Step 5: Server and Coolify are running");
+      // Check platform health after reboot
+      const platformBack = adapter ? await pollHealth(adapter, server.ip, 12, 5000) : false;
+      if (platformBack) {
+        finalSpinner.succeed(`Step 5: Server and ${adapterDisplayName} are running`);
         result.finalCheck = true;
       } else {
-        finalSpinner.warn("Step 5: Server is running but Coolify did not respond");
+        finalSpinner.warn(`Step 5: Server is running but ${adapterDisplayName} did not respond`);
       }
     } catch (error: unknown) {
       finalSpinner.fail("Step 5: Final check failed");
@@ -273,7 +288,7 @@ async function maintainAll(options: MaintainOptions): Promise<void> {
   for (const server of servers) {
     if (isBareServer(server)) {
       logger.warning(
-        `Skipping ${server.name}: maintain command is not available for bare servers (requires Coolify).`,
+        `Skipping ${server.name}: maintain command is not available for bare servers (requires a platform adapter).`,
       );
       console.log();
       continue;

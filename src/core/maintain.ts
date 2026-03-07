@@ -1,11 +1,9 @@
-import { sshExec, assertValidIp } from "../utils/ssh.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
-import { checkCoolifyHealth, getCloudServerStatus } from "./status.js";
-import { getErrorMessage, mapSshError, mapProviderError } from "../utils/errorMapper.js";
+import { getCloudServerStatus } from "./status.js";
+import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import type { ServerRecord } from "../types/index.js";
 import type { PlatformAdapter, UpdateResult } from "../adapters/interface.js";
-import { COOLIFY_UPDATE_CMD } from "../constants.js";
-import { resolvePlatform } from "../adapters/factory.js";
+import { getAdapter, resolvePlatform } from "../adapters/factory.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -36,43 +34,6 @@ export interface RestartResult {
 }
 
 // ─── Core Functions ──────────────────────────────────────────────────────────
-
-export async function executeCoolifyUpdate(ip: string): Promise<UpdateResult> {
-  assertValidIp(ip);
-  try {
-    const result = await sshExec(ip, COOLIFY_UPDATE_CMD);
-    if (result.code === 0) {
-      return { success: true, output: result.stdout || undefined };
-    }
-    return {
-      success: false,
-      error: `Update failed (exit code ${result.code})`,
-      output: result.stderr || result.stdout || undefined,
-    };
-  } catch (error: unknown) {
-    const hint = mapSshError(error, ip);
-    return {
-      success: false,
-      error: getErrorMessage(error),
-      ...(hint ? { hint } : {}),
-    };
-  }
-}
-
-export async function pollCoolifyHealth(
-  ip: string,
-  maxAttempts: number,
-  intervalMs: number,
-): Promise<boolean> {
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const status = await checkCoolifyHealth(ip);
-    if (status === "running") return true;
-    if (attempt < maxAttempts - 1) {
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
-    }
-  }
-  return false;
-}
 
 export async function pollHealth(
   adapter: PlatformAdapter,
@@ -149,23 +110,18 @@ export interface MaintainOptions {
   rebootInitialWaitMs?: number;
 }
 
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export async function maintainServer(
   server: ServerRecord,
   apiToken: string,
   options: MaintainOptions = {},
 ): Promise<MaintainResult> {
   const platform = resolvePlatform(server);
-  if (platform === "dokploy") {
-    return {
-      server: server.name,
-      ip: server.ip,
-      provider: server.provider,
-      steps: [
-        { step: 1, name: "Platform Check", status: "skipped", detail: "Dokploy maintenance not yet supported. Coming in v1.4." },
-      ],
-      success: false,
-    };
-  }
+  const adapter = platform ? getAdapter(platform) : null;
+  const adapterName = adapter ? capitalize(adapter.name) : "Platform";
 
   const isManual = server.id.startsWith("manual-");
   const healthAttempts = options.healthPollAttempts ?? 12;
@@ -191,7 +147,7 @@ export async function maintainServer(
       const serverStatus = await getCloudServerStatus(server, apiToken);
       if (serverStatus !== "running") {
         steps.push({ step: 1, name: "Status Check", status: "failure", detail: `Server is ${serverStatus}` });
-        steps.push({ step: 2, name: "Coolify Update", status: "skipped" });
+        steps.push({ step: 2, name: `${adapterName} Update`, status: "skipped" });
         steps.push({ step: 3, name: "Health Check", status: "skipped" });
         steps.push({ step: 4, name: "Reboot", status: "skipped" });
         steps.push({ step: 5, name: "Final Check", status: "skipped" });
@@ -204,7 +160,7 @@ export async function maintainServer(
         step: 1, name: "Status Check", status: "failure",
         error: getErrorMessage(error), ...(hint ? { hint } : {}),
       });
-      steps.push({ step: 2, name: "Coolify Update", status: "skipped" });
+      steps.push({ step: 2, name: `${adapterName} Update`, status: "skipped" });
       steps.push({ step: 3, name: "Health Check", status: "skipped" });
       steps.push({ step: 4, name: "Reboot", status: "skipped" });
       steps.push({ step: 5, name: "Final Check", status: "skipped" });
@@ -212,11 +168,19 @@ export async function maintainServer(
     }
   }
 
-  // Step 2: Coolify update
-  const updateResult = await executeCoolifyUpdate(server.ip);
+  // Step 2: Platform update via adapter
+  if (!adapter) {
+    steps.push({ step: 2, name: "Platform Update", status: "failure", error: "No platform adapter available" });
+    steps.push({ step: 3, name: "Health Check", status: "skipped" });
+    steps.push({ step: 4, name: "Reboot", status: "skipped" });
+    steps.push({ step: 5, name: "Final Check", status: "skipped" });
+    return result;
+  }
+
+  const updateResult = await adapter.update(server.ip);
   if (!updateResult.success) {
     steps.push({
-      step: 2, name: "Coolify Update", status: "failure",
+      step: 2, name: `${adapterName} Update`, status: "failure",
       error: updateResult.error, ...(updateResult.hint ? { hint: updateResult.hint } : {}),
     });
     steps.push({ step: 3, name: "Health Check", status: "skipped" });
@@ -224,15 +188,15 @@ export async function maintainServer(
     steps.push({ step: 5, name: "Final Check", status: "skipped" });
     return result;
   }
-  steps.push({ step: 2, name: "Coolify Update", status: "success" });
+  steps.push({ step: 2, name: `${adapterName} Update`, status: "success" });
 
   // Step 3: Health check after update
-  const healthOk = await pollCoolifyHealth(server.ip, healthAttempts, healthInterval);
+  const healthOk = await pollHealth(adapter, server.ip, healthAttempts, healthInterval);
   if (!healthOk) {
-    steps.push({ step: 3, name: "Health Check", status: "failure", detail: "Coolify did not respond after update" });
+    steps.push({ step: 3, name: "Health Check", status: "failure", detail: `${adapterName} did not respond after update` });
     // Continue — partial success
   } else {
-    steps.push({ step: 3, name: "Health Check", status: "success", detail: "Coolify is healthy" });
+    steps.push({ step: 3, name: "Health Check", status: "success", detail: `${adapterName} is healthy` });
   }
 
   // Steps 4 & 5: Reboot + Final check (skip both if skipReboot or manual)
@@ -258,11 +222,11 @@ export async function maintainServer(
   steps.push({ step: 4, name: "Reboot", status: "success", detail: "Server rebooted" });
 
   // Step 5: Final health check after reboot
-  const finalHealthOk = await pollCoolifyHealth(server.ip, healthAttempts, healthInterval);
+  const finalHealthOk = await pollHealth(adapter, server.ip, healthAttempts, healthInterval);
   if (finalHealthOk) {
-    steps.push({ step: 5, name: "Final Check", status: "success", detail: "Server and Coolify are running" });
+    steps.push({ step: 5, name: "Final Check", status: "success", detail: `Server and ${adapterName} are running` });
   } else {
-    steps.push({ step: 5, name: "Final Check", status: "failure", detail: "Server running but Coolify did not respond" });
+    steps.push({ step: 5, name: "Final Check", status: "failure", detail: `Server running but ${adapterName} did not respond` });
   }
 
   result.success = steps.every((s) => s.status !== "failure");

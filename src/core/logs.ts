@@ -1,7 +1,7 @@
 import { sshExec } from "../utils/ssh.js";
 import { getErrorMessage, mapSshError, sanitizeStderr } from "../utils/errorMapper.js";
 
-export type LogService = "coolify" | "docker" | "system";
+export type LogService = "coolify" | "dokploy" | "docker" | "system";
 
 export interface SystemMetrics {
   cpu: string;
@@ -40,6 +40,8 @@ export function buildLogCommand(service: LogService, lines: number, follow: bool
   switch (service) {
     case "coolify":
       return `docker logs coolify --tail ${lines}${follow ? " --follow" : ""}`;
+    case "dokploy":
+      return `docker service logs dokploy_dokploy --tail ${lines}${follow ? " --follow" : ""}`;
     case "docker":
       return `journalctl -u docker --no-pager -n ${lines}${follow ? " -f" : ""}`;
     case "system":
