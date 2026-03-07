@@ -1,12 +1,81 @@
 import inquirer from "inquirer";
-import { interactiveMenu } from "../../src/commands/interactive";
+import { interactiveMenu, buildSearchSource } from "../../src/commands/interactive";
 
 jest.mock("inquirer");
+jest.mock("../../src/utils/logo.js", () => ({
+  renderLogo: jest.fn(() => "MOCK_LOGO"),
+}));
+
 const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
+
+describe("buildSearchSource", () => {
+  it("returns all choices including Separators and Exit when term is undefined", () => {
+    const choices = buildSearchSource(undefined);
+    expect(choices.length).toBeGreaterThan(10);
+    // Should include separators
+    const hasSeparator = choices.some((c: unknown) => typeof c === "object" && c !== null && "type" in c && (c as { type: string }).type === "separator");
+    expect(hasSeparator).toBe(true);
+    // Should include exit
+    const hasExit = choices.some((c: unknown) => typeof c === "object" && c !== null && "value" in c && (c as { value: string }).value === "exit");
+    expect(hasExit).toBe(true);
+  });
+
+  it("returns all choices when term is empty string", () => {
+    const all = buildSearchSource(undefined);
+    const empty = buildSearchSource("");
+    expect(empty.length).toBe(all.length);
+  });
+
+  it("returns only matching choices plus Exit when term matches (no Separators)", () => {
+    const choices = buildSearchSource("deploy");
+    // Should match "Deploy a new server"
+    expect(choices.some((c: unknown) => typeof c === "object" && c !== null && "value" in c && (c as { value: string }).value === "init")).toBe(true);
+    // Should NOT include separators
+    const hasSeparator = choices.some((c: unknown) => typeof c === "object" && c !== null && "type" in c && (c as { type: string }).type === "separator");
+    expect(hasSeparator).toBe(false);
+    // Exit always present
+    expect(choices.some((c: unknown) => typeof c === "object" && c !== null && "value" in c && (c as { value: string }).value === "exit")).toBe(true);
+  });
+
+  it("returns only Exit when no matches found", () => {
+    const choices = buildSearchSource("xyz-nonexistent");
+    expect(choices.length).toBe(1);
+    expect((choices[0] as { value: string }).value).toBe("exit");
+  });
+
+  it("matches by value field", () => {
+    const choices = buildSearchSource("init");
+    expect(choices.some((c: unknown) => typeof c === "object" && c !== null && "value" in c && (c as { value: string }).value === "init")).toBe(true);
+  });
+
+  it("matches by description field", () => {
+    const choices = buildSearchSource("provision");
+    // "Provision a VPS on Hetzner..." is the description for init
+    expect(choices.some((c: unknown) => typeof c === "object" && c !== null && "value" in c && (c as { value: string }).value === "init")).toBe(true);
+  });
+
+  it("matches case-insensitively", () => {
+    const choices = buildSearchSource("BACKUP");
+    expect(choices.some((c: unknown) => typeof c === "object" && c !== null && "value" in c && (c as { value: string }).value === "backup")).toBe(true);
+  });
+});
 
 describe("interactiveMenu", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("displays logo on menu entry", async () => {
+    const { renderLogo } = require("../../src/utils/logo.js");
+    mockedInquirer.prompt.mockResolvedValueOnce({ action: "exit" });
+    await interactiveMenu();
+    expect(renderLogo).toHaveBeenCalled();
+    expect(console.log).toHaveBeenCalledWith("MOCK_LOGO");
   });
 
   // ─── Main menu ──────────────────────────────────────────────────────────────

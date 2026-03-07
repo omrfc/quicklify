@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: TUI + Dokploy + DX
 status: active
-stopped_at: Completed 13-03-PLAN.md -- Phase 13 complete
-last_updated: "2026-03-07T10:14:47Z"
-last_activity: 2026-03-07 — Completed 13-03 Zod config validation + validate subcommand
+stopped_at: Completed 14-01-PLAN.md
+last_updated: "2026-03-07T12:49:11Z"
+last_activity: 2026-03-07 — Completed 14-01 TUI data & utilities (logo, emoji, tooltips)
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 8
+  completed_plans: 7
 ---
 
 # Project State
@@ -21,16 +21,16 @@ See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Brand:** Kastell (kastell.dev | npm: kastell | GitHub: kastelldev)
 **Core value:** Autonomous server security and maintenance across multiple cloud providers
-**Current focus:** Phase 13 complete, next: Phase 14 - TUI Improvements
+**Current focus:** Phase 14 - TUI Enhancements (Plan 01 complete, Plan 02 next)
 
 ## Current Position
 
-Phase: 13 of 15 (Developer Experience) -- COMPLETE
-Plan: 3 of 3 in current phase (all done)
-Status: Phase 13 complete
-Last activity: 2026-03-07 — Completed 13-03 Zod config validation + validate subcommand
+Phase: 14 of 15 (TUI Enhancements) -- IN PROGRESS
+Plan: 1 of 2 in current phase
+Status: Plan 01 complete, Plan 02 pending
+Last activity: 2026-03-07 — Completed 14-01 TUI data & utilities (logo, emoji, tooltips)
 
-Progress: [######----] 60% v1.4 (3/5 phases complete)
+Progress: [█████████░] 88% v1.4 (7/8 plans complete)
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [######----] 60% v1.4 (3/5 phases complete)
 | 11. Dokploy Lifecycle | 2/2 | 18min | 9min |
 | 12. Bug Fixes | 1/1 | 10min | 10min |
 | 13. DX | 3/3 | ~30min | ~10min |
+| 14. TUI Enhancements | 1/2 | 4min | 4min |
 
 ## Accumulated Context
 
@@ -78,6 +79,9 @@ Recent decisions affecting current work:
 - [13-03]: Zod .strict() replaces manual KNOWN_KEYS set for unknown key detection
 - [13-03]: Security keys filtered from Zod unrecognized_keys to avoid duplicate warnings
 - [13-03]: Dynamic import of yamlConfig in validate subcommand to keep config.ts lightweight
+- [14-01]: figlet Standard font for KASTELL ASCII banner
+- [14-01]: cyan.bold chalk color for logo rendering
+- [14-01]: Unicode emoji for category separators (well-supported subset)
 
 ### Pending Todos
 
@@ -89,6 +93,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-07T10:14:47Z
-Stopped at: Completed 13-03-PLAN.md -- Phase 13 complete
-Next action: `/gsd:plan-phase 14` or `/gsd:execute-phase 14-01`
+Last session: 2026-03-07T12:49:11Z
+Stopped at: Completed 14-01-PLAN.md
+Next action: `/gsd:execute-phase 14-02`

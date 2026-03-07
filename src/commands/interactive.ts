@@ -1,5 +1,6 @@
 import inquirer from "inquirer";
 import chalk from "chalk";
+import { renderLogo } from "../utils/logo.js";
 
 const BACK = "__back__";
 
@@ -94,6 +95,30 @@ function buildMainChoices(): Choice[] {
   choices.push({ name: chalk.dim("  Exit"), value: "exit" });
 
   return choices;
+}
+
+export function buildSearchSource(term: string | undefined): Choice[] {
+  const all = buildMainChoices();
+  if (!term) return all;
+
+  const lower = term.toLowerCase();
+  const filtered = all.filter((c) => {
+    // Skip separators in filtered results
+    if ("type" in c && c.type === "separator") return false;
+    const choice = c as { name: string; value: string; description?: string };
+    return (
+      choice.name.toLowerCase().includes(lower) ||
+      choice.value.toLowerCase().includes(lower) ||
+      (choice.description?.toLowerCase().includes(lower) ?? false)
+    );
+  });
+
+  // Always include Exit
+  if (!filtered.some((c) => "value" in c && c.value === "exit")) {
+    filtered.push({ name: chalk.dim("  Exit"), value: "exit" });
+  }
+
+  return filtered;
 }
 
 function backChoice(): { name: string; value: string } {
@@ -373,16 +398,18 @@ const DIRECT_COMMANDS = new Set([
 ]);
 
 export async function interactiveMenu(): Promise<string[] | null> {
+  console.log(renderLogo());
+  console.log();
+
   // Loop: back from sub-menus returns here
   for (;;) {
     const { action } = await inquirer.prompt<{ action: string }>([
       {
-        type: "list",
+        type: "search",
         name: "action",
         message: "What would you like to do?",
-        choices: buildMainChoices(),
+        source: buildSearchSource,
         pageSize: 22,
-        loop: false,
       },
     ]);
 

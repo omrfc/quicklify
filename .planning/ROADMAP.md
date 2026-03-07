@@ -128,8 +128,8 @@ Plans:
   4. User can type to search and filter menu items in the interactive menu
 **Plans**: 2 plans
 Plans:
-- [ ] 11-01-PLAN.md — Extend PlatformAdapter interface, implement adapter methods, add pollHealth()
-- [ ] 11-02-PLAN.md — Refactor core/commands to adapter dispatch, remove Dokploy guards
+- [ ] 14-01-PLAN.md — Install figlet, create logo utility, add emoji + description tooltips to menu data
+- [ ] 14-02-PLAN.md — Switch to search prompt, wire logo display, update tests
 
 ### Phase 15: Documentation
 **Goal**: README files accurately document the complete v1.4 feature set
@@ -276,10 +276,10 @@ Plans:
 | 10. Fix addServerRecord Platform Routing | v1.3 | 1/1 | Complete | 2026-03-06 |
 | 11. Dokploy Lifecycle Completion | v1.4 | 2/2 | Complete | 2026-03-07 |
 | 12. Bug Fixes | v1.4 | 1/1 | Complete | 2026-03-07 |
-| 13. Developer Experience | 3/3 | Complete   | 2026-03-07 | - |
-| 14. TUI Enhancements | v1.4 | 0/? | Not started | - |
+| 13. Developer Experience | 3/3 | Complete    | 2026-03-07 | - |
+| 14. TUI Enhancements | 1/2 | In Progress|  | - |
 | 15. Documentation | v1.4 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-03-07 — Phase 13 plans created (3 plans, Wave 1)*
+*Last updated: 2026-03-07 — Phase 14 plans created (2 plans, Wave 1-2)*
