@@ -99,6 +99,38 @@ describe("secure", () => {
       expect(pubkey?.value).toBe("yes");
       expect(pubkey?.status).toBe("secure");
     });
+
+    it("should parse lowercase sshd -T output (BUGF-03)", () => {
+      const sshdTOutput = `passwordauthentication no
+permitrootlogin prohibit-password
+pubkeyauthentication yes
+maxauthtries 3
+port 2222`;
+      const settings = parseSshdConfig(sshdTOutput);
+
+      const passAuth = settings.find((s) => s.key === "PasswordAuthentication");
+      expect(passAuth?.value).toBe("no");
+      expect(passAuth?.status).toBe("secure");
+
+      const rootLogin = settings.find((s) => s.key === "PermitRootLogin");
+      expect(rootLogin?.value).toBe("prohibit-password");
+      expect(rootLogin?.status).toBe("secure");
+
+      const pubkey = settings.find((s) => s.key === "PubkeyAuthentication");
+      expect(pubkey?.value).toBe("yes");
+      expect(pubkey?.status).toBe("secure");
+
+      const maxAuth = settings.find((s) => s.key === "MaxAuthTries");
+      expect(maxAuth?.value).toBe("3");
+      expect(maxAuth?.status).toBe("secure");
+    });
+
+    it("should still parse mixed-case cat output (backward compat, BUGF-03)", () => {
+      const settings = parseSshdConfig(sampleSecureSshdConfig);
+      const passAuth = settings.find((s) => s.key === "PasswordAuthentication");
+      expect(passAuth?.value).toBe("no");
+      expect(passAuth?.status).toBe("secure");
+    });
   });
 
   describe("parseAuditResult", () => {
@@ -128,6 +160,18 @@ describe("secure", () => {
       expect(result.sshPort).toBe(22);
       expect(result.passwordAuth.status).toBe("missing");
       expect(result.fail2ban.installed).toBe(false);
+    });
+
+    it("should parse lowercase port from sshd -T output (BUGF-03)", () => {
+      const stdout = `passwordauthentication no\npermitrootlogin prohibit-password\nport 2222\n---SEPARATOR---\nUnit fail2ban.service could not be found.`;
+      const result = parseAuditResult(stdout);
+      expect(result.sshPort).toBe(2222);
+    });
+
+    it("should still parse mixed-case Port from cat output (backward compat, BUGF-03)", () => {
+      const stdout = `${sampleSecureSshdConfig}\n---SEPARATOR---\nUnit fail2ban.service could not be found.`;
+      const result = parseAuditResult(stdout);
+      expect(result.sshPort).toBe(2222);
     });
 
     it("should detect inactive fail2ban", () => {
@@ -206,8 +250,9 @@ describe("secure", () => {
   });
 
   describe("buildAuditCommand", () => {
-    it("should cat sshd_config and check fail2ban", () => {
+    it("should use sshd -T with cat fallback and check fail2ban (BUGF-03)", () => {
       const cmd = buildAuditCommand();
+      expect(cmd).toContain("sshd -T");
       expect(cmd).toContain("cat /etc/ssh/sshd_config");
       expect(cmd).toContain("fail2ban");
     });

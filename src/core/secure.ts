@@ -14,7 +14,7 @@ export function parseSshdConfig(content: string): SshdSetting[] {
   ];
 
   for (const check of checks) {
-    const regex = new RegExp(`^\\s*${check.key}\\s+(.+)`, "m");
+    const regex = new RegExp(`^\\s*${check.key}\\s+(.+)`, "im");
     const match = content.match(regex);
 
     if (match) {
@@ -57,7 +57,7 @@ export function parseAuditResult(stdout: string): SecureAuditResult {
     fail2banStatus.includes("active") || fail2banStatus.includes("inactive");
   const fail2banActive = fail2banStatus.includes("active (running)");
 
-  const portMatch = sshdContent.match(/^\s*Port\s+(\d+)/m);
+  const portMatch = sshdContent.match(/^\s*Port\s+(\d+)/im);
   const sshPort = portMatch ? parseInt(portMatch[1], 10) : 22;
 
   return {
@@ -112,7 +112,7 @@ export function buildFail2banCommand(): string {
 }
 
 export function buildAuditCommand(): string {
-  return `cat /etc/ssh/sshd_config && echo '---SEPARATOR---' && systemctl status fail2ban 2>&1 || true`;
+  return `sshd -T 2>/dev/null || cat /etc/ssh/sshd_config && echo '---SEPARATOR---' && systemctl status fail2ban 2>&1 || true`;
 }
 
 export function buildKeyCheckCommand(): string {
