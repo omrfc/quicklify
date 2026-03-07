@@ -2,8 +2,9 @@ import axios from "axios";
 import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
 import { maintainCommand } from "../../src/commands/maintain";
-import { pollHealth } from "../../src/core/maintain";
+import { pollHealth, maintainServer } from "../../src/core/maintain";
 import type { PlatformAdapter } from "../../src/adapters/interface";
+import * as adapterFactory from "../../src/adapters/factory";
 
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");
@@ -642,5 +643,103 @@ describe("pollHealth", () => {
     const result = await pollHealth(adapter, "1.2.3.4", 3, 0);
     expect(result).toBe(false);
     expect(adapter.healthCheck).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("maintainServer - adapter dispatch", () => {
+  const originalSetTimeout = global.setTimeout;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    global.setTimeout = ((fn: Function) => {
+      fn();
+      return 0;
+    }) as any;
+  });
+
+  afterEach(() => {
+    global.setTimeout = originalSetTimeout;
+  });
+
+  function createMockAdapter(overrides?: Partial<PlatformAdapter>): PlatformAdapter {
+    return {
+      name: "dokploy",
+      getCloudInit: jest.fn(() => ""),
+      healthCheck: jest.fn(async () => ({ status: "running" as const })),
+      createBackup: jest.fn(async () => ({ success: true })),
+      getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
+      update: jest.fn(async () => ({ success: true })),
+      getLogCommand: jest.fn(() => ""),
+      ...overrides,
+    };
+  }
+
+  it("should complete 5-step cycle for Dokploy server (no skip)", async () => {
+    const mockAdapter = createMockAdapter();
+    jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
+    jest.spyOn(adapterFactory, "resolvePlatform").mockReturnValue("dokploy");
+
+    const dokployServer = {
+      id: "manual-dok1",
+      name: "dokploy-test",
+      provider: "hetzner",
+      ip: "10.0.0.1",
+      region: "nbg1",
+      size: "cax11",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      platform: "dokploy" as const,
+    };
+
+    const result = await maintainServer(dokployServer, "", { skipReboot: true });
+
+    expect(result.success).toBe(true);
+    expect(result.steps.length).toBeGreaterThanOrEqual(3);
+    // Should NOT have a "skipped" step with "not yet supported"
+    const skipStep = result.steps.find((s) => s.detail?.includes("not yet supported"));
+    expect(skipStep).toBeUndefined();
+  });
+
+  it("should use adapter.update() in Step 2 (not executeCoolifyUpdate)", async () => {
+    const mockAdapter = createMockAdapter();
+    jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
+    jest.spyOn(adapterFactory, "resolvePlatform").mockReturnValue("dokploy");
+
+    const dokployServer = {
+      id: "manual-dok1",
+      name: "dokploy-test",
+      provider: "hetzner",
+      ip: "10.0.0.1",
+      region: "nbg1",
+      size: "cax11",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      platform: "dokploy" as const,
+    };
+
+    await maintainServer(dokployServer, "", { skipReboot: true });
+
+    expect(mockAdapter.update).toHaveBeenCalledWith("10.0.0.1");
+  });
+
+  it("should use adapter.name in step names (dynamic, not hardcoded 'Coolify')", async () => {
+    const mockAdapter = createMockAdapter({ name: "dokploy" });
+    jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
+    jest.spyOn(adapterFactory, "resolvePlatform").mockReturnValue("dokploy");
+
+    const dokployServer = {
+      id: "manual-dok1",
+      name: "dokploy-test",
+      provider: "hetzner",
+      ip: "10.0.0.1",
+      region: "nbg1",
+      size: "cax11",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      platform: "dokploy" as const,
+    };
+
+    const result = await maintainServer(dokployServer, "", { skipReboot: true });
+
+    const updateStep = result.steps.find((s) => s.step === 2);
+    expect(updateStep?.name).toContain("Dokploy");
+    expect(updateStep?.name).not.toContain("Coolify");
   });
 });

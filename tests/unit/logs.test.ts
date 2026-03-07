@@ -49,6 +49,18 @@ describe("logsCommand", () => {
     it("should build system log command with follow", () => {
       expect(buildLogCommand("system", 50, true)).toBe("journalctl --no-pager -n 50 -f");
     });
+
+    it("should build dokploy log command", () => {
+      expect(buildLogCommand("dokploy" as any, 50, false)).toBe(
+        "docker service logs dokploy_dokploy --tail 50",
+      );
+    });
+
+    it("should build dokploy log command with follow", () => {
+      expect(buildLogCommand("dokploy" as any, 100, true)).toBe(
+        "docker service logs dokploy_dokploy --tail 100 --follow",
+      );
+    });
   });
 
   it("should show error when SSH not available", async () => {
