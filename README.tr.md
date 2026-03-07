@@ -14,8 +14,6 @@
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 ![GitHub stars](https://img.shields.io/github/stars/kastelldev/kastell?style=flat-square)
 [![Socket Badge](https://socket.dev/api/badge/npm/package/kastell)](https://socket.dev/npm/package/kastell)
-[![Website](https://img.shields.io/website?url=https%3A%2F%2Fkastell.dev&label=website)](https://kastell.dev)
-
 ## Kastell Neden Var?
 
 Self-hosted sunucuların çoğu şu nedenlerle çöker:
@@ -163,20 +161,20 @@ kastell doctor                       # Yerel ortam kontrolü
 
 | Sağlayıcı | Durum | Bölgeler | Başlangıç Fiyatı |
 |-----------|-------|----------|------------------|
-| [Hetzner Cloud](https://hetzner.cloud) | Kararlı | Avrupa, ABD | ~EUR4/ay |
+| [Hetzner Cloud](https://hetzner.cloud) | Kararlı | Avrupa, ABD | ~€4/ay |
 | [DigitalOcean](https://digitalocean.com) | Kararlı | Küresel | ~$18/ay |
-| [Vultr](https://vultr.com) | Kararlı | Küresel | ~$10/ay |
-| [Linode (Akamai)](https://linode.com) | Beta | Küresel | ~$24/ay |
+| [Vultr](https://vultr.com) | Kararlı | Küresel | ~$12/ay |
+| [Linode (Akamai)](https://linode.com) | Beta | Küresel | ~$12/ay |
 
-> Fiyatlar provider başına varsayılan starter şablonunu yansıtır. Kurulum sırasında farklı boyut seçebilirsiniz. Linode desteği beta aşamasındadır -- topluluk testleri memnuniyetle karşılanır.
+> Fiyatlar en az 2 GB RAM'e sahip en ucuz planı yansıtır (Coolify ve Dokploy gereksinimi). Bare modda minimum gereksinim yoktur -- sağlayıcıya göre ~$2.50/ay'dan başlayan planlar kullanılabilir. Kurulum sırasında farklı boyut seçebilirsiniz. Linode desteği beta aşamasındadır -- topluluk testleri memnuniyetle karşılanır.
 
 ## Desteklenen Platformlar
 
-| Platform | Mod Bayrağı | Açıklama |
-|----------|-------------|----------|
-| Coolify | `--mode coolify` (varsayılan) | Docker tabanlı PaaS |
-| Dokploy | `--mode dokploy` | Docker Swarm tabanlı PaaS |
-| Bare | `--mode bare` | Genel VPS (platform yok) |
+| Platform | Mod Bayrağı | Min RAM | Min CPU | Açıklama |
+|----------|-------------|---------|---------|----------|
+| Coolify | `--mode coolify` (varsayılan) | 2 GB | 2 vCPU | Docker tabanlı PaaS (port 8000) |
+| Dokploy | `--mode dokploy` | 2 GB | 2 vCPU | Docker Swarm tabanlı PaaS (port 3000) |
+| Bare | `--mode bare` | — | — | Genel VPS, platform yükü yok |
 
 Kastell **PlatformAdapter** mimarisini kullanır -- aynı komutlar (`update`, `maintain`, `logs`, `health`) tüm platformlarda çalışır. Platform sunucu kaydınızda saklanır ve her komutta otomatik algılanır.
 

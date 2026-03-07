@@ -14,8 +14,6 @@
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 ![GitHub stars](https://img.shields.io/github/stars/kastelldev/kastell?style=flat-square)
 [![Socket Badge](https://socket.dev/api/badge/npm/package/kastell)](https://socket.dev/npm/package/kastell)
-[![Website](https://img.shields.io/website?url=https%3A%2F%2Fkastell.dev&label=website)](https://kastell.dev)
-
 ## Why Kastell Exists
 
 Most self-hosted servers break because:
@@ -163,20 +161,20 @@ kastell doctor                         # Check local environment
 
 | Provider | Status | Regions | Starting Price |
 |----------|--------|---------|---------------|
-| [Hetzner Cloud](https://hetzner.cloud) | Stable | EU, US | ~EUR4/mo |
+| [Hetzner Cloud](https://hetzner.cloud) | Stable | EU, US | ~€4/mo |
 | [DigitalOcean](https://digitalocean.com) | Stable | Global | ~$18/mo |
-| [Vultr](https://vultr.com) | Stable | Global | ~$10/mo |
-| [Linode (Akamai)](https://linode.com) | Beta | Global | ~$24/mo |
+| [Vultr](https://vultr.com) | Stable | Global | ~$12/mo |
+| [Linode (Akamai)](https://linode.com) | Beta | Global | ~$12/mo |
 
-> Prices reflect the default starter template per provider. You can choose a different size during setup. Linode support is in beta -- community testing welcome.
+> Prices reflect the cheapest plan with at least 2 GB RAM (required by Coolify and Dokploy). Bare mode has no minimum requirements -- plans start from ~$2.50/mo depending on provider. You can choose a different size during setup. Linode support is in beta -- community testing welcome.
 
 ## Supported Platforms
 
-| Platform | Mode Flag | Description |
-|----------|-----------|-------------|
-| Coolify | `--mode coolify` (default) | Docker-based PaaS |
-| Dokploy | `--mode dokploy` | Docker Swarm-based PaaS |
-| Bare | `--mode bare` | Generic VPS (no platform) |
+| Platform | Mode Flag | Min RAM | Min CPU | Description |
+|----------|-----------|---------|---------|-------------|
+| Coolify | `--mode coolify` (default) | 2 GB | 2 vCPU | Docker-based PaaS (port 8000) |
+| Dokploy | `--mode dokploy` | 2 GB | 2 vCPU | Docker Swarm-based PaaS (port 3000) |
+| Bare | `--mode bare` | — | — | Generic VPS, no platform overhead |
 
 Kastell uses a **PlatformAdapter** architecture -- the same commands (`update`, `maintain`, `logs`, `health`) work across all platforms. The platform is stored in your server record and auto-detected on each command.
 
