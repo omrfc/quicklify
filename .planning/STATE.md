@@ -61,6 +61,10 @@ Completed: Plan 01 (audit engine foundation), Plan 02 (check parsers), Plan 03 (
 - [Phase 20]: Each check parser is a pure function (sectionOutput, platform) => AuditCheck[]
 - [Phase 20]: Docker checks return info severity on bare (skip), warning on platforms (Docker expected)
 - [Phase 20]: IP forwarding auto-passes on coolify/dokploy since Docker requires it
+- [Phase 20]: Async selectFormatter with dynamic imports for lazy formatter loading
+- [Phase 20]: SVG badge uses shields.io layout with green/yellow/red at 80/60 thresholds
+- [Phase 20]: HTML report self-contained with inline CSS, no external deps
+- [Phase 20]: Command uses server.platform ?? server.mode ?? "bare" for backward compat
 - [Phase 20]: Lazy getHistoryPath() for testability with mocked CONFIG_DIR
 - [Phase 20]: Atomic write via temp+rename for audit-history.json integrity
 - [Phase 20]: Pre-condition checks prevent SSH lockout before dangerous fixes
@@ -88,6 +92,7 @@ None.
 | 19    | 04   | 5min     | 2     | 8     |
 | 20    | 01   | 6min     | 2     | 7     |
 | 20    | 02   | 11min    | 2     | 21    |
+| 20    | 03   | 9min     | 2     | 14    |
 | 20    | 04   | 5min     | 2     | 6     |
 
 ## Session Continuity
