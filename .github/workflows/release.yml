@@ -1,0 +1,54 @@
+name: Create GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        run: |
+          # Strip 'v' prefix to get version number
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          # Extract notes between this version's header and the next
+          NOTES=$(awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md)
+
+          # Write to file for gh release
+          if [ -n "$NOTES" ]; then
+            echo "$NOTES" > release-notes.md
+          else
+            echo "Release $GITHUB_REF_NAME" > release-notes.md
+          fi
+
+      - name: Determine pre-release
+        id: prerelease
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$VERSION" == 0.* ]]; then
+            echo "flag=--prerelease" >> "$GITHUB_OUTPUT"
+          else
+            echo "flag=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            ${{ steps.prerelease.outputs.flag }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
