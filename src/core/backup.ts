@@ -15,6 +15,10 @@ export function formatTimestamp(date: Date): string {
 }
 
 export function getBackupDir(serverName: string): string {
+  // Guard against path traversal via crafted server names
+  if (/[/\\]|\.\./.test(serverName)) {
+    throw new Error("Invalid server name: contains path separator or traversal");
+  }
   return join(BACKUPS_DIR, serverName);
 }
 

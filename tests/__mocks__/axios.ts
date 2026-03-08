@@ -1,4 +1,5 @@
-const axios = {
+// eslint-disable-next-line prefer-const
+let axios: Record<string, unknown> = {
   get: jest.fn(),
   post: jest.fn(),
   put: jest.fn(),
@@ -15,5 +16,8 @@ const axios = {
     return error instanceof Error;
   },
 };
+
+// create() returns axios itself so apiClient uses the same mock functions
+axios.create = jest.fn(() => axios);
 
 export default axios;

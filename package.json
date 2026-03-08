@@ -79,6 +79,9 @@
     "ora": "^9.3.0",
     "zod": "^4.3.6"
   },
+  "overrides": {
+    "minimatch": "^10.2.4"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/figlet": "^1.7.0",

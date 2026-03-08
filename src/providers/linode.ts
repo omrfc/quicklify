@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import axios from "axios";
-import { stripSensitiveData, type CloudProvider } from "./base.js";
+import { apiClient, stripSensitiveData, type CloudProvider } from "./base.js";
 import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
 
 interface LinodeType {
@@ -36,7 +36,7 @@ export class LinodeProvider implements CloudProvider {
 
   async validateToken(token: string): Promise<boolean> {
     try {
-      await axios.get(`${this.baseUrl}/profile`, {
+      await apiClient.get(`${this.baseUrl}/profile`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return true;
@@ -47,7 +47,7 @@ export class LinodeProvider implements CloudProvider {
 
   async uploadSshKey(name: string, publicKey: string): Promise<string> {
     try {
-      const response = await axios.post(
+      const response = await apiClient.post(
         `${this.baseUrl}/profile/sshkeys`,
         { label: name, ssh_key: publicKey },
         {
@@ -62,7 +62,7 @@ export class LinodeProvider implements CloudProvider {
       stripSensitiveData(error);
       // Key already exists → find by matching public key
       if (axios.isAxiosError(error) && error.response?.status === 400) {
-        const listResponse = await axios.get(`${this.baseUrl}/profile/sshkeys`, {
+        const listResponse = await apiClient.get(`${this.baseUrl}/profile/sshkeys`, {
           headers: { Authorization: `Bearer ${this.apiToken}` },
         });
         const existing = listResponse.data.data.find(
@@ -94,7 +94,7 @@ export class LinodeProvider implements CloudProvider {
         // Linode uses authorized_users (profile usernames) to inject SSH keys.
         // Fetch profile username; if it fails, cloud-init handles SSH key injection as fallback.
         try {
-          const profileRes = await axios.get(`${this.baseUrl}/profile`, {
+          const profileRes = await apiClient.get(`${this.baseUrl}/profile`, {
             headers: { Authorization: `Bearer ${this.apiToken}` },
           });
           const username = profileRes.data?.username;
@@ -105,7 +105,7 @@ export class LinodeProvider implements CloudProvider {
           // Profile fetch failed; cloud-init will handle SSH key setup
         }
       }
-      const response = await axios.post(`${this.baseUrl}/linode/instances`, body, {
+      const response = await apiClient.post(`${this.baseUrl}/linode/instances`, body, {
         headers: {
           Authorization: `Bearer ${this.apiToken}`,
           "Content-Type": "application/json",
@@ -133,7 +133,7 @@ export class LinodeProvider implements CloudProvider {
 
   async getServerDetails(serverId: string): Promise<ServerResult> {
     try {
-      const response = await axios.get(`${this.baseUrl}/linode/instances/${serverId}`, {
+      const response = await apiClient.get(`${this.baseUrl}/linode/instances/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       const instance = response.data;
@@ -153,7 +153,7 @@ export class LinodeProvider implements CloudProvider {
 
   async getServerStatus(serverId: string): Promise<string> {
     try {
-      const response = await axios.get(`${this.baseUrl}/linode/instances/${serverId}`, {
+      const response = await apiClient.get(`${this.baseUrl}/linode/instances/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       return response.data.status;
@@ -168,7 +168,7 @@ export class LinodeProvider implements CloudProvider {
 
   async destroyServer(serverId: string): Promise<void> {
     try {
-      await axios.delete(`${this.baseUrl}/linode/instances/${serverId}`, {
+      await apiClient.delete(`${this.baseUrl}/linode/instances/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
     } catch (error: unknown) {
@@ -186,7 +186,7 @@ export class LinodeProvider implements CloudProvider {
 
   async rebootServer(serverId: string): Promise<void> {
     try {
-      await axios.post(
+      await apiClient.post(
         `${this.baseUrl}/linode/instances/${serverId}/reboot`,
         {},
         {
@@ -228,7 +228,7 @@ export class LinodeProvider implements CloudProvider {
 
   async getAvailableLocations(): Promise<Region[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/regions`, {
+      const response = await apiClient.get(`${this.baseUrl}/regions`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       return response.data.data
@@ -246,7 +246,7 @@ export class LinodeProvider implements CloudProvider {
 
   async getAvailableServerTypes(_location: string, mode?: ServerMode): Promise<ServerSize[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/linode/types`, {
+      const response = await apiClient.get(`${this.baseUrl}/linode/types`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
 
@@ -276,7 +276,7 @@ export class LinodeProvider implements CloudProvider {
   async createSnapshot(serverId: string, name: string): Promise<SnapshotInfo> {
     try {
       // Get the first disk to create image from
-      const disksResponse = await axios.get(
+      const disksResponse = await apiClient.get(
         `${this.baseUrl}/linode/instances/${serverId}/disks`,
         { headers: { Authorization: `Bearer ${this.apiToken}` } },
       );
@@ -287,7 +287,7 @@ export class LinodeProvider implements CloudProvider {
       // Use the largest disk
       const disk = disks.sort((a: { size: number }, b: { size: number }) => b.size - a.size)[0];
 
-      const response = await axios.post(
+      const response = await apiClient.post(
         `${this.baseUrl}/images`,
         { disk_id: disk.id, label: name },
         {
@@ -322,7 +322,7 @@ export class LinodeProvider implements CloudProvider {
 
   async listSnapshots(serverId: string): Promise<SnapshotInfo[]> {
     try {
-      const response = await axios.get(
+      const response = await apiClient.get(
         `${this.baseUrl}/images?page=1&page_size=100`,
         { headers: { Authorization: `Bearer ${this.apiToken}` } },
       );
@@ -356,7 +356,7 @@ export class LinodeProvider implements CloudProvider {
 
   async deleteSnapshot(snapshotId: string): Promise<void> {
     try {
-      await axios.delete(`${this.baseUrl}/images/${snapshotId}`, {
+      await apiClient.delete(`${this.baseUrl}/images/${snapshotId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
     } catch (error: unknown) {
@@ -374,7 +374,7 @@ export class LinodeProvider implements CloudProvider {
 
   async getSnapshotCostEstimate(serverId: string): Promise<string> {
     try {
-      const response = await axios.get(`${this.baseUrl}/linode/instances/${serverId}`, {
+      const response = await apiClient.get(`${this.baseUrl}/linode/instances/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       const diskMb = response.data.specs?.disk || response.data.disk || 0;

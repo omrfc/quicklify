@@ -217,6 +217,27 @@ describe("yamlConfig", () => {
       expect(result.warnings[0]).toContain("domain");
     });
 
+    it("should reject invalid domain format", () => {
+      const result = validateYamlConfig({ domain: "not a domain" });
+      expect(result.config.domain).toBeUndefined();
+      expect(result.warnings[0]).toContain("domain");
+    });
+
+    it("should reject domain with trailing dot", () => {
+      const result = validateYamlConfig({ domain: "example.com." });
+      expect(result.config.domain).toBeUndefined();
+    });
+
+    it("should reject domain starting with hyphen", () => {
+      const result = validateYamlConfig({ domain: "-example.com" });
+      expect(result.config.domain).toBeUndefined();
+    });
+
+    it("should accept subdomain", () => {
+      const result = validateYamlConfig({ domain: "app.example.com" });
+      expect(result.config.domain).toBe("app.example.com");
+    });
+
     // Security: token fields
     it("should warn when token is found in config", () => {
       const result = validateYamlConfig({ token: "secret123" });

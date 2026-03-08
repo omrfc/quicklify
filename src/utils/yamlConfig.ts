@@ -5,6 +5,7 @@ import type { KastellYamlConfig } from "../types/index.js";
 import { VALID_TEMPLATE_NAMES } from "./templates.js";
 import type { TemplateName } from "../types/index.js";
 import { SUPPORTED_PROVIDERS, invalidProviderError } from "../constants.js";
+import { isValidDomain } from "../core/domain.js";
 
 const SECURITY_KEYS = new Set([
   "token", "apitoken", "api_token", "apikey", "api_key", "secret",
@@ -36,7 +37,9 @@ const KastellYamlSchema = z.object({
   region: z.string().optional(),
   size: z.string().optional(),
   fullSetup: z.boolean().optional(),
-  domain: z.string().optional(),
+  domain: z.string().refine((d) => isValidDomain(d), {
+    message: "Invalid domain format",
+  }).optional(),
 }).strict();
 
 /**

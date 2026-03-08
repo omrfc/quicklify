@@ -1,5 +1,5 @@
 import axios from "axios";
-import { stripSensitiveData, type CloudProvider } from "./base.js";
+import { apiClient, stripSensitiveData, type CloudProvider } from "./base.js";
 import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
 
 interface DORegion {
@@ -35,7 +35,7 @@ export class DigitalOceanProvider implements CloudProvider {
 
   async validateToken(token: string): Promise<boolean> {
     try {
-      await axios.get(`${this.baseUrl}/account`, {
+      await apiClient.get(`${this.baseUrl}/account`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return true;
@@ -46,7 +46,7 @@ export class DigitalOceanProvider implements CloudProvider {
 
   async uploadSshKey(name: string, publicKey: string): Promise<string> {
     try {
-      const response = await axios.post(
+      const response = await apiClient.post(
         `${this.baseUrl}/account/keys`,
         { name, public_key: publicKey },
         {
@@ -61,7 +61,7 @@ export class DigitalOceanProvider implements CloudProvider {
       stripSensitiveData(error);
       // Key already exists → find by matching public key
       if (axios.isAxiosError(error) && error.response?.status === 422) {
-        const listResponse = await axios.get(`${this.baseUrl}/account/keys?per_page=200`, {
+        const listResponse = await apiClient.get(`${this.baseUrl}/account/keys?per_page=200`, {
           headers: { Authorization: `Bearer ${this.apiToken}` },
         });
         const existing = listResponse.data.ssh_keys.find(
@@ -88,7 +88,7 @@ export class DigitalOceanProvider implements CloudProvider {
       if (config.sshKeyIds?.length) {
         body.ssh_keys = config.sshKeyIds.map(Number);
       }
-      const response = await axios.post(`${this.baseUrl}/droplets`, body, {
+      const response = await apiClient.post(`${this.baseUrl}/droplets`, body, {
         headers: {
           Authorization: `Bearer ${this.apiToken}`,
           "Content-Type": "application/json",
@@ -122,7 +122,7 @@ export class DigitalOceanProvider implements CloudProvider {
 
   async getServerDetails(serverId: string): Promise<ServerResult> {
     try {
-      const response = await axios.get(`${this.baseUrl}/droplets/${serverId}`, {
+      const response = await apiClient.get(`${this.baseUrl}/droplets/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       const droplet = response.data.droplet;
@@ -145,7 +145,7 @@ export class DigitalOceanProvider implements CloudProvider {
 
   async getServerStatus(serverId: string): Promise<string> {
     try {
-      const response = await axios.get(`${this.baseUrl}/droplets/${serverId}`, {
+      const response = await apiClient.get(`${this.baseUrl}/droplets/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       // Normalize DO status: "active" → "running" (init.ts checks for "running")
@@ -162,7 +162,7 @@ export class DigitalOceanProvider implements CloudProvider {
 
   async destroyServer(serverId: string): Promise<void> {
     try {
-      await axios.delete(`${this.baseUrl}/droplets/${serverId}`, {
+      await apiClient.delete(`${this.baseUrl}/droplets/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
     } catch (error: unknown) {
@@ -182,7 +182,7 @@ export class DigitalOceanProvider implements CloudProvider {
 
   async rebootServer(serverId: string): Promise<void> {
     try {
-      await axios.post(
+      await apiClient.post(
         `${this.baseUrl}/droplets/${serverId}/actions`,
         { type: "reboot" },
         {
@@ -229,7 +229,7 @@ export class DigitalOceanProvider implements CloudProvider {
 
   async getAvailableLocations(): Promise<Region[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/regions`, {
+      const response = await apiClient.get(`${this.baseUrl}/regions`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       return response.data.regions
@@ -247,7 +247,7 @@ export class DigitalOceanProvider implements CloudProvider {
 
   async getAvailableServerTypes(location: string, mode?: ServerMode): Promise<ServerSize[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/sizes`, {
+      const response = await apiClient.get(`${this.baseUrl}/sizes`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
 
@@ -281,7 +281,7 @@ export class DigitalOceanProvider implements CloudProvider {
 
   async createSnapshot(serverId: string, name: string): Promise<SnapshotInfo> {
     try {
-      await axios.post(
+      await apiClient.post(
         `${this.baseUrl}/droplets/${serverId}/actions`,
         { type: "snapshot", name },
         {
@@ -318,7 +318,7 @@ export class DigitalOceanProvider implements CloudProvider {
 
   async listSnapshots(serverId: string): Promise<SnapshotInfo[]> {
     try {
-      const response = await axios.get(
+      const response = await apiClient.get(
         `${this.baseUrl}/droplets/${serverId}/snapshots?per_page=100`,
         { headers: { Authorization: `Bearer ${this.apiToken}` } },
       );
@@ -350,7 +350,7 @@ export class DigitalOceanProvider implements CloudProvider {
 
   async deleteSnapshot(snapshotId: string): Promise<void> {
     try {
-      await axios.delete(`${this.baseUrl}/snapshots/${snapshotId}`, {
+      await apiClient.delete(`${this.baseUrl}/snapshots/${snapshotId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
     } catch (error: unknown) {
@@ -370,7 +370,7 @@ export class DigitalOceanProvider implements CloudProvider {
 
   async getSnapshotCostEstimate(serverId: string): Promise<string> {
     try {
-      const response = await axios.get(`${this.baseUrl}/droplets/${serverId}`, {
+      const response = await apiClient.get(`${this.baseUrl}/droplets/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       const diskGb = response.data.droplet.disk;

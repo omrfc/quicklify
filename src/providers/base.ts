@@ -8,6 +8,14 @@ import type {
   ServerMode,
 } from "../types/index.js";
 
+/** Default timeout for provider API calls (15 seconds) */
+export const API_TIMEOUT_MS = 15_000;
+
+/** Pre-configured axios instance with timeout for all provider API calls */
+export const apiClient = axios.create({
+  timeout: API_TIMEOUT_MS,
+});
+
 export interface CloudProvider {
   name: string;
   displayName: string;

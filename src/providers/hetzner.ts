@@ -1,5 +1,5 @@
 import axios from "axios";
-import { stripSensitiveData, type CloudProvider } from "./base.js";
+import { apiClient, stripSensitiveData, type CloudProvider } from "./base.js";
 import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
 
 interface HetznerLocation {
@@ -50,7 +50,7 @@ export class HetznerProvider implements CloudProvider {
 
   async validateToken(token: string): Promise<boolean> {
     try {
-      await axios.get(`${this.baseUrl}/servers`, {
+      await apiClient.get(`${this.baseUrl}/servers`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return true;
@@ -61,7 +61,7 @@ export class HetznerProvider implements CloudProvider {
 
   async uploadSshKey(name: string, publicKey: string): Promise<string> {
     try {
-      const response = await axios.post(
+      const response = await apiClient.post(
         `${this.baseUrl}/ssh_keys`,
         { name, public_key: publicKey },
         {
@@ -76,7 +76,7 @@ export class HetznerProvider implements CloudProvider {
       stripSensitiveData(error);
       // Key already exists → find by matching public key
       if (axios.isAxiosError(error) && error.response?.status === 409) {
-        const listResponse = await axios.get(`${this.baseUrl}/ssh_keys?per_page=200`, {
+        const listResponse = await apiClient.get(`${this.baseUrl}/ssh_keys?per_page=200`, {
           headers: { Authorization: `Bearer ${this.apiToken}` },
         });
         const existing = listResponse.data.ssh_keys.find(
@@ -103,7 +103,7 @@ export class HetznerProvider implements CloudProvider {
       if (config.sshKeyIds?.length) {
         body.ssh_keys = config.sshKeyIds.map(Number);
       }
-      const response = await axios.post(`${this.baseUrl}/servers`, body, {
+      const response = await apiClient.post(`${this.baseUrl}/servers`, body, {
         headers: {
           Authorization: `Bearer ${this.apiToken}`,
           "Content-Type": "application/json",
@@ -132,7 +132,7 @@ export class HetznerProvider implements CloudProvider {
 
   async getServerDetails(serverId: string): Promise<ServerResult> {
     try {
-      const response = await axios.get(`${this.baseUrl}/servers/${serverId}`, {
+      const response = await apiClient.get(`${this.baseUrl}/servers/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       return {
@@ -151,7 +151,7 @@ export class HetznerProvider implements CloudProvider {
 
   async getServerStatus(serverId: string): Promise<string> {
     try {
-      const response = await axios.get(`${this.baseUrl}/servers/${serverId}`, {
+      const response = await apiClient.get(`${this.baseUrl}/servers/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       return response.data.server.status;
@@ -166,7 +166,7 @@ export class HetznerProvider implements CloudProvider {
 
   async destroyServer(serverId: string): Promise<void> {
     try {
-      await axios.delete(`${this.baseUrl}/servers/${serverId}`, {
+      await apiClient.delete(`${this.baseUrl}/servers/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
     } catch (error: unknown) {
@@ -186,7 +186,7 @@ export class HetznerProvider implements CloudProvider {
 
   async rebootServer(serverId: string): Promise<void> {
     try {
-      await axios.post(
+      await apiClient.post(
         `${this.baseUrl}/servers/${serverId}/actions/reboot`,
         {},
         {
@@ -231,7 +231,7 @@ export class HetznerProvider implements CloudProvider {
 
   async getAvailableLocations(): Promise<Region[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/locations`, {
+      const response = await apiClient.get(`${this.baseUrl}/locations`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       return response.data.locations.map((loc: HetznerLocation) => ({
@@ -248,7 +248,7 @@ export class HetznerProvider implements CloudProvider {
   async getAvailableServerTypes(location: string, mode?: ServerMode): Promise<ServerSize[]> {
     try {
       // Get actually available server type IDs from datacenter
-      const dcResponse = await axios.get(`${this.baseUrl}/datacenters`, {
+      const dcResponse = await apiClient.get(`${this.baseUrl}/datacenters`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       // Merge available IDs from ALL datacenters in same location (e.g. nbg1-dc3, nbg1-dc4)
@@ -258,7 +258,7 @@ export class HetznerProvider implements CloudProvider {
         .flatMap((dc: HetznerDatacenter) => dc.server_types?.available || []);
 
       // Get server type details
-      const response = await axios.get(`${this.baseUrl}/server_types`, {
+      const response = await apiClient.get(`${this.baseUrl}/server_types`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
 
@@ -297,7 +297,7 @@ export class HetznerProvider implements CloudProvider {
 
   async createSnapshot(serverId: string, name: string): Promise<SnapshotInfo> {
     try {
-      const response = await axios.post(
+      const response = await apiClient.post(
         `${this.baseUrl}/servers/${serverId}/actions/create_image`,
         { type: "snapshot", description: name },
         {
@@ -334,7 +334,7 @@ export class HetznerProvider implements CloudProvider {
 
   async listSnapshots(serverId: string): Promise<SnapshotInfo[]> {
     try {
-      const response = await axios.get(
+      const response = await apiClient.get(
         `${this.baseUrl}/images?type=snapshot&sort=created:desc&per_page=100`,
         { headers: { Authorization: `Bearer ${this.apiToken}` } },
       );
@@ -370,7 +370,7 @@ export class HetznerProvider implements CloudProvider {
 
   async deleteSnapshot(snapshotId: string): Promise<void> {
     try {
-      await axios.delete(`${this.baseUrl}/images/${snapshotId}`, {
+      await apiClient.delete(`${this.baseUrl}/images/${snapshotId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
     } catch (error: unknown) {
@@ -390,7 +390,7 @@ export class HetznerProvider implements CloudProvider {
 
   async getSnapshotCostEstimate(serverId: string): Promise<string> {
     try {
-      const response = await axios.get(`${this.baseUrl}/servers/${serverId}`, {
+      const response = await apiClient.get(`${this.baseUrl}/servers/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       const diskGb = response.data.server.server_type.disk;

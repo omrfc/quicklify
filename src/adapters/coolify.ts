@@ -54,7 +54,7 @@ apt-get update -y
 
 # Install Coolify
 echo "Installing Coolify..."
-curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
+curl -fsSL https://cdn.coollabs.io/coolify/install.sh -o /tmp/coolify-install.sh && bash /tmp/coolify-install.sh && rm -f /tmp/coolify-install.sh
 
 # Wait for services
 echo "Waiting for Coolify services to start..."

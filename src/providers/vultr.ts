@@ -1,5 +1,5 @@
 import axios from "axios";
-import { stripSensitiveData, type CloudProvider } from "./base.js";
+import { apiClient, stripSensitiveData, type CloudProvider } from "./base.js";
 import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
 
 interface VultrPlan {
@@ -35,7 +35,7 @@ export class VultrProvider implements CloudProvider {
 
   async validateToken(token: string): Promise<boolean> {
     try {
-      await axios.get(`${this.baseUrl}/account`, {
+      await apiClient.get(`${this.baseUrl}/account`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return true;
@@ -46,7 +46,7 @@ export class VultrProvider implements CloudProvider {
 
   async uploadSshKey(name: string, publicKey: string): Promise<string> {
     try {
-      const response = await axios.post(
+      const response = await apiClient.post(
         `${this.baseUrl}/ssh-keys`,
         { name, ssh_key: publicKey },
         {
@@ -61,7 +61,7 @@ export class VultrProvider implements CloudProvider {
       stripSensitiveData(error);
       // Key already exists -> find by matching public key
       if (axios.isAxiosError(error) && error.response?.status === 409) {
-        const listResponse = await axios.get(`${this.baseUrl}/ssh-keys`, {
+        const listResponse = await apiClient.get(`${this.baseUrl}/ssh-keys`, {
           headers: { Authorization: `Bearer ${this.apiToken}` },
         });
         const existing = listResponse.data.ssh_keys.find(
@@ -88,7 +88,7 @@ export class VultrProvider implements CloudProvider {
       if (config.sshKeyIds?.length) {
         body.sshkey_id = config.sshKeyIds;
       }
-      const response = await axios.post(`${this.baseUrl}/instances`, body, {
+      const response = await apiClient.post(`${this.baseUrl}/instances`, body, {
         headers: {
           Authorization: `Bearer ${this.apiToken}`,
           "Content-Type": "application/json",
@@ -118,7 +118,7 @@ export class VultrProvider implements CloudProvider {
 
   async getServerDetails(serverId: string): Promise<ServerResult> {
     try {
-      const response = await axios.get(`${this.baseUrl}/instances/${serverId}`, {
+      const response = await apiClient.get(`${this.baseUrl}/instances/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       const instance = response.data.instance;
@@ -138,7 +138,7 @@ export class VultrProvider implements CloudProvider {
 
   async getServerStatus(serverId: string): Promise<string> {
     try {
-      const response = await axios.get(`${this.baseUrl}/instances/${serverId}`, {
+      const response = await apiClient.get(`${this.baseUrl}/instances/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       const inst = response.data.instance;
@@ -159,7 +159,7 @@ export class VultrProvider implements CloudProvider {
 
   async destroyServer(serverId: string): Promise<void> {
     try {
-      await axios.delete(`${this.baseUrl}/instances/${serverId}`, {
+      await apiClient.delete(`${this.baseUrl}/instances/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
     } catch (error: unknown) {
@@ -179,7 +179,7 @@ export class VultrProvider implements CloudProvider {
 
   async rebootServer(serverId: string): Promise<void> {
     try {
-      await axios.post(
+      await apiClient.post(
         `${this.baseUrl}/instances/${serverId}/reboot`,
         {},
         {
@@ -223,7 +223,7 @@ export class VultrProvider implements CloudProvider {
 
   async getAvailableLocations(): Promise<Region[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/regions`, {
+      const response = await apiClient.get(`${this.baseUrl}/regions`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       return response.data.regions
@@ -241,7 +241,7 @@ export class VultrProvider implements CloudProvider {
 
   async getAvailableServerTypes(location: string, mode?: ServerMode): Promise<ServerSize[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/plans`, {
+      const response = await apiClient.get(`${this.baseUrl}/plans`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
 
@@ -270,7 +270,7 @@ export class VultrProvider implements CloudProvider {
 
   async createSnapshot(serverId: string, name: string): Promise<SnapshotInfo> {
     try {
-      const response = await axios.post(
+      const response = await apiClient.post(
         `${this.baseUrl}/snapshots`,
         { instance_id: serverId, description: name },
         {
@@ -309,7 +309,7 @@ export class VultrProvider implements CloudProvider {
     try {
       // Vultr API does not return instance_id in snapshot list,
       // so we return all account snapshots (they are account-wide, not per-instance).
-      const response = await axios.get(`${this.baseUrl}/snapshots`, {
+      const response = await apiClient.get(`${this.baseUrl}/snapshots`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       const snapshots = response.data.snapshots || [];
@@ -341,7 +341,7 @@ export class VultrProvider implements CloudProvider {
 
   async deleteSnapshot(snapshotId: string): Promise<void> {
     try {
-      await axios.delete(`${this.baseUrl}/snapshots/${snapshotId}`, {
+      await apiClient.delete(`${this.baseUrl}/snapshots/${snapshotId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
     } catch (error: unknown) {
@@ -361,7 +361,7 @@ export class VultrProvider implements CloudProvider {
 
   async getSnapshotCostEstimate(serverId: string): Promise<string> {
     try {
-      const response = await axios.get(`${this.baseUrl}/instances/${serverId}`, {
+      const response = await apiClient.get(`${this.baseUrl}/instances/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       const diskGb = response.data.instance?.disk || 0;

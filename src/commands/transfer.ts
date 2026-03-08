@@ -3,6 +3,7 @@ import { resolve } from "path";
 import { getServers, saveServer } from "../utils/config.js";
 import { logger } from "../utils/logger.js";
 import { getErrorMessage, mapFileSystemError } from "../utils/errorMapper.js";
+import { assertValidIp } from "../utils/ssh.js";
 import type { ServerRecord } from "../types/index.js";
 
 const REQUIRED_FIELDS: (keyof ServerRecord)[] = [
@@ -31,6 +32,15 @@ export function validateServerRecords(data: unknown): { valid: boolean; errors: 
     for (const field of REQUIRED_FIELDS) {
       if (typeof (item as Record<string, unknown>)[field] !== "string") {
         errors.push(`Item [${i}]: missing or invalid field "${field}"`);
+      }
+    }
+    // Validate IP format to prevent injection via malicious import files
+    const ip = (item as Record<string, unknown>).ip;
+    if (typeof ip === "string") {
+      try {
+        assertValidIp(ip);
+      } catch {
+        errors.push(`Item [${i}]: invalid IP address format`);
       }
     }
   }

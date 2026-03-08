@@ -55,7 +55,7 @@ apt-get update -y
 
 # Install Dokploy
 echo "Installing Dokploy..."
-curl -sSL https://dokploy.com/install.sh | sh
+curl -sSL https://dokploy.com/install.sh -o /tmp/dokploy-install.sh && sh /tmp/dokploy-install.sh && rm -f /tmp/dokploy-install.sh
 
 # Wait for services
 echo "Waiting for Dokploy services to start..."

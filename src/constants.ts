@@ -59,9 +59,13 @@ export const BOOT_INTERVAL = 1000;
 // SCP file transfer timeout — prevents CLI hang on network failures (MCP + interactive mode)
 export const SCP_TIMEOUT_MS = 300_000; // 5 minutes
 
-// Platform update commands
-export const COOLIFY_UPDATE_CMD = "curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash";
-export const DOKPLOY_UPDATE_CMD = "curl -sSL https://dokploy.com/install.sh | sh";
+// Platform install/update URLs (pinned to HTTPS CDN)
+export const COOLIFY_INSTALL_URL = "https://cdn.coollabs.io/coolify/install.sh";
+export const DOKPLOY_INSTALL_URL = "https://dokploy.com/install.sh";
+
+// Platform update commands — download-then-execute for auditability
+export const COOLIFY_UPDATE_CMD = `curl -fsSL ${COOLIFY_INSTALL_URL} -o /tmp/coolify-install.sh && bash /tmp/coolify-install.sh && rm -f /tmp/coolify-install.sh`;
+export const DOKPLOY_UPDATE_CMD = `curl -sSL ${DOKPLOY_INSTALL_URL} -o /tmp/dokploy-install.sh && sh /tmp/dokploy-install.sh && rm -f /tmp/dokploy-install.sh`;
 export const COOLIFY_RESTART_CMD =
   "cd /data/coolify/source && docker compose -f docker-compose.yml -f docker-compose.prod.yml restart coolify";
 
