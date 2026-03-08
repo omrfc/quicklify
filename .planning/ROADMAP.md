@@ -77,7 +77,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 
 </details>
 
-### 🚧 v1.5 Security + Dokploy + Audit (Next)
+### v1.5 Security + Dokploy + Audit (Next)
 
 **Phase 16: Güvenlik Fixleri** ✅ (2026-03-08)
 - [x] YAML domain validation (`isValidDomain()` Zod refine)
@@ -97,7 +97,23 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 - [ ] Dokploy version detection (API üzerinden)
 - [ ] Auto-detection (sunucuda Coolify mi Dokploy mu?)
 
-**Phase 18: Code Quality Refactoring**
+**Phase 18: Token Güvenliği**
+**Goal:** Secure token lifecycle with OS keychain integration, resolution chain, and defense-in-depth measures
+**Plans:** 2 plans
+**Requirements:** [AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, AUTH-06, AUTH-07]
+
+Plans:
+- [ ] 18-01-PLAN.md — Core token infrastructure (keychain CRUD, token resolution chain, buffer storage)
+- [ ] 18-02-PLAN.md — CLI auth commands + subprocess verification + SECURITY.md docs
+
+- [ ] OS Keychain entegrasyonu — `kastell auth set/remove/list` komutları, cross-platform (wincred/macOS Keychain/libsecret)
+- [ ] Token resolution zinciri: Keychain → env var → hata (fallback)
+- [ ] Lazy token loading — sadece kullanılan provider'ın tokenını yükle
+- [ ] Subprocess token leak kontrolü — SSH spawn'da env var sızıntısı önleme
+- [ ] Tier 2 dokümantasyon — core dump kapatma + swap şifreleme önerisi (SECURITY.md)
+- [ ] Buffer token storage + shutdown cleanup — tokenBuf.fill(0), kısmi koruma
+
+**Phase 19: Code Quality Refactoring**
 - [ ] Dead code temizliği: `logo.ts` + figlet kaldır, `getCoolifyCloudInit()` kaldır
 - [ ] `getLogCommand()` orphan method — interface + adapter'lardan kaldır
 - [ ] `commands/maintain.ts` → `core/maintain.ts`'e delege et (DRY)
@@ -107,7 +123,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 - [ ] Provider error handling → `withProviderErrorHandling()` HOF
 - [ ] `process.exit(1)` → throw/return (core/deploy.ts testability)
 
-**Phase 19: kastell audit**
+**Phase 20: kastell audit**
 - [ ] `kastell audit` — ücretsiz güvenlik taraması, viral büyüme motoru
 - [ ] IP spoofing/abuse durumlarında firewall + port snapshot → Hetzner'a kanıt
 
@@ -233,7 +249,8 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 | 14. TUI Enhancements | v1.4 | 2/2 | Complete | 2026-03-07 |
 | 15. Documentation | v1.4 | 1/1 | Complete | 2026-03-07 |
 | 16. Güvenlik Fixleri | v1.5 | 11/11 | Complete | 2026-03-08 |
+| 18. Token Güvenliği | v1.5 | 0/2 | Planning | — |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-03-08 — Phase 16 (security audit) complete, Phase 18 (refactoring) added*
+*Last updated: 2026-03-08 — Phase 18 (Token Güvenliği) planned: 2 plans, 7 requirements*
