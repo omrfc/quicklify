@@ -30,6 +30,7 @@ import { removeCommand } from "./commands/remove.js";
 import { maintainCommand } from "./commands/maintain.js";
 import { snapshotCommand } from "./commands/snapshot.js";
 import { completionsCommand } from "./commands/completions.js";
+import { registerAuthCommands } from "./commands/auth.js";
 import { printHeader, printQuickHelp } from "./cli/header.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -251,6 +252,8 @@ program
   .command("completions [shell]")
   .description("Generate shell completion scripts (bash, zsh, fish)")
   .action(completionsCommand);
+
+registerAuthCommands(program);
 
 // If --version or -V, print version and await update check before exiting
 const args = process.argv.slice(2);
