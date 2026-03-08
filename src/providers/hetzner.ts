@@ -1,5 +1,5 @@
 import axios from "axios";
-import { apiClient, stripSensitiveData, type CloudProvider } from "./base.js";
+import { apiClient, stripSensitiveData, withProviderErrorHandling, type CloudProvider } from "./base.js";
 import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
 
 interface HetznerLocation {
@@ -131,7 +131,7 @@ export class HetznerProvider implements CloudProvider {
   }
 
   async getServerDetails(serverId: string): Promise<ServerResult> {
-    try {
+    return withProviderErrorHandling("get server details", async () => {
       const response = await apiClient.get(`${this.baseUrl}/servers/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
@@ -140,28 +140,16 @@ export class HetznerProvider implements CloudProvider {
         ip: response.data.server?.public_net?.ipv4?.ip || "pending",
         status: response.data.server.status,
       };
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      throw new Error(
-        `Failed to get server details: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    });
   }
 
   async getServerStatus(serverId: string): Promise<string> {
-    try {
+    return withProviderErrorHandling("get server status", async () => {
       const response = await apiClient.get(`${this.baseUrl}/servers/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       return response.data.server.status;
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      throw new Error(
-        `Failed to get server status: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    });
   }
 
   async destroyServer(serverId: string): Promise<void> {

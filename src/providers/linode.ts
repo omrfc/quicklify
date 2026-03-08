@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import axios from "axios";
-import { apiClient, stripSensitiveData, type CloudProvider } from "./base.js";
+import { apiClient, stripSensitiveData, withProviderErrorHandling, type CloudProvider } from "./base.js";
 import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
 
 interface LinodeType {
@@ -132,7 +132,7 @@ export class LinodeProvider implements CloudProvider {
   }
 
   async getServerDetails(serverId: string): Promise<ServerResult> {
-    try {
+    return withProviderErrorHandling("get server details", async () => {
       const response = await apiClient.get(`${this.baseUrl}/linode/instances/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
@@ -142,28 +142,16 @@ export class LinodeProvider implements CloudProvider {
         ip: instance.ipv4?.[0] || "pending",
         status: instance.status === "running" ? "running" : instance.status,
       };
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      throw new Error(
-        `Failed to get server details: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    });
   }
 
   async getServerStatus(serverId: string): Promise<string> {
-    try {
+    return withProviderErrorHandling("get server status", async () => {
       const response = await apiClient.get(`${this.baseUrl}/linode/instances/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
       return response.data.status;
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      throw new Error(
-        `Failed to get server status: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    });
   }
 
   async destroyServer(serverId: string): Promise<void> {

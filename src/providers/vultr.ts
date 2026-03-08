@@ -1,5 +1,5 @@
 import axios from "axios";
-import { apiClient, stripSensitiveData, type CloudProvider } from "./base.js";
+import { apiClient, stripSensitiveData, withProviderErrorHandling, type CloudProvider } from "./base.js";
 import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
 
 interface VultrPlan {
@@ -117,7 +117,7 @@ export class VultrProvider implements CloudProvider {
   }
 
   async getServerDetails(serverId: string): Promise<ServerResult> {
-    try {
+    return withProviderErrorHandling("get server details", async () => {
       const response = await apiClient.get(`${this.baseUrl}/instances/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
@@ -127,17 +127,11 @@ export class VultrProvider implements CloudProvider {
         ip: instance.main_ip,
         status: instance.power_status === "running" ? "running" : instance.power_status,
       };
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      throw new Error(
-        `Failed to get server details: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    });
   }
 
   async getServerStatus(serverId: string): Promise<string> {
-    try {
+    return withProviderErrorHandling("get server status", async () => {
       const response = await apiClient.get(`${this.baseUrl}/instances/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
@@ -148,13 +142,7 @@ export class VultrProvider implements CloudProvider {
         return "provisioning";
       }
       return inst.power_status;
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      throw new Error(
-        `Failed to get server status: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    });
   }
 
   async destroyServer(serverId: string): Promise<void> {

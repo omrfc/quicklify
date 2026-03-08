@@ -80,6 +80,27 @@ export function sanitizeResponseData(data: unknown): unknown {
   return Object.keys(clean).length > 0 ? clean : undefined;
 }
 
+/**
+ * Higher-order function for standard provider error handling.
+ * Wraps an async operation with stripSensitiveData + consistent error formatting.
+ * Use for methods with the standard try/catch pattern. Methods with custom error
+ * handling (e.g., uploadSshKey with 409, typed API error responses) should NOT use this.
+ */
+export async function withProviderErrorHandling<T>(
+  operation: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (error: unknown) {
+    stripSensitiveData(error);
+    throw new Error(
+      `Failed to ${operation}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+}
+
 export function stripSensitiveData(error: unknown): void {
   if (axios.isAxiosError(error)) {
     if (error.config) {
