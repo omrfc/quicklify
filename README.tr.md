@@ -148,6 +148,22 @@ kastell secure setup sunucum      # SSH sıkılaştırma + fail2ban
 kastell domain add sunucum --domain ornek.com  # Domain + SSL ayarla
 ```
 
+### Güvenlik Denetimi
+```bash
+kastell audit sunucum                # Tam güvenlik denetimi (9 kategori, 46+ kontrol)
+kastell audit sunucum --json         # Otomasyon için JSON çıktısı
+kastell audit sunucum --threshold 70 # Skor eşiğin altındaysa exit code 1
+kastell audit sunucum --fix          # İnteraktif düzeltme modu (önem derecesine göre)
+kastell audit sunucum --fix --dry-run # Düzeltmeleri çalıştırmadan önizle
+kastell audit sunucum --watch        # 5 dk aralıkla tekrar denetle, sadece değişiklikleri göster
+kastell audit sunucum --watch 60     # Özel aralık (60 saniye)
+kastell audit --host root@1.2.3.4   # Kayıtlı olmayan sunucuyu denetle
+kastell audit sunucum --badge        # SVG rozet çıktısı
+kastell audit sunucum --report html  # Tam HTML raporu
+kastell audit sunucum --score-only   # Sadece skor (CI uyumlu)
+kastell audit sunucum --summary      # Kompakt özet görünümü
+```
+
 ### İzleme ve Hata Ayıklama
 ```bash
 kastell monitor sunucum             # CPU, RAM, disk kullanımı
@@ -292,12 +308,31 @@ Mevcut araçlar:
 | `server_secure` | secure, firewall, domain | SSH sıkılaştırma, güvenlik duvarı kuralları, domain/SSL yönetimi (10 alt komut) |
 | `server_backup` | backup, snapshot | Veritabanı yedekle/geri yükle ve VPS snapshot oluştur/yönet |
 | `server_provision` | create | Bulut sağlayıcılarda yeni sunucu oluştur |
+| `server_audit` | audit | Güvenlik denetimi çalıştır (summary/json/score çıktı formatları) |
 
 > Tüm yıkıcı işlemler (destroy, restore, snapshot-delete, provision, restart, maintain, snapshot-create) çalıştırılmak için `SAFE_MODE=false` gerektirir.
 
+`kastell audit` komutunu CI pipeline'ınızda güvenlik eşiği zorunluluğu için kullanın:
+
+```yaml
+# .github/workflows/security-audit.yml
+name: Güvenlik Denetimi
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Her Pazartesi 06:00
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npx -y kastell audit --host root@${{ secrets.SERVER_IP }} --threshold 70 --json > audit-result.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: audit-report
+          path: audit-result.json
+```
+
 ## Gelecek Planlar
 
-- Güvenlik taraması ve uyumluluk raporları
 - kastell.dev web sitesi
 - Guard daemon ve fleet yönetimi
 - AI IDE'ler için plugin ekosistemi
