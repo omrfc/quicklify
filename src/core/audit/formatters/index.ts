@@ -50,3 +50,7 @@ export async function selectFormatter(
 }
 
 export { formatTerminal } from "./terminal.js";
+export { formatJson } from "./json.js";
+export { formatBadge } from "./badge.js";
+export { formatHtmlReport, formatMdReport } from "./report.js";
+export { formatSummary } from "./summary.js";
