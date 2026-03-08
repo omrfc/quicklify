@@ -9,6 +9,7 @@ import { serverMaintainSchema, handleServerMaintain } from "./tools/serverMainta
 import { serverSecureSchema, handleServerSecure } from "./tools/serverSecure.js";
 import { serverBackupSchema, handleServerBackup } from "./tools/serverBackup.js";
 import { serverProvisionSchema, handleServerProvision } from "./tools/serverProvision.js";
+import { serverAuditSchema, handleServerAudit } from "./tools/serverAudit.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -124,6 +125,21 @@ export function createMcpServer(): McpServer {
     },
   }, async (params) => {
     return handleServerProvision(params);
+  });
+
+  server.registerTool("server_audit", {
+    description:
+      "Run a security audit on a Kastell-managed server. Returns overall score (0-100), per-category scores (SSH, Firewall, Updates, Auth, Docker, Network, Filesystem, Logging, Kernel), and actionable quick wins. Formats: 'summary' (compact text for AI consumption), 'json' (full AuditResult), 'score' (number only). Requires SSH access to target server.",
+    inputSchema: serverAuditSchema,
+    annotations: {
+      title: "Server Security Audit",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+  }, async (params) => {
+    return handleServerAudit(params);
   });
 
   return server;
