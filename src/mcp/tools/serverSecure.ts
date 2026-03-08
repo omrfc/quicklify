@@ -9,8 +9,9 @@ import {
   addFirewallRule,
   removeFirewallRule,
   getFirewallStatus,
-  COOLIFY_PORTS,
+  getPortsForPlatform,
 } from "../../core/firewall.js";
+import { resolvePlatform } from "../../adapters/factory.js";
 import {
   setDomain,
   removeDomain,
@@ -167,7 +168,8 @@ export async function handleServerSecure(params: {
       }
 
       case "firewall-setup": {
-        const result = await setupFirewall(server.ip);
+        const platform = resolvePlatform(server);
+        const result = await setupFirewall(server.ip, platform);
 
         if (!result.success) {
           return {
@@ -181,11 +183,13 @@ export async function handleServerSecure(params: {
           };
         }
 
+        const ports = getPortsForPlatform(platform);
+        const platformLabel = platform ?? "bare";
         return mcpSuccess({
           success: true,
           server: server.name,
           ip: server.ip,
-          message: `UFW enabled with Coolify ports (${COOLIFY_PORTS.join(", ")}) + SSH (22)`,
+          message: `UFW enabled with ${platformLabel} ports (${ports.join(", ")}) + SSH (22)`,
           suggested_actions: [
             { command: `server_secure { action: 'firewall-status', server: '${server.name}' }`, reason: "Verify firewall rules" },
           ],

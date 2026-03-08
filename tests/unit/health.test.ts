@@ -7,8 +7,15 @@ import * as ssh from "../../src/utils/ssh";
 import { checkServerHealth, healthCommand } from "../../src/commands/health";
 
 jest.mock("../../src/utils/config");
-jest.mock("../../src/core/status", () => ({
-  checkCoolifyHealth: jest.fn(),
+jest.mock("../../src/adapters/factory", () => ({
+  resolvePlatform: jest.fn().mockImplementation((server: any) => {
+    if (server.platform) return server.platform;
+    if (server.mode === "bare") return undefined;
+    return "coolify";
+  }),
+  getAdapter: jest.fn().mockReturnValue({
+    healthCheck: jest.fn().mockResolvedValue({ status: "running" }),
+  }),
 }));
 jest.mock("../../src/utils/ssh", () => ({
   assertValidIp: jest.fn(),
@@ -22,11 +29,11 @@ jest.mock("../../src/utils/ssh", () => ({
   sanitizedEnv: jest.fn().mockReturnValue({}),
 }));
 
-import * as statusModule from "../../src/core/status";
+import * as adapterFactory from "../../src/adapters/factory";
 
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedSsh = ssh as jest.Mocked<typeof ssh>;
-const mockedStatus = statusModule as jest.Mocked<typeof statusModule>;
+const mockedAdapterFactory = adapterFactory as jest.Mocked<typeof adapterFactory>;
 
 const bareServer = {
   id: "bare-456",
@@ -118,9 +125,10 @@ describe("health command — bare server SSH checks", () => {
     });
   });
 
-  describe("checkServerHealth — coolify server (unchanged)", () => {
-    it("should use checkCoolifyHealth for coolify servers (not sshExec)", async () => {
-      mockedStatus.checkCoolifyHealth.mockResolvedValueOnce("running");
+  describe("checkServerHealth — platform server (adapter-based)", () => {
+    it("should use adapter healthCheck for platform servers (not sshExec)", async () => {
+      const mockHealthCheck = jest.fn().mockResolvedValueOnce({ status: "running" });
+      (mockedAdapterFactory.getAdapter as jest.Mock).mockReturnValueOnce({ healthCheck: mockHealthCheck });
 
       const result = await checkServerHealth(coolifyServer);
 
@@ -128,8 +136,9 @@ describe("health command — bare server SSH checks", () => {
       expect(mockedSsh.sshExec).not.toHaveBeenCalled();
     });
 
-    it("should return unreachable when checkCoolifyHealth returns not reachable", async () => {
-      mockedStatus.checkCoolifyHealth.mockResolvedValueOnce("not reachable");
+    it("should return unreachable when adapter healthCheck returns not reachable", async () => {
+      const mockHealthCheck = jest.fn().mockResolvedValueOnce({ status: "not reachable" });
+      (mockedAdapterFactory.getAdapter as jest.Mock).mockReturnValueOnce({ healthCheck: mockHealthCheck });
 
       const result = await checkServerHealth(coolifyServer);
 
@@ -168,7 +177,8 @@ describe("health command — bare server SSH checks", () => {
 
     it("should include host key mismatch in summary counts", async () => {
       mockedConfig.getServers.mockReturnValue([coolifyServer, bareServer]);
-      mockedStatus.checkCoolifyHealth.mockResolvedValueOnce("running");
+      const mockHealthCheck = jest.fn().mockResolvedValueOnce({ status: "running" });
+      (mockedAdapterFactory.getAdapter as jest.Mock).mockReturnValueOnce({ healthCheck: mockHealthCheck });
       mockedSsh.sshExec.mockResolvedValueOnce({
         code: 255,
         stdout: "",

@@ -36,7 +36,6 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
   // AUTH-02: Password aging configured
   const passMaxMatch = output.match(/PASS_MAX_DAYS\s+(\d+)/);
   const passMaxDays = passMaxMatch ? parseInt(passMaxMatch[1], 10) : null;
-  const hasReasonableAging = passMaxDays !== null && passMaxDays <= 365 && passMaxDays > 0;
   const auth02: AuditCheck = {
     id: "AUTH-02",
     category: "Auth",

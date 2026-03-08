@@ -8,7 +8,7 @@
 - ✅ **v1.2.1 Refactor + Security Patch** — Phases 4-6 (shipped 2026-03-02)
 - ✅ **v1.3 Kastell Rebrand + Dokploy** — Phases 7-10 (shipped 2026-03-06)
 - ✅ **v1.4 TUI + Dokploy + DX** — Phases 11-15 (shipped 2026-03-07)
-- 🚧 **v1.5 Security + Dokploy + Audit** — güvenlik fixleri, Dokploy tamamlama, kastell audit (viral büyüme)
+- ✅ **v1.5 Security + Dokploy + Audit** — Phases 16-22 (shipped 2026-03-08)
 - ⬜ **v1.6 Guard Core** — guard daemon, lock --production, fleet, doctor genişletme, bildirimler, adapter contract doku
 - ⬜ **v1.7 Risk Trend** — risk trend scoring, kastell compare
 - ⬜ **v2.0 Plugin Ekosistemi** — Claude Code marketplace, SKILL.md (cross-platform: Cursor/Gemini CLI/Kiro), slash commands, chained workflows, audit --explain, validate_plugins.py CI
@@ -77,95 +77,20 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 
 </details>
 
-### v1.5 Security + Dokploy + Audit (Next)
+<details>
+<summary>✅ v1.5 Security + Dokploy + Audit — SHIPPED 2026-03-08</summary>
 
-**Phase 16: Güvenlik Fixleri** ✅ (2026-03-08)
-- [x] YAML domain validation (`isValidDomain()` Zod refine)
-- [x] Coolify/Dokploy install → download-then-execute pattern
-- [x] Provider API timeout (apiClient, 15s)
-- [x] Import IP validation (assertValidIp)
-- [x] Backup path traversal guard
-- [x] buildLogCommand integer bounds check (1-500)
-- [x] ssh-keygen IP quoting
-- [x] maintainAll tokenMap null guard
-- [x] updateCheck config dir mode 0o700
-- [x] npm audit 0 vulnerability (minimatch override)
-- [x] destroy.ts unnecessary dynamic import removed
+- [x] Phase 16: Güvenlik Fixleri (11 items, pre-GSD) — completed 2026-03-08
+- [x] Phase 17: Dokploy Tamamlama (3/3 plans) — completed 2026-03-08
+- [x] Phase 18: Token Güvenliği (2/2 plans) — completed 2026-03-08
+- [x] Phase 19: Code Quality Refactoring (4/4 plans) — completed 2026-03-08
+- [x] Phase 20: kastell audit (5/5 plans) — completed 2026-03-08
+- [x] Phase 21: Wire tokenBuffer — Gap Closure (absorbed into P18) — completed 2026-03-08
+- [x] Phase 22: Platform Auto-Detect — Gap Closure (absorbed into P17) — completed 2026-03-08
 
-**Phase 17: Dokploy Tamamlama** — **Plans:** 2 plans
-- [ ] Dokploy restore desteği
-- [ ] Dokploy version detection (SSH üzerinden)
-- [ ] Auto-detection (sunucuda Coolify mi Dokploy mu?)
+7 phases, 14 plans, 37 requirements. Full details: [v1.5-ROADMAP.md](./milestones/v1.5-ROADMAP.md)
 
-Plans:
-- [ ] 17-01-PLAN.md — Dokploy restore support + adapter-based restore routing
-- [ ] 17-02-PLAN.md — Auto-detection (detectPlatform) + version detection verification
-
-**Phase 18: Token Güvenliği** ✅ (2026-03-08)
-- [x] OS Keychain entegrasyonu — `kastell auth set/remove/list` komutları, cross-platform (wincred/macOS Keychain/libsecret)
-- [x] Token resolution zinciri: Keychain → env var → hata (fallback)
-- [x] Lazy token loading — sadece kullanılan provider'ın tokenını yükle
-- [x] Subprocess token leak kontrolü — SSH spawn'da env var sızıntısı önleme
-- [x] Tier 2 dokümantasyon — core dump kapatma + swap şifreleme önerisi (SECURITY.md)
-- [x] Buffer token storage + shutdown cleanup — tokenBuf.fill(0), kısmi koruma
-
-**Phase 19: Code Quality Refactoring** ✅ (2026-03-08) — **Plans:** 4/4 complete
-- [x] Dead code temizliği: `logo.ts` + figlet kaldır, `getCoolifyCloudInit()` kaldır
-- [x] `getLogCommand()` orphan method — interface + adapter'lardan kaldır
-- [x] `coolifyStatus` → `platformStatus` rename (consistency)
-- [x] `commands/maintain.ts` → `core/maintain.ts`'e delege et (DRY)
-- [x] `deployServer()` 337 satır → phase'lere böl (createServer, waitReady, postSetup)
-- [x] `process.exit(1)` → KastellResult (core/deploy.ts testability)
-- [x] Shared adapter utilities — Coolify/Dokploy ortak healthCheck/update/getStatus
-- [x] Provider error handling → `withProviderErrorHandling()` HOF
-
-Plans:
-- [x] 19-01-PLAN.md — Dead code removal + coolifyStatus → platformStatus rename
-- [x] 19-02-PLAN.md — Maintain pipeline DRY consolidation (command → core)
-- [x] 19-03-PLAN.md — deployServer() decomposition + process.exit removal
-- [x] 19-04-PLAN.md — Shared adapter utilities + provider error handling HOF
-
-**Phase 20: kastell audit** — **Plans:** 5 plans
-- [ ] 9 kategori ~46 kontrol (SSH, Firewall, System Updates, Docker, Network, Filesystem, Auth, Logging, Kernel)
-- [ ] Severity levels (Critical/Warning/Info) + emoji
-- [ ] Kategori bazlı score tablosu (SSH 6/10, Firewall 2/10...)
-- [ ] Actionable fix commands + explain (default davranış)
-- [ ] `--fix` interactive (onaylı otomatik düzeltme)
-- [ ] `--fix --dry-run` (fix preview — güven oluşturma)
-- [ ] `--json`, `--badge` (SVG shield), `--report html/md`
-- [ ] `--score-only` (CI/CD tek satır çıktı)
-- [ ] `--summary` (dashboard tarzı kısa özet)
-- [ ] `--threshold` + exit codes (CI/CD entegrasyonu)
-- [ ] `--watch` modu (daemon'suz monitoring, guard'a köprü)
-- [ ] `--host user@ip` (kayıtsız sunucu audit — "audit any server")
-- [ ] Trend detection (son score karşılaştırma, ~/.kastell/audit-history.json)
-- [ ] Platform-aware (Coolify/Dokploy/Bare)
-- [ ] Quick win özeti ("3 komutla 45→85" mesajı)
-- [ ] MCP `server_audit` tool
-- [ ] GitHub Actions örneği (README)
-
-Plans:
-- [ ] 20-01-PLAN.md — Audit types + SSH batch commands + scoring engine + runner skeleton
-- [ ] 20-02-PLAN.md — 9 category check parsers (~46 checks) + check registry
-- [ ] 20-03-PLAN.md — CLI command + all output formatters (terminal, JSON, badge, report, summary)
-- [ ] 20-04-PLAN.md — Fix engine + history/trend detection + quick win calculator
-- [ ] 20-05-PLAN.md — MCP server_audit tool + watch mode + CLI integration finalization
-
-**Phase 21: Wire tokenBuffer into Token Resolution** *(Gap Closure)*
-**Goal:** tokenBuffer.ts'i token resolution chain'ine entegre et — AUTH-04 satisfied, integration gap kapatılır
-**Requirements:** AUTH-04
-**Gap Closure:** Closes AUTH-04 (partial → satisfied) + integration gap (tokenBuffer → tokens.ts)
-- [ ] tokenBuffer'ı getProviderToken() chain'ine entegre et (buffer cache layer)
-- [ ] Shutdown cleanup handler'ları production'da aktif et
-- [ ] Mevcut testleri entegrasyon senaryolarıyla güncelle
-
-**Phase 22: Platform Auto-Detection in kastell add** *(Gap Closure)*
-**Goal:** detectPlatform()'a production consumer ekle — DOK-04 satisfied, flow gap kapatılır
-**Requirements:** DOK-04
-**Gap Closure:** Closes DOK-04 (partial → satisfied) + flow gap (Platform auto-detection)
-- [ ] `kastell add` komutuna `--auto-detect` flag ekle (veya `--mode` yoksa otomatik detect)
-- [ ] detectPlatform() → addServerRecord routing'e bağla
-- [ ] Auto-detect flow testleri
+</details>
 
 <details>
 <summary>⬜ v1.6 Guard Core</summary>
@@ -294,12 +219,13 @@ Plans:
 | 14. TUI Enhancements | v1.4 | 2/2 | Complete | 2026-03-07 |
 | 15. Documentation | v1.4 | 1/1 | Complete | 2026-03-07 |
 | 16. Güvenlik Fixleri | v1.5 | 11/11 | Complete | 2026-03-08 |
+| 17. Dokploy Tamamlama | v1.5 | 3/3 | Complete | 2026-03-08 |
 | 18. Token Güvenliği | v1.5 | 2/2 | Complete | 2026-03-08 |
 | 19. Code Quality Refactoring | v1.5 | 4/4 | Complete | 2026-03-08 |
-| 20. kastell audit | 5/5 | Complete    | 2026-03-08 | - |
-| 21. Wire tokenBuffer into Token Resolution | v1.5 | 0/0 | Pending | - |
-| 22. Platform Auto-Detection in kastell add | v1.5 | 0/0 | Pending | - |
+| 20. kastell audit | v1.5 | 5/5 | Complete | 2026-03-08 |
+| 21. Wire tokenBuffer (Gap Closure) | v1.5 | — | Complete (absorbed into P18) | 2026-03-08 |
+| 22. Platform Auto-Detect (Gap Closure) | v1.5 | — | Complete (absorbed into P17) | 2026-03-08 |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-03-08 — Phase 21-22 gap closure phases added*
+*Last updated: 2026-03-08 — v1.5 shipped (7 phases, 14 plans, 37 requirements)*

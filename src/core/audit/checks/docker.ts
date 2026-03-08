@@ -46,12 +46,21 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     return makeDockerSkippedChecks(isPlatform ? "warning" : "info");
   }
 
-  // Try to extract JSON docker info
+  // Try to extract JSON docker info (full JSON object from `docker info --format '{{json .}}'`)
   let dockerInfo: { Hosts?: string[]; ServerVersion?: string; SecurityOptions?: string[]; LoggingDriver?: string } = {};
   try {
-    const jsonMatch = sectionOutput.match(/\{[^}]*"Hosts"[^}]*\}/);
-    if (jsonMatch) {
-      dockerInfo = JSON.parse(jsonMatch[0]);
+    const jsonStart = sectionOutput.indexOf("{");
+    if (jsonStart !== -1) {
+      // Find matching closing brace for the top-level object
+      let depth = 0;
+      let jsonEnd = -1;
+      for (let i = jsonStart; i < sectionOutput.length; i++) {
+        if (sectionOutput[i] === "{") depth++;
+        else if (sectionOutput[i] === "}") { depth--; if (depth === 0) { jsonEnd = i; break; } }
+      }
+      if (jsonEnd !== -1) {
+        dockerInfo = JSON.parse(sectionOutput.slice(jsonStart, jsonEnd + 1));
+      }
     }
   } catch {
     // Continue with empty info

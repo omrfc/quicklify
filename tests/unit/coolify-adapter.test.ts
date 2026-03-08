@@ -242,7 +242,7 @@ describe("CoolifyAdapter", () => {
     it("should call sshExec with COOLIFY_UPDATE_CMD and return success on code 0", async () => {
       mockSshExec.mockResolvedValueOnce({ code: 0, stdout: "Updated successfully", stderr: "" });
       const result = await adapter.update("1.2.3.4");
-      expect(mockSshExec).toHaveBeenCalledWith("1.2.3.4", COOLIFY_UPDATE_CMD);
+      expect(mockSshExec).toHaveBeenCalledWith("1.2.3.4", COOLIFY_UPDATE_CMD, { timeoutMs: 180000 });
       expect(result).toEqual({ success: true, output: "Updated successfully" });
     });
 

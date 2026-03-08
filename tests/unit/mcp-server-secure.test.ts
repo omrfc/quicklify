@@ -35,6 +35,12 @@ import {
 
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");
+jest.mock("../../src/adapters/factory", () => ({
+  resolvePlatform: jest.fn().mockReturnValue("coolify"),
+  getAdapter: jest.fn().mockReturnValue({
+    healthCheck: jest.fn().mockResolvedValue({ status: "running" }),
+  }),
+}));
 
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedSsh = ssh as jest.Mocked<typeof ssh>;
@@ -748,7 +754,8 @@ describe("handleServerSecure — firewall-setup", () => {
     const result = await handleServerSecure({ action: "firewall-setup" });
     const data = JSON.parse(result.content[0].text);
     expect(data.success).toBe(true);
-    expect(data.message).toContain("Coolify ports");
+    expect(data.message).toContain("ports");
+    expect(data.message).toContain("SSH (22)");
   });
 
   it("should return isError on failure", async () => {

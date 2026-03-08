@@ -39,13 +39,16 @@ export async function sharedHealthCheck(
  * Shared update for platform adapters.
  * Executes the update command via SSH and maps errors.
  */
+/** 3 minutes timeout for platform update commands (download + install) */
+const UPDATE_TIMEOUT_MS = 180_000;
+
 export async function sharedUpdate(
   ip: string,
   updateCmd: string,
 ): Promise<UpdateResult> {
   assertValidIp(ip);
   try {
-    const result = await sshExec(ip, updateCmd);
+    const result = await sshExec(ip, updateCmd, { timeoutMs: UPDATE_TIMEOUT_MS });
     if (result.code === 0) {
       return { success: true, output: result.stdout || undefined };
     }

@@ -19,8 +19,6 @@ export const SECTION_INDICES = {
   KERNEL: 8,
 } as const;
 
-/** Number of sections in batch 1 */
-const BATCH1_COUNT = 4;
 
 const SEPARATOR = "echo '---SEPARATOR---'";
 

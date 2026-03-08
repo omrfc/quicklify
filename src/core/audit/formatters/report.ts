@@ -3,7 +3,7 @@
  * HTML: single-file with inline CSS. Markdown: clean tables.
  */
 
-import type { AuditResult, AuditCheck } from "../types.js";
+import type { AuditResult } from "../types.js";
 
 /** Escape HTML entities */
 function escapeHtml(str: string): string {

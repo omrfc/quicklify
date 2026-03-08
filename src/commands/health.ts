@@ -1,7 +1,7 @@
 import { getServers, findServer } from "../utils/config.js";
-import { checkCoolifyHealth } from "../core/status.js";
 import { sshExec, isHostKeyMismatch } from "../utils/ssh.js";
 import { isBareServer } from "../utils/modeGuard.js";
+import { getAdapter, resolvePlatform } from "../adapters/factory.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import type { ServerRecord } from "../types/index.js";
 
@@ -32,11 +32,18 @@ export async function checkServerHealth(server: ServerRecord): Promise<HealthRes
     }
   }
 
-  // Coolify servers: HTTP-based health check
+  // Platform servers: use adapter health check (Coolify port 8000, Dokploy port 3000)
   try {
-    const healthStatus = await checkCoolifyHealth(server.ip);
+    const platform = resolvePlatform(server);
+    if (!platform) {
+      // Fallback for servers with no platform info — treat as unreachable
+      const responseTime = Date.now() - start;
+      return { server, status: "unreachable", responseTime };
+    }
+    const adapter = getAdapter(platform);
+    const healthResult = await adapter.healthCheck(server.ip, server.domain);
     const responseTime = Date.now() - start;
-    const status = healthStatus === "running" ? "healthy" : "unreachable";
+    const status = healthResult.status === "running" ? "healthy" : "unreachable";
     return { server, status, responseTime };
   } catch {
     const responseTime = Date.now() - start;

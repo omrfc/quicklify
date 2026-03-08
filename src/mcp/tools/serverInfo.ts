@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getServers, findServer } from "../../utils/config.js";
-import { checkCoolifyHealth, checkServerStatus, checkAllServersStatus } from "../../core/status.js";
+import { checkServerStatus, checkAllServersStatus } from "../../core/status.js";
+import { getAdapter, resolvePlatform } from "../../adapters/factory.js";
 import { getProviderToken, collectProviderTokensFromEnv } from "../../core/tokens.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
 import { isBareServer } from "../../utils/modeGuard.js";
@@ -243,17 +244,23 @@ export async function handleServerInfo(params: {
             });
           }
 
-          // Coolify server: check Coolify health
-          const status = await checkCoolifyHealth(server.ip);
-          const suggestedActions: SuggestedAction[] = status === "not reachable"
-            ? [{ command: `kastell status ${server.name} --autostart`, reason: "Try auto-restart Coolify" }]
-            : [{ command: `http://${server.ip}:8000`, reason: "Access Coolify dashboard" }];
+          // Platform server: use adapter health check
+          const platform = resolvePlatform(server);
+          if (!platform) {
+            return mcpSuccess({ server: server.name, ip: server.ip, platformStatus: "unknown" });
+          }
+          const adapter = getAdapter(platform);
+          const healthResult = await adapter.healthCheck(server.ip, server.domain);
+          const port = platform === "dokploy" ? 3000 : 8000;
+          const suggestedActions: SuggestedAction[] = healthResult.status === "not reachable"
+            ? [{ command: `kastell status ${server.name} --autostart`, reason: `Try auto-restart ${platform}` }]
+            : [{ command: `http://${server.ip}:${port}`, reason: `Access ${platform} dashboard` }];
 
           return mcpSuccess({
             server: server.name,
             ip: server.ip,
-            platformStatus: status,
-            coolifyUrl: status === "running" ? `http://${server.ip}:8000` : null,
+            platformStatus: healthResult.status,
+            [`${platform}Url`]: healthResult.status === "running" ? `http://${server.ip}:${port}` : null,
             suggested_actions: suggestedActions,
           });
         }
@@ -270,11 +277,16 @@ export async function handleServerInfo(params: {
                 sshReachable,
               };
             }
+            const plat = resolvePlatform(s);
+            const platStatus = plat
+              ? (await getAdapter(plat).healthCheck(s.ip, s.domain)).status
+              : "unknown";
             return {
               name: s.name,
               ip: s.ip,
-              mode: "coolify" as const,
-              platformStatus: await checkCoolifyHealth(s.ip),
+              mode: s.mode ?? "coolify",
+              platform: plat ?? "coolify",
+              platformStatus: platStatus,
             };
           }),
         );

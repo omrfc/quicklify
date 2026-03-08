@@ -214,6 +214,7 @@ function sshExecInner(
   ip: string,
   command: string,
   retried: boolean,
+  timeoutMs: number = SSH_EXEC_TIMEOUT_MS,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   const sshBin = resolveSshPath();
   return new Promise((resolve) => {
@@ -245,8 +246,8 @@ function sshExecInner(
     // Process-level timeout — kill SSH if it takes too long
     const timer = setTimeout(() => {
       killChild(child);
-      finish({ code: 1, stdout, stderr: stderr || `SSH command timed out after ${SSH_EXEC_TIMEOUT_MS / 1000}s` });
-    }, SSH_EXEC_TIMEOUT_MS);
+      finish({ code: 1, stdout, stderr: stderr || `SSH command timed out after ${timeoutMs / 1000}s` });
+    }, timeoutMs);
 
     let stdout = "";
     let stderr = "";
@@ -266,7 +267,7 @@ function sshExecInner(
         removeStaleHostKey(ip);
         clearTimeout(timer);
         settled = true;
-        resolve(sshExecInner(ip, command, true));
+        resolve(sshExecInner(ip, command, true, timeoutMs));
       } else {
         finish({ code: exitCode, stdout, stderr });
       }
@@ -278,7 +279,8 @@ function sshExecInner(
 export function sshExec(
   ip: string,
   command: string,
+  opts?: { timeoutMs?: number },
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   assertValidIp(ip);
-  return sshExecInner(ip, command, false);
+  return sshExecInner(ip, command, false, opts?.timeoutMs ?? SSH_EXEC_TIMEOUT_MS);
 }

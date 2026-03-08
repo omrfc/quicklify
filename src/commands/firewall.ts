@@ -4,6 +4,7 @@ import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 import { isBareServer } from "../utils/modeGuard.js";
+import { resolvePlatform } from "../adapters/factory.js";
 import {
   PROTECTED_PORTS,
   COOLIFY_PORTS,
@@ -56,7 +57,8 @@ export async function firewallCommand(
   switch (sub) {
     case "setup": {
       const bare = isBareServer(server);
-      await firewallSetup(server.ip, server.name, dryRun, bare);
+      const platform = resolvePlatform(server);
+      await firewallSetup(server.ip, server.name, dryRun, bare, platform);
       break;
     }
     case "add":
@@ -79,8 +81,9 @@ export async function firewallSetup(
   name: string,
   dryRun: boolean,
   isBare?: boolean,
+  platform?: import("../types/index.js").Platform,
 ): Promise<void> {
-  const command = isBare ? buildBareFirewallSetupCommand() : buildFirewallSetupCommand();
+  const command = isBare ? buildBareFirewallSetupCommand() : buildFirewallSetupCommand(platform);
 
   if (dryRun) {
     logger.title("Dry Run - Firewall Setup");

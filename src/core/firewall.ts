@@ -1,11 +1,13 @@
 import { sshExec, assertValidIp } from "../utils/ssh.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 import type { FirewallStatus, FirewallRule, FirewallProtocol } from "../types/index.js";
+import type { Platform } from "../types/index.js";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 export const PROTECTED_PORTS = [22];
 export const COOLIFY_PORTS = [80, 443, 8000, 6001, 6002];
+export const DOKPLOY_PORTS = [80, 443, 3000];
 export const BARE_PORTS = [80, 443];
 
 // ─── Pure Functions ─────────────────────────────────────────────────────────
@@ -18,12 +20,18 @@ export function isProtectedPort(port: number): boolean {
   return PROTECTED_PORTS.includes(port);
 }
 
-export function buildFirewallSetupCommand(): string {
+export function getPortsForPlatform(platform?: Platform): number[] {
+  if (platform === "dokploy") return DOKPLOY_PORTS;
+  return COOLIFY_PORTS;
+}
+
+export function buildFirewallSetupCommand(platform?: Platform): string {
+  const ports = platform ? getPortsForPlatform(platform) : COOLIFY_PORTS;
   const commands = [
     "apt-get install -y ufw",
     "ufw default deny incoming",
     "ufw default allow outgoing",
-    ...COOLIFY_PORTS.map((p) => `ufw allow ${p}/tcp`),
+    ...ports.map((p) => `ufw allow ${p}/tcp`),
     "ufw allow 22/tcp",
     'echo "y" | ufw enable',
   ];
@@ -91,11 +99,11 @@ export interface FirewallStatusResult {
 
 // ─── Async Wrappers ─────────────────────────────────────────────────────────
 
-export async function setupFirewall(ip: string): Promise<FirewallResult> {
+export async function setupFirewall(ip: string, platform?: Platform): Promise<FirewallResult> {
   assertValidIp(ip);
 
   try {
-    const result = await sshExec(ip, buildFirewallSetupCommand());
+    const result = await sshExec(ip, buildFirewallSetupCommand(platform));
     if (result.code !== 0) {
       return {
         success: false,
