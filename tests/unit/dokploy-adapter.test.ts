@@ -11,6 +11,7 @@ jest.mock("../../src/core/backup", () => ({
   formatTimestamp: jest.fn(() => "2026-01-01_00-00-00"),
   getBackupDir: jest.fn((name: string) => `/tmp/backups/${name}`),
   scpDownload: jest.fn(),
+  scpUpload: jest.fn(),
 }));
 
 jest.mock("../../src/utils/errorMapper", () => ({
@@ -25,12 +26,13 @@ jest.mock("fs", () => ({
 }));
 
 import { assertValidIp, sshExec } from "../../src/utils/ssh";
-import { scpDownload } from "../../src/core/backup";
+import { scpDownload, scpUpload } from "../../src/core/backup";
 import { mapSshError } from "../../src/utils/errorMapper";
 import axios from "axios";
 
 const mockSshExec = sshExec as jest.MockedFunction<typeof sshExec>;
 const mockScpDownload = scpDownload as jest.MockedFunction<typeof scpDownload>;
+const mockScpUpload = scpUpload as jest.MockedFunction<typeof scpUpload>;
 const mockAssertValidIp = assertValidIp as jest.MockedFunction<typeof assertValidIp>;
 const mockAxiosGet = axios.get as jest.MockedFunction<typeof axios.get>;
 const mockMapSshError = mapSshError as jest.MockedFunction<typeof mapSshError>;
@@ -303,6 +305,101 @@ describe("DokployAdapter", () => {
     it("should return docker service logs dokploy_dokploy --tail 100 --follow with follow", () => {
       const cmd = adapter.getLogCommand(100, true);
       expect(cmd).toBe("docker service logs dokploy_dokploy --tail 100 --follow");
+    });
+  });
+
+  describe("restoreBackup", () => {
+    const sampleManifest = {
+      serverName: "test-server",
+      provider: "hetzner",
+      timestamp: "2026-01-01_00-00-00",
+      coolifyVersion: "v0.26.6",
+      files: ["dokploy-backup.sql.gz", "dokploy-config.tar.gz"],
+      platform: "dokploy" as const,
+    };
+
+    it("should return success:true with all steps when restore succeeds", async () => {
+      // Upload DB
+      mockScpUpload.mockResolvedValueOnce({ code: 0, stderr: "" });
+      // Upload config
+      mockScpUpload.mockResolvedValueOnce({ code: 0, stderr: "" });
+      // Stop dokploy (docker service scale dokploy=0)
+      mockSshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
+      // Start postgres (docker service scale dokploy-postgres=1)
+      mockSshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
+      // Restore DB (gunzip + psql)
+      mockSshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
+      // Restore config (tar xzf)
+      mockSshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
+      // Start dokploy (docker service scale dokploy=1)
+      mockSshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
+      // Cleanup
+      mockSshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
+
+      const result = await adapter.restoreBackup("1.2.3.4", "/tmp/backups/test-server/2026-01-01_00-00-00", sampleManifest);
+      expect(result.success).toBe(true);
+      expect(result.steps.length).toBeGreaterThanOrEqual(5);
+      expect(result.steps.every((s: any) => s.status === "success")).toBe(true);
+    });
+
+    it("should use docker service scale commands (Swarm, not docker compose)", async () => {
+      // Upload DB + config
+      mockScpUpload.mockResolvedValueOnce({ code: 0, stderr: "" });
+      mockScpUpload.mockResolvedValueOnce({ code: 0, stderr: "" });
+      // Stop, start DB, restore DB, restore config, start all, cleanup
+      for (let i = 0; i < 6; i++) {
+        mockSshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
+      }
+
+      await adapter.restoreBackup("1.2.3.4", "/tmp/backups/test-server/2026-01-01_00-00-00", sampleManifest);
+
+      // Stop call should use docker service scale
+      const stopCall = mockSshExec.mock.calls[0];
+      expect(stopCall[1]).toContain("docker service scale");
+      expect(stopCall[1]).toContain("dokploy=0");
+
+      // Start dokploy call should use docker service scale
+      const startCalls = mockSshExec.mock.calls.filter((c: any) => c[1].includes("dokploy=1"));
+      expect(startCalls.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("should return failure and attempt restart when DB restore fails", async () => {
+      // Upload DB + config
+      mockScpUpload.mockResolvedValueOnce({ code: 0, stderr: "" });
+      mockScpUpload.mockResolvedValueOnce({ code: 0, stderr: "" });
+      // Stop dokploy
+      mockSshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
+      // Start postgres
+      mockSshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
+      // Restore DB fails
+      mockSshExec.mockResolvedValueOnce({ code: 1, stdout: "", stderr: "psql error" });
+      // Best-effort restart (tryRestartDokploy)
+      mockSshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
+
+      const result = await adapter.restoreBackup("1.2.3.4", "/tmp/backups/test-server/2026-01-01_00-00-00", sampleManifest);
+      expect(result.success).toBe(false);
+      expect(result.steps.some((s: any) => s.name.includes("database") || s.name.includes("Database") || s.name.includes("Restore"))).toBe(true);
+
+      // Verify restart was attempted
+      const restartCall = mockSshExec.mock.calls.find((c: any) => c[1].includes("dokploy=1"));
+      expect(restartCall).toBeDefined();
+    });
+
+    it("should return early without stopping services when upload fails", async () => {
+      // Upload DB fails
+      mockScpUpload.mockResolvedValueOnce({ code: 1, stderr: "upload failed" });
+
+      const result = await adapter.restoreBackup("1.2.3.4", "/tmp/backups/test-server/2026-01-01_00-00-00", sampleManifest);
+      expect(result.success).toBe(false);
+      // Should NOT have called sshExec (no stop/start)
+      expect(mockSshExec).not.toHaveBeenCalled();
+    });
+
+    it("should call assertValidIp", async () => {
+      mockScpUpload.mockResolvedValueOnce({ code: 1, stderr: "fail" });
+
+      await adapter.restoreBackup("1.2.3.4", "/tmp/backups/test-server/2026-01-01_00-00-00", sampleManifest);
+      expect(mockAssertValidIp).toHaveBeenCalledWith("1.2.3.4");
     });
   });
 });
