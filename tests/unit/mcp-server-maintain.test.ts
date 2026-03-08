@@ -148,7 +148,6 @@ describe("maintainServer", () => {
       createBackup: jest.fn(async () => ({ success: true })),
       getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
       update: jest.fn(async () => ({ success: true })),
-      getLogCommand: jest.fn(() => ""),
       ...overrides,
     };
   }
@@ -340,7 +339,6 @@ describe("handleServerMaintain — update", () => {
       createBackup: jest.fn(async () => ({ success: true })),
       getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
       update: jest.fn(async () => ({ success: false, error: "Connection refused" })),
-      getLogCommand: jest.fn(() => ""),
     });
 
     const result = await handleServerMaintain({ action: "update", server: "coolify-test" });

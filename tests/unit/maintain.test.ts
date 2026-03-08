@@ -135,11 +135,12 @@ describe("maintainCommand", () => {
     await maintainCommand("1.2.3.4");
 
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("Unauthorized");
+    // Core handles the error — report shows status FAIL
+    expect(output).toContain("status FAIL");
     expect(mockedSsh.sshExec).not.toHaveBeenCalled();
   });
 
-  it("should abort when Coolify update fails (non-zero exit)", async () => {
+  it("should abort when platform update fails (non-zero exit)", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
@@ -157,10 +158,11 @@ describe("maintainCommand", () => {
     await maintainCommand("1.2.3.4");
 
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("update error");
+    // Core handles the error — report shows update FAIL
+    expect(output).toContain("update FAIL");
   });
 
-  it("should abort when Coolify update throws an exception", async () => {
+  it("should abort when platform update throws an exception", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
@@ -178,7 +180,8 @@ describe("maintainCommand", () => {
     await maintainCommand("1.2.3.4");
 
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("SSH connection lost");
+    // Core handles the error — report shows update FAIL
+    expect(output).toContain("update FAIL");
   });
 
   it("should show SSH hint when Coolify update throws connection refused", async () => {
@@ -313,11 +316,11 @@ describe("maintainCommand", () => {
     await maintainCommand("1.2.3.4");
 
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("Reboot API error");
+    // Core handles the error — report shows reboot FAIL
     expect(output).toContain("reboot FAIL");
   });
 
-  it("should handle final check when server does not come back", async () => {
+  it("should handle reboot timeout when server does not come back", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
@@ -334,13 +337,15 @@ describe("maintainCommand", () => {
     mockedAxios.get.mockResolvedValueOnce({ status: 200 });
     // Step 4: reboot OK
     mockedAxios.post.mockResolvedValueOnce({ data: { action: { id: 1 } } });
-    // Step 5: server never comes back (all polls return "off")
+    // Core's rebootAndWait polls — server never comes back (all polls return "off")
     mockedAxios.get.mockResolvedValue({ data: { server: { status: "off" } } });
 
     await maintainCommand("1.2.3.4");
 
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("final FAIL");
+    // Core's rebootAndWait handles timeout — reboot step fails, final is skipped
+    expect(output).toContain("reboot FAIL");
+    expect(output).toContain("final SKIP");
   });
 
   it("should handle final check when server is back but Coolify is not responding", async () => {
@@ -581,7 +586,7 @@ describe("maintainCommand", () => {
     });
   });
 
-  it("should show update stderr when update fails", async () => {
+  it("should show update failure in report when update fails", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
@@ -602,7 +607,9 @@ describe("maintainCommand", () => {
     await maintainCommand("1.2.3.4");
 
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("curl: network error");
+    // Core handles the error — report shows update FAIL
+    expect(output).toContain("update FAIL");
+    expect(output).toContain("Maintenance Report");
   });
 });
 
@@ -620,7 +627,6 @@ describe("pollHealth", () => {
       createBackup: jest.fn(async () => ({ success: true })),
       getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
       update: jest.fn(async () => ({ success: true })),
-      getLogCommand: jest.fn(() => ""),
     };
   }
 
@@ -669,7 +675,6 @@ describe("maintainServer - adapter dispatch", () => {
       createBackup: jest.fn(async () => ({ success: true })),
       getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
       update: jest.fn(async () => ({ success: true })),
-      getLogCommand: jest.fn(() => ""),
       ...overrides,
     };
   }
