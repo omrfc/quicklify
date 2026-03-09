@@ -52,7 +52,7 @@ export interface ServerRecord {
   size: string;
   createdAt: string;
   /** @deprecated Use platform field. Kept for backward compat */
-  mode?: ServerMode;
+  mode: ServerMode;
   /** Platform adapter. undefined = bare (no platform) */
   platform?: Platform;
   /** Custom domain set via domain-set. Used for HTTPS health checks. */

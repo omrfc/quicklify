@@ -1,6 +1,7 @@
 import {
   getServers,
   saveServer,
+  updateServer,
   removeServer,
   findServer,
   SERVERS_FILE,
@@ -11,6 +12,9 @@ import * as fs from "fs";
 jest.mock("fs");
 jest.mock("os", () => ({
   homedir: () => "/mock-home",
+}));
+jest.mock("../../src/utils/fileLock", () => ({
+  withFileLock: jest.fn((_path: string, fn: () => any) => fn()),
 }));
 
 const mockedFs = fs as jest.Mocked<typeof fs>;
@@ -112,10 +116,54 @@ describe("config", () => {
       mockedFs.readFileSync.mockReturnValue('{"not": "array"}');
       expect(getServers()).toEqual([]);
     });
+
+    it("should auto-migrate and persist records missing mode field", () => {
+      const servers = [
+        {
+          id: "1",
+          name: "legacy",
+          provider: "hetzner",
+          ip: "1.1.1.1",
+          region: "nbg1",
+          size: "cax11",
+          createdAt: "2026-01-01T00:00:00Z",
+          // no mode field — should trigger migration write
+        },
+      ];
+      mockedFs.existsSync.mockReturnValue(true);
+      mockedFs.readFileSync.mockReturnValue(JSON.stringify(servers));
+      getServers();
+      // Should write via atomic pattern (writeFileSync + renameSync)
+      expect(mockedFs.writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining("servers.json.tmp"),
+        expect.any(String),
+        expect.objectContaining({ mode: 0o600 }),
+      );
+      expect(mockedFs.renameSync).toHaveBeenCalled();
+    });
+
+    it("should NOT write when all records already have mode", () => {
+      const servers = [
+        {
+          id: "1",
+          name: "has-mode",
+          provider: "hetzner",
+          ip: "1.1.1.1",
+          region: "nbg1",
+          size: "cax11",
+          createdAt: "2026-01-01T00:00:00Z",
+          mode: "coolify",
+        },
+      ];
+      mockedFs.existsSync.mockReturnValue(true);
+      mockedFs.readFileSync.mockReturnValue(JSON.stringify(servers));
+      getServers();
+      expect(mockedFs.writeFileSync).not.toHaveBeenCalled();
+    });
   });
 
   describe("saveServer", () => {
-    it("should create config dir and write server", () => {
+    it("should create config dir and write server", async () => {
       mockedFs.existsSync
         .mockReturnValueOnce(false) // ensureConfigDir
         .mockReturnValueOnce(false); // getServers: file doesn't exist
@@ -129,8 +177,9 @@ describe("config", () => {
         region: "nbg1",
         size: "cax11",
         createdAt: "2026-01-01T00:00:00Z",
+        mode: "coolify" as const,
       };
-      saveServer(record);
+      await saveServer(record);
 
       expect(mockedFs.mkdirSync).toHaveBeenCalled();
       expect(mockedFs.writeFileSync).toHaveBeenCalledWith(
@@ -140,7 +189,7 @@ describe("config", () => {
       );
     });
 
-    it("should append to existing servers", () => {
+    it("should append to existing servers", async () => {
       const existing = [
         {
           id: "1",
@@ -150,6 +199,7 @@ describe("config", () => {
           region: "nbg1",
           size: "cax11",
           createdAt: "2026-01-01T00:00:00Z",
+          mode: "coolify",
         },
       ];
       mockedFs.existsSync.mockReturnValue(true);
@@ -163,8 +213,9 @@ describe("config", () => {
         region: "nyc1",
         size: "s-2vcpu-2gb",
         createdAt: "2026-02-01T00:00:00Z",
+        mode: "coolify" as const,
       };
-      saveServer(record);
+      await saveServer(record);
 
       const writtenData = JSON.parse((mockedFs.writeFileSync as jest.Mock).mock.calls[0][1]);
       expect(writtenData).toHaveLength(2);
@@ -172,8 +223,39 @@ describe("config", () => {
     });
   });
 
+  describe("updateServer", () => {
+    it("should update server and return true", async () => {
+      const servers = [
+        {
+          id: "1",
+          name: "test-srv",
+          provider: "hetzner",
+          ip: "1.1.1.1",
+          region: "nbg1",
+          size: "cax11",
+          createdAt: "",
+          mode: "coolify",
+        },
+      ];
+      mockedFs.existsSync.mockReturnValue(true);
+      mockedFs.readFileSync.mockReturnValue(JSON.stringify(servers));
+
+      const result = await updateServer("test-srv", { domain: "example.com" });
+      expect(result).toBe(true);
+      expect(mockedFs.writeFileSync).toHaveBeenCalled();
+    });
+
+    it("should return false when server not found", async () => {
+      mockedFs.existsSync.mockReturnValue(true);
+      mockedFs.readFileSync.mockReturnValue("[]");
+
+      const result = await updateServer("nonexistent", { domain: "example.com" });
+      expect(result).toBe(false);
+    });
+  });
+
   describe("removeServer", () => {
-    it("should remove server by id and return true", () => {
+    it("should remove server by id and return true", async () => {
       const servers = [
         {
           id: "1",
@@ -183,6 +265,7 @@ describe("config", () => {
           region: "nbg1",
           size: "cax11",
           createdAt: "",
+          mode: "coolify",
         },
         {
           id: "2",
@@ -192,12 +275,13 @@ describe("config", () => {
           region: "fsn1",
           size: "cx23",
           createdAt: "",
+          mode: "coolify",
         },
       ];
       mockedFs.existsSync.mockReturnValue(true);
       mockedFs.readFileSync.mockReturnValue(JSON.stringify(servers));
 
-      const result = removeServer("1");
+      const result = await removeServer("1");
 
       expect(result).toBe(true);
       const writtenData = JSON.parse((mockedFs.writeFileSync as jest.Mock).mock.calls[0][1]);
@@ -205,12 +289,42 @@ describe("config", () => {
       expect(writtenData[0].id).toBe("2");
     });
 
-    it("should return false when server not found", () => {
+    it("should return false when server not found", async () => {
       mockedFs.existsSync.mockReturnValue(true);
       mockedFs.readFileSync.mockReturnValue("[]");
 
-      const result = removeServer("nonexistent");
+      const result = await removeServer("nonexistent");
       expect(result).toBe(false);
+    });
+
+    it("should use atomic write (renameSync) instead of raw writeFileSync", async () => {
+      const servers = [
+        {
+          id: "1",
+          name: "to-remove",
+          provider: "hetzner",
+          ip: "1.1.1.1",
+          region: "nbg1",
+          size: "cax11",
+          createdAt: "",
+          mode: "coolify",
+        },
+      ];
+      mockedFs.existsSync.mockReturnValue(true);
+      mockedFs.readFileSync.mockReturnValue(JSON.stringify(servers));
+
+      await removeServer("1");
+
+      // Should use atomic write: write to .tmp then rename
+      expect(mockedFs.writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining("servers.json.tmp"),
+        expect.any(String),
+        expect.objectContaining({ mode: 0o600 }),
+      );
+      expect(mockedFs.renameSync).toHaveBeenCalledWith(
+        expect.stringContaining("servers.json.tmp"),
+        expect.stringContaining("servers.json"),
+      );
     });
   });
 

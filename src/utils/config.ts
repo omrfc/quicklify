@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "
 import { homedir } from "os";
 import { join } from "path";
 import type { ServerRecord } from "../types/index.js";
+import { withFileLock } from "./fileLock.js";
 
 const CONFIG_DIR = join(homedir(), ".kastell");
 const SERVERS_FILE = join(CONFIG_DIR, "servers.json");
@@ -30,45 +31,56 @@ export function getServers(): ServerRecord[] {
     if (!Array.isArray(parsed)) {
       return [];
     }
-    return parsed.map((s: ServerRecord) => ({ ...s, mode: s.mode || "coolify" }));
+    const needsMigration = parsed.some((s: any) => !s.mode);
+    const servers = parsed.map((s: ServerRecord) => ({ ...s, mode: s.mode || "coolify" }) as ServerRecord);
+    if (needsMigration) {
+      atomicWriteServers(servers);
+    }
+    return servers;
   } catch {
     console.error("[kastell] Warning: servers.json is corrupted or unreadable, returning empty list");
     return [];
   }
 }
 
-export function saveServer(record: ServerRecord): void {
-  ensureConfigDir();
-  const servers = getServers();
-  const duplicate = servers.find((s) => s.name === record.name || s.ip === record.ip);
-  if (duplicate) {
-    throw new Error(
-      `Server already exists: ${duplicate.name === record.name ? `name "${record.name}"` : `IP ${record.ip}`}`,
-    );
-  }
-  servers.push(record);
-  atomicWriteServers(servers);
+export async function saveServer(record: ServerRecord): Promise<void> {
+  await withFileLock(SERVERS_FILE, () => {
+    ensureConfigDir();
+    const servers = getServers();
+    const duplicate = servers.find((s) => s.name === record.name || s.ip === record.ip);
+    if (duplicate) {
+      throw new Error(
+        `Server already exists: ${duplicate.name === record.name ? `name "${record.name}"` : `IP ${record.ip}`}`,
+      );
+    }
+    servers.push(record);
+    atomicWriteServers(servers);
+  });
 }
 
-export function updateServer(name: string, updates: Partial<ServerRecord>): boolean {
-  const servers = getServers();
-  const index = servers.findIndex((s) => s.name === name);
-  if (index === -1) return false;
-  servers[index] = { ...servers[index], ...updates };
-  ensureConfigDir();
-  atomicWriteServers(servers);
-  return true;
+export async function updateServer(name: string, updates: Partial<ServerRecord>): Promise<boolean> {
+  return await withFileLock(SERVERS_FILE, () => {
+    const servers = getServers();
+    const index = servers.findIndex((s) => s.name === name);
+    if (index === -1) return false;
+    servers[index] = { ...servers[index], ...updates };
+    ensureConfigDir();
+    atomicWriteServers(servers);
+    return true;
+  });
 }
 
-export function removeServer(id: string): boolean {
-  const servers = getServers();
-  const filtered = servers.filter((s) => s.id !== id);
-  if (filtered.length === servers.length) {
-    return false;
-  }
-  ensureConfigDir();
-  writeFileSync(SERVERS_FILE, JSON.stringify(filtered, null, 2), { mode: 0o600 });
-  return true;
+export async function removeServer(id: string): Promise<boolean> {
+  return await withFileLock(SERVERS_FILE, () => {
+    const servers = getServers();
+    const filtered = servers.filter((s) => s.id !== id);
+    if (filtered.length === servers.length) {
+      return false;
+    }
+    ensureConfigDir();
+    atomicWriteServers(filtered);
+    return true;
+  });
 }
 
 export function findServer(query: string): ServerRecord | undefined {
