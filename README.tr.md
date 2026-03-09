@@ -14,6 +14,8 @@
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 ![GitHub stars](https://img.shields.io/github/stars/kastelldev/kastell?style=flat-square)
 [![Socket Badge](https://socket.dev/api/badge/npm/package/kastell)](https://socket.dev/npm/package/kastell)
+[![Website](https://img.shields.io/badge/website-kastell.dev-blue?style=flat-square)](https://kastell.dev)
+
 ## Kastell Neden Var?
 
 Self-hosted sunucuların çoğu şu nedenlerle çöker:
