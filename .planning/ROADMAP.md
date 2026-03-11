@@ -96,7 +96,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 
 **Milestone Goal:** Extend audit with snapshot persistence and structured diffing, add forensic evidence collection, and harden infrastructure with file locking and rate limit backoff.
 
-- [x] **Phase 23: Infrastructure Foundation** - File locking, rate limit backoff, ServerRecord.mode migration (completed 2026-03-09)
+- [x] **Phase 23: Infrastructure Foundation** - File locking, rate limit backoff, ServerRecord.mode migration (completed 2026-03-09)
 - [ ] **Phase 24: Audit Snapshots** - Snapshot save/load/list with schema versioning
 - [ ] **Phase 25: Audit Diff and Compare** - Check-by-check diff, cross-server compare, CI integration
 - [ ] **Phase 26: Evidence Collection** - Forensic evidence package with SHA256 manifest
@@ -128,7 +128,10 @@ Plans:
   2. User can run `kastell audit --snapshots` and see a list of saved snapshots with dates, scores, and names
   3. User can name a snapshot (e.g., `--snapshot pre-upgrade`) for easy reference later
   4. Every snapshot includes a `schemaVersion` field so future audit changes do not break old snapshots
-**Plans**: TBD
+**Plans:** 1/2 plans executed
+Plans:
+- [ ] 24-01-PLAN.md — Snapshot core module with TDD (save, load, list, types)
+- [ ] 24-02-PLAN.md — Wire snapshot into audit CLI command
 
 ### Phase 25: Audit Diff and Compare
 **Goal**: Users can track security posture changes over time and across servers
@@ -219,12 +222,12 @@ Plans:
 | 20. kastell audit | v1.5 | 5/5 | Complete | 2026-03-08 |
 | 21. Wire tokenBuffer (Gap Closure) | v1.5 | — | Complete (absorbed into P18) | 2026-03-08 |
 | 22. Platform Auto-Detect (Gap Closure) | v1.5 | — | Complete (absorbed into P17) | 2026-03-08 |
-| 23. Infrastructure Foundation | 2/3 | Complete    | 2026-03-09 | - |
-| 24. Audit Snapshots | v1.6 | 0/TBD | Not started | - |
+| 23. Infrastructure Foundation | v1.6 | 3/3 | Complete | 2026-03-09 |
+| 24. Audit Snapshots | 1/2 | In Progress|  | - |
 | 25. Audit Diff and Compare | v1.6 | 0/TBD | Not started | - |
 | 26. Evidence Collection | v1.6 | 0/TBD | Not started | - |
 | 27. Adapter Contract Documentation | v1.6 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-03-09 — Phase 23 planned (3 plans, 2 waves)*
+*Last updated: 2026-03-09 — Phase 24 planned (2 plans, 2 waves)*

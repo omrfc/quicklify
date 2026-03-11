@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Audit Expand + Evidence + Altyapi
 status: in_progress
-stopped_at: Completed 23-02-PLAN.md (backfill - was executed after 23-03)
-last_updated: "2026-03-09T08:38:28.858Z"
+stopped_at: Completed 24-01-PLAN.md (snapshot persistence module)
+last_updated: "2026-03-11T05:50:21.277Z"
 last_activity: 2026-03-09 — Completed 23-03 (provider retry integration)
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
 ---
 
 ---
@@ -60,6 +60,7 @@ Progress: [██████████] 100% (Phase 23)
 | 23 | 3/3 | 26min | 9min |
 
 *Updated after each plan completion*
+| Phase 24 P01 | 4 | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,8 @@ Progress: [██████████] 100% (Phase 23)
 - getSnapshotCostEstimate treated as GET method (reads server disk info, retryable)
 - Mode migration persists atomically on first getServers read (no lazy fallback at each call site)
 - All config/audit writes wrapped with withFileLock for concurrency safety
+- [Phase 24]: Test file placed at tests/unit/ (not src/__tests__/) to match Jest roots configuration
+- [Phase 24]: Zod literal(1) for schemaVersion to explicitly reject unknown schema versions at parse time
 
 ### Pending Todos
 
@@ -89,6 +92,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-09
-Stopped at: Completed 23-02-PLAN.md (backfill - was executed after 23-03)
+Last session: 2026-03-11T05:50:21.270Z
+Stopped at: Completed 24-01-PLAN.md (snapshot persistence module)
 Next action: Execute Phase 24 (Audit Snapshot + Diff)
