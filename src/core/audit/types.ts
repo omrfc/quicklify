@@ -51,3 +51,20 @@ export interface AuditHistoryEntry {
 
 /** Check parser function signature — each category module exports this */
 export type CheckParser = (sectionOutput: string, platform: string) => AuditCheck[];
+
+/** Snapshot file envelope stored on disk */
+export interface SnapshotFile {
+  schemaVersion: number;
+  name?: string;
+  savedAt: string;
+  audit: AuditResult;
+}
+
+/** Entry returned by listSnapshots */
+export interface SnapshotListEntry {
+  filename: string;
+  savedAt: string;
+  name?: string;
+  overallScore: number;
+  corrupt?: boolean;
+}
