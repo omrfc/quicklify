@@ -1,0 +1,113 @@
+/**
+ * SSH batch command builder for evidence collection.
+ * Produces a single batched command with ---SEPARATOR--- delimiters between sections.
+ * Section order is deterministic — parsers index into split output by EVIDENCE_SECTION_INDICES.
+ */
+
+/** Deterministic section indices for parsers to locate their output */
+export const EVIDENCE_SECTION_INDICES = {
+  FIREWALL: 0,
+  AUTH_LOG: 1,
+  PORTS: 2,
+  SYSLOG: 3,
+  SYSINFO: 4,
+  DOCKER_PS: 5,
+  DOCKER_LOGS: 6,
+} as const;
+
+const SEPARATOR = "echo '---SEPARATOR---'";
+
+function firewallSection(): string {
+  return [
+    `command -v ufw >/dev/null 2>&1 && ufw status verbose 2>/dev/null || echo 'N/A'`,
+    `command -v iptables >/dev/null 2>&1 && iptables -L -n 2>/dev/null || echo 'N/A'`,
+  ].join("\n");
+}
+
+function authLogSection(lines: number): string {
+  return (
+    `if [ -f /var/log/auth.log ]; then` +
+    ` tail -n ${lines} /var/log/auth.log 2>/dev/null || echo 'N/A';` +
+    ` elif [ -f /var/log/secure ]; then` +
+    ` tail -n ${lines} /var/log/secure 2>/dev/null || echo 'N/A';` +
+    ` else echo 'N/A'; fi`
+  );
+}
+
+function portsSection(): string {
+  return `ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null || echo 'N/A'`;
+}
+
+function syslogSection(lines: number): string {
+  return (
+    `if command -v journalctl >/dev/null 2>&1; then` +
+    ` journalctl -n ${lines} --no-pager 2>/dev/null || echo 'N/A';` +
+    ` elif [ -f /var/log/syslog ]; then` +
+    ` tail -n ${lines} /var/log/syslog 2>/dev/null || echo 'N/A';` +
+    ` elif [ -f /var/log/messages ]; then` +
+    ` tail -n ${lines} /var/log/messages 2>/dev/null || echo 'N/A';` +
+    ` else echo 'N/A'; fi`
+  );
+}
+
+function sysinfoSection(): string {
+  return [
+    `crontab -l 2>/dev/null || echo 'N/A'`,
+    `getent passwd 2>/dev/null || cat /etc/passwd 2>/dev/null || echo 'N/A'`,
+    `ps aux 2>/dev/null || echo 'N/A'`,
+    `df -h 2>/dev/null || echo 'N/A'`,
+  ].join("\n");
+}
+
+function dockerPsSection(): string {
+  return `command -v docker >/dev/null 2>&1 && docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}' 2>/dev/null || echo 'N/A'`;
+}
+
+function dockerLogsSection(platform: string, lines: number): string {
+  const filter = platform === "coolify" ? "coolify" : "dokploy";
+  return (
+    `command -v docker >/dev/null 2>&1 &&` +
+    ` docker ps --filter 'name=${filter}' --format '{{.Names}}' 2>/dev/null |` +
+    ` head -5 | xargs -I{} sh -c 'echo "=== {} ===" && docker logs --tail ${lines} {} 2>&1' || echo 'N/A'`
+  );
+}
+
+/**
+ * Build a single batched SSH command for evidence collection.
+ *
+ * Sections are separated by `---SEPARATOR---`.
+ * Parsers use EVIDENCE_SECTION_INDICES to locate their data in the split output.
+ *
+ * Base sections (always included unless opted out):
+ *   FIREWALL (0), AUTH_LOG (1), PORTS (2), SYSLOG (3), SYSINFO (4)
+ *
+ * Docker sections (only for coolify/dokploy platforms, unless noDocker):
+ *   DOCKER_PS (5), DOCKER_LOGS (6)
+ */
+export function buildEvidenceBatchCommand(
+  platform: string,
+  lines: number,
+  options?: { noDocker?: boolean; noSysinfo?: boolean },
+): string {
+  const noDocker = options?.noDocker ?? false;
+  const noSysinfo = options?.noSysinfo ?? false;
+  const includeDocker = !noDocker && (platform === "coolify" || platform === "dokploy");
+
+  const sections: string[] = [
+    firewallSection(),
+    authLogSection(lines),
+    portsSection(),
+    syslogSection(lines),
+  ];
+
+  if (!noSysinfo) {
+    sections.push(sysinfoSection());
+  }
+
+  if (includeDocker) {
+    sections.push(dockerPsSection());
+    sections.push(dockerLogsSection(platform, lines));
+  }
+
+  return sections.join(`\n${SEPARATOR}\n`);
+}
