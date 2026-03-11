@@ -24,6 +24,11 @@ interface DOErrorResponse {
   message: string;
 }
 
+function extractDOError(data: unknown): string | undefined {
+  const d = data as DOErrorResponse | undefined;
+  return d?.message;
+}
+
 export class DigitalOceanProvider implements CloudProvider {
   name = "digitalocean";
   displayName = "DigitalOcean";
@@ -80,7 +85,7 @@ export class DigitalOceanProvider implements CloudProvider {
   }
 
   async createServer(config: ServerConfig): Promise<ServerResult> {
-    try {
+    return withProviderErrorHandling("create server", async () => {
       const body: Record<string, unknown> = {
         name: config.name,
         size: config.size,
@@ -108,19 +113,7 @@ export class DigitalOceanProvider implements CloudProvider {
         ip,
         status: droplet.status,
       };
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<DOErrorResponse>(error)) {
-        throw new Error(
-          `Failed to create server: ${error.response?.data?.message || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to create server: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractDOError);
   }
 
   async getServerDetails(serverId: string): Promise<ServerResult> {
@@ -159,28 +152,16 @@ export class DigitalOceanProvider implements CloudProvider {
 
   async destroyServer(serverId: string): Promise<void> {
     assertValidServerId(serverId);
-    try {
+    return withProviderErrorHandling("destroy server", async () => {
       await apiClient.delete(`${this.baseUrl}/droplets/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<DOErrorResponse>(error)) {
-        throw new Error(
-          `Failed to destroy server: ${error.response?.data?.message || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to destroy server: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractDOError);
   }
 
   async rebootServer(serverId: string): Promise<void> {
     assertValidServerId(serverId);
-    try {
+    return withProviderErrorHandling("reboot server", async () => {
       await apiClient.post(
         `${this.baseUrl}/droplets/${serverId}/actions`,
         { type: "reboot" },
@@ -191,19 +172,7 @@ export class DigitalOceanProvider implements CloudProvider {
           },
         },
       );
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<DOErrorResponse>(error)) {
-        throw new Error(
-          `Failed to reboot server: ${error.response?.data?.message || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to reboot server: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractDOError);
   }
 
   getRegions(): Region[] {
@@ -284,7 +253,7 @@ export class DigitalOceanProvider implements CloudProvider {
 
   async createSnapshot(serverId: string, name: string): Promise<SnapshotInfo> {
     assertValidServerId(serverId);
-    try {
+    return withProviderErrorHandling("create snapshot", async () => {
       await apiClient.post(
         `${this.baseUrl}/droplets/${serverId}/actions`,
         { type: "snapshot", name },
@@ -305,25 +274,13 @@ export class DigitalOceanProvider implements CloudProvider {
         createdAt: new Date().toISOString(),
         costPerMonth: "pending",
       };
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<DOErrorResponse>(error)) {
-        throw new Error(
-          `Failed to create snapshot: ${error.response?.data?.message || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to create snapshot: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractDOError);
   }
 
   async listSnapshots(serverId: string): Promise<SnapshotInfo[]> {
     assertValidServerId(serverId);
-    try {
-      return await withRetry(async () => {
+    return withProviderErrorHandling("list snapshots", () =>
+      withRetry(async () => {
         const response = await apiClient.get(
           `${this.baseUrl}/droplets/${serverId}/snapshots?per_page=100`,
           { headers: { Authorization: `Bearer ${this.apiToken}` } },
@@ -339,65 +296,29 @@ export class DigitalOceanProvider implements CloudProvider {
             costPerMonth: `$${(snap.size_gigabytes * 0.06).toFixed(2)}/mo`,
           }),
         );
-      });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<DOErrorResponse>(error)) {
-        throw new Error(
-          `Failed to list snapshots: ${error.response?.data?.message || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to list snapshots: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+      }),
+    extractDOError);
   }
 
   async deleteSnapshot(snapshotId: string): Promise<void> {
     assertValidServerId(snapshotId);
-    try {
+    return withProviderErrorHandling("delete snapshot", async () => {
       await apiClient.delete(`${this.baseUrl}/snapshots/${snapshotId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<DOErrorResponse>(error)) {
-        throw new Error(
-          `Failed to delete snapshot: ${error.response?.data?.message || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to delete snapshot: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractDOError);
   }
 
   async getSnapshotCostEstimate(serverId: string): Promise<string> {
     assertValidServerId(serverId);
-    try {
-      return await withRetry(async () => {
+    return withProviderErrorHandling("get snapshot cost", () =>
+      withRetry(async () => {
         const response = await apiClient.get(`${this.baseUrl}/droplets/${serverId}`, {
           headers: { Authorization: `Bearer ${this.apiToken}` },
         });
         const diskGb = response.data.droplet.disk;
         return `$${(diskGb * 0.06).toFixed(2)}/mo`;
-      });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<DOErrorResponse>(error)) {
-        throw new Error(
-          `Failed to get snapshot cost: ${error.response?.data?.message || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to get snapshot cost: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+      }),
+    extractDOError);
   }
 }

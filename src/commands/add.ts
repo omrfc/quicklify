@@ -4,7 +4,7 @@ import chalk from "chalk";
 import { promptApiToken } from "../utils/serverSelect.js";
 import { addServerRecord, validateIpAddress } from "../core/manage.js";
 import { logger } from "../utils/logger.js";
-import type { ServerMode } from "../types/index.js";
+import { isServerMode } from "../types/index.js";
 import { SUPPORTED_PROVIDERS, PROVIDER_DISPLAY_NAMES, invalidProviderError } from "../constants.js";
 
 interface AddOptions {
@@ -94,7 +94,7 @@ export async function addCommand(options: AddOptions = {}): Promise<void> {
     name: serverName!,
     skipVerify: options.skipVerify,
     apiToken,
-    ...(options.mode ? { mode: options.mode as ServerMode } : {}),
+    ...(isServerMode(options.mode) ? { mode: options.mode } : {}),
   });
 
   if (!result.success) {

@@ -25,6 +25,13 @@ interface LinodeErrorResponse {
   errors: { reason: string }[];
 }
 
+function extractLinodeError(data: unknown): string | undefined {
+  const d = data as LinodeErrorResponse | undefined;
+  if (!Array.isArray(d?.errors)) return undefined;
+  const reasons = d.errors.map((e) => e.reason).join(", ");
+  return reasons || undefined;
+}
+
 export class LinodeProvider implements CloudProvider {
   name = "linode";
   displayName = "Linode (Akamai)";
@@ -81,7 +88,7 @@ export class LinodeProvider implements CloudProvider {
   }
 
   async createServer(config: ServerConfig): Promise<ServerResult> {
-    try {
+    return withProviderErrorHandling("create server", async () => {
       // Ensure all character classes for Linode password strength: upper + lower + digit + special
       const rootPass = `Ql1!${crypto.randomBytes(21).toString("base64").slice(0, 28)}`;
 
@@ -121,17 +128,7 @@ export class LinodeProvider implements CloudProvider {
         ip: instance.ipv4?.[0] || "pending",
         status: instance.status === "provisioning" ? "initializing" : instance.status,
       };
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<LinodeErrorResponse>(error)) {
-        const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
-        throw new Error(`Failed to create server: ${reasons || error.message}`, { cause: error });
-      }
-      throw new Error(
-        `Failed to create server: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractLinodeError);
   }
 
   async getServerDetails(serverId: string): Promise<ServerResult> {
@@ -165,26 +162,16 @@ export class LinodeProvider implements CloudProvider {
 
   async destroyServer(serverId: string): Promise<void> {
     assertValidServerId(serverId);
-    try {
+    return withProviderErrorHandling("destroy server", async () => {
       await apiClient.delete(`${this.baseUrl}/linode/instances/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<LinodeErrorResponse>(error)) {
-        const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
-        throw new Error(`Failed to destroy server: ${reasons || error.message}`, { cause: error });
-      }
-      throw new Error(
-        `Failed to destroy server: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractLinodeError);
   }
 
   async rebootServer(serverId: string): Promise<void> {
     assertValidServerId(serverId);
-    try {
+    return withProviderErrorHandling("reboot server", async () => {
       await apiClient.post(
         `${this.baseUrl}/linode/instances/${serverId}/reboot`,
         {},
@@ -195,17 +182,7 @@ export class LinodeProvider implements CloudProvider {
           },
         },
       );
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<LinodeErrorResponse>(error)) {
-        const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
-        throw new Error(`Failed to reboot server: ${reasons || error.message}`, { cause: error });
-      }
-      throw new Error(
-        `Failed to reboot server: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractLinodeError);
   }
 
   getRegions(): Region[] {
@@ -278,7 +255,7 @@ export class LinodeProvider implements CloudProvider {
 
   async createSnapshot(serverId: string, name: string): Promise<SnapshotInfo> {
     assertValidServerId(serverId);
-    try {
+    return withProviderErrorHandling("create snapshot", async () => {
       // Get the first disk to create image from
       const disksResponse = await apiClient.get(
         `${this.baseUrl}/linode/instances/${serverId}/disks`,
@@ -311,22 +288,12 @@ export class LinodeProvider implements CloudProvider {
         createdAt: image.created,
         costPerMonth: `$${(image.size ? (image.size / 1024) * 0.004 : 0).toFixed(2)}/mo`,
       };
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<LinodeErrorResponse>(error)) {
-        const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
-        throw new Error(`Failed to create snapshot: ${reasons || error.message}`, { cause: error });
-      }
-      throw new Error(
-        `Failed to create snapshot: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractLinodeError);
   }
 
   async listSnapshots(serverId: string): Promise<SnapshotInfo[]> {
-    try {
-      return await withRetry(async () => {
+    return withProviderErrorHandling("list snapshots", () =>
+      withRetry(async () => {
         const response = await apiClient.get(
           `${this.baseUrl}/images?page=1&page_size=100`,
           { headers: { Authorization: `Bearer ${this.apiToken}` } },
@@ -346,60 +313,30 @@ export class LinodeProvider implements CloudProvider {
             costPerMonth: `$${(img.size ? (img.size / 1024) * 0.004 : 0).toFixed(2)}/mo`,
           }),
         );
-      });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<LinodeErrorResponse>(error)) {
-        const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
-        throw new Error(`Failed to list snapshots: ${reasons || error.message}`, { cause: error });
-      }
-      throw new Error(
-        `Failed to list snapshots: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+      }),
+    extractLinodeError);
   }
 
   async deleteSnapshot(snapshotId: string): Promise<void> {
     assertValidServerId(snapshotId);
-    try {
+    return withProviderErrorHandling("delete snapshot", async () => {
       await apiClient.delete(`${this.baseUrl}/images/${snapshotId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<LinodeErrorResponse>(error)) {
-        const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
-        throw new Error(`Failed to delete snapshot: ${reasons || error.message}`, { cause: error });
-      }
-      throw new Error(
-        `Failed to delete snapshot: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractLinodeError);
   }
 
   async getSnapshotCostEstimate(serverId: string): Promise<string> {
     assertValidServerId(serverId);
-    try {
-      return await withRetry(async () => {
+    return withProviderErrorHandling("get snapshot cost", () =>
+      withRetry(async () => {
         const response = await apiClient.get(`${this.baseUrl}/linode/instances/${serverId}`, {
           headers: { Authorization: `Bearer ${this.apiToken}` },
         });
         const diskMb = response.data.specs?.disk || response.data.disk || 0;
         const diskGb = diskMb / 1024;
         return `$${(diskGb * 0.004).toFixed(2)}/mo`;
-      });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<LinodeErrorResponse>(error)) {
-        const reasons = error.response?.data?.errors?.map((e) => e.reason).join(", ");
-        throw new Error(`Failed to get snapshot cost: ${reasons || error.message}`, { cause: error });
-      }
-      throw new Error(
-        `Failed to get snapshot cost: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+      }),
+    extractLinodeError);
   }
 }

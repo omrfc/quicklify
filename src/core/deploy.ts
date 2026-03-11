@@ -1,6 +1,7 @@
 import { spawnSync } from "child_process";
 import type { CloudProvider } from "../providers/base.js";
-import type { ServerMode, Platform, KastellResult } from "../types/index.js";
+import { isServerMode } from "../types/index.js";
+import type { Platform, KastellResult } from "../types/index.js";
 import { getBareCloudInit } from "../utils/cloudInit.js";
 import { getAdapter } from "../adapters/factory.js";
 import { logger, createSpinner } from "../utils/logger.js";
@@ -114,7 +115,7 @@ async function createServerWithRetry(
             newRegion = await getLocationConfig(providerWithToken, failedLocations);
           }
           currentRegion = newRegion;
-          const newSize = await getServerTypeConfig(providerWithToken, currentRegion, [], mode as ServerMode);
+          const newSize = await getServerTypeConfig(providerWithToken, currentRegion, [], isServerMode(mode) ? mode : undefined);
           if (newSize === BACK_SIGNAL) continue;
           currentSize = newSize;
           pickedSize = true;
@@ -132,7 +133,7 @@ async function createServerWithRetry(
           logger.info("Please select a different server type:");
           let newSize = BACK_SIGNAL;
           while (newSize === BACK_SIGNAL) {
-            newSize = await getServerTypeConfig(providerWithToken, currentRegion, failedTypes, mode as ServerMode);
+            newSize = await getServerTypeConfig(providerWithToken, currentRegion, failedTypes, isServerMode(mode) ? mode : undefined);
           }
           currentSize = newSize;
           retries++;

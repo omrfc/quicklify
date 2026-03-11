@@ -29,6 +29,11 @@ export interface ServerResult {
 
 export type ServerMode = "coolify" | "bare";
 
+const SERVER_MODES: readonly string[] = ["coolify", "bare"];
+export function isServerMode(value: unknown): value is ServerMode {
+  return typeof value === "string" && SERVER_MODES.includes(value);
+}
+
 export type Platform = "coolify" | "dokploy";
 
 export interface DeploymentConfig {

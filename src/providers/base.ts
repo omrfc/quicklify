@@ -84,20 +84,33 @@ export function sanitizeResponseData(data: unknown): unknown {
  * Higher-order function for standard provider error handling.
  * Wraps an async operation with stripSensitiveData + consistent error formatting.
  * Use for methods with the standard try/catch pattern. Methods with custom error
- * handling (e.g., uploadSshKey with 409, typed API error responses) should NOT use this.
+ * handling (e.g., uploadSshKey with 409) should NOT use this.
+ *
+ * @param extractApiMessage - Optional function to extract provider-specific error
+ *   messages from axios response data (e.g., Hetzner's `data.error.message`,
+ *   Linode's `data.errors[].reason`). When provided and the error is an AxiosError,
+ *   the extracted message takes priority over `error.message`.
  */
 export async function withProviderErrorHandling<T>(
   operation: string,
   fn: () => Promise<T>,
+  extractApiMessage?: (data: unknown) => string | undefined,
 ): Promise<T> {
   try {
     return await fn();
   } catch (error: unknown) {
     stripSensitiveData(error);
-    throw new Error(
-      `Failed to ${operation}: ${error instanceof Error ? error.message : String(error)}`,
-      { cause: error },
-    );
+    const errRecord = error as Record<string, unknown> | null | undefined;
+    let message =
+      error instanceof Error
+        ? error.message
+        : typeof errRecord?.message === "string"
+          ? errRecord.message
+          : String(error);
+    if (extractApiMessage && axios.isAxiosError(error) && error.response?.data) {
+      message = extractApiMessage(error.response.data) || message;
+    }
+    throw new Error(`Failed to ${operation}: ${message}`, { cause: error });
   }
 }
 

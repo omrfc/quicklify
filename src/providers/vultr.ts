@@ -24,6 +24,11 @@ interface VultrErrorResponse {
   error: string;
 }
 
+function extractVultrError(data: unknown): string | undefined {
+  const d = data as VultrErrorResponse | undefined;
+  return typeof d?.error === "string" ? d.error : undefined;
+}
+
 export class VultrProvider implements CloudProvider {
   name = "vultr";
   displayName = "Vultr";
@@ -80,7 +85,7 @@ export class VultrProvider implements CloudProvider {
   }
 
   async createServer(config: ServerConfig): Promise<ServerResult> {
-    try {
+    return withProviderErrorHandling("create server", async () => {
       const body: Record<string, unknown> = {
         label: config.name,
         plan: config.size,
@@ -104,19 +109,7 @@ export class VultrProvider implements CloudProvider {
         ip: instance.main_ip || "pending",
         status: instance.power_status,
       };
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<VultrErrorResponse>(error)) {
-        throw new Error(
-          `Failed to create server: ${error.response?.data?.error || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to create server: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractVultrError);
   }
 
   async getServerDetails(serverId: string): Promise<ServerResult> {
@@ -156,28 +149,16 @@ export class VultrProvider implements CloudProvider {
 
   async destroyServer(serverId: string): Promise<void> {
     assertValidServerId(serverId);
-    try {
+    return withProviderErrorHandling("destroy server", async () => {
       await apiClient.delete(`${this.baseUrl}/instances/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<VultrErrorResponse>(error)) {
-        throw new Error(
-          `Failed to destroy server: ${error.response?.data?.error || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to destroy server: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractVultrError);
   }
 
   async rebootServer(serverId: string): Promise<void> {
     assertValidServerId(serverId);
-    try {
+    return withProviderErrorHandling("reboot server", async () => {
       await apiClient.post(
         `${this.baseUrl}/instances/${serverId}/reboot`,
         {},
@@ -188,19 +169,7 @@ export class VultrProvider implements CloudProvider {
           },
         },
       );
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<VultrErrorResponse>(error)) {
-        throw new Error(
-          `Failed to reboot server: ${error.response?.data?.error || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to reboot server: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractVultrError);
   }
 
   getRegions(): Region[] {
@@ -273,7 +242,7 @@ export class VultrProvider implements CloudProvider {
 
   async createSnapshot(serverId: string, name: string): Promise<SnapshotInfo> {
     assertValidServerId(serverId);
-    try {
+    return withProviderErrorHandling("create snapshot", async () => {
       const response = await apiClient.post(
         `${this.baseUrl}/snapshots`,
         { instance_id: serverId, description: name },
@@ -294,25 +263,13 @@ export class VultrProvider implements CloudProvider {
         createdAt: snap.date_created,
         costPerMonth: `$${(snap.size ? (snap.size / (1024 * 1024 * 1024)) * 0.05 : 0).toFixed(2)}/mo`,
       };
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<VultrErrorResponse>(error)) {
-        throw new Error(
-          `Failed to create snapshot: ${error.response?.data?.error || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to create snapshot: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractVultrError);
   }
 
   async listSnapshots(serverId: string): Promise<SnapshotInfo[]> {
     assertValidServerId(serverId);
-    try {
-      return await withRetry(async () => {
+    return withProviderErrorHandling("list snapshots", () =>
+      withRetry(async () => {
         // Vultr API does not return instance_id in snapshot list,
         // so we return all account snapshots (they are account-wide, not per-instance).
         const response = await apiClient.get(`${this.baseUrl}/snapshots`, {
@@ -330,65 +287,29 @@ export class VultrProvider implements CloudProvider {
             costPerMonth: `$${(s.size ? (s.size / (1024 * 1024 * 1024)) * 0.05 : 0).toFixed(2)}/mo`,
           }),
         );
-      });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<VultrErrorResponse>(error)) {
-        throw new Error(
-          `Failed to list snapshots: ${error.response?.data?.error || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to list snapshots: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+      }),
+    extractVultrError);
   }
 
   async deleteSnapshot(snapshotId: string): Promise<void> {
     assertValidServerId(snapshotId);
-    try {
+    return withProviderErrorHandling("delete snapshot", async () => {
       await apiClient.delete(`${this.baseUrl}/snapshots/${snapshotId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<VultrErrorResponse>(error)) {
-        throw new Error(
-          `Failed to delete snapshot: ${error.response?.data?.error || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to delete snapshot: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractVultrError);
   }
 
   async getSnapshotCostEstimate(serverId: string): Promise<string> {
     assertValidServerId(serverId);
-    try {
-      return await withRetry(async () => {
+    return withProviderErrorHandling("get snapshot cost", () =>
+      withRetry(async () => {
         const response = await apiClient.get(`${this.baseUrl}/instances/${serverId}`, {
           headers: { Authorization: `Bearer ${this.apiToken}` },
         });
         const diskGb = response.data.instance?.disk || 0;
         return `$${(diskGb * 0.05).toFixed(2)}/mo`;
-      });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<VultrErrorResponse>(error)) {
-        throw new Error(
-          `Failed to get snapshot cost: ${error.response?.data?.error || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to get snapshot cost: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+      }),
+    extractVultrError);
   }
 }

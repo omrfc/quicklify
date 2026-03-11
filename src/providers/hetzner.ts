@@ -39,6 +39,11 @@ interface HetznerErrorResponse {
   };
 }
 
+function extractHetznerError(data: unknown): string | undefined {
+  const d = data as HetznerErrorResponse | undefined;
+  return d?.error?.message;
+}
+
 export class HetznerProvider implements CloudProvider {
   name = "hetzner";
   displayName = "Hetzner Cloud";
@@ -95,7 +100,7 @@ export class HetznerProvider implements CloudProvider {
   }
 
   async createServer(config: ServerConfig): Promise<ServerResult> {
-    try {
+    return withProviderErrorHandling("create server", async () => {
       const body: Record<string, unknown> = {
         name: config.name,
         server_type: config.size,
@@ -118,19 +123,7 @@ export class HetznerProvider implements CloudProvider {
         ip: response.data.server?.public_net?.ipv4?.ip || "pending",
         status: response.data.server.status,
       };
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<HetznerErrorResponse>(error)) {
-        throw new Error(
-          `Failed to create server: ${error.response?.data?.error?.message || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to create server: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractHetznerError);
   }
 
   async getServerDetails(serverId: string): Promise<ServerResult> {
@@ -163,28 +156,16 @@ export class HetznerProvider implements CloudProvider {
 
   async destroyServer(serverId: string): Promise<void> {
     assertValidServerId(serverId);
-    try {
+    return withProviderErrorHandling("destroy server", async () => {
       await apiClient.delete(`${this.baseUrl}/servers/${serverId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<HetznerErrorResponse>(error)) {
-        throw new Error(
-          `Failed to destroy server: ${error.response?.data?.error?.message || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to destroy server: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractHetznerError);
   }
 
   async rebootServer(serverId: string): Promise<void> {
     assertValidServerId(serverId);
-    try {
+    return withProviderErrorHandling("reboot server", async () => {
       await apiClient.post(
         `${this.baseUrl}/servers/${serverId}/actions/reboot`,
         {},
@@ -195,19 +176,7 @@ export class HetznerProvider implements CloudProvider {
           },
         },
       );
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<HetznerErrorResponse>(error)) {
-        throw new Error(
-          `Failed to reboot server: ${error.response?.data?.error?.message || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to reboot server: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractHetznerError);
   }
 
   getRegions(): Region[] {
@@ -300,7 +269,7 @@ export class HetznerProvider implements CloudProvider {
 
   async createSnapshot(serverId: string, name: string): Promise<SnapshotInfo> {
     assertValidServerId(serverId);
-    try {
+    return withProviderErrorHandling("create snapshot", async () => {
       const response = await apiClient.post(
         `${this.baseUrl}/servers/${serverId}/actions/create_image`,
         { type: "snapshot", description: name },
@@ -321,25 +290,13 @@ export class HetznerProvider implements CloudProvider {
         createdAt: image.created,
         costPerMonth: `€${((image.image_size || 0) * 0.006).toFixed(2)}/mo`,
       };
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<HetznerErrorResponse>(error)) {
-        throw new Error(
-          `Failed to create snapshot: ${error.response?.data?.error?.message || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to create snapshot: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractHetznerError);
   }
 
   async listSnapshots(serverId: string): Promise<SnapshotInfo[]> {
     assertValidServerId(serverId);
-    try {
-      return await withRetry(async () => {
+    return withProviderErrorHandling("list snapshots", () =>
+      withRetry(async () => {
         const response = await apiClient.get(
           `${this.baseUrl}/images?type=snapshot&sort=created:desc&per_page=100`,
           { headers: { Authorization: `Bearer ${this.apiToken}` } },
@@ -359,65 +316,29 @@ export class HetznerProvider implements CloudProvider {
             costPerMonth: `€${((img.image_size || 0) * 0.006).toFixed(2)}/mo`,
           }),
         );
-      });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<HetznerErrorResponse>(error)) {
-        throw new Error(
-          `Failed to list snapshots: ${error.response?.data?.error?.message || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to list snapshots: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+      }),
+    extractHetznerError);
   }
 
   async deleteSnapshot(snapshotId: string): Promise<void> {
     assertValidServerId(snapshotId);
-    try {
+    return withProviderErrorHandling("delete snapshot", async () => {
       await apiClient.delete(`${this.baseUrl}/images/${snapshotId}`, {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<HetznerErrorResponse>(error)) {
-        throw new Error(
-          `Failed to delete snapshot: ${error.response?.data?.error?.message || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to delete snapshot: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    }, extractHetznerError);
   }
 
   async getSnapshotCostEstimate(serverId: string): Promise<string> {
     assertValidServerId(serverId);
-    try {
-      return await withRetry(async () => {
+    return withProviderErrorHandling("get snapshot cost", () =>
+      withRetry(async () => {
         const response = await apiClient.get(`${this.baseUrl}/servers/${serverId}`, {
           headers: { Authorization: `Bearer ${this.apiToken}` },
         });
         const diskGb = response.data.server.server_type.disk;
         return `€${(diskGb * 0.006).toFixed(2)}/mo`;
-      });
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      if (axios.isAxiosError<HetznerErrorResponse>(error)) {
-        throw new Error(
-          `Failed to get snapshot cost: ${error.response?.data?.error?.message || error.message}`,
-          { cause: error },
-        );
-      }
-      throw new Error(
-        `Failed to get snapshot cost: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+      }),
+    extractHetznerError);
   }
 }
