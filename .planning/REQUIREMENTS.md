@@ -10,7 +10,7 @@ Requirements for v1.6 Audit Expand + Evidence + Infrastructure. Each maps to roa
 ### Audit Snapshot
 
 - [x] **SNAP-01**: User can save full audit results as a dated JSON snapshot
-- [ ] **SNAP-02**: User can list available snapshots for a server with dates and scores
+- [x] **SNAP-02**: User can list available snapshots for a server with dates and scores
 - [x] **SNAP-03**: User can name snapshots for easy reference (e.g., "pre-upgrade")
 - [x] **SNAP-04**: Snapshots include schema version for forward compatibility
 
@@ -76,7 +76,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | SNAP-01 | Phase 24 | Complete |
-| SNAP-02 | Phase 24 | Pending |
+| SNAP-02 | Phase 24 | Complete |
 | SNAP-03 | Phase 24 | Complete |
 | SNAP-04 | Phase 24 | Complete |
 | DIFF-01 | Phase 25 | Pending |
