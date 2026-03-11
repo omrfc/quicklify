@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Audit Expand + Evidence + Altyapi
 status: in_progress
-stopped_at: Completed 24-02-PLAN.md (audit snapshot CLI wiring)
-last_updated: "2026-03-11T05:59:54.231Z"
+stopped_at: Completed 25-01-PLAN.md (audit diff engine)
+last_updated: "2026-03-11T06:41:43.887Z"
 last_activity: 2026-03-09 — Completed 23-03 (provider retry integration)
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 6
 ---
 
 ---
@@ -39,12 +39,12 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 
 ## Current Position
 
-Phase: 23 of 27 (Infrastructure Foundation) — first of 5 v1.6 phases
-Plan: 3 of 3 in current phase (PHASE COMPLETE)
-Status: Phase 23 complete
-Last activity: 2026-03-09 — Completed 23-03 (provider retry integration)
+Phase: 25 of 27 (Audit Diff & Compare) — third of 5 v1.6 phases
+Plan: 1 of 2 complete in current phase
+Status: Phase 25 in progress (Plan 01 complete, Plan 02 next)
+Last activity: 2026-03-11 — Completed 25-01 (audit diff engine)
 
-Progress: [██████████] 100% (Phase 23)
+Progress: [████████--] 80% (Phase 25 plan 1/2)
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [██████████] 100% (Phase 23)
 *Updated after each plan completion*
 | Phase 24 P01 | 4 | 1 tasks | 3 files |
 | Phase 24-audit-snapshots P02 | 12 | 2 tasks | 3 files |
+| Phase 25 P01 | 15min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,8 @@ Progress: [██████████] 100% (Phase 23)
 - [Phase 24-audit-snapshots]: saveSnapshot returns void (not Promise<string>), success message uses server name not file path
 - [Phase 24-audit-snapshots]: listSnapshots is async in snapshot.ts, awaited in audit command (plan showed sync)
 - [Phase 24-audit-snapshots]: Audit command snapshot tests placed at tests/unit/ (not src/commands/__tests__/) per Jest roots config
+- [Phase 25]: diffAudits keys on check.id for canonical cross-audit check matching
+- [Phase 25]: resolveSnapshotRef: filename-first then name-scan for unambiguous ref resolution
 
 ### Pending Todos
 
@@ -96,6 +99,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-11T05:56:56.364Z
-Stopped at: Completed 24-02-PLAN.md (audit snapshot CLI wiring)
-Next action: Execute Phase 24 (Audit Snapshot + Diff)
+Last session: 2026-03-11T06:41:43.880Z
+Stopped at: Completed 25-01-PLAN.md (audit diff engine)
+Next action: Execute Phase 25 Plan 02 (CLI wiring — --diff and --compare flags)

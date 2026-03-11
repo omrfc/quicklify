@@ -16,10 +16,10 @@ Requirements for v1.6 Audit Expand + Evidence + Infrastructure. Each maps to roa
 
 ### Audit Diff
 
-- [ ] **DIFF-01**: User can compare two snapshots and see check-by-check changes
-- [ ] **DIFF-02**: User can compare two servers' audit results side-by-side
-- [ ] **DIFF-03**: Diff output is color-coded (green=improved, red=regressed)
-- [ ] **DIFF-04**: Diff supports JSON output for CI integration
+- [x] **DIFF-01**: User can compare two snapshots and see check-by-check changes
+- [x] **DIFF-02**: User can compare two servers' audit results side-by-side
+- [x] **DIFF-03**: Diff output is color-coded (green=improved, red=regressed)
+- [x] **DIFF-04**: Diff supports JSON output for CI integration
 - [ ] **DIFF-05**: Diff exits with code 1 if any check regressed (CI-friendly)
 
 ### Evidence Collection
@@ -79,10 +79,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SNAP-02 | Phase 24 | Complete |
 | SNAP-03 | Phase 24 | Complete |
 | SNAP-04 | Phase 24 | Complete |
-| DIFF-01 | Phase 25 | Pending |
-| DIFF-02 | Phase 25 | Pending |
-| DIFF-03 | Phase 25 | Pending |
-| DIFF-04 | Phase 25 | Pending |
+| DIFF-01 | Phase 25 | Complete |
+| DIFF-02 | Phase 25 | Complete |
+| DIFF-03 | Phase 25 | Complete |
+| DIFF-04 | Phase 25 | Complete |
 | DIFF-05 | Phase 25 | Pending |
 | EVID-01 | Phase 26 | Pending |
 | EVID-02 | Phase 26 | Pending |

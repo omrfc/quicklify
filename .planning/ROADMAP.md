@@ -143,7 +143,7 @@ Plans:
   3. Diff output in terminal is color-coded: green for improvements, red for regressions
   4. Diff supports `--json` output for CI pipeline consumption
   5. `kastell audit --diff` exits with code 1 when any check regressed (CI can gate on this)
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 25-01-PLAN.md — Diff engine core with TDD (diffAudits, resolveSnapshotRef, formatters)
 - [ ] 25-02-PLAN.md — Wire --diff and --compare into audit CLI command
@@ -227,7 +227,7 @@ Plans:
 | 22. Platform Auto-Detect (Gap Closure) | v1.5 | — | Complete (absorbed into P17) | 2026-03-08 |
 | 23. Infrastructure Foundation | v1.6 | 3/3 | Complete | 2026-03-09 |
 | 24. Audit Snapshots | v1.6 | 2/2 | Complete | 2026-03-11 |
-| 25. Audit Diff and Compare | v1.6 | 0/2 | Not started | - |
+| 25. Audit Diff and Compare | 1/2 | In Progress|  | - |
 | 26. Evidence Collection | v1.6 | 0/TBD | Not started | - |
 | 27. Adapter Contract Documentation | v1.6 | 0/TBD | Not started | - |
 
