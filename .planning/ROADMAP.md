@@ -169,7 +169,9 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. A developer can read the adapter contract docs and understand every method's purpose, parameters, and expected behavior
   2. Test fixtures validate that CoolifyAdapter and DokployAdapter conform to the PlatformAdapter contract (CI catches deviations)
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 27-01-PLAN.md — JSDoc documentation on interface.ts + adapter contract conformance test suite
 
 ## Paralel Track: kastell.dev Website
 
@@ -231,9 +233,9 @@ Plans:
 | 23. Infrastructure Foundation | v1.6 | 3/3 | Complete | 2026-03-09 |
 | 24. Audit Snapshots | v1.6 | 2/2 | Complete | 2026-03-11 |
 | 25. Audit Diff and Compare | v1.6 | 2/2 | Complete | 2026-03-11 |
-| 26. Evidence Collection | 2/2 | Complete   | 2026-03-11 | - |
-| 27. Adapter Contract Documentation | v1.6 | 0/TBD | Not started | - |
+| 26. Evidence Collection | v1.6 | 2/2 | Complete | 2026-03-11 |
+| 27. Adapter Contract Documentation | v1.6 | 0/1 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-03-11 — Phase 26 planned (2 plans, 2 waves)*
+*Last updated: 2026-03-11 — Phase 27 planned (1 plan, 1 wave)*
