@@ -27,7 +27,7 @@ export async function evidenceCommand(
   const evidenceOpts: EvidenceOptions = {
     name: options.name as string | undefined,
     output: options.output as string | undefined,
-    lines: parseInt(String(options.lines ?? "500"), 10) || 500,
+    lines: parseInt(String(options.lines), 10) || 500,
     noDocker: options.docker === false,
     noSysinfo: options.sysinfo === false,
     force: options.force === true,

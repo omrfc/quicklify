@@ -99,7 +99,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 - [x] **Phase 23: Infrastructure Foundation** - File locking, rate limit backoff, ServerRecord.mode migration (completed 2026-03-09)
 - [x] **Phase 24: Audit Snapshots** - Snapshot save/load/list with schema versioning (completed 2026-03-11)
 - [x] **Phase 25: Audit Diff and Compare** - Check-by-check diff, cross-server compare, CI integration (completed 2026-03-11)
-- [ ] **Phase 26: Evidence Collection** - Forensic evidence package with SHA256 manifest
+- [x] **Phase 26: Evidence Collection** - Forensic evidence package with SHA256 manifest (completed 2026-03-11)
 - [ ] **Phase 27: Adapter Contract Documentation** - PlatformAdapter interface docs and test fixtures
 
 ## Phase Details
@@ -157,7 +157,7 @@ Plans:
   2. Evidence directory contains firewall rules, auth.log excerpts, listening ports, and system logs
   3. A manifest.json file lists every collected file with its SHA256 checksum for chain-of-custody integrity
   4. Evidence collection completes over a single SSH connection (batch pattern, no repeated connects)
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 26-01-PLAN.md — Evidence core module (SSH batch builder, collectEvidence, SHA256 manifest, tests)
 - [ ] 26-02-PLAN.md — Wire CLI command + MCP tool (evidence command, server_evidence tool, registration)
@@ -231,7 +231,7 @@ Plans:
 | 23. Infrastructure Foundation | v1.6 | 3/3 | Complete | 2026-03-09 |
 | 24. Audit Snapshots | v1.6 | 2/2 | Complete | 2026-03-11 |
 | 25. Audit Diff and Compare | v1.6 | 2/2 | Complete | 2026-03-11 |
-| 26. Evidence Collection | 1/2 | In Progress|  | - |
+| 26. Evidence Collection | 2/2 | Complete   | 2026-03-11 | - |
 | 27. Adapter Contract Documentation | v1.6 | 0/TBD | Not started | - |
 
 ---
