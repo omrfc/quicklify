@@ -1,4 +1,4 @@
-import { getServerMode, isBareServer, requireCoolifyMode, requireManagedMode } from "../../src/utils/modeGuard";
+import { getServerMode, isBareServer, requireManagedMode } from "../../src/utils/modeGuard";
 import type { ServerRecord } from "../../src/types/index";
 import type { Platform } from "../../src/types/index";
 
@@ -58,39 +58,6 @@ describe("isBareServer", () => {
   });
 });
 
-describe("requireCoolifyMode", () => {
-  it("should return an error string containing command name for a bare server", () => {
-    const record = makeRecord({ mode: "bare" });
-    const result = requireCoolifyMode(record, "health");
-    expect(result).not.toBeNull();
-    expect(result).toContain("health");
-  });
-
-  it("should return null for a coolify server", () => {
-    const record = makeRecord({ mode: "coolify" });
-    const result = requireCoolifyMode(record, "health");
-    expect(result).toBeNull();
-  });
-
-  it("should include the command name in the error message", () => {
-    const record = makeRecord({ mode: "bare" });
-    const result = requireCoolifyMode(record, "logs");
-    expect(result).toContain("logs");
-  });
-
-  it("should mention managed platform in the error message", () => {
-    const record = makeRecord({ mode: "bare" });
-    const result = requireCoolifyMode(record, "update");
-    expect(result).toContain("managed platform");
-  });
-
-  it("should return null for a server with no mode field (defaults to coolify)", () => {
-    const record = makeRecord(); // no mode
-    const result = requireCoolifyMode(record, "health");
-    expect(result).toBeNull();
-  });
-});
-
 describe("requireManagedMode", () => {
   it("should return error string for bare server (mode='bare')", () => {
     const record = makeRecord({ mode: "bare" });
@@ -132,12 +99,4 @@ describe("requireManagedMode", () => {
     expect(result).toContain("Dokploy");
   });
 
-  it("should serve as a backward compat alias via requireCoolifyMode", () => {
-    const bareRecord = makeRecord({ mode: "bare" });
-    const coolifyRecord = makeRecord({ mode: "coolify" });
-
-    // Both functions should return the same results
-    expect(requireCoolifyMode(bareRecord, "test")).toBe(requireManagedMode(bareRecord, "test"));
-    expect(requireCoolifyMode(coolifyRecord, "test")).toBe(requireManagedMode(coolifyRecord, "test"));
-  });
 });

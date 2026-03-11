@@ -1,4 +1,5 @@
 import axios from "axios";
+import { PROVIDER_DISPLAY_NAMES } from "../constants.js";
 
 interface ProviderUrls {
   token: string;
@@ -25,13 +26,7 @@ const PROVIDER_URLS: Record<string, ProviderUrls> = {
 };
 
 export function getProviderDisplayName(provider: string): string {
-  const names: Record<string, string> = {
-    hetzner: "Hetzner Cloud",
-    digitalocean: "DigitalOcean",
-    vultr: "Vultr",
-    linode: "Linode (Akamai)",
-  };
-  return names[provider] || provider;
+  return PROVIDER_DISPLAY_NAMES[provider as keyof typeof PROVIDER_DISPLAY_NAMES] || provider;
 }
 
 export function mapProviderError(error: unknown, provider: string): string {

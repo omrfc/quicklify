@@ -89,7 +89,7 @@ export class LinodeProvider implements CloudProvider {
         label: config.name,
         type: config.size,
         region: config.region,
-        image: "linode/ubuntu22.04",
+        image: "linode/ubuntu24.04",
         root_pass: rootPass,
         metadata: { user_data: Buffer.from(config.cloudInit).toString("base64") },
       };

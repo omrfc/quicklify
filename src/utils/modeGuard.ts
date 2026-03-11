@@ -17,7 +17,3 @@ export function requireManagedMode(server: ServerRecord, commandName: string): s
   return null;
 }
 
-/** @deprecated Use requireManagedMode instead. Kept for backward compat */
-export function requireCoolifyMode(server: ServerRecord, commandName: string): string | null {
-  return requireManagedMode(server, commandName);
-}

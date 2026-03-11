@@ -260,7 +260,7 @@ describe("LinodeProvider", () => {
           label: "test-server",
           type: "g6-standard-2",
           region: "us-east",
-          image: "linode/ubuntu22.04",
+          image: "linode/ubuntu24.04",
           root_pass: expect.any(String),
           metadata: { user_data: expectedBase64 },
         }),

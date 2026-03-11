@@ -14,9 +14,20 @@ import type { EvidenceOptions } from "../core/evidence.js";
  * Execute the evidence collection command.
  * Flow: resolveServer -> spinner -> collectEvidence -> summary table -> warning
  */
+interface EvidenceCommandOptions {
+  name?: string;
+  output?: string;
+  lines?: string;
+  docker?: boolean;
+  sysinfo?: boolean;
+  force?: boolean;
+  json?: boolean;
+  quiet?: boolean;
+}
+
 export async function evidenceCommand(
   serverArg: string | undefined,
-  options: Record<string, unknown>,
+  options: EvidenceCommandOptions,
 ): Promise<void> {
   const server = await resolveServer(serverArg, "Select a server to collect evidence from:");
   if (!server) return;
@@ -25,9 +36,9 @@ export async function evidenceCommand(
   const platform = (server.platform ?? server.mode ?? "bare") as string;
 
   const evidenceOpts: EvidenceOptions = {
-    name: options.name as string | undefined,
-    output: options.output as string | undefined,
-    lines: parseInt(String(options.lines), 10) || 500,
+    name: options.name,
+    output: options.output,
+    lines: parseInt(String(options.lines ?? "500"), 10) || 500,
     noDocker: options.docker === false,
     noSysinfo: options.sysinfo === false,
     force: options.force === true,

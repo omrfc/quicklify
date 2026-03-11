@@ -3,7 +3,13 @@ import * as coreManage from "../../src/core/manage";
 import * as serverSelect from "../../src/utils/serverSelect";
 import { addCommand } from "../../src/commands/add";
 
-jest.mock("../../src/core/manage");
+jest.mock("../../src/core/manage", () => {
+  const actual = jest.requireActual("../../src/core/manage");
+  return {
+    ...actual,
+    addServerRecord: jest.fn(),
+  };
+});
 jest.mock("../../src/utils/serverSelect");
 
 const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
@@ -241,7 +247,8 @@ describe("addCommand", () => {
       expect(ipValidator("999.999.999.999")).toBe("Invalid IP address (octets must be 0-255)");
       expect(ipValidator("256.1.1.1")).toBe("Invalid IP address (octets must be 0-255)");
       expect(ipValidator("1.2.3.4")).toBe(true);
-      expect(ipValidator("0.0.0.0")).toBe(true);
+      expect(ipValidator("0.0.0.0")).toBe("Reserved IP address not allowed");
+      expect(ipValidator("127.0.0.1")).toBe("Reserved IP address not allowed");
       expect(ipValidator("255.255.255.255")).toBe(true);
     });
 

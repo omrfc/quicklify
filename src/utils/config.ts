@@ -31,7 +31,7 @@ export function getServers(): ServerRecord[] {
     if (!Array.isArray(parsed)) {
       return [];
     }
-    const needsMigration = parsed.some((s: any) => !s.mode);
+    const needsMigration = parsed.some((s: Record<string, unknown>) => !s.mode);
     const servers = parsed.map((s: ServerRecord) => ({ ...s, mode: s.mode || "coolify" }) as ServerRecord);
     if (needsMigration) {
       atomicWriteServers(servers);

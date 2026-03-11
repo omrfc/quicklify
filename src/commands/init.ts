@@ -16,6 +16,15 @@ import { getTemplate, getTemplateDefaults, VALID_TEMPLATE_NAMES } from "../utils
 import { SUPPORTED_PROVIDERS, PROVIDER_ENV_KEYS, invalidProviderError } from "../constants.js";
 import { deployServer } from "../core/deploy.js";
 
+function applyMergedConfig(options: InitOptions, merged: Partial<InitOptions>): void {
+  if (merged.provider && !options.provider) options.provider = merged.provider;
+  if (merged.region && !options.region) options.region = merged.region;
+  if (merged.size && !options.size) options.size = merged.size;
+  if (merged.name && !options.name) options.name = merged.name;
+  if (merged.fullSetup !== undefined && options.fullSetup === undefined)
+    options.fullSetup = merged.fullSetup;
+}
+
 export async function initCommand(options: InitOptions = {}): Promise<void> {
   // Load YAML config if --config flag provided
   if (options.config) {
@@ -23,23 +32,9 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     for (const w of warnings) {
       logger.warning(w);
     }
-    const merged = mergeConfig(options, yamlConfig);
-    // Apply merged values back to options
-    if (merged.provider && !options.provider) options.provider = merged.provider;
-    if (merged.region && !options.region) options.region = merged.region;
-    if (merged.size && !options.size) options.size = merged.size;
-    if (merged.name && !options.name) options.name = merged.name;
-    if (merged.fullSetup !== undefined && options.fullSetup === undefined)
-      options.fullSetup = merged.fullSetup;
+    applyMergedConfig(options, mergeConfig(options, yamlConfig));
   } else if (options.template) {
-    // Template-only mode (no YAML file)
-    const merged = mergeConfig(options);
-    if (merged.provider && !options.provider) options.provider = merged.provider;
-    if (merged.region && !options.region) options.region = merged.region;
-    if (merged.size && !options.size) options.size = merged.size;
-    if (merged.name && !options.name) options.name = merged.name;
-    if (merged.fullSetup !== undefined && options.fullSetup === undefined)
-      options.fullSetup = merged.fullSetup;
+    applyMergedConfig(options, mergeConfig(options));
   }
 
   // Validate --template flag

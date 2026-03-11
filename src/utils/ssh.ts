@@ -85,6 +85,9 @@ export function assertValidIp(ip: string): void {
   if (octets.some((o) => o < 0 || o > 255)) {
     throw new Error(`Invalid IP address: octets must be 0-255`);
   }
+  if (ip === "0.0.0.0" || ip.startsWith("127.")) {
+    throw new Error(`Reserved IP address not allowed`);
+  }
 }
 
 export function sanitizedEnv(): NodeJS.ProcessEnv {

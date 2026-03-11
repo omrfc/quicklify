@@ -73,14 +73,13 @@ describe("security-ssh E2E", () => {
       const mockCp = createMockProcess(0);
       mockedSpawn.mockReturnValue(mockCp);
 
-      await sshConnect("0.0.0.0");
-      expect(mockedSpawn).toHaveBeenCalled();
-
-      jest.clearAllMocks();
-      mockedSpawn.mockReturnValue(createMockProcess(0));
-
       await sshConnect("255.255.255.255");
       expect(mockedSpawn).toHaveBeenCalled();
+    });
+
+    it("should reject reserved IPs", () => {
+      expect(() => sshConnect("0.0.0.0")).toThrow("Reserved IP address not allowed");
+      expect(() => sshConnect("127.0.0.1")).toThrow("Reserved IP address not allowed");
     });
   });
 

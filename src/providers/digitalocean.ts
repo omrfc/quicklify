@@ -85,7 +85,7 @@ export class DigitalOceanProvider implements CloudProvider {
         name: config.name,
         size: config.size,
         region: config.region,
-        image: "ubuntu-22-04-x64",
+        image: "ubuntu-24-04-x64",
         user_data: config.cloudInit,
       };
       if (config.sshKeyIds?.length) {

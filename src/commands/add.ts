@@ -2,7 +2,7 @@ import inquirer from "inquirer";
 import ora from "ora";
 import chalk from "chalk";
 import { promptApiToken } from "../utils/serverSelect.js";
-import { addServerRecord } from "../core/manage.js";
+import { addServerRecord, validateIpAddress } from "../core/manage.js";
 import { logger } from "../utils/logger.js";
 import type { ServerMode } from "../types/index.js";
 import { SUPPORTED_PROVIDERS, PROVIDER_DISPLAY_NAMES, invalidProviderError } from "../constants.js";
@@ -51,16 +51,8 @@ export async function addCommand(options: AddOptions = {}): Promise<void> {
         name: "ip",
         message: "Enter server IP address:",
         validate: (input: string) => {
-          const trimmed = input.trim();
-          if (!trimmed) return "IP address is required";
-          if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(trimmed)) {
-            return "Invalid IP address format";
-          }
-          const octets = trimmed.split(".").map(Number);
-          if (octets.some((o) => o < 0 || o > 255)) {
-            return "Invalid IP address (octets must be 0-255)";
-          }
-          return true;
+          const result = validateIpAddress(input.trim());
+          return result === null ? true : result;
         },
       },
     ]);

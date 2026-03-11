@@ -425,7 +425,7 @@ describe("DigitalOceanProvider", () => {
           name: "test-droplet",
           size: "s-2vcpu-2gb",
           region: "nyc1",
-          image: "ubuntu-22-04-x64",
+          image: "ubuntu-24-04-x64",
           user_data: serverConfig.cloudInit,
         },
         expect.objectContaining({
