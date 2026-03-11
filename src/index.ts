@@ -32,6 +32,7 @@ import { snapshotCommand } from "./commands/snapshot.js";
 import { completionsCommand } from "./commands/completions.js";
 import { registerAuthCommands } from "./commands/auth.js";
 import { auditCommand } from "./commands/audit.js";
+import { evidenceCommand } from "./commands/evidence.js";
 import { printHeader, printQuickHelp } from "./cli/header.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -274,6 +275,21 @@ program
   .option("--compare <server1:server2>", "Compare latest snapshots from two servers")
   .action((serverName?: string, options?: Record<string, unknown>) =>
     auditCommand(serverName, options),
+  );
+
+program
+  .command("evidence [server]")
+  .description("Collect forensic evidence package from a server")
+  .option("--name <label>", "Label for evidence directory")
+  .option("--output <dir>", "Override output directory")
+  .option("--lines <n>", "Log lines to collect (default: 500)", "500")
+  .option("--no-docker", "Skip Docker data collection")
+  .option("--no-sysinfo", "Skip system info collection")
+  .option("--quiet", "Suppress spinner output")
+  .option("--force", "Overwrite existing evidence")
+  .option("--json", "Print manifest JSON to stdout")
+  .action((server?: string, options?: Record<string, unknown>) =>
+    evidenceCommand(server, options ?? {}),
   );
 
 registerAuthCommands(program);
