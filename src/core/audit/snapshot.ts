@@ -69,9 +69,7 @@ export async function saveSnapshot(
   const filePath = join(snapshotDir, filename);
 
   await withFileLock(filePath, () => {
-    if (!existsSync(snapshotDir)) {
-      mkdirSync(snapshotDir, { recursive: true, mode: 0o700 });
-    }
+    mkdirSync(snapshotDir, { recursive: true, mode: 0o700 });
 
     const snapshotFile: SnapshotFile = {
       schemaVersion: SCHEMA_VERSION,
@@ -99,9 +97,6 @@ export async function loadSnapshot(
   const filePath = join(getSnapshotDir(serverIp), filename);
 
   try {
-    if (!existsSync(filePath)) {
-      return null;
-    }
     const raw = readFileSync(filePath, "utf-8");
     const parsed = JSON.parse(raw) as unknown;
     const result = snapshotFileSchema.safeParse(parsed);
@@ -126,10 +121,8 @@ export async function listSnapshots(serverIp: string): Promise<SnapshotListEntry
     return [];
   }
 
-  const files = readdirSync(snapshotDir) as unknown as string[];
-  const jsonFiles = files.filter(
-    (f) => typeof f === "string" && f.endsWith(".json"),
-  );
+  const files = readdirSync(snapshotDir);
+  const jsonFiles = files.filter((f) => f.endsWith(".json"));
 
   const entries: SnapshotListEntry[] = jsonFiles.map((filename) => {
     try {
@@ -151,8 +144,7 @@ export async function listSnapshots(serverIp: string): Promise<SnapshotListEntry
     }
   });
 
-  // Sort chronologically by filename (filenames are timestamp-prefixed)
-  entries.sort((a, b) => a.filename.localeCompare(b.filename));
+  entries.sort((a, b) => a.savedAt.localeCompare(b.savedAt));
 
   return entries;
 }

@@ -166,7 +166,6 @@ describe("loadSnapshot", () => {
       savedAt: "2026-03-08T10:00:00.000Z",
       audit: makeAuditResult(),
     };
-    mockedFs.existsSync.mockReturnValue(true);
     mockedFs.readFileSync.mockReturnValue(JSON.stringify(snapshotData));
 
     const result = await loadSnapshot("1.2.3.4", "2026-03-08T10-00-00-000Z.json");
@@ -176,14 +175,15 @@ describe("loadSnapshot", () => {
   });
 
   it("should return null for missing file", async () => {
-    mockedFs.existsSync.mockReturnValue(false);
+    mockedFs.readFileSync.mockImplementation(() => {
+      throw Object.assign(new Error("ENOENT: no such file"), { code: "ENOENT" });
+    });
 
     const result = await loadSnapshot("1.2.3.4", "nonexistent.json");
     expect(result).toBeNull();
   });
 
   it("should return null for corrupt JSON", async () => {
-    mockedFs.existsSync.mockReturnValue(true);
     mockedFs.readFileSync.mockReturnValue("not valid json {{{");
 
     const result = await loadSnapshot("1.2.3.4", "bad.json");
@@ -196,7 +196,6 @@ describe("loadSnapshot", () => {
       savedAt: "2026-03-08T10:00:00.000Z",
       audit: makeAuditResult(),
     };
-    mockedFs.existsSync.mockReturnValue(true);
     mockedFs.readFileSync.mockReturnValue(JSON.stringify(unknownSchema));
 
     const result = await loadSnapshot("1.2.3.4", "future.json");
@@ -204,7 +203,6 @@ describe("loadSnapshot", () => {
   });
 
   it("should return null for missing required fields", async () => {
-    mockedFs.existsSync.mockReturnValue(true);
     mockedFs.readFileSync.mockReturnValue(JSON.stringify({ schemaVersion: 1 }));
 
     const result = await loadSnapshot("1.2.3.4", "partial.json");
