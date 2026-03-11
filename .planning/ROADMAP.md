@@ -100,7 +100,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 - [x] **Phase 24: Audit Snapshots** - Snapshot save/load/list with schema versioning (completed 2026-03-11)
 - [x] **Phase 25: Audit Diff and Compare** - Check-by-check diff, cross-server compare, CI integration (completed 2026-03-11)
 - [x] **Phase 26: Evidence Collection** - Forensic evidence package with SHA256 manifest (completed 2026-03-11)
-- [ ] **Phase 27: Adapter Contract Documentation** - PlatformAdapter interface docs and test fixtures
+- [x] **Phase 27: Adapter Contract Documentation** - PlatformAdapter interface docs and test fixtures (completed 2026-03-11)
 
 ## Phase Details
 
@@ -169,7 +169,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. A developer can read the adapter contract docs and understand every method's purpose, parameters, and expected behavior
   2. Test fixtures validate that CoolifyAdapter and DokployAdapter conform to the PlatformAdapter contract (CI catches deviations)
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 27-01-PLAN.md — JSDoc documentation on interface.ts + adapter contract conformance test suite
 
@@ -234,7 +234,7 @@ Plans:
 | 24. Audit Snapshots | v1.6 | 2/2 | Complete | 2026-03-11 |
 | 25. Audit Diff and Compare | v1.6 | 2/2 | Complete | 2026-03-11 |
 | 26. Evidence Collection | v1.6 | 2/2 | Complete | 2026-03-11 |
-| 27. Adapter Contract Documentation | v1.6 | 0/1 | Not started | - |
+| 27. Adapter Contract Documentation | 1/1 | Complete   | 2026-03-11 | - |
 
 ---
 *Roadmap created: 2026-02-27*

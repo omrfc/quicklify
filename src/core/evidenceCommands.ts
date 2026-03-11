@@ -72,11 +72,51 @@ function dockerLogsSection(platform: string, lines: number): string {
   );
 }
 
+/** Options controlling which evidence sections to include */
+export interface EvidenceBuildOptions {
+  noDocker?: boolean;
+  noSysinfo?: boolean;
+}
+
+/**
+ * Return the ordered list of output filenames matching the sections
+ * that buildEvidenceBatchCommand will produce for the same arguments.
+ * Callers use this instead of static EVIDENCE_SECTION_INDICES to map
+ * split output positions to filenames.
+ */
+export function getEvidenceSectionFilenames(
+  platform: string,
+  options?: EvidenceBuildOptions,
+): string[] {
+  const noDocker = options?.noDocker ?? false;
+  const noSysinfo = options?.noSysinfo ?? false;
+  const includeDocker = !noDocker && (platform === "coolify" || platform === "dokploy");
+
+  const filenames: string[] = [
+    "firewall-rules.txt",
+    "auth-log.txt",
+    "listening-ports.txt",
+    "syslog.txt",
+  ];
+
+  if (!noSysinfo) {
+    filenames.push("system-info.txt");
+  }
+
+  if (includeDocker) {
+    filenames.push("docker-containers.txt");
+    filenames.push("docker-logs.txt");
+  }
+
+  return filenames;
+}
+
 /**
  * Build a single batched SSH command for evidence collection.
  *
  * Sections are separated by `---SEPARATOR---`.
- * Parsers use EVIDENCE_SECTION_INDICES to locate their data in the split output.
+ * Use getEvidenceSectionFilenames() with the same arguments to map
+ * split output positions to filenames.
  *
  * Base sections (always included unless opted out):
  *   FIREWALL (0), AUTH_LOG (1), PORTS (2), SYSLOG (3), SYSINFO (4)
@@ -87,7 +127,7 @@ function dockerLogsSection(platform: string, lines: number): string {
 export function buildEvidenceBatchCommand(
   platform: string,
   lines: number,
-  options?: { noDocker?: boolean; noSysinfo?: boolean },
+  options?: EvidenceBuildOptions,
 ): string {
   const noDocker = options?.noDocker ?? false;
   const noSysinfo = options?.noSysinfo ?? false;

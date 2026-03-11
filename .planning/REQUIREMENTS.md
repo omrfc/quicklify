@@ -38,8 +38,8 @@ Requirements for v1.6 Audit Expand + Evidence + Infrastructure. Each maps to roa
 
 ### Documentation
 
-- [ ] **DOCS-01**: PlatformAdapter interface contract is documented
-- [ ] **DOCS-02**: Adapter contract has test fixtures that validate implementations
+- [x] **DOCS-01**: PlatformAdapter interface contract is documented
+- [x] **DOCS-02**: Adapter contract has test fixtures that validate implementations
 
 ## Future Requirements
 
@@ -92,8 +92,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFRA-02 | Phase 23 | Complete |
 | INFRA-03 | Phase 23 | Complete |
 | INFRA-04 | Phase 23 | Complete |
-| DOCS-01 | Phase 27 | Pending |
-| DOCS-02 | Phase 27 | Pending |
+| DOCS-01 | Phase 27 | Complete |
+| DOCS-02 | Phase 27 | Complete |
 
 **Coverage:**
 - v1.6 requirements: 19 total

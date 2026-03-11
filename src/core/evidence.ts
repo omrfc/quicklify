@@ -20,7 +20,7 @@ import { CONFIG_DIR } from "../utils/config.js";
 import { getErrorMessage } from "../utils/errorMapper.js";
 import {
   buildEvidenceBatchCommand,
-  EVIDENCE_SECTION_INDICES,
+  getEvidenceSectionFilenames,
 } from "./evidenceCommands.js";
 import type { KastellResult } from "../types/index.js";
 
@@ -67,17 +67,8 @@ export interface EvidenceOptions {
   quiet: boolean;
 }
 
-// ─── Section → filename mapping ────────────────────────────────────────────────
-
-const SECTION_FILENAMES: Record<number, string> = {
-  [EVIDENCE_SECTION_INDICES.FIREWALL]: "firewall-rules.txt",
-  [EVIDENCE_SECTION_INDICES.AUTH_LOG]: "auth-log.txt",
-  [EVIDENCE_SECTION_INDICES.PORTS]: "listening-ports.txt",
-  [EVIDENCE_SECTION_INDICES.SYSLOG]: "syslog.txt",
-  [EVIDENCE_SECTION_INDICES.SYSINFO]: "system-info.txt",
-  [EVIDENCE_SECTION_INDICES.DOCKER_PS]: "docker-containers.txt",
-  [EVIDENCE_SECTION_INDICES.DOCKER_LOGS]: "docker-logs.txt",
-};
+// Section → filename mapping is now dynamic via getEvidenceSectionFilenames()
+// to stay in sync with buildEvidenceBatchCommand's conditional section inclusion.
 
 // ─── Private helpers ───────────────────────────────────────────────────────────
 
@@ -170,11 +161,10 @@ export async function collectEvidence(
   // Create evidence directory
   mkdirSync(evidenceDir, { recursive: true, mode: 0o700 });
 
-  // Build SSH batch command
-  const batchCommand = buildEvidenceBatchCommand(platform, opts.lines, {
-    noDocker: opts.noDocker,
-    noSysinfo: opts.noSysinfo,
-  });
+  // Build SSH batch command and matching filename list
+  const buildOpts = { noDocker: opts.noDocker, noSysinfo: opts.noSysinfo };
+  const batchCommand = buildEvidenceBatchCommand(platform, opts.lines, buildOpts);
+  const sectionFilenames = getEvidenceSectionFilenames(platform, buildOpts);
 
   // Execute SSH (exactly one call)
   const sshResult = await sshExec(ip, batchCommand, { timeoutMs: 120_000 });
@@ -193,8 +183,8 @@ export async function collectEvidence(
 
   try {
     for (let i = 0; i < sections.length; i++) {
-      const filename = SECTION_FILENAMES[i];
-      if (!filename) continue; // Unknown index — skip silently
+      const filename = sectionFilenames[i];
+      if (!filename) continue; // Beyond expected sections — skip silently
       writeEvidenceFile(evidenceDir, filename, sections[i], collectedAt, entries);
     }
 

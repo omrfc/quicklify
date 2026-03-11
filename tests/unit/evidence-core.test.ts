@@ -3,7 +3,7 @@
  * Tests: buildEvidenceBatchCommand, EVIDENCE_SECTION_INDICES, collectEvidence
  */
 
-import { buildEvidenceBatchCommand, EVIDENCE_SECTION_INDICES } from "../../src/core/evidenceCommands.js";
+import { buildEvidenceBatchCommand, EVIDENCE_SECTION_INDICES, getEvidenceSectionFilenames } from "../../src/core/evidenceCommands.js";
 import { collectEvidence } from "../../src/core/evidence.js";
 import * as fs from "fs";
 import * as crypto from "crypto";
@@ -141,6 +141,62 @@ describe("EVIDENCE_SECTION_INDICES", () => {
 
   it("has DOCKER_LOGS index 6", () => {
     expect(EVIDENCE_SECTION_INDICES.DOCKER_LOGS).toBe(6);
+  });
+});
+
+// ============================================================
+// getEvidenceSectionFilenames tests
+// ============================================================
+
+describe("getEvidenceSectionFilenames", () => {
+  it("bare platform returns 5 filenames", () => {
+    const names = getEvidenceSectionFilenames("bare");
+    expect(names).toEqual([
+      "firewall-rules.txt",
+      "auth-log.txt",
+      "listening-ports.txt",
+      "syslog.txt",
+      "system-info.txt",
+    ]);
+  });
+
+  it("coolify platform returns 7 filenames including docker", () => {
+    const names = getEvidenceSectionFilenames("coolify");
+    expect(names).toHaveLength(7);
+    expect(names).toContain("docker-containers.txt");
+    expect(names).toContain("docker-logs.txt");
+  });
+
+  it("noSysinfo skips system-info.txt", () => {
+    const names = getEvidenceSectionFilenames("bare", { noSysinfo: true });
+    expect(names).not.toContain("system-info.txt");
+    expect(names).toHaveLength(4);
+  });
+
+  it("noSysinfo + coolify returns 6 filenames with docker but no sysinfo", () => {
+    const names = getEvidenceSectionFilenames("coolify", { noSysinfo: true });
+    expect(names).toHaveLength(6);
+    expect(names).not.toContain("system-info.txt");
+    expect(names).toContain("docker-containers.txt");
+    expect(names).toContain("docker-logs.txt");
+  });
+
+  it("filename count matches command section count", () => {
+    const combos = [
+      { platform: "bare", opts: {} },
+      { platform: "coolify", opts: {} },
+      { platform: "dokploy", opts: {} },
+      { platform: "bare", opts: { noSysinfo: true } },
+      { platform: "coolify", opts: { noSysinfo: true } },
+      { platform: "coolify", opts: { noDocker: true } },
+      { platform: "coolify", opts: { noDocker: true, noSysinfo: true } },
+    ];
+    for (const { platform, opts } of combos) {
+      const cmd = buildEvidenceBatchCommand(platform, 500, opts);
+      const sectionCount = cmd.split("---SEPARATOR---").length;
+      const filenameCount = getEvidenceSectionFilenames(platform, opts).length;
+      expect(filenameCount).toBe(sectionCount);
+    }
   });
 });
 
@@ -404,6 +460,49 @@ describe("collectEvidence", () => {
         expect(entry.sha256).toMatch(/^[0-9a-f]{64}$/);
         expect(entry.sizeBytes).toBeGreaterThan(0);
       }
+    }
+  });
+
+  it("noSysinfo + coolify maps docker sections to correct filenames", async () => {
+    const dockerPsOutput = "NAMES\tIMAGE\tSTATUS\ncoolify\tcoolify:latest\tUp 2 days";
+    const dockerLogsOutput = "=== coolify === 2026-03-10 startup log";
+
+    mockedSshExec.mockResolvedValue({
+      code: 0,
+      stdout: makeSshOutput([
+        "ufw allow 22",         // firewall
+        "auth log data",        // auth-log
+        "LISTEN 0 128",         // ports
+        "syslog data",          // syslog
+        // sysinfo SKIPPED
+        dockerPsOutput,         // docker-ps (position 4, NOT 5)
+        dockerLogsOutput,       // docker-logs (position 5, NOT 6)
+      ]),
+      stderr: "",
+    });
+
+    await collectEvidence("myserver", "1.2.3.4", "coolify", {
+      ...DEFAULT_OPTS,
+      noSysinfo: true,
+    });
+
+    const writeCalls = (mockedFs.writeFileSync as jest.Mock).mock.calls;
+    const filenames = writeCalls.map((c: unknown[]) => c[0] as string);
+
+    // docker-containers.txt must contain docker ps output, NOT system-info.txt
+    expect(filenames.some((f) => f.includes("docker-containers.txt"))).toBe(true);
+    expect(filenames.some((f) => f.includes("docker-logs.txt"))).toBe(true);
+    // system-info.txt must NOT be written (sysinfo was skipped)
+    expect(filenames.some((f) => f.includes("system-info.txt"))).toBe(false);
+
+    // Verify manifest has correct filenames
+    const manifestCall = writeCalls.find((c: unknown[]) => (c[0] as string).includes("MANIFEST.json.tmp"));
+    if (manifestCall) {
+      const manifest = JSON.parse(manifestCall[1] as string);
+      const fileNames = manifest.files.map((f: { filename: string }) => f.filename);
+      expect(fileNames).toContain("docker-containers.txt");
+      expect(fileNames).toContain("docker-logs.txt");
+      expect(fileNames).not.toContain("system-info.txt");
     }
   });
 

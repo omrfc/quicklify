@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Audit Expand + Evidence + Altyapi
 status: in_progress
-stopped_at: Completed 26-02-PLAN.md (evidence CLI command + MCP server_evidence tool)
-last_updated: "2026-03-11T09:00:51.815Z"
+stopped_at: Completed 27-01-PLAN.md (adapter contract documentation — JSDoc + conformance tests)
+last_updated: "2026-03-11T09:56:22.031Z"
 last_activity: 2026-03-11 — Completed 25-01 (audit diff engine)
 progress:
   total_phases: 5
-  completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
+  completed_phases: 5
+  total_plans: 10
+  completed_plans: 10
   percent: 100
 ---
 
@@ -81,6 +81,7 @@ Progress: [████████--] 80% (Phase 25 plan 1/2)
 | Phase 25 P01 | 15min | 2 tasks | 3 files |
 | Phase 26-evidence-collection P01 | 20 | 2 tasks | 3 files |
 | Phase 26-evidence-collection P02 | 10 | 2 tasks | 6 files |
+| Phase 27-adapter-contract-documentation P01 | 8 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,8 @@ Progress: [████████--] 80% (Phase 25 plan 1/2)
 - [Phase 26-evidence-collection]: SECTION_FILENAMES uses EVIDENCE_SECTION_INDICES computed keys for index-to-filename sync
 - [Phase 26-evidence-collection]: MCP tool uses quiet=true/force=false for headless operation — CLI owns interactive UX
 - [Phase 26-evidence-collection]: Chalk mock requires __esModule: true for correct default export interop in Jest
+- [Phase 27-adapter-contract-documentation]: jest.resetAllMocks() in beforeEach prevents mock queue leakage between describe.each adapter suites
+- [Phase 27-adapter-contract-documentation]: Re-apply utility mock implementations in beforeEach after resetAllMocks clears them
 
 ### Pending Todos
 
@@ -123,6 +126,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-11T09:00:51.807Z
-Stopped at: Completed 26-02-PLAN.md (evidence CLI command + MCP server_evidence tool)
+Last session: 2026-03-11T09:56:22.023Z
+Stopped at: Completed 27-01-PLAN.md (adapter contract documentation — JSDoc + conformance tests)
 Next action: Execute Phase 25 Plan 02 (CLI wiring — --diff and --compare flags)
