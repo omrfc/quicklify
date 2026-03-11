@@ -17,6 +17,7 @@ import { join, resolve } from "path";
 import { sshExec } from "../utils/ssh.js";
 import { withFileLock } from "../utils/fileLock.js";
 import { CONFIG_DIR } from "../utils/config.js";
+import { getErrorMessage } from "../utils/errorMapper.js";
 import {
   buildEvidenceBatchCommand,
   EVIDENCE_SECTION_INDICES,
@@ -188,6 +189,7 @@ export async function collectEvidence(
   // Parse sections (trim each section to remove surrounding newlines from separator)
   const sections = sshResult.stdout.split("---SEPARATOR---").map((s) => s.trim());
   const entries: EvidenceFileEntry[] = [];
+  const manifestPath = join(evidenceDir, "MANIFEST.json");
 
   try {
     for (let i = 0; i < sections.length; i++) {
@@ -208,7 +210,6 @@ export async function collectEvidence(
     };
 
     const sha256SumsContent = buildSha256Sums(entries);
-    const manifestPath = join(evidenceDir, "MANIFEST.json");
     const sha256SumsPath = join(evidenceDir, "SHA256SUMS");
 
     // Write manifest and SHA256SUMS atomically under file lock
@@ -222,15 +223,13 @@ export async function collectEvidence(
     });
   } catch (err: unknown) {
     rmSync(evidenceDir, { recursive: true, force: true });
-    const message = err instanceof Error ? err.message : String(err);
     return {
       success: false,
-      error: `Failed to write evidence files: ${message}`,
+      error: `Failed to write evidence files: ${getErrorMessage(err)}`,
     };
   }
 
   const collectedCount = entries.filter((e) => e.status === "collected").length;
-  const skippedCount = entries.filter((e) => e.status === "skipped").length;
 
   return {
     success: true,
@@ -241,8 +240,8 @@ export async function collectEvidence(
       platform,
       collectedAt,
       totalFiles: collectedCount,
-      skippedFiles: skippedCount,
-      manifestPath: join(evidenceDir, "MANIFEST.json"),
+      skippedFiles: entries.length - collectedCount,
+      manifestPath,
     },
   };
 }
