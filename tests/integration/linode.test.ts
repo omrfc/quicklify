@@ -384,12 +384,9 @@ describe("LinodeProvider", () => {
     });
 
     it("should fallback to error.message when errors array is undefined", async () => {
-      mockedAxios.post.mockRejectedValueOnce({
-        response: {
-          data: {},
-        },
-        message: "Request failed",
-      });
+      const err = new Error("Request failed");
+      Object.assign(err, { response: { data: {} } });
+      mockedAxios.post.mockRejectedValueOnce(err);
 
       await expect(provider.createServer(serverConfig)).rejects.toThrow(
         "Failed to create server: Request failed",
@@ -530,10 +527,9 @@ describe("LinodeProvider", () => {
     });
 
     it("should fallback to error.message when errors array is undefined", async () => {
-      mockedAxios.delete.mockRejectedValueOnce({
-        response: { data: {} },
-        message: "Delete failed",
-      });
+      const err = new Error("Delete failed");
+      Object.assign(err, { response: { data: {} } });
+      mockedAxios.delete.mockRejectedValueOnce(err);
 
       await expect(provider.destroyServer("12345678")).rejects.toThrow(
         "Failed to destroy server: Delete failed",
@@ -582,10 +578,9 @@ describe("LinodeProvider", () => {
     });
 
     it("should fallback to error.message when errors array is undefined", async () => {
-      mockedAxios.post.mockRejectedValueOnce({
-        response: { data: {} },
-        message: "Reboot failed",
-      });
+      const err = new Error("Reboot failed");
+      Object.assign(err, { response: { data: {} } });
+      mockedAxios.post.mockRejectedValueOnce(err);
 
       await expect(provider.rebootServer("12345678")).rejects.toThrow(
         "Failed to reboot server: Reboot failed",
