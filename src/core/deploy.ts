@@ -230,117 +230,103 @@ async function waitForReady(
 
 // ── Phase 3: Post-setup (save, configure, messaging) ─────────────────
 
-async function postSetup(
-  providerChoice: string,
+async function barePostSetup(
   serverId: string,
   serverName: string,
   serverIp: string,
-  region: string,
-  serverSize: string,
-  platform: Platform | undefined,
+  fullSetup?: boolean,
+): Promise<KastellResult<DeployData>> {
+  const hasValidIp = serverIp !== "0.0.0.0" && serverIp !== "pending" && serverIp !== "";
+
+  // Wait for SSH + cloud-init to finish (BUG-5)
+  if (hasValidIp) {
+    const cloudInitSpinner = createSpinner("Waiting for server to accept SSH...");
+    cloudInitSpinner.start();
+
+    // Step 1: Wait for SSH to become available (retry up to 60 attempts, 5s apart = 5 min max)
+    let sshReady = false;
+    for (let attempt = 1; attempt <= 60; attempt++) {
+      try {
+        await sshExec(serverIp, "echo ok");
+        sshReady = true;
+        break;
+      } catch {
+        cloudInitSpinner.text = `Waiting for server to accept SSH... (attempt ${attempt}/60)`;
+        await new Promise((r) => setTimeout(r, 5000));
+      }
+    }
+
+    if (sshReady) {
+      // Step 2: Wait for cloud-init to finish
+      cloudInitSpinner.text = "SSH ready — waiting for cloud-init to finish...";
+      try {
+        const ciResult = await sshExec(serverIp, "cloud-init status --wait");
+        if (ciResult.code === 0) {
+          cloudInitSpinner.succeed("Cloud-init completed");
+        } else {
+          cloudInitSpinner.warn("Cloud-init may not have finished — continuing anyway");
+        }
+      } catch {
+        cloudInitSpinner.warn("Could not check cloud-init status — continuing anyway");
+      }
+    } else {
+      cloudInitSpinner.warn("SSH not available after 5 min — continuing anyway");
+    }
+  }
+
+  // Full setup: firewall + secure (BUG-1)
+  if (fullSetup && hasValidIp) {
+    try {
+      assertValidIp(serverIp); // Defense-in-depth: IP validated before ssh-keygen
+      spawnSync("ssh-keygen", ["-R", serverIp], { stdio: "ignore", env: sanitizedEnv() });
+    } catch {
+      // ssh-keygen not available or no entry — harmless
+    }
+    logger.title("Running full setup (firewall + security)...");
+    try {
+      await firewallSetup(serverIp, serverName, false, true);
+    } catch (error: unknown) {
+      logger.warning(`Firewall setup failed: ${getErrorMessage(error)}`);
+    }
+    try {
+      await secureSetup(serverIp, serverName, undefined, false, true);
+    } catch (error: unknown) {
+      logger.warning(`Security setup failed: ${getErrorMessage(error)}`);
+    }
+  } else if (fullSetup && !hasValidIp) {
+    logger.warning("Skipping full setup: server IP not available.");
+  }
+
+  // Show bare server info
+  logger.title("Bare Server Ready!");
+  console.log();
+  logger.success(`Bare server ready!`);
+  logger.info(`SSH: ssh root@${serverIp}`);
+  logger.info(`IP: ${serverIp}`);
+  logger.info("Mode: bare (no platform installed)");
+  console.log();
+  if (!fullSetup) {
+    logger.info("  Secure your server:");
+    logger.step(`     kastell firewall setup ${serverName}`);
+    logger.step(`     kastell secure setup ${serverName}`);
+    console.log();
+  }
+  logger.info("  Server saved to local config. Use 'kastell list' to see all servers.");
+  console.log();
+  return { success: true, data: { serverId, serverIp, serverName } };
+}
+
+async function platformPostSetup(
+  serverId: string,
+  serverName: string,
+  serverIp: string,
+  platform: Platform,
   ready: boolean,
   fullSetup?: boolean,
   noOpen?: boolean,
 ): Promise<KastellResult<DeployData>> {
-  const isBare = !platform;
   const hasValidIp = serverIp !== "0.0.0.0" && serverIp !== "pending" && serverIp !== "";
   const platformPort = platform === "dokploy" ? 3000 : 8000;
-
-  // Save server record to config
-  await saveServer({
-    id: serverId,
-    name: serverName,
-    provider: providerChoice,
-    ip: serverIp,
-    region,
-    size: serverSize,
-    createdAt: new Date().toISOString(),
-    ...(isBare
-      ? { mode: "bare" as const }
-      : { mode: "coolify" as const, platform }),
-  });
-
-  // Bare mode: cloud-init wait + optional full setup + show SSH info
-  if (isBare) {
-    // Wait for SSH + cloud-init to finish (BUG-5)
-    if (hasValidIp) {
-      const cloudInitSpinner = createSpinner("Waiting for server to accept SSH...");
-      cloudInitSpinner.start();
-
-      // Step 1: Wait for SSH to become available (retry up to 60 attempts, 5s apart = 5 min max)
-      let sshReady = false;
-      for (let attempt = 1; attempt <= 60; attempt++) {
-        try {
-          await sshExec(serverIp, "echo ok");
-          sshReady = true;
-          break;
-        } catch {
-          cloudInitSpinner.text = `Waiting for server to accept SSH... (attempt ${attempt}/60)`;
-          await new Promise((r) => setTimeout(r, 5000));
-        }
-      }
-
-      if (sshReady) {
-        // Step 2: Wait for cloud-init to finish
-        cloudInitSpinner.text = "SSH ready — waiting for cloud-init to finish...";
-        try {
-          const ciResult = await sshExec(serverIp, "cloud-init status --wait");
-          if (ciResult.code === 0) {
-            cloudInitSpinner.succeed("Cloud-init completed");
-          } else {
-            cloudInitSpinner.warn("Cloud-init may not have finished — continuing anyway");
-          }
-        } catch {
-          cloudInitSpinner.warn("Could not check cloud-init status — continuing anyway");
-        }
-      } else {
-        cloudInitSpinner.warn("SSH not available after 5 min — continuing anyway");
-      }
-    }
-
-    // Full setup: firewall + secure (BUG-1)
-    if (fullSetup && hasValidIp) {
-      try {
-        assertValidIp(serverIp); // Defense-in-depth: IP validated before ssh-keygen
-        spawnSync("ssh-keygen", ["-R", serverIp], { stdio: "ignore", env: sanitizedEnv() });
-      } catch {
-        // ssh-keygen not available or no entry — harmless
-      }
-      logger.title("Running full setup (firewall + security)...");
-      try {
-        await firewallSetup(serverIp, serverName, false, true);
-      } catch (error: unknown) {
-        logger.warning(`Firewall setup failed: ${getErrorMessage(error)}`);
-      }
-      try {
-        await secureSetup(serverIp, serverName, undefined, false, true);
-      } catch (error: unknown) {
-        logger.warning(`Security setup failed: ${getErrorMessage(error)}`);
-      }
-    } else if (fullSetup && !hasValidIp) {
-      logger.warning("Skipping full setup: server IP not available.");
-    }
-
-    // Show bare server info
-    logger.title("Bare Server Ready!");
-    console.log();
-    logger.success(`Bare server ready!`);
-    logger.info(`SSH: ssh root@${serverIp}`);
-    logger.info(`IP: ${serverIp}`);
-    logger.info("Mode: bare (no platform installed)");
-    console.log();
-    if (!fullSetup) {
-      logger.info("  Secure your server:");
-      logger.step(`     kastell firewall setup ${serverName}`);
-      logger.step(`     kastell secure setup ${serverName}`);
-      console.log();
-    }
-    logger.info("  Server saved to local config. Use 'kastell list' to see all servers.");
-    console.log();
-    return { success: true, data: { serverId, serverIp, serverName } };
-  }
-
-  // Platform display name for messages
   const platformName = platform === "dokploy" ? "Dokploy" : "Coolify";
 
   // Full setup: auto-configure firewall + SSH hardening
@@ -424,6 +410,40 @@ async function postSetup(
     success: true,
     data: { serverId, serverIp, serverName, platform },
   };
+}
+
+async function postSetup(
+  providerChoice: string,
+  serverId: string,
+  serverName: string,
+  serverIp: string,
+  region: string,
+  serverSize: string,
+  platform: Platform | undefined,
+  ready: boolean,
+  fullSetup?: boolean,
+  noOpen?: boolean,
+): Promise<KastellResult<DeployData>> {
+  const isBare = !platform;
+
+  // Save server record to config (shared by both paths)
+  await saveServer({
+    id: serverId,
+    name: serverName,
+    provider: providerChoice,
+    ip: serverIp,
+    region,
+    size: serverSize,
+    createdAt: new Date().toISOString(),
+    ...(isBare
+      ? { mode: "bare" as const }
+      : { mode: "coolify" as const, platform }),
+  });
+
+  if (isBare) {
+    return barePostSetup(serverId, serverName, serverIp, fullSetup);
+  }
+  return platformPostSetup(serverId, serverName, serverIp, platform!, ready, fullSetup, noOpen);
 }
 
 // ── Orchestrator ─────────────────────────────────────────────────────
