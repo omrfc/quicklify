@@ -207,7 +207,11 @@ Plans:
   1. Claude can start, stop, and check the status of guard on any server via MCP without the user typing CLI commands
   2. Claude can run doctor analysis and lock hardening on a server via MCP and return structured results
   3. Shell completions (bash/zsh/fish) suggest `guard start`, `guard stop`, `guard status`, `doctor`, and `lock --production` when the user presses Tab
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 33-01-PLAN.md — MCP tools for guard/doctor/lock
+- [ ] 33-02-PLAN.md — Shell completions update for v1.7 commands
 
 ## Paralel Track: kastell.dev Website
 
@@ -248,8 +252,8 @@ Plans:
 | 30. Guard Daemon | 2/2 | Complete    | 2026-03-14 | - |
 | 31. Risk Trend | 2/2 | Complete    | 2026-03-14 | - |
 | 32. Doctor | 2/2 | Complete    | 2026-03-14 | - |
-| 33. MCP + Completions | v1.7 | 0/TBD | Not started | - |
+| 33. MCP + Completions | v1.7 | 0/2 | Planned | - |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-03-14 — Phase 32 Doctor planned (2 plans, 2 waves)*
+*Last updated: 2026-03-14 — Phase 33 MCP + Completions planned (2 plans, 1 wave)*
