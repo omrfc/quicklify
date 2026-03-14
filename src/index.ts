@@ -191,10 +191,11 @@ program
 
 program
   .command("backup [query]")
-  .description("Backup Coolify database and config files")
+  .description("Backup server data, or manage backup schedule")
   .option("--dry-run", "Show commands without executing")
   .option("--all", "Backup all servers")
-  .action((query?: string, options?: { dryRun?: boolean; all?: boolean }) =>
+  .option("--schedule <value>", 'Cron expression, "list", or "remove"')
+  .action((query?: string, options?: { dryRun?: boolean; all?: boolean; schedule?: string }) =>
     backupCommand(query, options),
   );
 
