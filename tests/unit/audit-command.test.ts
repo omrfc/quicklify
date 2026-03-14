@@ -3,6 +3,7 @@ import * as serverSelect from "../../src/utils/serverSelect";
 import * as ssh from "../../src/utils/ssh";
 import * as formatters from "../../src/core/audit/formatters/index";
 import * as auditHistory from "../../src/core/audit/history";
+import * as trendFormatters from "../../src/core/audit/formatters/trend";
 
 jest.mock("../../src/core/audit/index");
 jest.mock("../../src/utils/serverSelect");
@@ -11,12 +12,14 @@ jest.mock("../../src/core/audit/formatters/index");
 jest.mock("../../src/core/audit/history");
 jest.mock("../../src/core/audit/fix");
 jest.mock("../../src/core/audit/watch");
+jest.mock("../../src/core/audit/formatters/trend");
 
 const mockedAuditCore = auditCore as jest.Mocked<typeof auditCore>;
 const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
 const mockedHistory = auditHistory as jest.Mocked<typeof auditHistory>;
 const mockedSsh = ssh as jest.Mocked<typeof ssh>;
 const mockedFormatters = formatters as jest.Mocked<typeof formatters>;
+const mockedTrendFormatters = trendFormatters as jest.Mocked<typeof trendFormatters>;
 
 // Mock AuditResult for testing
 const mockAuditResult = {
@@ -225,5 +228,109 @@ describe("auditCommand", () => {
     await auditCommand(undefined, { scoreOnly: true, threshold: "80" });
 
     expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+});
+
+describe("auditCommand --trend", () => {
+  let consoleSpy: jest.SpyInstance;
+
+  const mockHistory = [
+    {
+      serverIp: "1.2.3.4",
+      serverName: "test-server",
+      timestamp: "2026-03-10T00:00:00.000Z",
+      overallScore: 65,
+      categoryScores: { SSH: 60, Firewall: 70 },
+    },
+    {
+      serverIp: "1.2.3.4",
+      serverName: "test-server",
+      timestamp: "2026-03-13T00:00:00.000Z",
+      overallScore: 80,
+      categoryScores: { SSH: 80, Firewall: 80 },
+    },
+  ];
+
+  const mockTrendResult = {
+    serverIp: "1.2.3.4",
+    serverName: "test-server",
+    entries: [
+      { timestamp: "2026-03-10T00:00:00.000Z", score: 65, delta: null, causeList: [] },
+      {
+        timestamp: "2026-03-13T00:00:00.000Z",
+        score: 80,
+        delta: 15,
+        causeList: [{ category: "SSH", scoreBefore: 60, scoreAfter: 80, delta: 20 }],
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    consoleSpy = jest.spyOn(console, "log").mockImplementation();
+    jest.resetAllMocks();
+
+    mockedServerSelect.resolveServer.mockResolvedValue({
+      id: "srv-1",
+      name: "test-server",
+      provider: "hetzner",
+      ip: "1.2.3.4",
+      region: "fsn1",
+      size: "cx11",
+      createdAt: "2026-01-01",
+      mode: "bare",
+    });
+
+    mockedHistory.loadAuditHistory.mockReturnValue(mockHistory);
+    mockedHistory.computeTrend.mockReturnValue(mockTrendResult);
+    mockedTrendFormatters.formatTrendTerminal.mockReturnValue("trend-terminal-output");
+    mockedTrendFormatters.formatTrendJson.mockReturnValue('{"serverIp":"1.2.3.4"}');
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  it("should call computeTrend with loadAuditHistory result and NOT call runAudit", async () => {
+    const { auditCommand } = await import("../../src/commands/audit");
+    await auditCommand("test-server", { trend: true });
+
+    expect(mockedHistory.loadAuditHistory).toHaveBeenCalledWith("1.2.3.4");
+    expect(mockedHistory.computeTrend).toHaveBeenCalledWith(mockHistory, { days: undefined });
+    expect(mockedAuditCore.runAudit).not.toHaveBeenCalled();
+  });
+
+  it("should call formatTrendTerminal and print result when --trend without --json", async () => {
+    const { auditCommand } = await import("../../src/commands/audit");
+    await auditCommand("test-server", { trend: true });
+
+    expect(mockedTrendFormatters.formatTrendTerminal).toHaveBeenCalledWith(mockTrendResult);
+    expect(mockedTrendFormatters.formatTrendJson).not.toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith("trend-terminal-output");
+  });
+
+  it("should call formatTrendJson when --trend --json", async () => {
+    const { auditCommand } = await import("../../src/commands/audit");
+    await auditCommand("test-server", { trend: true, json: true });
+
+    expect(mockedTrendFormatters.formatTrendJson).toHaveBeenCalledWith(mockTrendResult);
+    expect(mockedTrendFormatters.formatTrendTerminal).not.toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith('{"serverIp":"1.2.3.4"}');
+  });
+
+  it("should pass days:7 to computeTrend when --trend --days 7", async () => {
+    const { auditCommand } = await import("../../src/commands/audit");
+    await auditCommand("test-server", { trend: true, days: "7" });
+
+    expect(mockedHistory.computeTrend).toHaveBeenCalledWith(mockHistory, { days: 7 });
+  });
+
+  it("should return early without running SSH audit when --trend is set", async () => {
+    const { auditCommand } = await import("../../src/commands/audit");
+    await auditCommand("test-server", { trend: true });
+
+    // runAudit involves SSH — must not be called
+    expect(mockedAuditCore.runAudit).not.toHaveBeenCalled();
+    // selectFormatter should not be called either
+    expect(mockedFormatters.selectFormatter).not.toHaveBeenCalled();
   });
 });
