@@ -300,16 +300,17 @@ export async function sharedRestoreBackup(
     steps.push({ name: "Upload config backup", status: "success" });
 
     // Step 1: Stop platform
+    const platformLabel = config.platform.charAt(0).toUpperCase() + config.platform.slice(1);
     const stopResult = await sshExec(ip, config.stopCmd);
     if (stopResult.code !== 0) {
       steps.push({
-        name: `Stop ${config.platform}`,
+        name: `Stop ${platformLabel}`,
         status: "failure",
         error: sanitizeStderr(stopResult.stderr),
       });
-      return { success: false, steps, error: `Failed to stop ${config.platform}` };
+      return { success: false, steps, error: `Failed to stop ${platformLabel}` };
     }
-    steps.push({ name: `Stop ${config.platform}`, status: "success" });
+    steps.push({ name: `Stop ${platformLabel}`, status: "success" });
 
     // Step 2: Start DB only
     const dbStartResult = await sshExec(ip, config.startDbCmd);
@@ -354,13 +355,13 @@ export async function sharedRestoreBackup(
     const startResult = await sshExec(ip, config.startCmd);
     if (startResult.code !== 0) {
       steps.push({
-        name: `Start ${config.platform}`,
+        name: `Start ${platformLabel}`,
         status: "failure",
         error: sanitizeStderr(startResult.stderr),
       });
-      return { success: false, steps, error: `Failed to start ${config.platform}` };
+      return { success: false, steps, error: `Failed to start ${platformLabel}` };
     }
-    steps.push({ name: `Start ${config.platform}`, status: "success" });
+    steps.push({ name: `Start ${platformLabel}`, status: "success" });
 
     // Cleanup remote (best-effort)
     await sshExec(ip, config.cleanupCmd).catch(() => {});

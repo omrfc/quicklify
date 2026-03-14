@@ -125,3 +125,12 @@ None - no external service configuration required.
 ---
 *Phase: 34-layer-violation-fix*
 *Completed: 2026-03-14*
+
+## Self-Check: PASSED
+
+- `src/core/firewall.ts` — FOUND
+- `src/core/secure.ts` — FOUND
+- `src/core/deploy.ts` — FOUND
+- `.planning/phases/34-layer-violation-fix/34-01-SUMMARY.md` — FOUND
+- Commit `9139964` (Task 1) — FOUND
+- Commit `a76438e` (Task 2) — FOUND

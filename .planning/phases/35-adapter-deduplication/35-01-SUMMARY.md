@@ -110,6 +110,15 @@ None - no external service configuration required.
 - Phase 36 (Notify Module) is ready to start — no adapter concerns blocking it
 - Future adapters follow the established pattern: implement `backupConfig()` and `restoreConfig()` returning typed config objects, delegate to shared helpers
 
+## Self-Check: PASSED
+
+- FOUND: src/adapters/shared.ts
+- FOUND: src/adapters/coolify.ts
+- FOUND: src/adapters/dokploy.ts
+- FOUND: .planning/phases/35-adapter-deduplication/35-01-SUMMARY.md
+- FOUND commit: 2088d29 (feat: sharedCreateBackup/sharedRestoreBackup)
+- FOUND commit: c582bc6 (refactor: adapter delegation)
+
 ---
 *Phase: 35-adapter-deduplication*
 *Completed: 2026-03-14*
