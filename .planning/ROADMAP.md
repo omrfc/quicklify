@@ -247,7 +247,7 @@ Plans:
 | 29. Backup Schedule | 2/2 | Complete    | 2026-03-14 | - |
 | 30. Guard Daemon | 2/2 | Complete    | 2026-03-14 | - |
 | 31. Risk Trend | 2/2 | Complete    | 2026-03-14 | - |
-| 32. Doctor | 2/2 | Complete   | 2026-03-14 | - |
+| 32. Doctor | 2/2 | Complete    | 2026-03-14 | - |
 | 33. MCP + Completions | v1.7 | 0/TBD | Not started | - |
 
 ---
