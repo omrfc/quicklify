@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Fleet + Notifications
 status: ready_to_plan
-stopped_at: Completed 37-01-PLAN.md (Doctor Fix)
-last_updated: "2026-03-14T19:22:38.389Z"
+stopped_at: Completed 38-01-PLAN.md (Fleet Core + CLI)
+last_updated: "2026-03-14T19:59:19.907Z"
 last_activity: 2026-03-14 — Roadmap created, 7 phases defined (34-40)
 progress:
   total_phases: 7
   completed_phases: 4
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 6
   percent: 100
 ---
 
@@ -67,6 +67,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 36-notification-module P01 | 4min | 2 tasks | 2 files |
 | Phase 36-notification-module P02 | 7min | 2 tasks | 4 files |
 | Phase 37-doctor-fix P01 | 35min | 2 tasks | 6 files |
+| Phase 38-fleet-visibility P01 | 30min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 37-doctor-fix]: dryRun wins over force in runDoctorFix — safety rule enforced at core level
 - [Phase 37-doctor-fix]: --fix auto-forces fresh=true to ensure current server state before SSH remediation
 - [Phase 37-doctor-fix]: assertValidIp inline mock (not jest.requireActual) prevents Node v24 jest worker crash
+- [Phase 38-fleet-visibility]: checkServerHealth moved to core/health.ts, commands/health.ts re-exports for backward compat (re-export bridge pattern)
+- [Phase 38-fleet-visibility]: p-limit pure ESM requires .cjs mock in tests/__mocks__ mapped via moduleNameMapper
+- [Phase 38-fleet-visibility]: FleetRow status mapping: healthy=ONLINE, unhealthy=DEGRADED, unreachable/host-key-mismatch=OFFLINE
 
 ### Pending Todos
 
@@ -102,6 +106,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-14T19:19:41.763Z
-Stopped at: Completed 37-01-PLAN.md (Doctor Fix)
+Last session: 2026-03-14T19:59:19.899Z
+Stopped at: Completed 38-01-PLAN.md (Fleet Core + CLI)
 Next action: `/gsd:plan-phase 34`

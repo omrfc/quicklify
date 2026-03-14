@@ -7,10 +7,10 @@
 
 ### Fleet Visibility
 
-- [ ] **FLEET-01**: User can see all servers' health and cached audit score in a single table
-- [ ] **FLEET-02**: User can get fleet data as JSON output (--json)
-- [ ] **FLEET-03**: User can sort fleet table by score/name/provider (--sort)
-- [ ] **FLEET-04**: Fleet handles unreachable servers gracefully (OFFLINE row, no crash)
+- [x] **FLEET-01**: User can see all servers' health and cached audit score in a single table
+- [x] **FLEET-02**: User can get fleet data as JSON output (--json)
+- [x] **FLEET-03**: User can sort fleet table by score/name/provider (--sort)
+- [x] **FLEET-04**: Fleet handles unreachable servers gracefully (OFFLINE row, no crash)
 - [ ] **FLEET-05**: MCP server_fleet tool provides fleet data to Claude
 
 ### Notifications
@@ -63,10 +63,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FLEET-01 | Phase 38 | Pending |
-| FLEET-02 | Phase 38 | Pending |
-| FLEET-03 | Phase 38 | Pending |
-| FLEET-04 | Phase 38 | Pending |
+| FLEET-01 | Phase 38 | Complete |
+| FLEET-02 | Phase 38 | Complete |
+| FLEET-03 | Phase 38 | Complete |
+| FLEET-04 | Phase 38 | Complete |
 | FLEET-05 | Phase 38 | Pending |
 | NOTF-01 | Phase 36 | Complete |
 | NOTF-02 | Phase 36 | Complete |
