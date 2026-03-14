@@ -3,6 +3,7 @@ import { join } from "path";
 import { z } from "zod";
 import { sshExec, assertValidIp } from "../utils/ssh.js";
 import { CONFIG_DIR } from "../utils/config.js";
+import { dispatchWithCooldown } from "./notify.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -218,6 +219,23 @@ export async function stopGuard(ip: string, serverName: string): Promise<GuardSt
   removeGuardState(serverName);
 
   return { success: true };
+}
+
+// ─── Notification Helpers ─────────────────────────────────────────────────────
+
+function categorizeBreach(breachMsg: string): string {
+  if (/disk/i.test(breachMsg)) return "disk";
+  if (/ram/i.test(breachMsg)) return "ram";
+  if (/cpu|load/i.test(breachMsg)) return "cpu";
+  if (/regression/i.test(breachMsg)) return "regression";
+  return "unknown";
+}
+
+export async function dispatchGuardBreaches(serverName: string, breaches: string[]): Promise<void> {
+  for (const breach of breaches) {
+    const findingType = categorizeBreach(breach);
+    await dispatchWithCooldown(serverName, findingType, `[Kastell Guard] ${serverName}: ${breach}`);
+  }
 }
 
 export async function guardStatus(ip: string, serverName: string): Promise<GuardStatusResult> {
