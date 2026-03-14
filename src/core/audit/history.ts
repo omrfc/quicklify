@@ -13,7 +13,13 @@ import {
 import { join } from "path";
 import { CONFIG_DIR } from "../../utils/config.js";
 import { withFileLock } from "../../utils/fileLock.js";
-import type { AuditResult, AuditHistoryEntry } from "./types.js";
+import type {
+  AuditResult,
+  AuditHistoryEntry,
+  TrendEntry,
+  TrendResult,
+  TrendCauseLine,
+} from "./types.js";
 
 const HISTORY_FILENAME = "audit-history.json";
 
@@ -110,6 +116,86 @@ export async function saveAuditHistory(result: AuditResult): Promise<void> {
     writeFileSync(tmpFile, JSON.stringify(entries, null, 2), "utf-8");
     renameSync(tmpFile, historyFile);
   });
+}
+
+/**
+ * Build cause list between two consecutive categoryScores maps.
+ * Includes only categories whose score changed; sorted by abs(delta) descending.
+ */
+function buildCauseList(
+  before: Record<string, number>,
+  after: Record<string, number>,
+): TrendCauseLine[] {
+  const allCategories = new Set([...Object.keys(before), ...Object.keys(after)]);
+  const causes: TrendCauseLine[] = [];
+
+  for (const category of allCategories) {
+    const scoreBefore = before[category] ?? 0;
+    const scoreAfter = after[category] ?? 0;
+    const delta = scoreAfter - scoreBefore;
+    if (delta !== 0) {
+      causes.push({ category, scoreBefore, scoreAfter, delta });
+    }
+  }
+
+  causes.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  return causes;
+}
+
+/**
+ * Compute trend from audit history entries.
+ * Returns a TrendResult with chronological entries, score deltas, and cause attribution.
+ * Pure function — no I/O.
+ */
+export function computeTrend(
+  history: AuditHistoryEntry[],
+  options?: { days?: number },
+): TrendResult {
+  if (history.length === 0) {
+    return { serverIp: "", serverName: "", entries: [] };
+  }
+
+  // serverIp/serverName from the first element of the original array
+  const { serverIp, serverName } = history[0];
+
+  let filtered = [...history];
+
+  // Apply days filter
+  if (options?.days !== undefined) {
+    const cutoff = new Date(Date.now() - options.days * 86_400_000).toISOString();
+    filtered = filtered.filter((e) => e.timestamp >= cutoff);
+  }
+
+  if (filtered.length === 0) {
+    return { serverIp, serverName, entries: [] };
+  }
+
+  // Sort chronologically oldest-first
+  filtered.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+  const entries: TrendEntry[] = filtered.map((entry, index) => {
+    if (index === 0) {
+      return {
+        timestamp: entry.timestamp,
+        score: entry.overallScore,
+        delta: null,
+        causeList: [],
+      };
+    }
+
+    const prev = filtered[index - 1];
+    const delta = entry.overallScore - prev.overallScore;
+    const causeList = buildCauseList(prev.categoryScores, entry.categoryScores);
+
+    return {
+      timestamp: entry.timestamp,
+      score: entry.overallScore,
+      delta,
+      causeList,
+    };
+  });
+
+  return { serverIp, serverName, entries };
 }
 
 /**

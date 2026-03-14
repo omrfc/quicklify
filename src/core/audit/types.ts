@@ -69,6 +69,28 @@ export interface SnapshotListEntry {
   corrupt?: boolean;
 }
 
+// ─── Trend types ─────────────────────────────────────────────────────────────
+
+export interface TrendCauseLine {
+  category: string;
+  scoreBefore: number;
+  scoreAfter: number;
+  delta: number;
+}
+
+export interface TrendEntry {
+  timestamp: string;
+  score: number;
+  delta: number | null;         // null for the first entry
+  causeList: TrendCauseLine[];  // empty when delta is null
+}
+
+export interface TrendResult {
+  serverIp: string;
+  serverName: string;
+  entries: TrendEntry[];        // chronological, oldest first
+}
+
 // ─── Diff types ───────────────────────────────────────────────────────────────
 
 export type CheckDiffStatus = "improved" | "regressed" | "unchanged" | "added" | "removed";
