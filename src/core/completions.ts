@@ -26,7 +26,7 @@ _kastell() {
       return 0
       ;;
     domain)
-      COMPREPLY=( $(compgen -W "add check remove --domain --no-ssl --dry-run" -- "\${cur}") )
+      COMPREPLY=( $(compgen -W "add check remove list info --domain --no-ssl --dry-run" -- "\${cur}") )
       return 0
       ;;
     secure)
@@ -289,7 +289,7 @@ _kastell() {
           ;;
         domain)
           local -a subcommands
-          subcommands=('add' 'check' 'remove')
+          subcommands=('add' 'check' 'remove' 'list' 'info')
           _describe 'subcommand' subcommands
           _arguments \\
             '--domain[Domain name]:domain:' \\
@@ -528,7 +528,7 @@ complete -c kastell -n '__kastell_using_subcommand firewall' -l dry-run -d 'Show
 complete -c kastell -n '__kastell_using_subcommand firewall' -l force -d 'Skip confirmation prompts'
 
 # domain subcommands and options
-complete -c kastell -n '__kastell_using_subcommand domain' -a 'add check remove'
+complete -c kastell -n '__kastell_using_subcommand domain' -a 'add check remove list info'
 complete -c kastell -n '__kastell_using_subcommand domain' -l domain -d 'Domain name'
 complete -c kastell -n '__kastell_using_subcommand domain' -l no-ssl -d 'Disable HTTPS'
 complete -c kastell -n '__kastell_using_subcommand domain' -l dry-run -d 'Show commands without executing'

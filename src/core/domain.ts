@@ -11,6 +11,17 @@ import {
 } from "../constants.js";
 import type { Platform } from "../types/index.js";
 
+// ─── Platform Helpers ────────────────────────────────────────────────────────
+
+export function platformDefaults(platform?: Platform) {
+  const isDokploy = platform === "dokploy";
+  return {
+    port: isDokploy ? 3000 : 8000,
+    dbContainer: isDokploy ? DOKPLOY_DB_CONTAINER : COOLIFY_DB_CONTAINER,
+    label: isDokploy ? "Dokploy" : "Coolify",
+  };
+}
+
 // ─── Pure Functions ─────────────────────────────────────────────────────────
 
 export function isValidDomain(domain: string): boolean {
@@ -118,15 +129,14 @@ export async function setDomain(
     return { success: false, error: `Invalid domain: ${cleanDomain}` };
   }
 
-  const dbContainer = platform === "dokploy" ? DOKPLOY_DB_CONTAINER : COOLIFY_DB_CONTAINER;
-  const platformLabel = platform === "dokploy" ? "Dokploy" : "Coolify";
+  const { dbContainer, label } = platformDefaults(platform);
 
   try {
     const checkResult = await sshExec(ip, buildPlatformCheckCommand(platform));
     if (!checkResult.stdout.includes(dbContainer)) {
       return {
         success: false,
-        error: `${platformLabel} database container not found. Is ${platformLabel} installed and running?`,
+        error: `${label} database container not found. Is ${label} installed and running?`,
       };
     }
 
@@ -153,20 +163,18 @@ export async function setDomain(
 export async function removeDomain(ip: string, platform?: Platform): Promise<DomainResult> {
   assertValidIp(ip);
 
-  const dbContainer = platform === "dokploy" ? DOKPLOY_DB_CONTAINER : COOLIFY_DB_CONTAINER;
-  const platformLabel = platform === "dokploy" ? "Dokploy" : "Coolify";
-  const defaultPort = platform === "dokploy" ? 3000 : 8000;
+  const { dbContainer, label, port } = platformDefaults(platform);
 
   try {
     const checkResult = await sshExec(ip, buildPlatformCheckCommand(platform));
     if (!checkResult.stdout.includes(dbContainer)) {
       return {
         success: false,
-        error: `${platformLabel} database container not found. Is ${platformLabel} installed and running?`,
+        error: `${label} database container not found. Is ${label} installed and running?`,
       };
     }
 
-    const command = buildSetFqdnCommand(`${ip}:${defaultPort}`, false, platform);
+    const command = buildSetFqdnCommand(`${ip}:${port}`, false, platform);
     const result = await sshExec(ip, command);
     if (result.code !== 0) {
       return {

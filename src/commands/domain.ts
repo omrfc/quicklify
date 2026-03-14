@@ -2,7 +2,6 @@ import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
-import { COOLIFY_DB_CONTAINER, DOKPLOY_DB_CONTAINER } from "../constants.js";
 import { requireManagedMode } from "../utils/modeGuard.js";
 import { updateServer } from "../utils/config.js";
 import { resolvePlatform } from "../adapters/factory.js";
@@ -17,6 +16,7 @@ import {
   parseDnsResult,
   parseFqdn,
   buildPlatformCheckCommand,
+  platformDefaults,
 } from "../core/domain.js";
 import type { Platform } from "../types/index.js";
 export {
@@ -30,6 +30,7 @@ export {
   buildDnsCheckCommand,
   parseDnsResult,
   parseFqdn,
+  platformDefaults,
 };
 
 export async function domainCommand(
@@ -101,8 +102,7 @@ async function domainAdd(
 
   const ssl = options?.ssl !== false; // default true
   const command = buildSetFqdnCommand(domain, ssl, platform);
-  const dbContainer = platform === "dokploy" ? DOKPLOY_DB_CONTAINER : COOLIFY_DB_CONTAINER;
-  const platformLabel = platform === "dokploy" ? "Dokploy" : "Coolify";
+  const { dbContainer, label: platformLabel } = platformDefaults(platform);
 
   if (dryRun) {
     logger.title("Dry Run - Add Domain");
@@ -153,8 +153,7 @@ async function domainAdd(
 }
 
 async function domainRemove(ip: string, name: string, platform: Platform, dryRun: boolean): Promise<void> {
-  const defaultPort = platform === "dokploy" ? 3000 : 8000;
-  const platformLabel = platform === "dokploy" ? "Dokploy" : "Coolify";
+  const { port: defaultPort, label: platformLabel } = platformDefaults(platform);
   const command = buildSetFqdnCommand(`${ip}:${defaultPort}`, false, platform);
 
   if (dryRun) {
@@ -235,9 +234,7 @@ async function domainCheck(ip: string, options?: { domain?: string }): Promise<v
 async function domainList(ip: string, name: string, platform: Platform): Promise<void> {
   const spinner = createSpinner(`Fetching domain from ${name}...`);
   spinner.start();
-  const defaultPort = platform === "dokploy" ? 3000 : 8000;
-  const dbContainer = platform === "dokploy" ? DOKPLOY_DB_CONTAINER : COOLIFY_DB_CONTAINER;
-  const platformLabel = platform === "dokploy" ? "Dokploy" : "Coolify";
+  const { port: defaultPort, dbContainer, label: platformLabel } = platformDefaults(platform);
 
   try {
     const checkResult = await sshExec(ip, buildPlatformCheckCommand(platform));
@@ -273,9 +270,7 @@ async function domainList(ip: string, name: string, platform: Platform): Promise
 async function domainInfo(ip: string, name: string, platform: Platform): Promise<void> {
   const spinner = createSpinner(`Fetching domain info for ${name}...`);
   spinner.start();
-  const defaultPort = platform === "dokploy" ? 3000 : 8000;
-  const dbContainer = platform === "dokploy" ? DOKPLOY_DB_CONTAINER : COOLIFY_DB_CONTAINER;
-  const platformLabel = platform === "dokploy" ? "Dokploy" : "Coolify";
+  const { port: defaultPort, dbContainer, label: platformLabel } = platformDefaults(platform);
 
   try {
     const checkResult = await sshExec(ip, buildPlatformCheckCommand(platform));

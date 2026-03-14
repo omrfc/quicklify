@@ -4,6 +4,8 @@ import { rebootServer } from "../core/manage.js";
 import { getCloudServerStatus } from "../core/status.js";
 import { getProviderToken } from "../core/tokens.js";
 import { isBareServer } from "../utils/modeGuard.js";
+import { resolvePlatform } from "../adapters/factory.js";
+import { platformDefaults } from "../core/domain.js";
 import { logger, createSpinner } from "../utils/logger.js";
 
 function showDryRun(server: { name: string; ip: string; provider: string }): void {
@@ -74,7 +76,9 @@ export async function restartCommand(query?: string, options?: { dryRun?: boolea
         if (isBareServer(server)) {
           logger.info(`SSH: ssh root@${server.ip}`);
         } else {
-          logger.info(`Access Coolify: http://${server.ip}:8000`);
+          const platform = resolvePlatform(server) ?? "coolify";
+          const { label, port } = platformDefaults(platform);
+          logger.info(`Access ${label}: http://${server.ip}:${port}`);
         }
         return;
       }
