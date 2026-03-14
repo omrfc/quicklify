@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Guard Core
 status: ready_to_plan
-stopped_at: Completed 28-lock-01-PLAN.md
-last_updated: "2026-03-14T06:58:08.116Z"
+stopped_at: Completed 28-lock-02-PLAN.md
+last_updated: "2026-03-14T07:04:06.027Z"
 last_activity: 2026-03-14 — Roadmap created, phases 28-33 defined
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 100
 ---
 
@@ -63,6 +63,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 28-lock P01 | 164s | 1 tasks | 2 files |
+| Phase 28-lock P02 | 210 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,7 @@ Progress: [░░░░░░░░░░] 0%
 - croner chosen over node-cron (CJS-only) for guard daemon internal scheduling
 - [Phase 28-lock]: SSH hardening is the only critical step — its failure determines overall success=false, all other 4 steps non-fatal
 - [Phase 28-lock]: applyLock uses runAudit for before/after scoring — failures are non-fatal, scoreBefore/scoreAfter remain undefined
+- [Phase 28-lock]: Pass server.platform (not server.mode) to applyLock — Platform is coolify|dokploy, ServerMode is coolify|bare
 
 ### Pending Todos
 
@@ -89,6 +91,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-14T06:58:08.109Z
-Stopped at: Completed 28-lock-01-PLAN.md
+Last session: 2026-03-14T07:04:06.020Z
+Stopped at: Completed 28-lock-02-PLAN.md
 Next action: `/gsd:plan-phase 28`

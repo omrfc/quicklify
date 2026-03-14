@@ -109,7 +109,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 
 **Milestone Goal:** Autonomous security monitoring daemon, one-command server hardening, scheduled backups, risk trend with cause analysis, and proactive operations intelligence — establishing guard as the core Kastell value driver.
 
-- [ ] **Phase 28: Lock** - One-command server hardening with idempotency, platform awareness, and audit score delta
+- [x] **Phase 28: Lock** - One-command server hardening with idempotency, platform awareness, and audit score delta (completed 2026-03-14)
 - [ ] **Phase 29: Backup Schedule** - Scheduled backup via remote cron with overlap protection and idempotent install
 - [ ] **Phase 30: Guard Daemon** - Autonomous security monitoring daemon running as remote cron on VPS with metric collection
 - [ ] **Phase 31: Risk Trend** - Audit score trend with per-check cause attribution and time-bounded queries
@@ -128,7 +128,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
   3. User runs `kastell lock <server> --production --dry-run` and sees a preview of all changes without any modification to the server
   4. Lock correctly preserves Coolify port 8000 or Dokploy port 3000 in UFW rules based on the server's registered platform
   5. The output shows the audit score before and after hardening so the user can verify improvement
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 28-01-PLAN.md — Core lock module (types, command builders, applyLock orchestrator)
@@ -227,7 +227,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-27. Prior milestones | v1.2.0–v1.6 | All | Complete | 2026-03-11 |
-| 28. Lock | 1/2 | In Progress|  | - |
+| 28. Lock | 2/2 | Complete   | 2026-03-14 | - |
 | 29. Backup Schedule | v1.7 | 0/TBD | Not started | - |
 | 30. Guard Daemon | v1.7 | 0/TBD | Not started | - |
 | 31. Risk Trend | v1.7 | 0/TBD | Not started | - |
