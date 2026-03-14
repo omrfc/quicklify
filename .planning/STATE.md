@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Fleet + Notifications
 status: ready_to_plan
-stopped_at: Completed 36-01-PLAN.md (Core Notification Module)
-last_updated: "2026-03-14T18:11:56.558Z"
+stopped_at: Completed 36-02-PLAN.md (Notify CLI Commands)
+last_updated: "2026-03-14T18:22:58.991Z"
 last_activity: 2026-03-14 — Roadmap created, 7 phases defined (34-40)
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
   percent: 100
 ---
 
@@ -65,6 +65,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 34-layer-violation-fix P01 | 25min | 2 tasks | 9 files |
 | Phase 35-adapter-deduplication P01 | 20min | 2 tasks | 3 files |
 | Phase 36-notification-module P01 | 4min | 2 tasks | 2 files |
+| Phase 36-notification-module P02 | 7min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,7 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 36-notification-module]: Cooldown state is client-side at ~/.kastell/notify-cooldown.json — credentials never go to VPS guard script
 - [Phase 36-notification-module]: dispatchWithCooldown uses composite key serverName:findingType — prevents cross-server cooldown collision
 - [Phase 36-notification-module]: Cooldown timestamp only written on at least one channel success — all-fail allows retry
+- [Phase 36-notification-module]: createSpinner from utils/logger used in notify.ts (not direct ora import) — enables clean Jest mocking
 
 ### Pending Todos
 
@@ -96,6 +98,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-14T18:11:56.551Z
-Stopped at: Completed 36-01-PLAN.md (Core Notification Module)
+Last session: 2026-03-14T18:22:58.984Z
+Stopped at: Completed 36-02-PLAN.md (Notify CLI Commands)
 Next action: `/gsd:plan-phase 34`

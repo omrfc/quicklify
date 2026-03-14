@@ -243,7 +243,7 @@ Plans:
 | 28-33. Guard Core | v1.7 | 12/12 | Complete | 2026-03-14 |
 | 34. Layer Violation Fix | 1/1 | Complete   | 2026-03-14 | - |
 | 35. Adapter Deduplication | 1/1 | Complete    | 2026-03-14 | - |
-| 36. Notification Module | 1/2 | In Progress|  | - |
+| 36. Notification Module | 2/2 | Complete   | 2026-03-14 | - |
 | 37. Doctor Fix | v1.8 | 0/TBD | Not started | - |
 | 38. Fleet Visibility | v1.8 | 0/TBD | Not started | - |
 | 39. Guard Notification Integration | v1.8 | 0/TBD | Not started | - |
