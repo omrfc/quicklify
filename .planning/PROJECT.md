@@ -67,19 +67,30 @@ Autonomous server security and maintenance across multiple cloud providers. Guar
 - ✓ Code quality refactoring — deployServer decomposition, maintain DRY, shared adapters, provider HOF — v1.5
 - ✓ MCP server_audit tool — summary/json/score formats — v1.5
 - ✓ Audit watch mode + CI integration — GitHub Actions example — v1.5
+- ✓ File locking (withFileLock) for concurrent config write safety — v1.6
+- ✓ Rate limit backoff (withRetry) with Retry-After header parsing — v1.6
+- ✓ ServerRecord.mode required + auto-migration — v1.6
+- ✓ Audit snapshot persistence with schema versioning — v1.6
+- ✓ Audit diff engine with check-by-check comparison and CI exit codes — v1.6
+- ✓ Cross-server audit comparison (`--compare`) — v1.6
+- ✓ Forensic evidence collection (`kastell evidence`) with SHA256 manifest — v1.6
+- ✓ MCP server_evidence tool — v1.6
+- ✓ PlatformAdapter contract documentation + 40 conformance tests — v1.6
 
 ### Active
 
-<!-- Next milestone: v1.6 Audit Expand + Evidence + Altyapı -->
+<!-- Next milestone: v1.7 Guard Core -->
 
-- [ ] Audit snapshot/diff/compare (deferred from v1.5)
-- [ ] `kastell evidence collect` — IP abuse kanıt paketi
-- [ ] ServerRecord.mode required + file locking + rate limit backoff
-- [ ] Adapter contract dokümantasyonu
+- [ ] `kastell guard` — autonomous security monitoring daemon
+- [ ] `kastell lock --production` — one-command server hardening
+- [ ] `kastell fleet` — multi-server visibility
+- [ ] `kastell doctor` — proactive operations intelligence
+- [ ] Multi-channel notifications (Telegram/Discord/Slack/Email)
+- [ ] Backup scheduling (`backup --schedule`)
+- [ ] Risk trend with cause analysis
 
 ### Planned (Kastell Roadmap)
 
-- **v1.6** — Audit Expand + Evidence + Altyapı: audit snapshot/diff/compare, evidence collect, file locking, rate limit, adapter contract docs
 - **v1.7** — Guard Core: `kastell guard`, `kastell lock`, `kastell fleet`, `kastell doctor`, bildirimler, backup --schedule, risk trend
 - **v2.0** — Plugin ekosistemi (Claude Code marketplace + cross-platform SKILL.md)
 - **v3.0** — Web dashboard (premium) + managed servis ($49/$99/$299+)
@@ -93,14 +104,14 @@ Autonomous server security and maintenance across multiple cloud providers. Guar
 ## Context
 
 - **Brand**: Kastell (kastell.dev, npm: kastell, GitHub: kastelldev)
-- **Current npm**: `kastell` v1.4.0 published, `quicklify` deprecated
-- 24 CLI commands + 8 MCP tools (incl. `kastell audit` + `server_audit`)
-- 2467 tests across 112 suites (95%+ coverage)
+- **Current npm**: `kastell` v1.5.2 published, `quicklify` deprecated
+- 25 CLI commands + 9 MCP tools (incl. `kastell audit`, `kastell evidence`, `server_audit`, `server_evidence`)
+- 2687 tests across 124 suites (95%+ coverage)
 - CI: GitHub Actions (3 OS x 2 Node versions = 6 matrix)
-- Codebase: ~17,500 LOC TypeScript
+- Codebase: ~18,850 LOC TypeScript
 - Architecture: Commands (thin wrappers) -> Core (business logic) -> Providers (plugin) / Adapters (platform)
 - Supports three server modes: `coolify` (default), `dokploy`, and `bare` (generic VPS)
-- v1.5 shipped: kastell audit (46 checks, fix engine, trend detection), OS keychain security, Dokploy parity, code refactoring
+- v1.6 shipped: audit snapshots/diff/compare, forensic evidence, infrastructure hardening, adapter docs
 - **Target audience**: Indie hackers (Y1) -> Micro-DevOps teams (Y2) -> SaaS compliance (Y3)
 
 ### CLAUDE.md Yapisi (2026-03-05 yeniden yapilandirildi)
@@ -159,6 +170,15 @@ IF-ELSE router pattern uygulandi — context bloat onleme:
 | 2 SSH batches for audit | Fast config reads vs slower active probes | ✓ Good — v1.5 |
 | Severity-weighted scoring | critical=3, warning=2, info=1 for proportional scores | ✓ Good — v1.5 |
 | Atomic audit history writes | temp+rename for audit-history.json integrity | ✓ Good — v1.5 |
+| Custom mkdir lock over proper-lockfile | ESM-only project, proper-lockfile is CJS-only | ✓ Good — v1.6 |
+| Custom withRetry over axios-retry | Avoid global interceptor conflicts | ✓ Good — v1.6 |
+| Zod literal(1) for snapshot schemaVersion | Explicit rejection of unknown schema versions at parse time | ✓ Good — v1.6 |
+| resolveSnapshotRef filename-first | Unambiguous ref resolution (filename exact match before name scan) | ✓ Good — v1.6 |
+| process.exitCode=1 vs process.exit(1) | Allows graceful async return for --diff/--compare regressions | ✓ Good — v1.6 |
+| Single SSH batch for evidence | All evidence collected in one connection, parsed client-side | ✓ Good — v1.6 |
+| Dynamic section-to-filename mapping | Prevents index mismatch when optional sections are skipped | ✓ Good — v1.6 |
+| withProviderErrorHandling + extractApiMessage callback | Single error pattern for 4 providers with provider-specific message extraction | ✓ Good — v1.6 |
+| isServerMode type guard over `as ServerMode` | Runtime validation prevents invalid string propagation | ✓ Good — v1.6 |
 | GitHub repo transfer deferred | Less risk, do after npm publish is stable | — Pending |
 
 ## Kastell Command Architecture (Future)
@@ -225,18 +245,18 @@ All simple statistics + cron. No AI/ML. Deterministic and predictable.
 - **Enterprise term** (future): "Infrastructure Integrity Layer" — not for Year 1
 - **Positioning**: Coolify deploys. Docker runs. Kastell protects.
 
-## Current State
+## Current Milestone: v1.7 Guard Core
 
-**Shipped:** v1.5 Security + Dokploy + Audit (2026-03-08)
+**Goal:** Build autonomous security monitoring, one-command hardening, multi-server fleet visibility, and proactive operations intelligence with multi-channel notifications.
 
-**Recent v1.5 delivery:**
-- kastell audit: 9 categories, 46 checks, severity scoring, 6 formatters, fix engine, trend detection, MCP tool, watch mode, CI
-- OS Keychain token security: keychain-first resolution, buffer storage, zero-on-exit cleanup, `kastell auth` commands
-- Dokploy platform parity complete: restore support, auto-detection, adapter-based routing
-- Code quality: deployServer decomposition, maintain DRY, shared adapter utilities, withProviderErrorHandling HOF
-- 11 security fixes + dead code cleanup
-
-**Next:** v1.6 Guard Core
+**Target features:**
+- `kastell guard` — autonomous security monitoring daemon
+- `kastell lock --production` — one-command server hardening
+- `kastell fleet` — multi-server visibility
+- `kastell doctor` — proactive operations intelligence
+- Multi-channel notifications (Telegram/Discord/Slack/Email)
+- Backup scheduling (`backup --schedule`)
+- Risk trend with cause analysis
 
 ---
-*Last updated: 2026-03-08 after v1.5 milestone*
+*Last updated: 2026-03-14 after v1.7 milestone start*
