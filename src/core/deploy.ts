@@ -17,8 +17,8 @@ import {
   getLocationConfig,
   getServerTypeConfig,
 } from "../utils/prompts.js";
-import { firewallSetup } from "../commands/firewall.js";
-import { secureSetup } from "../commands/secure.js";
+import { firewallSetup } from "./firewall.js";
+import { secureSetup } from "./secure.js";
 import { IP_WAIT, COOLIFY_MIN_WAIT } from "../constants.js";
 
 /** Data returned on successful deployment */

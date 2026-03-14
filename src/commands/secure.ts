@@ -1,4 +1,3 @@
-import inquirer from "inquirer";
 import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
@@ -10,6 +9,7 @@ import {
   buildFail2banCommand,
   buildAuditCommand,
   buildKeyCheckCommand,
+  secureSetup,
 } from "../core/secure.js";
 export {
   parseSshdConfig,
@@ -18,6 +18,7 @@ export {
   buildFail2banCommand,
   buildAuditCommand,
   buildKeyCheckCommand,
+  secureSetup,
 };
 export async function secureCommand(
   subcommand?: string,
@@ -52,136 +53,6 @@ export async function secureCommand(
     case "audit":
       await secureAudit(server.ip, server.name);
       break;
-  }
-}
-
-export async function secureSetup(
-  ip: string,
-  name: string,
-  options?: { port?: string },
-  dryRun?: boolean,
-  force?: boolean,
-): Promise<void> {
-  // Step 1: Check SSH keys exist
-  const keyCheckResult = await sshExec(ip, buildKeyCheckCommand());
-  const keyCount = parseInt(keyCheckResult.stdout.trim(), 10);
-
-  if (isNaN(keyCount) || keyCount === 0) {
-    logger.error("No SSH keys found in /root/.ssh/authorized_keys");
-    logger.error("You MUST add an SSH key before disabling password authentication.");
-    logger.info("Run: ssh-copy-id root@" + ip);
-    return;
-  }
-
-  const port = options?.port ? parseInt(options.port, 10) : undefined;
-  if (options?.port && (!port || port < 1 || port > 65535)) {
-    logger.error("Invalid --port. Must be 1-65535.");
-    return;
-  }
-
-  const hardenCmd = buildHardeningCommand(port ? { port } : undefined);
-  const fail2banCmd = buildFail2banCommand();
-
-  if (dryRun) {
-    logger.title("Dry Run - Security Setup");
-    logger.info(`Server: ${name} (${ip})`);
-    logger.info(`SSH keys found: ${keyCount}`);
-    console.log();
-    logger.info("SSH Hardening commands:");
-    for (const cmd of hardenCmd.split(" && ")) {
-      logger.step(cmd);
-    }
-    console.log();
-    logger.info("Fail2ban commands:");
-    for (const cmd of fail2banCmd.split(" && ")) {
-      logger.step(cmd.length > 80 ? cmd.substring(0, 80) + "..." : cmd);
-    }
-    console.log();
-    logger.warning("No changes applied. Remove --dry-run to execute.");
-    return;
-  }
-
-  // Double confirmation (skip if force=true, e.g. from --full-setup)
-  if (!force) {
-    const { confirm } = await inquirer.prompt([
-      {
-        type: "confirm",
-        name: "confirm",
-        message: `This will harden SSH on "${name}" (${ip}). Password login will be DISABLED. Continue?`,
-        default: false,
-      },
-    ]);
-
-    if (!confirm) {
-      logger.info("Security setup cancelled.");
-      return;
-    }
-
-    const { confirmName } = await inquirer.prompt([
-      {
-        type: "input",
-        name: "confirmName",
-        message: `Type the server name "${name}" to confirm:`,
-      },
-    ]);
-
-    if (confirmName.trim() !== name) {
-      logger.error("Server name does not match. Setup cancelled.");
-      return;
-    }
-  }
-
-  // Step 2: Apply SSH hardening
-  const spinner = createSpinner("Applying SSH hardening...");
-  spinner.start();
-
-  try {
-    const hardenResult = await sshExec(ip, hardenCmd);
-    if (hardenResult.code !== 0) {
-      spinner.fail("Failed to apply SSH hardening");
-      if (hardenResult.stderr) logger.error(hardenResult.stderr);
-      return;
-    }
-    spinner.succeed("SSH hardened successfully");
-  } catch (error: unknown) {
-    spinner.fail("Failed to apply SSH hardening");
-    logger.error(getErrorMessage(error));
-    const hint = mapSshError(error, ip);
-    if (hint) logger.info(hint);
-    return;
-  }
-
-  // Step 3: Install fail2ban
-  let fail2banOk = true;
-  const f2bSpinner = createSpinner("Installing fail2ban...");
-  f2bSpinner.start();
-
-  try {
-    const f2bResult = await sshExec(ip, fail2banCmd);
-    if (f2bResult.code !== 0) {
-      f2bSpinner.warn("Fail2ban installation had issues (non-fatal)");
-      if (f2bResult.stderr) logger.warning(f2bResult.stderr);
-      fail2banOk = false;
-    } else {
-      f2bSpinner.succeed("Fail2ban installed and configured");
-    }
-  } catch (error: unknown) {
-    f2bSpinner.warn("Fail2ban installation failed (non-fatal)");
-    logger.warning(getErrorMessage(error));
-    const hint = mapSshError(error, ip);
-    if (hint) logger.info(hint);
-    fail2banOk = false;
-  }
-
-  if (fail2banOk) {
-    logger.success(`Security setup complete for ${name}`);
-  } else {
-    logger.warning(
-      `Security setup partially complete for ${name} — fail2ban is not active. Retry with: kastell secure setup ${name}`,
-    );
-  }
-  if (port && port !== 22) {
-    logger.warning(`SSH port changed to ${port}. Use: ssh -p ${port} root@${ip}`);
   }
 }
 

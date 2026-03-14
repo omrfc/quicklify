@@ -10,7 +10,9 @@
 - ✅ **v1.4 TUI + Dokploy + DX** — Phases 11-15 (shipped 2026-03-07)
 - ✅ **v1.5 Security + Dokploy + Audit** — Phases 16-22 (shipped 2026-03-08)
 - ✅ **v1.6 Audit Expand + Evidence + Altyapi** — Phases 23-27 (shipped 2026-03-11)
-- 🚧 **v1.7 Guard Core** — Phases 28-33 (in progress)
+- ✅ **v1.7 Guard Core** — Phases 28-33 (shipped 2026-03-14)
+- 🚧 **v1.8 Fleet + Notifications** — Phases 34-40 (in progress)
+- ⬜ **v1.9 Audit Genisleme** — 45→400+ check, 9→20+ kategori, Lynis'i gecmek, compliance mapping (PCI DSS/HIPAA/ISO27001)
 - ⬜ **v2.0 Plugin Ekosistemi** — Claude Code marketplace, SKILL.md (cross-platform: Cursor/Gemini CLI/Kiro), slash commands, chained workflows, audit --explain, validate_plugins.py CI
 - ⬜ **v3.0 Dashboard + Managed Servis** — premium web dashboard, managed servis ($49/$99/$299+), ilk musteri LA ROMA
 
@@ -105,122 +107,108 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 
 </details>
 
-### v1.7 Guard Core (In Progress)
+<details>
+<summary>✅ v1.7 Guard Core — SHIPPED 2026-03-14</summary>
 
-**Milestone Goal:** Autonomous security monitoring daemon, one-command server hardening, scheduled backups, risk trend with cause analysis, and proactive operations intelligence — establishing guard as the core Kastell value driver.
+- [x] Phase 28: Lock (2/2 plans) — completed 2026-03-14
+- [x] Phase 29: Backup Schedule (2/2 plans) — completed 2026-03-14
+- [x] Phase 30: Guard Daemon (2/2 plans) — completed 2026-03-14
+- [x] Phase 31: Risk Trend (2/2 plans) — completed 2026-03-14
+- [x] Phase 32: Doctor (2/2 plans) — completed 2026-03-14
+- [x] Phase 33: MCP + Completions (2/2 plans) — completed 2026-03-14
 
-- [x] **Phase 28: Lock** - One-command server hardening with idempotency, platform awareness, and audit score delta (completed 2026-03-14)
-- [x] **Phase 29: Backup Schedule** - Scheduled backup via remote cron with overlap protection and idempotent install (completed 2026-03-14)
-- [x] **Phase 30: Guard Daemon** - Autonomous security monitoring daemon running as remote cron on VPS with metric collection (completed 2026-03-14)
-- [x] **Phase 31: Risk Trend** - Audit score trend with per-check cause attribution and time-bounded queries (completed 2026-03-14)
-- [x] **Phase 32: Doctor** - Proactive operations analysis from cached snapshots and metric history (completed 2026-03-14)
-- [x] **Phase 33: MCP + Completions** - MCP tools for guard/doctor/lock and shell completion updates (completed 2026-03-14)
+6 phases, 12 plans, 35 requirements. Full details: [v1.7-ROADMAP.md](./milestones/v1.7-ROADMAP.md)
+
+</details>
+
+### 🚧 v1.8 Fleet + Notifications (In Progress)
+
+**Milestone Goal:** Multi-server fleet visibility, multi-channel alert notifications for guard/doctor, doctor auto-remediation with per-finding interactive confirmation, and structural tech debt cleanup — making Kastell operationally complete for multi-server environments.
 
 ## Phase Details
 
-### Phase 28: Lock
-**Goal**: Users can harden any registered server to production standard with a single command, safely and repeatably
-**Depends on**: Nothing (first phase of v1.7)
-**Requirements**: LOCK-01, LOCK-02, LOCK-03, LOCK-04, LOCK-05, LOCK-06
+### Phase 34: Layer Violation Fix
+**Goal**: The core layer is clean — no upward imports from commands/
+**Depends on**: Nothing (first phase of v1.8)
+**Requirements**: DEBT-02
 **Success Criteria** (what must be TRUE):
-  1. User runs `kastell lock <server> --production` and all 5 hardening measures (SSH key-only auth, fail2ban, UFW, sysctl hardening, unattended-upgrades) are applied in a single SSH session
-  2. Running `kastell lock <server> --production` a second time completes without error, skipping already-applied steps
-  3. User runs `kastell lock <server> --production --dry-run` and sees a preview of all changes without any modification to the server
-  4. Lock correctly preserves Coolify port 8000 or Dokploy port 3000 in UFW rules based on the server's registered platform
-  5. The output shows the audit score before and after hardening so the user can verify improvement
-**Plans:** 2/2 plans complete
-
+  1. `core/deploy.ts` imports only from `core/` and `utils/` — no imports from `commands/`
+  2. `kastell provision` and all dependent commands behave identically before and after the fix
+  3. Full test suite passes with zero new failures
+**Plans**: 1 plan
 Plans:
-- [ ] 28-01-PLAN.md — Core lock module (types, command builders, applyLock orchestrator)
-- [ ] 28-02-PLAN.md — CLI command wrapper + registration
+- [ ] 34-01-PLAN.md — Move firewallSetup/secureSetup to core/ and update test mocks
 
-### Phase 29: Backup Schedule
-**Goal**: Users can configure automated backup schedules that run reliably on the VPS without requiring the user's machine to be online
-**Depends on**: Nothing (independent of Phase 28)
-**Requirements**: BKUP-01, BKUP-02, BKUP-03, BKUP-04, BKUP-05
+### Phase 35: Adapter Deduplication
+**Goal**: Adapter backup/restore duplication eliminated via shared utilities
+**Depends on**: Phase 34
+**Requirements**: DEBT-01
 **Success Criteria** (what must be TRUE):
-  1. User runs `kastell backup <server> --schedule "0 3 * * *"` and a cron entry is installed on the VPS that runs backups at the specified time
-  2. User runs `kastell backup <server> --schedule list` and sees the currently configured cron expression
-  3. User runs `kastell backup <server> --schedule remove` and the cron entry is removed from the VPS
-  4. Running `kastell backup <server> --schedule "0 3 * * *"` a second time replaces the existing entry — there is exactly one kastell backup cron line after any number of installs
-  5. If two backup runs overlap, the second exits immediately without corrupting the backup, because a lock file on the VPS prevents concurrent execution
-**Plans:** 2/2 plans complete
+  1. `adapters/shared.ts` contains the common backup/restore template helpers used by both adapters
+  2. `adapters/coolify.ts` and `adapters/dokploy.ts` call shared helpers — no ~80% duplicate code blocks remain
+  3. All adapter conformance tests pass with no behavior change
+**Plans**: TBD
 
-Plans:
-- [ ] 29-01-PLAN.md — Core backupSchedule module (types, command builders, orchestrators, schedules.json)
-- [ ] 29-02-PLAN.md — CLI --schedule option + Commander registration
-
-### Phase 30: Guard Daemon
-**Goal**: Users can install an autonomous security monitoring daemon on any VPS that continuously tracks disk, RAM, CPU, and audit score regressions — logging all findings to a persistent log file
-**Depends on**: Phase 28 (lock establishes SSH hardening patterns; guard reuses single-heredoc SSH approach and idempotent cron install)
-**Requirements**: GUARD-01, GUARD-02, GUARD-03, GUARD-04, GUARD-05, GUARD-06, GUARD-07, GUARD-08, GUARD-09, GUARD-10
+### Phase 36: Notification Module
+**Goal**: Users can configure and test multi-channel notifications before guard wires them in
+**Depends on**: Phase 35
+**Requirements**: NOTF-01, NOTF-02, NOTF-03, NOTF-04, NOTF-05, NOTF-06
 **Success Criteria** (what must be TRUE):
-  1. User runs `kastell guard start <server>` and a cron entry is installed on the VPS; the guard script runs every 5 minutes checking disk, RAM, and CPU thresholds
-  2. User runs `kastell guard status <server>` and sees whether the guard is running, the last check timestamp, and any active threshold breaches from the log
-  3. User runs `kastell guard stop <server>` and the cron entry is removed; subsequent guard status shows guard as inactive
-  4. Running `kastell guard start <server>` twice results in exactly one cron entry — no duplicate guard entries accumulate
-  5. Guard writes all check outcomes and threshold breaches to `/var/log/kastell-guard.log` on the VPS; the log is readable via SSH
-  6. Guard writes a MetricSnapshot (disk, RAM, CPU, timestamp) on each run to a file on the VPS that doctor can read later
-**Plans**: 2 plans
+  1. User can add Telegram, Discord, and Slack channel configs to `~/.kastell/notify.json` via documented YAML fields and the file is written at mode 0o600
+  2. `kastell notify test telegram` (and discord, slack) sends a real message to the configured channel and reports success or failure
+  3. A single `dispatchNotification()` call fans out to all configured channels simultaneously; one channel failure does not block others
+  4. Sending the same alert twice within 30 minutes for the same server and finding type produces only one outbound notification
+**Plans**: TBD
 
-Plans:
-- [ ] 30-01-PLAN.md — Core guard module (types, command builders, orchestrators, shell script, state management)
-- [ ] 30-02-PLAN.md — CLI command wrapper + Commander subcommand registration
-
-### Phase 31: Risk Trend
-**Goal**: Users can see how their server's audit score has changed over time with a cause list explaining which checks drove each score change
-**Depends on**: Nothing (reads existing audit-history.json from v1.6; independent of guard runtime)
-**Requirements**: TREND-01, TREND-02, TREND-03, TREND-04, TREND-05
+### Phase 37: Doctor Fix
+**Goal**: Users can remediate doctor findings interactively with full control over what executes
+**Depends on**: Phase 35 (clean core, no dependency on Phase 36)
+**Requirements**: DFIX-01, DFIX-02, DFIX-03
 **Success Criteria** (what must be TRUE):
-  1. User runs `kastell audit <server> --trend` and sees a chronological list of audit scores with deltas (e.g., "62 → 68 +6")
-  2. Each trend entry shows which specific checks changed between snapshots — the cause list explains why the score moved, not just by how much
-  3. User runs `kastell audit <server> --trend --days 7` and sees only data points from the last 7 days
-  4. User runs `kastell audit <server> --trend --json` and receives machine-readable output suitable for scripting or CI
-  5. If only one snapshot exists, the command shows the score without a delta or cause list rather than crashing
-**Plans**: 2 plans
+  1. `kastell doctor --fix` prompts the user once per finding before executing any SSH command on the server
+  2. `kastell doctor --fix --force` skips all confirmation prompts and executes all fix commands without interaction
+  3. `kastell doctor --fix --dry-run` prints each fix command next to its finding without executing any SSH command
+  4. Skipping a finding in interactive mode leaves that finding unfixed and continues to the next one without aborting
+**Plans**: TBD
 
-Plans:
-- [ ] 31-01-PLAN.md — Core trend types, computeTrend engine, formatters, unit tests
-- [ ] 31-02-PLAN.md — CLI --trend/--days flags wired into audit command
-
-### Phase 32: Doctor
-**Goal**: Users can run a proactive health analysis that predicts problems before they become incidents, with each finding linked to a concrete remediation command
-**Depends on**: Phase 30 (doctor's "disk trending full" and "backup age" checks require at least two MetricSnapshot entries written by guard)
-**Requirements**: DOC-01, DOC-02, DOC-03, DOC-04, DOC-05, DOC-06
+### Phase 38: Fleet Visibility
+**Goal**: Users can see all registered servers' health and security posture in one table
+**Depends on**: Phase 34 (clean core layer)
+**Requirements**: FLEET-01, FLEET-02, FLEET-03, FLEET-04, FLEET-05
 **Success Criteria** (what must be TRUE):
-  1. User runs `kastell doctor <server>` and receives a list of findings grouped by severity (critical / warning / info)
-  2. If disk usage has been increasing across two or more MetricSnapshots, doctor reports a "disk trending full" finding with a projected time-to-full estimate
-  3. Doctor detects and reports high swap usage, stale packages, elevated fail2ban ban rate, audit score regression streaks, old backups, and reclaimable Docker disk space when present
-  4. Each finding includes a description of the problem and a specific `kastell` or shell command the user can run to address it
-  5. Doctor completes using cached snapshots without making a live SSH connection unless `--fresh` is passed
-**Plans:** 2/2 plans complete
+  1. `kastell fleet` displays a table with health status and cached audit score for every registered server in under 10 seconds regardless of server count
+  2. An unreachable server renders an OFFLINE row with an error reason — it does not crash the command or hide the server from the table
+  3. `kastell fleet --json` outputs machine-readable JSON with the same data as the table
+  4. `kastell fleet --sort score` (and name, provider) reorders the table rows accordingly
+  5. Claude can retrieve fleet data via the `server_fleet` MCP tool
+**Plans**: TBD
 
-Plans:
-- [ ] 32-01-PLAN.md — Core doctor module (types, 7 pure check functions, metrics cache, orchestrator)
-- [ ] 32-02-PLAN.md — CLI command update (Commander registration, dispatch, --fresh/--json)
-
-### Phase 33: MCP + Completions
-**Goal**: All new v1.7 commands are accessible via Claude AI through MCP tools, and shell completions are updated to include guard, doctor, and lock subcommands
-**Depends on**: Phase 30, Phase 32 (guard and doctor must exist before MCP tools can wrap them)
-**Requirements**: MCP-01, MCP-02, MCP-03
+### Phase 39: Guard Notification Integration
+**Goal**: Guard breach detections trigger real notifications through all configured channels
+**Depends on**: Phase 36 (notification module must exist first)
+**Requirements**: NOTF-07
 **Success Criteria** (what must be TRUE):
-  1. Claude can start, stop, and check the status of guard on any server via MCP without the user typing CLI commands
-  2. Claude can run doctor analysis and lock hardening on a server via MCP and return structured results
-  3. Shell completions (bash/zsh/fish) suggest `guard start`, `guard stop`, `guard status`, `doctor`, and `lock --production` when the user presses Tab
-**Plans**: 2 plans
+  1. When guard detects a breach (disk/RAM/CPU threshold exceeded or audit score regression), a notification is dispatched to all configured channels from the user's machine
+  2. Guard credentials are never written into the VPS guard script — dispatch happens client-side after `kastell guard status` reads the remote breach log
+  3. Repeated breaches of the same type on the same server within the cooldown window produce only one notification, not one per guard cron run
+**Plans**: TBD
 
-Plans:
-- [ ] 33-01-PLAN.md — MCP tools for guard/doctor/lock
-- [ ] 33-02-PLAN.md — Shell completions update for v1.7 commands
+### Phase 40: Shell Completions + Polish
+**Goal**: All v1.8 commands and flags are discoverable via tab completion and codebase is structurally clean
+**Depends on**: Phases 36, 37, 38, 39 (all command signatures must be finalized first)
+**Requirements**: DEBT-03, DEBT-04
+**Success Criteria** (what must be TRUE):
+  1. Tab completion for bash, zsh, and fish includes `fleet`, `notify`, and the `--fix`, `--force`, `--sort` flags added in v1.8
+  2. `audit` and `evidence` commands and their flags (`--schedule`, `--trend`, `--days`) are present in completion scripts
+  3. `postSetup` is decomposed into separate bare and platform functions with no behavioral change to provisioning
+**Plans**: TBD
 
 ## Paralel Track: kastell.dev Website
 
-> v1.5 (audit) ile paralel — audit publish oldugunda website hazir olmali.
-
-- [ ] Logo kesinlesmeli (website oncesi)
-- [ ] kastell.dev website (ayri repo)
-- [ ] kastell.dev acilinca -> GitHub + npm homepage'e kastell.dev koy
-- [ ] quicklify.omrfc.dev -> kastell.dev redirect yap, sonra kapat
+- [x] Logo kesinlesti
+- [x] kastell.dev website kuruldu
+- [x] GitHub + npm homepage'e kastell.dev konuldu
+- [x] quicklify.omrfc.dev -> kastell.dev redirect yapildi
 
 ## Backlog (Hook'lar)
 
@@ -247,13 +235,15 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-27. Prior milestones | v1.2.0-v1.6 | All | Complete | 2026-03-11 |
-| 28. Lock | 2/2 | Complete    | 2026-03-14 | - |
-| 29. Backup Schedule | 2/2 | Complete    | 2026-03-14 | - |
-| 30. Guard Daemon | 2/2 | Complete    | 2026-03-14 | - |
-| 31. Risk Trend | 2/2 | Complete    | 2026-03-14 | - |
-| 32. Doctor | 2/2 | Complete    | 2026-03-14 | - |
-| 33. MCP + Completions | 2/2 | Complete    | 2026-03-14 | - |
+| 28-33. Guard Core | v1.7 | 12/12 | Complete | 2026-03-14 |
+| 34. Layer Violation Fix | v1.8 | 0/TBD | Not started | - |
+| 35. Adapter Deduplication | v1.8 | 0/TBD | Not started | - |
+| 36. Notification Module | v1.8 | 0/TBD | Not started | - |
+| 37. Doctor Fix | v1.8 | 0/TBD | Not started | - |
+| 38. Fleet Visibility | v1.8 | 0/TBD | Not started | - |
+| 39. Guard Notification Integration | v1.8 | 0/TBD | Not started | - |
+| 40. Shell Completions + Polish | v1.8 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-03-14 — Phase 33 MCP + Completions planned (2 plans, 1 wave)*
+*Last updated: 2026-03-14 — v1.8 Fleet + Notifications roadmap created*

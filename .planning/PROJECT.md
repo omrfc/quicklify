@@ -76,22 +76,36 @@ Autonomous server security and maintenance across multiple cloud providers. Guar
 - ✓ Forensic evidence collection (`kastell evidence`) with SHA256 manifest — v1.6
 - ✓ MCP server_evidence tool — v1.6
 - ✓ PlatformAdapter contract documentation + 40 conformance tests — v1.6
+- ✓ `kastell lock --production` — one-command server hardening (SSH, fail2ban, UFW, sysctl, unattended-upgrades) — v1.7
+- ✓ `kastell backup --schedule` — remote cron backup scheduling with overlap protection — v1.7
+- ✓ `kastell guard` — autonomous security monitoring daemon (remote cron, metric collection) — v1.7
+- ✓ `kastell audit --trend` — risk trend with per-check cause attribution — v1.7
+- ✓ `kastell doctor` — proactive operations intelligence (7 checks, cached snapshots) — v1.7
+- ✓ MCP tools for guard/doctor/lock — v1.7
 
 ### Active
 
-<!-- Next milestone: v1.7 Guard Core -->
+## Current Milestone: v1.8 Fleet + Notifications
 
-- [ ] `kastell guard` — autonomous security monitoring daemon
-- [ ] `kastell lock --production` — one-command server hardening
+**Goal:** Multi-server fleet visibility, multi-channel notifications for guard alerts, doctor auto-remediation, and tech debt cleanup — making Kastell operationally complete for multi-server environments.
+
+**Target features:**
+- `kastell fleet` — multi-server visibility (status, audit, health across all servers)
+- Multi-channel notifications (Telegram/Discord/Slack/Email) for guard/doctor alerts
+- `kastell doctor --fix` — auto-remediation prompts with executable fix commands
+- Tech debt cleanup (adapter duplication, layer violation, shell completions, postSetup decomposition)
+
+<!-- v1.8 scope -->
+
 - [ ] `kastell fleet` — multi-server visibility
-- [ ] `kastell doctor` — proactive operations intelligence
 - [ ] Multi-channel notifications (Telegram/Discord/Slack/Email)
-- [ ] Backup scheduling (`backup --schedule`)
-- [ ] Risk trend with cause analysis
+- [ ] `kastell doctor --fix` — auto-remediation prompts
+- [ ] Tech debt cleanup (adapter duplication, layer violation, shell completions)
 
 ### Planned (Kastell Roadmap)
 
-- **v1.7** — Guard Core: `kastell guard`, `kastell lock`, `kastell fleet`, `kastell doctor`, bildirimler, backup --schedule, risk trend
+- **v1.8** — Fleet + Notifications + Doctor --fix + Tech Debt cleanup
+- **v1.9** — Audit Genisleme (45→400+ check, 20+ kategori, Lynis'i gecmek, compliance mapping)
 - **v2.0** — Plugin ekosistemi (Claude Code marketplace + cross-platform SKILL.md)
 - **v3.0** — Web dashboard (premium) + managed servis ($49/$99/$299+)
 
@@ -104,14 +118,14 @@ Autonomous server security and maintenance across multiple cloud providers. Guar
 ## Context
 
 - **Brand**: Kastell (kastell.dev, npm: kastell, GitHub: kastelldev)
-- **Current npm**: `kastell` v1.5.2 published, `quicklify` deprecated
-- 25 CLI commands + 9 MCP tools (incl. `kastell audit`, `kastell evidence`, `server_audit`, `server_evidence`)
-- 2687 tests across 124 suites (95%+ coverage)
+- **Current npm**: `kastell` v1.7.0 published, `quicklify` deprecated
+- 26 CLI commands + 12 MCP tools
+- 3038 tests (~95%+ coverage)
 - CI: GitHub Actions (3 OS x 2 Node versions = 6 matrix)
-- Codebase: ~18,850 LOC TypeScript
+- Codebase: ~20,000+ LOC TypeScript
 - Architecture: Commands (thin wrappers) -> Core (business logic) -> Providers (plugin) / Adapters (platform)
 - Supports three server modes: `coolify` (default), `dokploy`, and `bare` (generic VPS)
-- v1.6 shipped: audit snapshots/diff/compare, forensic evidence, infrastructure hardening, adapter docs
+- v1.7 shipped: guard daemon, lock hardening, backup scheduling, risk trend, doctor, 3 MCP tools
 - **Target audience**: Indie hackers (Y1) -> Micro-DevOps teams (Y2) -> SaaS compliance (Y3)
 
 ### CLAUDE.md Yapisi (2026-03-05 yeniden yapilandirildi)
@@ -186,10 +200,10 @@ IF-ELSE router pattern uygulandi — context bloat onleme:
 | Command | Purpose | Version |
 |---------|---------|---------|
 | `kastell audit` | Free security scan + actionable fix commands | v1.5 |
-| `kastell lock --production` | One-command server hardening | v2.0 |
-| `kastell guard` | Autonomous security daemon | v2.0 |
-| `kastell fleet` | Multi-server visibility | v2.0 |
-| `kastell doctor` | Proactive operations intelligence | v2.0 |
+| `kastell lock --production` | One-command server hardening | v1.7 |
+| `kastell guard` | Autonomous security daemon | v1.7 |
+| `kastell fleet` | Multi-server visibility | v1.8 |
+| `kastell doctor` | Proactive operations intelligence | v1.7 |
 | `kastell provision` | Server provisioning (current Quicklify) | v1.3 |
 | `kastell uninstall` | Clean removal (trust guarantee) | v2.0 |
 | `kastell dashboard` | Web UI monitoring (premium) | v3.0 |
@@ -245,18 +259,12 @@ All simple statistics + cron. No AI/ML. Deterministic and predictable.
 - **Enterprise term** (future): "Infrastructure Integrity Layer" — not for Year 1
 - **Positioning**: Coolify deploys. Docker runs. Kastell protects.
 
-## Current Milestone: v1.7 Guard Core
+## Current State
 
-**Goal:** Build autonomous security monitoring, one-command hardening, multi-server fleet visibility, and proactive operations intelligence with multi-channel notifications.
+**Shipped:** v1.7.0 (2026-03-14)
+**Active milestone:** v1.8 Fleet + Notifications
 
-**Target features:**
-- `kastell guard` — autonomous security monitoring daemon
-- `kastell lock --production` — one-command server hardening
-- `kastell fleet` — multi-server visibility
-- `kastell doctor` — proactive operations intelligence
-- Multi-channel notifications (Telegram/Discord/Slack/Email)
-- Backup scheduling (`backup --schedule`)
-- Risk trend with cause analysis
+v1.7 delivered guard daemon, lock hardening, backup scheduling, risk trend, and doctor — establishing guard as the core Kastell value driver. Fleet and notifications deferred to v1.8.
 
 ---
-*Last updated: 2026-03-14 after v1.7 milestone start*
+*Last updated: 2026-03-14 after v1.8 milestone start*

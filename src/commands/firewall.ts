@@ -17,6 +17,7 @@ import {
   buildBareFirewallSetupCommand,
   buildUfwStatusCommand,
   parseUfwStatus,
+  firewallSetup,
 } from "../core/firewall.js";
 export {
   PROTECTED_PORTS,
@@ -30,6 +31,7 @@ export {
   buildBareFirewallSetupCommand,
   buildUfwStatusCommand,
   parseUfwStatus,
+  firewallSetup,
 };
 import type { FirewallProtocol } from "../types/index.js";
 
@@ -77,52 +79,6 @@ export async function firewallCommand(
     case "status":
       await firewallStatusCheck(server.ip, server.name);
       break;
-  }
-}
-
-export async function firewallSetup(
-  ip: string,
-  name: string,
-  dryRun: boolean,
-  isBare?: boolean,
-  platform?: import("../types/index.js").Platform,
-): Promise<void> {
-  const command = isBare ? buildBareFirewallSetupCommand() : buildFirewallSetupCommand(platform);
-
-  if (dryRun) {
-    logger.title("Dry Run - Firewall Setup");
-    logger.info(`Server: ${name} (${ip})`);
-    console.log();
-    logger.info("Commands to execute:");
-    for (const cmd of command.split(" && ")) {
-      logger.step(cmd);
-    }
-    console.log();
-    logger.warning("No changes applied. Remove --dry-run to execute.");
-    return;
-  }
-
-  const spinner = createSpinner("Setting up firewall...");
-  spinner.start();
-
-  try {
-    const result = await sshExec(ip, command);
-    if (result.code !== 0) {
-      spinner.fail("Failed to setup firewall");
-      if (result.stderr) logger.error(result.stderr);
-      return;
-    }
-    spinner.succeed("Firewall configured successfully");
-    if (isBare) {
-      logger.success(`UFW enabled with web ports (${BARE_PORTS.join(", ")}) + SSH (22)`);
-    } else {
-      logger.success(`UFW enabled with Coolify ports (${COOLIFY_PORTS.join(", ")}) + SSH (22)`);
-    }
-  } catch (error: unknown) {
-    spinner.fail("Failed to setup firewall");
-    logger.error(getErrorMessage(error));
-    const hint = mapSshError(error, ip);
-    if (hint) logger.info(hint);
   }
 }
 

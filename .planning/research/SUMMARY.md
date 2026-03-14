@@ -1,17 +1,17 @@
 # Project Research Summary
 
-**Project:** Kastell v1.7 Guard Core
-**Domain:** Autonomous server security monitoring, one-command hardening, multi-server visibility, proactive operations intelligence
+**Project:** Kastell v1.8 — Fleet + Notifications + Doctor --fix + Tech Debt
+**Domain:** CLI security toolkit — multi-server fleet visibility, multi-channel notifications, doctor auto-remediation
 **Researched:** 2026-03-14
-**Confidence:** HIGH
+**Confidence:** HIGH — all findings based on direct codebase analysis + live npm registry verification
 
 ## Executive Summary
 
-Kastell v1.7 Guard Core is an autonomous security monitoring milestone built on top of v1.6's audit foundation. The research confirms a lean, dependency-minimal approach: only `croner` (cron scheduling inside the guard daemon) and conditionally `nodemailer` (SMTP email) are new production dependencies. All other capabilities — Telegram, Discord, Slack notifications; fleet aggregation; doctor intelligence; lock hardening; risk trend analysis — are implemented via Node.js built-ins and Axios (already in the stack). The guard daemon runs as a scheduled cron entry on the remote VPS (not as a local background process), which is the architecturally correct separation for a CLI tool and avoids the complexity of systemd, launchd, or PM2.
+Kastell v1.8 is an additive release built entirely on the v1.7 foundation. The four capabilities targeted — fleet multi-server visibility, multi-channel alert notifications, doctor interactive auto-fix, and structural tech debt cleanup — require only one new npm dependency (`p-limit` for SSH concurrency control). Every other building block is already present: `axios` covers Telegram/Discord/Slack webhooks, `nodemailer` was added in v1.7 scope for email, `Inquirer.js` handles doctor --fix prompts, and `Promise.allSettled` is the idiomatic pattern for parallel server operations. This is a low-dependency, high-integration milestone.
 
-The recommended build order is: notifications first (guard depends on it), then lock and backup schedule (independent, fast wins), then guard daemon and risk trend, then fleet and doctor last (doctor requires metric history that guard collects). This dependency-aware ordering is consistent across all three research dimensions — FEATURES.md, ARCHITECTURE.md, and PITFALLS.md all converge on the same 3-phase grouping. Approximately 1,550 new lines of TypeScript across 17 new files, zero new dependencies for the core happy path (Telegram + Discord + Slack), and a single optional dependency for email.
+The recommended architecture is extension, not greenfield. `core/notify/` is a new module with a `NotificationChannel` interface and four thin channel implementations. `core/fleet.ts` aggregates existing per-server functions (`checkServerStatus`, `loadAuditHistory`) under a concurrency cap. `doctor --fix` adds `runAutoFix()` to the existing `core/doctor.ts` and a `--fix` flag to the thin command wrapper. Guard notification dispatch happens client-side: `kastell guard status` reads the remote breach log and calls `dispatchNotification()` from the user's machine — keeping credentials in `~/.kastell/notify.json` (0o600) rather than on the VPS.
 
-The top risks are operational rather than architectural: crontab idempotency failure (duplicate guard entries), SSH lockout from `kastell lock` (password auth disabled before key auth is verified), partial hardening state if SSH drops mid-sequence, and silent notification delivery failure. All four have clear, tested mitigations documented in PITFALLS.md. The existing codebase patterns (`withFileLock`, `withRetry`, `KastellResult<T>`, `Promise.allSettled`) apply directly to every new module — this milestone is greenfield within a mature, consistent codebase.
+The three non-negotiable safety rules that must be encoded before any feature code ships: (1) `Promise.allSettled` with `p-limit(5)` for all fleet SSH operations — never sequential `for...of`; (2) per-finding explicit confirmation gate before `sshExec` in doctor --fix — never auto-execute, particularly destructive commands like `docker system prune`; (3) per-breach-type cooldown state for notifications — without it the guard's 5-minute cron cadence creates alert storms. Tech debt cleanup (layer violation, adapter duplication) must land first to avoid building on a broken foundation.
 
 ---
 
@@ -19,131 +19,131 @@ The top risks are operational rather than architectural: crontab idempotency fai
 
 ### Recommended Stack
 
-The existing stack requires only one unconditional new dependency. `croner` (^10.0.1) is the scheduler for the guard daemon's internal cron loop — pure ESM, zero transitive dependencies, bundled TypeScript types, actively maintained. All notification channels (Telegram, Discord, Slack) are plain HTTP POST requests handled by Axios. `nodemailer` (^8.0.2, CJS, same interop pattern as `@napi-rs/keyring`) is conditionally added for SMTP email. Every other v1.7 feature — daemon lifecycle, fleet aggregation, doctor checks, lock hardening, risk trend — uses Node.js built-ins or existing codebase utilities.
+The existing stack handles v1.8 completely with one addition. `p-limit ^7.3.0` is the sole new production dependency — it is pure ESM, has bundled TypeScript types, zero transitive dependencies, and prevents OS file descriptor exhaustion when running parallel SSH across a fleet. `nodemailer` and `@types/nodemailer` were already added in v1.7 research and are confirmed present. All three webhook-based notification channels (Telegram, Discord, Slack) use `axios` which is already a project dependency.
 
 **Core technologies:**
-- `croner` ^10.0.1: cron scheduling inside guard daemon — only ESM-native, zero-dep, bundled-types scheduler available; `node-cron` v4 is CJS-only
-- `nodemailer` ^8.0.2 + `@types/nodemailer` ^7.0.11: SMTP email channel — conditional, same CJS interop pattern already established in codebase
-- `child_process.spawn({detached: true})` + PID file: daemon lifecycle management — cross-platform, no PM2 needed
-- `Promise.allSettled` (built-in): fleet parallel SSH fan-out with failure isolation — already used in codebase
-- `axios` (existing): all three webhook notification channels — Telegram Bot API, Discord webhook, Slack webhook each require only a JSON POST
+- `p-limit ^7.3.0`: SSH concurrency cap for fleet — pure ESM, 170M weekly downloads, Node >=18 compatible
+- `axios` (existing): Telegram Bot API, Discord webhooks, Slack incoming webhooks — plain HTTP POST, no bot frameworks needed
+- `nodemailer ^8.0.2` (v1.7 scope): SMTP email notifications — CJS-in-ESM via Node 20 interop, same pattern as `@napi-rs/keyring`
+- `Promise.allSettled` (native): multi-server fan-out — never `Promise.all`; one offline server must not block the rest
+- `Inquirer.js` (existing): doctor --fix confirmation prompts — checkbox and confirm types already in stack
 
-**What NOT to add:** PM2, `node-cron` (CJS-only v4), `node-schedule` (3 transitive deps), `telegraf`/`discord.js`/`@slack/bolt` (full bot frameworks), `better-sqlite3` (JSON files sufficient), `winston`/`pino` (append-only log file sufficient for v1.7).
+**What NOT to add:** `p-queue`, `cli-table3`, `@slack/webhook`, `telegraf`, `discord.js`, `winston` — each is overkill or wraps functionality already available in the stack.
 
 ### Expected Features
 
-All seven v1.7 features are confirmed as user-expected or differentiating. The target audience (indie hackers, micro-DevOps teams) has no existing tool that combines autonomous security monitoring, audit-score-aware fleet visibility, and proactive operations intelligence in a single CLI.
-
 **Must have (table stakes):**
-- `kastell guard start/stop/status` — daemon lifecycle is mandatory; a silent guard defeats the purpose
-- Threshold alerts (disk, RAM, CPU) — expected behavior for any monitoring tool
-- At least one notification channel at launch (Telegram recommended as most common for indie hackers)
-- `kastell lock --production` — idempotent one-command hardening bundle
-- `kastell fleet` — multi-server overview; per-server-only commands are insufficient for 3+ server users
-- `backup --schedule` — top requested feature after users see backup works
-- Risk trend in `kastell audit --trend` — audit history exists from v1.5; surfacing it is expected
+- `kastell fleet` with health + cached audit score per server — the only tool combining security posture with health in a CLI context
+- Notification dispatch (Telegram + Discord minimum) wired to guard breach detection — guard runs silently without this
+- `kastell notify test <channel>` validation command — users need to verify config before relying on alerts
+- `kastell doctor --fix` interactive prompt — `DoctorFinding.command` already exists; this completes the detect-decide-act loop
+- Tech debt: adapter duplication + layer violation fix — must be resolved before v1.9 audit expansion touches those layers
 
-**Should have (differentiators):**
-- Risk trend with cause list ("score 62→68 because: fail2ban not running, PermitRootLogin not disabled") — trend without cause is called out in PROJECT.md as a first-class principle; trend number alone is unacceptable output
-- `kastell fleet` showing security audit score per server, not just uptime — no competitor does this
-- `kastell doctor` proactive recommendations — predict before it breaks, not just report what is broken now
-- `kastell lock` idempotency + platform-awareness (Coolify/Dokploy port safety)
-- Backup schedule overlap protection (flock-based lock file on server)
-- `kastell notify test <channel>` — verify notification config works before guard relies on it
+**Should have (competitive differentiators):**
+- Fleet shows cached audit score with timestamp, not live SSH audit — response under 10 seconds for 10 servers
+- Guard notification includes suggested fix command, not just alert text — competitors send "CPU HIGH" with nothing actionable
+- Multi-channel fan-out: ALL configured channels receive each alert simultaneously via `Promise.allSettled`
+- `kastell doctor suppress <finding-id>` — prevent auto-remediating intentional config deviations
+- `postSetup` decomposition (bare/platform split) — tech debt item targeting v1.8 velocity improvement
 
-**Defer to v1.8+:**
-- Email SMTP notifications (Telegram + Discord covers 80% of users in v1.7)
-- `kastell doctor --fix` auto-remediation prompts (get the report right first)
-- Fleet `--sort` and `--filter` flags beyond basic score sort
-- Slack/Discord bot commands (one-way push only in v1.7)
-- Fleet web dashboard (v3.0 territory)
-- Auto-remediation in guard (alert + suggestion, not auto-apply)
+**Defer to v1.8.x or v1.9:**
+- Email SMTP notifications — Telegram + Discord covers 80%+ of users; SMTP adds config complexity
+- Fleet `--sort`/`--filter` flags — basic table sufficient for v1.8.0
+- Fleet `--watch` live refresh — ncurses complexity for marginal gain
+- Doctor critical findings triggering automatic notification — defer until `--fix` is stable
+- Server-side notification push (curl in guard script) — deferred to v1.9; client-side polling is safer for credential security
 
 ### Architecture Approach
 
-v1.7 is a greenfield addition to a mature, layered codebase. The Commands (thin) -> Core (logic) -> Utils/Providers/Adapters structure is strictly maintained. Every new module follows established conventions: `KastellResult<T>` return types (never throw), `withFileLock` + atomic temp+rename for any config writes, plain function modules (not classes, per the composition-over-inheritance decision from v1.5 adapters), and `Promise.allSettled` for parallel fan-out with failure isolation. Three new config files in `~/.kastell/` (guard.json, notify.json, schedule.json), all at mode 0o600.
+v1.8 adds two new core modules (`core/fleet.ts`, `core/notify/`) and modifies five existing ones (`core/doctor.ts`, `core/guard.ts`, `commands/doctor.ts`, `adapters/coolify.ts`, `adapters/dokploy.ts`). The commands layer stays thin. Notification dispatch is client-side only in v1.8: `guardStatus()` detects breach lines in the remote log and calls `dispatchNotification()` from the user's machine, keeping webhook credentials in `~/.kastell/notify.json` (0o600) rather than embedded in the VPS guard script. Guard script injection of credentials is explicitly an anti-pattern — deploy as a separate sourced config file instead.
 
 **Major components:**
-1. `core/notify/` — channel-agnostic notification dispatcher with per-channel plain function modules; foundational dependency for guard and doctor
-2. `core/guard/` — daemon lifecycle (healthChecks, daemon orchestration); writes MetricSnapshot that doctor consumes
-3. `core/lock/` — pure config profiles + SSH hardening via single heredoc script; reuses existing `applySecureSetup`
-4. `core/fleet/` — parallel server aggregation via `Promise.allSettled`; reads cached audit history (no live audit per server)
-5. `core/doctor/` — analysis of cached snapshots and metric history; does NOT SSH on every invocation
-6. `core/trend/` — multi-point cause attribution on existing `audit-history.json`; extends v1.6 diff engine
-7. `core/schedule/` — cron expression validation + nextRun persistence; integrated into guard daemon loop
-8. 2 new MCP tools: `server_fleet`, `server_guard` (always built last, delegate to core)
+1. `core/fleet.ts` — parallel fan-out across registered servers using `Promise.allSettled` + `p-limit(5)`; reads `checkServerStatus` and `loadAuditHistory` (both existing, no signature changes)
+2. `core/notify/index.ts` + channel modules — `NotificationChannel` interface with four implementations; dispatch is `Promise.allSettled` across channels; failures log but never propagate
+3. `core/doctor.ts` (extended) — new `runAutoFix()` function; iterates `DoctorFinding[]` with per-finding confirmation; adds `fixSafe: boolean` field to distinguish destructive commands
+4. `adapters/shared.ts` (extended) — shared backup/restore template helpers extracted from coolify/dokploy (~80% duplication)
+5. `core/deploy.ts` (fixed) — layer violation removed; imports moved from `commands/firewall.ts` to `core/firewall.ts`
+6. `commands/completions.ts` (extended) — `fleet`, `notify`, `--fix` added to static completion strings
+
+**New config file:** `~/.kastell/notify.json` (mode 0o600) for channel credentials.
 
 ### Critical Pitfalls
 
-1. **Crontab not idempotent by default (P1)** — Use sentinel-comment pattern: `crontab -l | grep -v "kastell-guard" | { cat; echo "# kastell-guard-v1.7"; echo "*/5 * * * * ..."; } | crontab -`. Running `guard install` twice must result in exactly one entry. Test explicitly for idempotency.
+1. **Fleet sequential SSH** — `for...of` + `await sshExec` makes fleet unusable for 3+ servers (15s+). Use `Promise.allSettled` + `p-limit(5)` from the first commit; never sequential.
 
-2. **SSH lockout from lock command (P11)** — Before applying any SSH auth hardening, verify key auth works with `ssh -o PasswordAuthentication=no -o BatchMode=yes`. Abort with a clear error if key auth fails. Dry-run by default on first `lock` use.
+2. **Fleet partial failures silently swallowed** — filtering rejected results from `Promise.allSettled` hides unreachable servers. Every server must render a row with an UNREACHABLE state and error reason; total shown must equal total registered.
 
-3. **Partial hardening state on SSH drop (P2)** — Bundle ALL lock operations into a single SSH heredoc script (`ssh root@ip 'bash -s' < lock-script.sh`). Include `set -e` and `trap cleanup EXIT`. One connection, atomic apply, no partial state.
+3. **Guard script shell injection** — injecting bot tokens into the bash heredoc in `buildDeployGuardScriptCommand()` causes shell injection if credentials contain `$`, backticks, or newlines. Deploy credentials as `/root/.kastell-notify.conf` (chmod 600) via a separate `sshExec` call; guard script sources the file at runtime.
 
-4. **Cron minimal environment kills guard silently (P5)** — Guard cron entry must source a generated `guard-env.sh` with explicit PATH and all API tokens. Cron runs headless; the user's shell environment is completely absent.
+4. **Doctor --fix executes destructive commands without confirmation** — `docker system prune -a` on production can delete containers needed to restart stopped services. Add `inquirer.prompt` gate before every `sshExec`; tag `DoctorFinding` with `fixSafe: boolean`; destructive commands require confirmation even with `--force`.
 
-5. **Silent notification delivery failure (P4)** — Log every notify attempt and outcome to `/var/log/kastell-guard.log`. Sequential fallback chain (Telegram -> Discord -> Email). `kastell guard test-notify <ip>` validates all channels before guard depends on them.
+5. **Alert storms from repeat guard breaches** — guard runs every 5 minutes; same breach sends 72 Telegram messages in 6 hours. Implement per-breach-type cooldown in `/var/lib/kastell/notify-state.json`; default 1-hour window; single recovery notification when breach clears. Design cooldown before writing any channel HTTP code.
 
 ---
 
 ## Implications for Roadmap
 
-Based on research, the dependency graph and pitfall profile converge on a 3-phase structure. All three research files independently recommend the same grouping.
+Based on combined research, the build order is driven by two constraints: (a) tech debt must clear the foundation before new modules land on top, and (b) the notification module must exist before guard integration. Seven phases are suggested.
 
-### Phase 1: Notifications + Lock + Backup Schedule
+### Phase 1: Tech Debt — Layer Violation Fix
+**Rationale:** `core/deploy.ts` currently imports from `commands/firewall.ts` and `commands/secure.ts` — an upward layer violation. Fleet and future core modules will import from `core/deploy.ts`. Adding fleet code on top of this violation embeds the mistake deeper. Fix this first, before any new code lands.
+**Delivers:** Clean core layer; commands become thin wrappers for their own logic; no behavioral change.
+**Addresses:** Tech debt item — layer violation (MEMORY.md, ARCHITECTURE.md build step 1).
+**Avoids:** Pitfall 11 — run full test suite before, move one function at a time, update test mocks in the same commit.
 
-**Rationale:** Notifications are a leaf dependency (no deps on other new modules) but block guard and doctor. Lock and backup schedule are fully independent of each other and of notifications — they can be built in parallel and deliver standalone value immediately. This phase has the lowest risk profile and produces three shippable features.
+### Phase 2: Tech Debt — Adapter Deduplication
+**Rationale:** `adapters/coolify.ts` and `adapters/dokploy.ts` share ~80% backup/restore code. v1.9 audit expansion will add more adapter operations — fixing duplication now prevents it compounding into a larger refactor later.
+**Delivers:** `adapters/shared.ts` with shared template helpers; no interface or behavior changes; all adapter tests pass.
+**Addresses:** Tech debt item — adapter duplication.
+**Avoids:** Pitfall 11 — each function moved individually; `npm test` after every move, not just at the end.
 
-**Delivers:** `kastell notify config/test`, `kastell lock --production`, `backup --schedule`
+### Phase 3: Notification Module
+**Rationale:** Guard integration depends on notifications. Building notifications as a standalone, independently testable module first allows `kastell notify test <channel>` to validate config before the guard wires it in. Cooldown design must happen here, not during guard integration.
+**Delivers:** `core/notify/` with `NotificationChannel` interface + Telegram + Discord + Slack + Email implementations; `~/.kastell/notify.json` at 0o600; `kastell notify test <channel>` command; per-breach-type cooldown state design.
+**Uses:** `axios` (existing), `nodemailer` (v1.7), `withRetry` from `utils/retry.ts` for rate-limit header parsing.
+**Avoids:** Pitfall 3 (guard injection — client-side dispatch only), Pitfall 5 (alert storm — cooldown designed here), Pitfall 6 (token plaintext — 0o600 + keychain pattern from `core/tokens.ts`), Pitfall 7 (Discord/Slack rate limits — header-driven, not hardcoded).
 
-**Addresses:** Table stakes for lock (idempotent hardening bundle) and backup (top user request after v1.5); notification foundation required for Phase 2 guard.
+### Phase 4: Doctor --fix
+**Rationale:** Independent of notifications and fleet. Small surface area. Extends the existing `DoctorFinding.command` field which was designed for this purpose. Delivers high user value (completes the detect-decide-act loop) with low risk.
+**Delivers:** `fixSafe: boolean` on `DoctorFinding`; `runAutoFix()` in `core/doctor.ts`; `--fix` and `--dry-run` flags on `kastell doctor`; per-finding `inquirer.prompt` confirmation gate.
+**Uses:** `Inquirer.js` (existing), `sshExec` (existing), `assertValidIp` (existing).
+**Avoids:** Pitfall 4 (destructive execution without confirmation), Pitfall 9 (auto-remediating intentional config — per-finding interactive prompts, no batch-apply).
 
-**Avoids:** P4 (notification silent failure — test command validates channels before guard uses them), P11 (SSH lockout — lock safety checks land here), P2 (partial hardening — single SSH heredoc script), P12 (credential storage permissions — notify.json at 0o600).
+### Phase 5: Fleet Visibility
+**Rationale:** Depends on clean core layer (Phase 1) and stable existing functions `checkServerStatus`/`loadAuditHistory`. Does not depend on notifications. Independent, high-value feature that validates multi-server data reading patterns.
+**Delivers:** `core/fleet.ts` + `commands/fleet.ts` + `mcp/tools/serverFleet.ts`; `kastell fleet` with health + cached audit score table; `--json` flag; UNREACHABLE state rendering; `p-limit(5)` concurrency cap.
+**Uses:** `p-limit ^7.3.0` (new sole dependency), `Promise.allSettled` (native), `checkServerStatus` (existing), `loadAuditHistory` (existing), Chalk + `String.padEnd()` for table formatting.
+**Avoids:** Pitfall 1 (sequential fleet SSH — `p-limit` from first commit), Pitfall 2 (partial failures silent — UNREACHABLE row required), Pitfall 8 (live SSH for fleet audit — cache-first, `--fresh` flag to override).
 
-**Research flag:** Standard patterns — skip `/gsd:research-phase`. Lock hardening step ordering and notification webhook patterns are fully documented.
+### Phase 6: Guard Notification Integration
+**Rationale:** Depends on notification module (Phase 3). The most complex integration — guard script version embedding, client-side breach detection, `dispatchNotification()` wiring. Implemented last among feature phases to avoid wiring in an incomplete notification module.
+**Delivers:** Guard script embeds `KASTELL_GUARD_VERSION="1.8.0"`; `guardStatus()` detects new breach lines and calls `dispatchNotification()`; version mismatch detection with redeploy prompt; notify-state.json preserved on guard script redeploy.
+**Avoids:** Pitfall 10 (guard script version mismatch — `guardStatus()` reads and compares version), Pitfall 3 (credential injection — client-side dispatch only, no secrets in bash heredoc).
 
-### Phase 2: Guard Daemon + Risk Trend
-
-**Rationale:** Guard is the core feature of this milestone ("Guard = heart" per PROJECT.md). It depends on the notification module from Phase 1. Risk trend is independent but belongs here because it enriches guard output (score regression alerts include cause list). Both features use existing v1.6 audit data structures with no new schema changes needed.
-
-**Delivers:** `kastell guard start/stop/status`, scheduled health + audit + notification loop, `kastell audit --trend` with cause attribution
-
-**Uses:** `croner` (daemon internal scheduling), `Promise.allSettled` (notification fan-out), existing `audit-history.json` and v1.6 diff engine
-
-**Implements:** `core/guard/daemon.ts`, `core/guard/healthChecks.ts`, `core/trend/trend.ts`, `utils/guardConfig.ts`, `core/schedule/schedule.ts` (wired into daemon loop)
-
-**Avoids:** P1 (duplicate cron entries — idempotent sentinel-comment install), P5 (cron environment — guard-env.sh sourcing), P10 (stale guard script — embed version, `guard update` command), P7 (trend without cause — category-delta attribution required, not optional), P16 (single snapshot crash — require 2+ snapshots, return null otherwise).
-
-**Research flag:** Guard daemon (remote cron script versioning strategy, cross-platform cron path resolution, guard-env.sh secure generation) may benefit from a `/gsd:research-phase` pass before implementation.
-
-### Phase 3: Fleet + Doctor
-
-**Rationale:** Fleet reads from existing audit history and guard's health check utilities — it is more useful after guard has been collecting data. Doctor requires MetricSnapshot history that the guard daemon writes; launching doctor before guard means doctor has no historical data to analyze. Both features are presentational layers on top of data Phases 1 and 2 produce.
-
-**Delivers:** `kastell fleet` (multi-server table with security score), `kastell doctor` (proactive findings from cached snapshots + metric history), 2 new MCP tools (`server_fleet`, `server_guard`)
-
-**Avoids:** P3 (fleet parallel SSH exhaustion — concurrency cap at 5, per-server timeout, `Promise.allSettled`), P8 (provider API thundering herd — SSH-only default tier, `--full` flag for cloud enrichment), P9 (doctor contradicts intentional config — check suppression via `~/.kastell/suppress.yaml`), P14 (doctor too slow — use cached snapshots by default, `--fresh` flag for live fetch), P13 (fleet unreadable at scale — compact one-row-per-server table, sort unhealthy first).
-
-**Research flag:** Standard patterns for fleet (parallel SSH with concurrency limit) and doctor (threshold rules, snapshot analysis). Skip `/gsd:research-phase`.
+### Phase 7: Shell Completions + Polish
+**Rationale:** All commands and flags are finalized only after Phases 1-6 complete. Purely additive, zero runtime impact. `postSetup` decomposition belongs here as a P2 item if capacity allows.
+**Delivers:** `fleet`, `notify`, `--fix` in `commands/completions.ts`; completions verified on bash, zsh, fish; optional `postSetup` decomposition.
 
 ### Phase Ordering Rationale
 
-- Notifications before guard: guard cannot alert without a tested notification path. Building and validating notifications independently prevents a silent-failure guard daemon from shipping.
-- Lock and backup schedule in Phase 1: both are independent of notifications, have immediate standalone user value, and have the simplest pitfall profile. Fast wins that keep the milestone moving while guard is under development.
-- Risk trend in Phase 2 with guard: trend uses the same audit history guard updates; wiring them together avoids a separate integration step later.
-- Doctor after guard: doctor's "trending full" and "backup age" recommendations require at least two MetricSnapshot entries separated by time. Shipping doctor before guard has collected data produces empty or misleading output.
-- Fleet after guard health checks: fleet reuses `core/guard/healthChecks.ts` for live disk/RAM probing. Building fleet after health checks are in place avoids duplicating SSH probe logic.
+- Tech debt first (Phases 1-2): the layer violation in `core/deploy.ts` must be resolved before fleet and future core modules add more imports; adapter deduplication prevents compounding before v1.9 lands on top
+- Notifications before guard integration (Phase 3 before Phase 6): guard wiring is the final consumer of the notification module; a half-built notification module would produce a silently broken guard
+- Fleet and doctor --fix (Phases 4-5) are independent of each other and of notifications — they could be reordered without consequence
+- Shell completions last (Phase 7): all command signatures must be finalized first
+- This order mirrors the build order recommended in ARCHITECTURE.md exactly
 
 ### Research Flags
 
-**Needs `/gsd:research-phase` during planning:**
-- Phase 2 — Guard daemon: remote cron script versioning strategy (how to propagate version tag to installed script), cross-platform cron path resolution (Ubuntu `/usr/local/bin/node` vs Alpine `/usr/bin/node`), and guard-env.sh secure generation with API token injection need careful specification before implementation.
+Phases likely needing deeper research during planning:
+- **Phase 3 (Notifications):** Cooldown state location (server-side `/var/lib/kastell/` vs client-side `~/.kastell/`) and guard-side vs client-side dispatch tradeoffs have non-obvious implementation choices. Discord/Slack rate limit header parsing patterns are service-specific and warrant a research-phase pass.
+- **Phase 6 (Guard Integration):** Guard script versioning strategy and client-side breach log polling frequency are design decisions with observable tradeoffs.
 
-**Standard patterns (skip `/gsd:research-phase`):**
-- Phase 1 — Notifications: HTTP webhook POST patterns are fully documented; lock hardening step ordering is well-established.
-- Phase 1 — Lock + Backup Schedule: both extend existing SSH command patterns; no new architectural unknowns.
-- Phase 3 — Fleet + Doctor: parallel SSH with concurrency limit and snapshot analysis are established patterns; no unknowns.
+Phases with standard patterns (skip research-phase):
+- **Phase 1 (Layer Violation Fix):** The correct pattern is established: move logic to core, commands become thin wrappers. Direct execution, no unknowns.
+- **Phase 2 (Adapter Dedup):** Template method / shared helpers is standard; risk is in test mock path updates, not design.
+- **Phase 4 (Doctor --fix):** Pattern already exists in `commands/guard.ts` (lines 22-35); replicate that `inquirer.prompt + --force` structure exactly.
+- **Phase 5 (Fleet):** All data sources are existing functions; `Promise.allSettled + p-limit` pattern is documented and verified.
+- **Phase 7 (Completions):** Static string additions only.
 
 ---
 
@@ -151,49 +151,44 @@ Based on research, the dependency graph and pitfall profile converge on a 3-phas
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | `croner` ESM/types/zero-dep verified; Telegram/Discord/Slack direct HTTP confirmed via official docs; nodemailer CJS interop matches existing `@napi-rs/keyring` pattern |
-| Features | HIGH | Feature scope confirmed against Kastell codebase, competitor landscape, and PROJECT.md strategic principles; dependency ordering verified from multiple research angles |
-| Architecture | HIGH | Based on direct source code analysis of existing codebase; all new modules follow patterns already proven in production |
-| Pitfalls | HIGH | Crontab idempotency, SSH lockout, cron environment, and silent notification failure all confirmed by external sources and codebase inspection |
+| Stack | HIGH | `p-limit` version verified live via `npm show`; existing stack confirmed in v1.7.0 release; nodemailer CJS interop is MEDIUM (not confirmed from official docs) |
+| Features | HIGH | All features extend existing v1.7 code; no new problem domains; `DoctorFinding.command` already present and populated |
+| Architecture | HIGH | Based on direct source analysis of v1.7 codebase; all integration points explicitly verified against actual files |
+| Pitfalls | HIGH | Codebase-verified integration risks; external service rate limits from official Discord/Slack docs |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **nodemailer ESM native support in v8:** v8.0.2 was published 2026-03-10 but official docs have not confirmed native ESM. The CJS interop via `import nodemailer from "nodemailer"` works (same pattern as `@napi-rs/keyring`). Verify before committing if email is in v1.7 scope. Low risk — the fallback pattern is proven.
-- **Guard script version propagation:** The mechanism for detecting and updating stale guard scripts on remote servers (P10) is specified at the concept level (version embed + `guard update` command) but the exact update strategy (full re-deploy vs patch) needs specification during Phase 2 planning.
-- **croner expression validation API:** ARCHITECTURE.md mentions `node-cron` for expression validation while STACK.md recommends `croner` for everything. Croner's own expression validation should be confirmed sufficient before adding any additional library. Standardize on croner only.
-- **Backup schedule storage location:** PITFALLS.md (P15) recommends adding `backupSchedule` to `ServerRecord` while ARCHITECTURE.md specifies a separate `schedule.json`. Resolve during Phase 1 planning. The cleaner pattern is separate `schedule.json` with a reference field in `ServerRecord` for display in `server list`.
+- **nodemailer ESM interop:** MEDIUM confidence only. nodemailer 8.0.2 is CJS; Node 20 interop is expected (same as `@napi-rs/keyring`) but not confirmed from official nodemailer docs. Validate with a spike import test before committing to the email channel implementation in Phase 3.
+- **Guard cooldown state location:** Research recommends `/var/lib/kastell/notify-state.json` (server-side, closer to guard script) vs `~/.kastell/guard-notify-state.json` (client-side, consistent with client-dispatch architecture). Resolve at the start of Phase 3 — the choice affects guard script changes in Phase 6.
+- **Doctor suppress command scope:** Whether `kastell doctor suppress <finding-id>` belongs in Phase 4 (v1.8.0) or v1.8.x is not definitively resolved. Include as P2 within Phase 4; ship only if it does not delay fleet and notifications.
+- **MCP tool parity:** `server_fleet` MCP tool is flagged as required. Verify the MCP tool registration pattern from v1.7 (`server_guard`, `server_doctor`, `server_lock`) and replicate exactly for fleet in Phase 5.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Kastell source code (direct analysis): `src/core/`, `src/utils/`, `src/adapters/`, `src/types/`, `src/constants.ts` — all integration points verified against actual files
-- [croner npm](https://www.npmjs.com/package/croner) — v10.0.1, ESM, zero-dep, bundled types confirmed
-- [Telegram Bot API](https://core.telegram.org/bots/api#sendmessage) — sendMessage endpoint, direct HTTP POST
-- [Slack Incoming Webhooks](https://api.slack.com/incoming-webhooks) — POST `{text}` to webhook URL
-- [Discord Webhooks Guide](https://inventivehq.com/blog/discord-webhooks-guide) — POST `{content}` to webhook URL
-- [Node.js child_process](https://nodejs.org/api/child_process.html) — `spawn({detached: true})` + `unref()` daemon pattern
-- [cronitor.io cron troubleshooting](https://cronitor.io/guides/cron-troubleshooting-guide) — 52% of cron failures are PATH/environment issues (P5)
-- [SSH hardening lockout risk](https://blog.zsec.uk/locking-down-ssh-the-right-way/) — verify key auth before disabling password auth (P11)
-- PROJECT.md: strategic principles (no AI/ML, deterministic thresholds, "trend always with why")
-- LESSONS.md: SSH timeout considerations, core functions need context (platform/mode)
+- `npm show p-limit version type exports` — verified 7.3.0, pure ESM, bundled types
+- `npm show nodemailer version` — verified 8.0.2
+- Kastell codebase v1.7.0 direct analysis: `src/core/guard.ts` (guard script notify stub, heredoc construction), `src/core/doctor.ts` (`DoctorFinding.command` field, cache-first orchestrator), `src/utils/config.ts` (atomic writes, 0o600 pattern), `src/core/tokens.ts` (keychain token pattern to reuse), `src/commands/guard.ts` (inquirer.prompt + --force pattern)
+- [Telegram Bot API](https://core.telegram.org/bots/api#sendmessage) — sendMessage via HTTP POST
+- [Slack Incoming Webhooks](https://api.slack.com/messaging/webhooks) — POST `{text}` to webhook URL
+- [Discord Rate Limits](https://docs.discord.com/developers/topics/rate-limits) — 5 req/2s per webhook; parse `X-RateLimit-*` headers; 404 = stop retrying
+- [p-limit GitHub](https://github.com/sindresorhus/p-limit) — ESM, bundled types, 170M weekly downloads
 
 ### Secondary (MEDIUM confidence)
-- [nodemailer npm](https://www.npmjs.com/package/nodemailer) — v8.0.2, CJS; ESM native status not confirmed by official docs at research date
-- [node-cron ESM Discussion #700](https://github.com/kelektiv/node-cron/issues/700) — CJS-only confirmed; reason `croner` was chosen
-- [Google SRE distributed cron](https://sre.google/sre-book/distributed-periodic-scheduling/) — idempotency as most valuable safety feature for scheduled jobs
-- [Linux server hardening idempotency](https://www.linux.com/topic/linux/linux-server-hardening-using-idempotency-ansible-part-2/) — idempotent hardening prevents intermediate states
-- [Slack rate limits](https://docs.slack.dev/apis/web-api/rate-limits/) — ~1 msg/s per webhook
-- [Discord webhook rate limits](https://birdie0.github.io/discord-webhooks-guide/other/rate_limits.html) — 5 req/2s
+- [Discord Webhooks Guide 2025](https://inventivehq.com/blog/discord-webhooks-guide) — POST `{content}` to webhook URL
+- [nodemailer ESM issue #1518](https://github.com/nodemailer/nodemailer/issues/1518) — CJS-only confirmed, Node 20 interop required
+- [Auto-Remediation Safety Guide](https://medium.com/@anudeepballa7/kill-the-pager-a-practical-guide-to-auto-remediation-and-self-healing-systems-f1507343f9f2) — Detect→Decide→Do; fail-safe defaults; idempotent and reversible
+- Coolify notification architecture (coolify.io/docs) — `NotificationProvider` interface design reference
+- [Discord webhook rate limits guide](https://birdie0.github.io/discord-webhooks-guide/other/rate_limits.html) — failed requests count against quota
 
-### Tertiary (LOW confidence)
-- [Better Stack: Comparing Node.js Schedulers](https://betterstack.com/community/guides/scaling-nodejs/best-nodejs-schedulers/) — library comparison, validates croner selection
-- [Crontab idempotency (Ansible issue #37355)](https://github.com/ansible/ansible/issues/37355) — overwrite vs append pattern; confirms sentinel-comment approach
+### Tertiary (MEDIUM confidence, needs validation)
+- [Slack 2025 Rate Limit Changes](https://api.slack.com/changelog/2025-05-terms-rate-limit-update-and-faq) — new limits for non-Marketplace apps; parse `Retry-After` on all 429s
+- [Webhook Security 2026](https://www.hooklistener.com/learn/webhook-security-fundamentals) — token storage and rotation patterns
 
 ---
-
 *Research completed: 2026-03-14*
 *Ready for roadmap: yes*

@@ -1,341 +1,389 @@
-# Domain Pitfalls: Kastell v1.7 Guard Core
+# Pitfalls Research
 
-**Domain:** Adding guard daemon, lock hardening, fleet visibility, doctor intelligence, multi-channel notifications, backup scheduling, and risk trend analysis to existing TypeScript CLI + MCP server management tool
+**Domain:** Kastell v1.8 — adding fleet visibility, multi-channel notifications, doctor auto-fix, tech debt cleanup to existing TypeScript ESM CLI + SSH + guard daemon
 **Researched:** 2026-03-14
-**Confidence:** HIGH (codebase inspection + web research + established patterns from v1.6)
+**Confidence:** HIGH (codebase-verified integration risks + web research on external services)
 
 ---
 
 ## Critical Pitfalls
 
-### P1: Crontab Deployment Is Not Idempotent by Default
+### Pitfall 1: Fleet Sequential SSH Makes the Feature Unusable
 
-**What goes wrong:** `kastell guard install <ip>` installs the guard cron entry by SSHing in and running `crontab -e` or appending to the crontab. Every subsequent `guard install` call (for re-install, update, or retry) APPENDS a new cron entry instead of replacing the existing one. The server ends up with 3-10 duplicate `kastell-guard` cron entries all running simultaneously, causing multiple parallel alert floods.
+**What goes wrong:**
+`kastell fleet status` iterates servers with a sequential `for...of` loop and `await sshExec()` inside it. With 5 servers at 3s SSH latency each, the command takes 15+ seconds. Users cancel and conclude the feature is broken or too slow to use.
 
-**Why it happens:** The standard `crontab -l | crontab -` append pattern does not check for duplicates. The existing `sshExec()` pattern (single command, return stdout) is naturally append-friendly. Nothing in the current codebase has guard/cron logic yet, so there is no existing pattern to follow.
+**Why it happens:**
+Every existing Kastell core function operates on a single server: `resolveServer()` → `sshExec()` → display. Applying the same pattern to N servers in a loop is the path of least resistance. Fleet is the first feature that requires concurrent SSH.
 
-**Consequences:**
-- Guard runs N times per interval (N = number of installs). One cron entry fires every 5 min; 5 duplicate entries fire every minute.
-- Notification flood: users get 5 identical Telegram alerts per event.
-- Cannot remove guard cleanly — `kastell guard uninstall` must know how many copies exist.
+**How to avoid:**
+Use `Promise.allSettled()` for concurrent SSH per server. Add a concurrency cap at 3-5 simultaneous SSH connections to avoid exhausting the OS file descriptor limit (`child_process.execFile` spawns one process per call). Show a spinner with live progress (`N/M checked`). Use `Promise.allSettled` not `Promise.all` — one unreachable server must never abort the entire fleet.
 
-**Prevention:**
-1. Use the sentinel-comment pattern: every guard cron entry is preceded by `# kastell-guard-v1.7`. Install logic: `crontab -l 2>/dev/null | grep -v "kastell-guard" | { cat; echo "# kastell-guard-v1.7"; echo "*/5 * * * * /path/to/guard.sh >> /var/log/kastell-guard.log 2>&1"; } | crontab -`
-2. This command is idempotent: removes all existing kastell-guard entries, then adds exactly one.
-3. Test for idempotency: run `guard install` 3 times in sequence and confirm only one cron entry exists each time.
-4. `guard status` should show entry count — if count > 1, warn and self-heal.
+```typescript
+// Pattern to use
+import pLimit from 'p-limit';
+const limit = pLimit(5);
+const results = await Promise.allSettled(
+  servers.map(s => limit(() => checkServerStatus(s)))
+);
+// Render fulfilled and rejected separately
+```
 
-**Detection:** Run `kastell guard install <ip>` twice. SSH in and run `crontab -l | grep kastell`. If two entries appear, idempotency is broken.
+**Warning signs:**
+`for...of` loop with `await sshExec()` inside. `Promise.all()` (throws on first rejection). Fleet output count does not match `kastell config list` count.
 
-**Phase:** Guard daemon (earliest phase).
-
----
-
-### P2: Lock Command Leaves Server in a Broken Intermediate State
-
-**What goes wrong:** `kastell lock --production` applies multiple hardening steps sequentially over SSH: disable password auth → configure fail2ban → restrict sudo → set kernel parameters → configure UFW. If the SSH connection drops mid-sequence (network blip, server overload, sshd restart from the hardening itself), the server is partially hardened in an undefined state. Some settings are applied, others are not. Running `lock` again may fail because some prerequisites are already changed.
-
-**Why it happens:** The existing `sshExec()` fires one SSH command at a time. Each hardening step is a separate SSH call. There is no transaction concept — no rollback if step 4 of 10 fails. The existing `secure.ts` has the same sequential pattern (it's a known limitation that was acceptable for setup, not for production hardening).
-
-**Consequences:**
-- PasswordAuthentication is disabled but fail2ban is not running: locked-out risk if an attacker brute-forces the remaining time window.
-- If sshd restarts mid-sequence, Kastell loses its SSH connection and cannot finish.
-- `kastell audit` will show partial hardening as regressions.
-
-**Prevention:**
-1. Bundle ALL lock operations into a SINGLE SSH command (heredoc script): `ssh root@ip 'bash -s' < lock-script.sh`. The lock script runs entirely server-side — one SSH connection, no mid-sequence drops.
-2. Write the lock script to stdout and pipe it: no file written to server except the lock record.
-3. Include `set -e` in the lock script — any step failure aborts the rest. Add a `trap cleanup EXIT` that restores the last known state on failure.
-4. Write a lock state file on the server (`/etc/kastell-lock.json`) after successful completion. `kastell lock` checks this before running: if partial state detected, show which steps succeeded and offer `--resume` or `--force-reset`.
-5. Run `sshd -t` (config test) before restarting sshd — catch config errors before applying.
-
-**Detection:** Interrupt the SSH connection mid-way through a `lock` command (kill the SSH process). Check server state. If SSH access still works but the server is partially hardened, rollback is missing.
-
-**Phase:** Lock command.
+**Phase to address:**
+Fleet visibility — establish concurrency before any other fleet work.
 
 ---
 
-### P3: Fleet Parallel SSH Opens Too Many Connections — Node.js Process Hangs
+### Pitfall 2: Fleet Partial Failures Silently Swallowed
 
-**What goes wrong:** `kastell fleet status` must check N servers. The naive implementation `Promise.all(servers.map(s => checkServer(s)))` fires all SSH connections simultaneously. With 20 servers, this opens 20 parallel SSH processes. The existing `sshExec()` uses `child_process.execFile` (spawns a new process per call). At 20+ parallel processes, the OS hits file descriptor limits, some SSH processes fail to connect, and the Node.js event loop stalls waiting for orphaned child processes.
+**What goes wrong:**
+`Promise.allSettled()` is used but `rejected` results are filtered out before rendering. Fleet shows 4 servers healthy, silently omits the 1 that timed out. User believes the fleet is fine.
 
-**Why it happens:** The current codebase makes one SSH call at a time — commands, audit, evidence all operate on a single server. The existing `withRetry` and `withProviderErrorHandling` are designed for sequential API calls, not parallel SSH spawning. Fleet is the first feature that requires concurrent SSH connections.
+**Why it happens:**
+Rendering errors alongside successes requires a distinct visual state that is easy to skip in a first pass. The existing `KastellResult<T>` pattern returns `success: false` for failures — but fleet aggregation must surface those per-server, not drop them.
 
-**Consequences:**
-- Node.js process hangs indefinitely with no output.
-- Some fleet checks succeed while others silently timeout, producing an incomplete report with no indication of which servers were skipped.
-- OS-level SSH multiplexing may fail because too many ControlMaster sockets compete.
+**How to avoid:**
+Fleet output must have a distinct visual state per server: OK, WARN, FAIL, UNREACHABLE. A failed server row must appear with its error reason (e.g., "SSH timeout after 30s"), not disappear. Total shown must equal total registered. Final summary: `15 healthy, 2 unreachable, 1 critical`.
 
-**Prevention:**
-1. Implement a concurrency limiter: `p-limit` (or a 15-line rolling window) capping simultaneous SSH connections at 5. This is NOT `Promise.all` — it is a queue.
-2. Each fleet SSH call must have an explicit timeout (use the existing `SSH_EXEC_TIMEOUT_MS` pattern: 30s for status, 60s for detailed metrics).
-3. Catch per-server failures independently: one server's SSH failure must not reject the entire fleet promise. Use `Promise.allSettled` not `Promise.all`.
-4. Report partial results: "15/20 servers checked. 3 unreachable (timeout), 2 connection refused."
-5. Add a `--concurrency <n>` flag for power users managing 50+ server fleets.
+**Warning signs:**
+Output row count is less than `kastell config list` count when a server is unreachable. Any use of `.filter(r => r.status === 'fulfilled')` without rendering the rejected entries.
 
-**Detection:** Add 10 servers to Kastell config. Run `kastell fleet status`. If the process hangs or exits with an error referencing the first failed server, concurrency control is missing.
-
-**Phase:** Fleet command.
+**Phase to address:**
+Fleet visibility — design the result renderer before writing SSH logic.
 
 ---
 
-### P4: Notification Delivery Failure Silently Drops Alerts
+### Pitfall 3: Guard Script Notification Injection Creates Shell Injection Vector
 
-**What goes wrong:** `kastell guard` sends alerts via Telegram/Discord/Slack when a threshold is crossed (disk > 80%, new fail2ban ban, audit regression). If the notification delivery fails (network timeout, expired token, rate limit), the failure is silently swallowed. The guard cron job exits successfully, the user sees no error, and the critical disk alert is never delivered.
+**What goes wrong:**
+In v1.8, Telegram bot token and chat ID will be injected into the guard bash script. The `buildDeployGuardScriptCommand()` function in `core/guard.ts` (line 80) constructs the script as an array of strings joined by `\n` and deployed via heredoc. If a credential value contains `$`, backticks, `"`, or newlines, the heredoc injection corrupts the script or executes arbitrary commands on the server.
 
-**Why it happens:** Notification is a "fire and forget" operation. The guard script will naturally use a pattern like `sendTelegram(...).catch(() => {})` to prevent notification failure from crashing the guard process. This is correct for process stability but wrong for alert reliability.
+**Why it happens:**
+The v1.7 guard script already has a `notify() { : }` stub at line 97 as the explicit injection point for v1.8. The temptation is to replace the stub body with interpolated credential values. This is directly adjacent to a string interpolation shell injection.
 
-**Consequences:**
-- User's server runs out of disk. Guard detected it. Guard tried to notify. Telegram token expired. Alert never delivered. User finds out when the server crashes.
-- Notification channel failures are invisible — no way to know if notifications are working without testing.
+**How to avoid:**
+Never inject secrets into the heredoc body. Instead:
+1. Deploy credentials as a separate config file (`/root/.kastell-notify.conf`) via a distinct `sshExec` call
+2. Write the conf file with `chmod 600` immediately after creation
+3. Have the guard script `source /root/.kastell-notify.conf` at runtime (keeps `buildDeployGuardScriptCommand()` static and testable)
+4. Escape any values written to the conf file using shell-safe quoting: `printf '%s' "$token"` not `echo $token`
 
-**Prevention:**
-1. Log all notification attempts and outcomes to a local log on the server (`/var/log/kastell-guard.log`): timestamp, channel, event, result (success/failed/rate-limited).
-2. Multi-channel with fallback ordering: if primary channel (Telegram) fails, try secondary (Discord), then Email. Not all channels simultaneously — sequential fallback.
-3. Implement `kastell guard test-notify <ip>` command: sends a test notification through all configured channels and reports which succeeded/failed.
-4. Rate limit awareness: Discord webhooks allow 5 requests/2s per webhook. Telegram allows ~30/s. Slack webhooks allow ~1/s. Guard fires at most once per event type per interval — do NOT batch alert types into one rapid burst.
-5. Never retry a failed notification inside the cron job script — the next cron run will re-evaluate. Retry adds complexity and can flood channels.
+**Warning signs:**
+Any code doing `${botToken}` or `${chatId}` inside the `lines[]` array in `buildDeployGuardScriptCommand()`. Credential values interpolated into the heredoc string.
 
-**Detection:** Set an invalid Telegram bot token. Run guard manually. Trigger a threshold event. Check if any error is visible to the user or logged anywhere. If the guard exits with code 0 and no log entry exists, silent failure is confirmed.
-
-**Phase:** Multi-channel notifications.
+**Phase to address:**
+Notifications phase, guard script integration step — first thing before writing any channel code.
 
 ---
 
-### P5: Cron Runs Guard in Minimal Environment — Guard Script Fails Silently
+### Pitfall 4: Doctor --fix Executes Destructive Commands Without Confirmation
 
-**What goes wrong:** The guard cron script calls `kastell audit`, `kastell status`, or provider APIs. These require environment variables (`KASTELL_HETZNER_TOKEN`, `KASTELL_DO_TOKEN`) and a resolved `PATH` (to find `kastell`, `node`, `docker`). Cron runs with a minimal `PATH=/usr/bin:/bin` and NO shell environment. The guard script exits with `command not found` — silently, because cron errors go to mail (which nobody reads on a VPS).
+**What goes wrong:**
+`kastell doctor --fix` auto-executes `DoctorFinding.command` values via `sshExec`. On a production server, `docker system prune -a` (the DOCKER_DISK finding) removes all unused images — including ones needed to restart currently-stopped containers. This causes unrecoverable data loss on production.
 
-**Why it happens:** This is the #1 cron pitfall (confirmed by multiple sources: 52% of "cron job not working" issues are PATH/environment failures). The existing Kastell CLI assumes it is run from an interactive shell or MCP context where the user's environment is loaded. Guard runs headless inside cron.
+**Why it happens:**
+`DoctorFinding.command` already contains the exact fix command. Running it via `sshExec(ip, finding.command)` is a one-line addition. The temptation to "just run it" is high. The existing doctor command intentionally only reports; `--fix` is the natural next step and carries all the risk.
 
-**Consequences:**
-- Guard daemon is "installed" and appears active (`crontab -l` shows the entry) but never actually does anything.
-- User thinks guard is protecting their server. It isn't.
+**How to avoid:**
+`kastell doctor --fix` must prompt per-finding before execution. For each finding: display severity, description, and the exact command that will run, then `[y/N]` prompt (default N). Add `--force` flag to skip prompts for CI. Implement `--dry-run` that shows what would run without executing. Follow the exact `inquirer.prompt` + `--force` guard pattern already in `commands/guard.ts` (lines 22-35). Never auto-execute findings of severity `critical` without explicit `--force`.
 
-**Prevention:**
-1. The guard cron entry MUST source the environment explicitly: `*/5 * * * * . /root/.kastell/guard-env.sh && /root/.kastell/guard.sh >> /var/log/kastell-guard.log 2>&1`
-2. `guard-env.sh` is generated by `kastell guard install` and contains: `export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`, `export KASTELL_HETZNER_TOKEN=...`, and any other required vars.
-3. The generated guard-env.sh must have permissions `0600` (it contains API tokens).
-4. `guard-env.sh` must use absolute paths for the node binary: `export NODE=/usr/bin/node` not relying on PATH for the runtime.
-5. Add a heartbeat check to `kastell guard status <ip>`: reads the last N lines of `/var/log/kastell-guard.log` and shows when guard last ran successfully. If last run > 2x the interval, warn "guard may not be running."
+**Warning signs:**
+`sshExec` called with `finding.command` without an intervening `inquirer.prompt`. No `--dry-run` option on the `doctor` Commander definition. No `--force` flag.
 
-**Detection:** Install guard on a server. Wait for 2 cron intervals. SSH in and run `cat /var/log/kastell-guard.log`. If the file is empty or shows "command not found" errors, environment setup is broken.
+**Phase to address:**
+Doctor --fix phase — establish safety gates first, implement execution second.
 
-**Phase:** Guard daemon.
+---
+
+### Pitfall 5: Notification Alert Storms from Repeat Guard Breaches
+
+**What goes wrong:**
+Guard runs every 5 minutes. Disk is at 82% for 6 hours. Guard sends 72 Telegram messages. The user mutes the notification channel. Kastell gets labelled as spam. The notification feature becomes counter-productive.
+
+**Why it happens:**
+The simplest implementation: breach detected → `notify()` called → HTTP POST to webhook. No state between runs. Each of 72 cron executions detects the same breach and posts.
+
+**How to avoid:**
+Implement per-breach-type cooldown state in a file on the server (`/var/lib/kastell/notify-state.json`). Structure: `{ "DISK": { "lastAlertAt": "2026-03-14T10:00:00Z" } }`. The guard script reads this file before sending, skips if last alert was within cooldown window (default 1 hour). Sends a single recovery notification when breach clears. Guard script redeploy must preserve existing notify-state.json rather than overwrite it.
+
+**Warning signs:**
+`notify()` function called unconditionally on breach detection. No state file read before sending. No cooldown logic in the guard script. Guard script redeploy overwrites `/var/lib/kastell/` directory.
+
+**Phase to address:**
+Notifications phase — design cooldown before writing any channel-specific HTTP code.
+
+---
+
+### Pitfall 6: Notification Tokens Stored Plaintext in Config File
+
+**What goes wrong:**
+Telegram bot tokens, Discord webhook URLs, SMTP credentials stored in `~/.kastell/notifications.json` with default file permissions (0o644). On shared or multi-user machines, any local user can read all notification credentials.
+
+**Why it happens:**
+A new `notifications.json` file can easily miss the `mode: 0o600` parameter that `config.ts` uses for `servers.json`. Notification credentials look like "just config values" but have secret semantics.
+
+**How to avoid:**
+Use the existing OS keychain pattern (`@napi-rs/keyring`, already used for provider tokens in `core/tokens.ts` and `core/tokenBuffer.ts`). Store bot tokens and SMTP passwords in keychain under `kastell-notify-<channel>`. For webhook URLs (lower sensitivity but still secret), use file storage at `0o600`. Reuse the exact `saveToken`/`getToken` pattern from `core/tokens.ts`. Never accept notification credentials as CLI flag arguments (they appear in shell history and `ps aux`).
+
+**Warning signs:**
+`writeFileSync('notifications.json', ...)` without explicit `{ mode: 0o600 }`. Any notification credential appearing in CLI option parsing (`--token`).
+
+**Phase to address:**
+Notifications phase, config storage step — before implementing any channel.
 
 ---
 
 ## Moderate Pitfalls
 
-### P6: Backup Schedule Creates Overlapping Runs
+### Pitfall 7: Discord and Slack Rate Limits Cause Notification Delivery Failures
 
-**What goes wrong:** `backup --schedule "every 6 hours"` installs a cron job that runs the backup. If a backup takes longer than 6 hours (large database, slow network, server under load), the next scheduled backup starts while the previous one is still running. Two backup processes write to the same `/tmp/coolify-backup.sql.gz` simultaneously, corrupting the archive.
+**What goes wrong:**
+Fleet sends alerts for multiple servers simultaneously. Discord webhooks allow 5 requests per 2 seconds. Slack webhooks allow approximately 1 per second. When 3 servers breach threshold at the same time (fleet event), notifications 4+ are rejected with 429. Failed requests still count against Discord's rate limit quota — retrying immediately makes it worse.
 
-**Why it happens:** Cron does not prevent overlapping executions. The existing `backup.ts` does not use any locking mechanism (only the config layer uses `withFileLock`). The backup process involves SCP download which can take minutes on large volumes.
+**Why it happens:**
+Multi-server fleet is the first scenario where multiple alerts can fire simultaneously. Single-server guard had no concurrent notification problem.
 
-**Prevention:**
-1. Use a lock file at the top of the backup script: `flock -n /tmp/kastell-backup.lock -c "actual_backup_command"`. If the lock is held, exit with code 0 (not an error — just skip this run).
-2. Log skipped runs: "Skipping backup: previous run still in progress."
-3. Use unique temp file names per run: `/tmp/kastell-backup-$(date +%s).sql.gz` instead of a fixed name. This prevents write collision even if locking fails.
-4. Set a max backup duration timeout: `timeout 3600 /path/to/backup.sh` — kills the backup after 1 hour and logs the timeout.
-5. The `backup --schedule` option should warn if the schedule interval is shorter than the typical backup duration (estimate based on server disk usage reported by `kastell status`).
+**How to avoid:**
+Queue notifications and send sequentially with per-channel rate limiting. For Discord: parse `X-RateLimit-Remaining` and `Retry-After` response headers — never hardcode 5 req/2s (Discord can change limits). For Slack: parse `Retry-After` on 429. For Telegram: limit to 30/s total. Use the existing `withRetry` pattern from `utils/retry.ts` which already parses `Retry-After` headers. For Discord 404 (deleted webhook): do not retry at all — surface "webhook deleted" error and disable that channel.
 
-**Detection:** Create a backup script that sleeps for 10 minutes. Schedule it every 1 minute. Check if multiple processes run simultaneously by counting PIDs.
+**Warning signs:**
+Hardcoded `sleep(400)` between Discord calls instead of header-driven rate limiting. `Promise.all` on concurrent notification sends to multiple channels.
 
-**Phase:** Backup scheduling.
-
----
-
-### P7: Risk Trend Score Changes Without Cause Context — Meaningless Trend
-
-**What goes wrong:** `kastell doctor` shows "Risk score: 62 → 68 ↑ (worse)" without explaining WHY. The score increased because 3 new critical checks were added to the audit engine in v1.7, not because the server's security regressed. The user panics, manually audits the server, finds nothing wrong, and loses trust in the trend feature.
-
-**Why it happens:** Risk trend uses the existing audit snapshot diff engine, which compares check results but does not distinguish "check was added to the engine" from "server regressed on existing check." The v1.6 audit has 46 checks. v1.7 may add new checks for guard/lock state. Those new checks will show as failures in trend diff without context.
-
-**Consequences:** Alert fatigue. Users stop trusting the trend line and disable notifications. The core value proposition of Guard Core is undermined.
-
-**Prevention:**
-1. Risk trend must separate "engine change" from "server change." When a new check appears in current audit that did not exist in the snapshot, do NOT count it as a regression — count it as "N new checks added, X already pass."
-2. Each cause in the trend report must reference a specific check ID: "Risk +6: SSH-07 (MaxSessions not set) ↑ critical, FW-03 (UFW inactive) ↑ critical."
-3. Trend display format: `Risk: 62 → 68 ↑ (+6)` then cause list. "Risk changed by X, reasons below" is the pattern from PROJECT.md. Never show a trend number without reasons.
-4. Annotate snapshots with `kastellVersion` and `checkCount`. If `checkCount` differs between snapshots, show "Note: audit engine updated from 46 to 52 checks between these snapshots."
-5. Implement a `--baseline` flag that pins a snapshot as the accepted state. Trends are measured against the baseline, not the previous snapshot. This avoids drift caused by intermediate intentional changes.
-
-**Detection:** Add a new audit check to the engine. Take a snapshot before and after (without changing server state). Run trend analysis. If the score changes and no "engine update" note is shown, the trend is misleading.
-
-**Phase:** Risk trend, doctor command.
+**Phase to address:**
+Notifications phase, channel implementation step.
 
 ---
 
-### P8: Fleet Status Uses Cloud API for Every Server — Rate Limit Hit on Large Fleets
+### Pitfall 8: Fleet Audit Runs Live SSH for All Servers — Unusably Slow
 
-**What goes wrong:** `kastell fleet status` fetches status for each server. For each server, the current `status.ts` calls both SSH health AND the provider API (to get cloud-level status: running, stopped, datacenter, etc.). With 20 servers across Hetzner (10) and DigitalOcean (10), this fires 20 simultaneous provider API calls. Both providers have rate limits. The existing `withRetry` adds backoff, but the thundering herd from v1.6 P7 applies here and can cause the entire fleet status to take 30+ seconds.
+**What goes wrong:**
+`kastell fleet audit` triggers a fresh SSH audit for each server. 10 servers × 2 SSH batches × audit check duration = several minutes of runtime. Users expect fleet audit to be fast.
 
-**Why it happens:** The current status check is designed for a single server. Fleet is the first multi-server operation that makes N provider API calls in parallel.
+**Why it happens:**
+`kastell audit` for a single server does 2 SSH batch calls. Fleet naively maps the same function over all servers.
 
-**Prevention:**
-1. Separate fleet status into two tiers: SSH-only tier (fast, no API calls) and full tier (SSH + cloud API). Default to SSH-only for fleet — most users want "is the server up and healthy," not "what is its cloud datacenter."
-2. Group provider API calls by provider: make one batch check to Hetzner for all 10 Hetzner servers before moving to DigitalOcean. This keeps rate limit state coherent per provider.
-3. Re-use the jitter + per-provider rate limit state from the existing `withRetry` (v1.6 infrastructure).
-4. Add `--full` flag to `fleet status` that enables cloud API enrichment.
+**How to avoid:**
+Fleet audit by default reads from cached audit snapshots (already stored in `~/.kastell/audit-snapshots/`). Only run live SSH if `--fresh` flag is passed or if the cached snapshot is older than a configurable threshold (default 24 hours). Display snapshot age per server: `web-01: score 82 (cached 3h ago)`. This is consistent with the existing doctor cache-first pattern in `core/doctor.ts` (lines 327-411).
 
-**Phase:** Fleet command.
+**Warning signs:**
+`fleet audit` makes SSH connections without first checking for cached snapshots. No `--fresh` flag on fleet audit.
 
----
-
-### P9: Doctor Command Recommends Actions That Contradict User's Intentional Config
-
-**What goes wrong:** `kastell doctor` sees that password authentication is enabled and recommends "Run `kastell lock` to disable password auth." But the user intentionally left password auth enabled because their SSH key workflow on this server is managed externally (they manage keys via their cloud provider's dashboard). Doctor's recommendation is correct in general but wrong for this specific server.
-
-**Why it happens:** Doctor applies generic best-practice rules without knowing the user's intentional deviations. The existing audit system has the same limitation (it flags everything against a universal standard). Doctor takes the next step of making active recommendations, amplifying the signal/noise problem.
-
-**Prevention:**
-1. Doctor recommendations must reference the specific check and its current value: "PasswordAuthentication is 'yes' (check SSH-02). Recommended: 'no'. Run `kastell audit --fix SSH-02 <ip>`."
-2. Allow check suppression via config: `~/.kastell/suppress.yaml` with entries like `suppress: [SSH-02]`. Doctor skips suppressed checks.
-3. Doctor should show "last changed" context if available from audit history: "This check has been failing for 14 days."
-4. Distinguish between "critical recommendation" (act now) and "improvement opportunity" (act when convenient). Color and priority matter.
-5. Never auto-apply doctor recommendations. Doctor = report + commands to run. Lock = apply. Keep the boundary sharp.
-
-**Phase:** Doctor command.
+**Phase to address:**
+Fleet visibility phase, fleet audit subcommand.
 
 ---
 
-### P10: Guard Script on Server Must Be Versioned — Stale Script After Kastell Update
+### Pitfall 9: Doctor --fix Auto-Remediates Intentional Config Deviations
 
-**What goes wrong:** Guard installs a script to the server (`/root/.kastell/guard.sh`). When Kastell is updated from v1.7 to v1.8 (which adds new check logic), the guard script on the server is still v1.7. The local Kastell CLI sends alerts in v1.8 format, but the guard script generates v1.7 format. Data parsed client-side is misaligned.
+**What goes wrong:**
+`kastell doctor --fix` sees `HIGH_BAN_RATE` (fail2ban 200 total bans) and suggests `sudo fail2ban-client status`. Fine. But it also sees password auth enabled and auto-applies `kastell audit --fix SSH-02`. The user intentionally left password auth enabled because their deployment pipeline requires it. Auto-fix reverses an intentional decision.
 
-**Why it happens:** Guard is a "fire and install" operation in v1.7. There is no concept of guard script versioning or update propagation. The existing auto-migration pattern (`~/.quicklify` → `~/.kastell`) handles local config, not remote scripts.
+**Why it happens:**
+Doctor findings are generated from generic rules without knowledge of the user's intentional config. `--fix` that executes `DoctorFinding.command` treats all findings equally.
 
-**Prevention:**
-1. Guard script must embed its version: `KASTELL_GUARD_VERSION="1.7.0"`. The `guard status` command checks this version and warns if it differs from the local Kastell version.
-2. `kastell guard update <ip>` command: re-installs the latest guard script using the same idempotent install pattern (P1).
-3. Auto-suggest update: if `guard status` detects version mismatch, print "Guard script is v1.7.0. Kastell is v1.8.0. Run `kastell guard update <ip>` to update."
-4. Script format changes between minor versions should be backward-compatible (additive). Breaking format changes require a major version bump and migration notice.
+**How to avoid:**
+Doctor --fix must be per-finding interactive. Do not batch-apply all findings. The prompt for each finding must show: finding ID, current state, proposed change, command. User can skip individual findings. Add a `kastell doctor suppress <finding-id> <server>` command to permanently skip specific findings for specific servers (stored in `~/.kastell/suppress.json`). Suppressed findings are shown dimmed with `[suppressed]` label, not hidden entirely.
 
-**Phase:** Guard daemon, ongoing maintenance concern.
+**Warning signs:**
+`--fix` mode applies all findings in a loop without per-finding confirmation. No suppression config mechanism.
 
----
-
-### P11: Lock Command Locks Out SSH on Misconfigured Servers
-
-**What goes wrong:** `kastell lock --production` disables password authentication (`PasswordAuthentication no` in sshd_config). If the user's SSH key is not already in `~/.ssh/authorized_keys` on the server (perhaps they've been using password auth to connect), they are permanently locked out after `lock` runs. No SSH access = no way to undo the damage without cloud console rescue mode.
-
-**Why it happens:** The existing `secure.ts` does the same operations (it's the v1.0 setup path). But `secure` is run at provision time when the user is expected to have SSH key auth working. `lock --production` is designed to be run on an EXISTING server that may have been set up without Kastell. The user population is different: existing servers may not have Kastell-managed SSH keys.
-
-**Consequences:** Server is permanently inaccessible via SSH. Recovery requires cloud provider console (Hetzner VNC, DO recovery mode) or a support ticket.
-
-**Prevention:**
-1. Before applying any lock operation that affects SSH auth, verify SSH key authentication works: run a test SSH command using key auth only (`-o PasswordAuthentication=no -o BatchMode=yes`). If this test fails, abort with clear error: "Your SSH key auth is not working. Running lock would lock you out. Set up key auth first."
-2. Require explicit confirmation for SSH-affecting operations: `--confirm-key-auth-works` flag.
-3. Dry run by default for first use: `kastell lock --production` without `--apply` shows what would change, does not apply. This is consistent with the existing `--dry-run` convention on destructive commands.
-4. Document the lock sequence clearly: verify key auth → show plan → user confirms → apply → verify SSH still works.
-
-**Detection:** Set up a test server with only password auth. Run `kastell lock --production`. If SSH access is lost without a prior warning, the safety check is missing.
-
-**Phase:** Lock command (most critical phase to get right).
+**Phase to address:**
+Doctor --fix phase.
 
 ---
 
-### P12: Notification Credential Storage Is Insecure
+### Pitfall 10: Guard Script Version Mismatch After v1.8 Update
 
-**What goes wrong:** Multi-channel notifications require credentials: Telegram bot token, Discord webhook URL, Slack webhook URL, SMTP password. These are stored in `~/.kastell/notifications.json` or similar. If stored with default permissions (644), any user on the machine can read them. If stored inside `servers.json` (the natural first-instinct shortcut), every server record carries all notification secrets.
+**What goes wrong:**
+Guard v1.7 script is already deployed to servers. v1.8 adds notification hooks and cooldown state logic. After `npm update -g kastell`, the local CLI is v1.8 but the on-server guard script is still v1.7. Notifications never fire because the notify hook does not exist in the v1.7 script. No error — guard still runs, logs OK, but never notifies.
 
-**Why it happens:** The existing `servers.json` pattern uses `0o600` permissions at the file level. Adding notification credentials to the same file or a new file with default permissions is an easy mistake. The OS keychain (`@napi-rs/keyring`) is already used for provider API tokens but notification credentials are a new category.
+**Why it happens:**
+The guard script is a remote artifact deployed via SSH. It does not auto-update when the local CLI updates. There is no version check in the current `guardStatus()` function.
 
-**Prevention:**
-1. Notification credentials are per-user (global), not per-server. Store in a dedicated `~/.kastell/notifications.json` with `0o600` permissions, written using the same `atomicWrite` pattern with explicit `mode` option.
-2. Consider using the existing OS keychain for Telegram token and SMTP password (the highest-sensitivity credentials). Less critical: Discord/Slack webhook URLs (they are scoped to a channel, not an account).
-3. Never store notification credentials inside server records in `servers.json`.
-4. `kastell guard configure-notifications` command that collects credentials and writes them with correct permissions. Never accept credentials as CLI flags (they appear in shell history and process list).
+**How to avoid:**
+Embed guard script version in the script itself: `KASTELL_GUARD_VERSION="1.8.0"`. The `guardStatus()` function (already reads log output via SSH) should additionally read this version and compare to local CLI version. If mismatch detected, surface: "Guard script is v1.7.0. Kastell is v1.8.0. Run `kastell guard start <server> --force` to redeploy." The existing `startGuard()` is already idempotent (uses sentinel-comment cron pattern) — calling it again safely redeploys the new script.
 
-**Phase:** Multi-channel notifications.
+**Warning signs:**
+`guardStatus()` does not read or compare `KASTELL_GUARD_VERSION`. No warning shown when guard script version differs from CLI version.
 
----
-
-## Minor Pitfalls
-
-### P13: Fleet Output Is Unreadable for Large Server Counts
-
-**What goes wrong:** `kastell fleet status` with 30 servers prints 30 blocks of server info one after another. The output exceeds one terminal screen height. By the time the command finishes, the user is looking at servers 28-30 and must scroll to find a problem in server 3.
-
-**Prevention:**
-1. Fleet output uses a compact table format by default: one row per server (name, IP, status, disk, score, last-audit-age). Full details via `--verbose` flag.
-2. Sort output: unhealthy/unreachable servers first. Healthy servers last.
-3. MCP tool (`server_fleet`) must return JSON, never terminal-formatted output.
-
-**Phase:** Fleet command.
+**Phase to address:**
+Notifications phase (guard script extension) — add version embed before extending the script.
 
 ---
 
-### P14: Doctor Command Makes Remote SSH Calls on Every Invocation — Too Slow
+### Pitfall 11: Tech Debt Cleanup Breaks Existing Tests
 
-**What goes wrong:** `kastell doctor <ip>` runs a full SSH audit + metrics fetch every time it is invoked. For a 10-server fleet, `kastell doctor` becomes a 60-second command. Users stop running it.
+**What goes wrong:**
+The tech debt cleanup phase refactors adapter duplication (`coolify.ts`/`dokploy.ts` shared ~80% code), fixes the layer violation (`core/deploy.ts` → `commands/firewall.ts`), and decomposes `postSetup`. Each refactor risks breaking the 3038 existing tests, particularly adapter mock patterns that depend on the current module structure.
 
-**Prevention:**
-1. Doctor uses the most recent audit snapshot (already cached in `~/.kastell/audit-snapshots/`) as input. It does NOT run a new audit unless `--fresh` flag is passed.
-2. If the latest snapshot is older than 24 hours, warn: "Snapshot is 3 days old. Run `kastell audit --save-snapshot <ip>` for current data."
-3. Doctor = analysis of existing data. Fresh collection = audit/evidence commands. Keep the boundary explicit.
+**Why it happens:**
+Adapters are currently mocked at the module level in tests. Extracting shared methods into a new base class or template changes import paths and mock targets. The lesson from LESSONS.md: "Re-export kaldırırken TÜM test import+mock path'lerini birlikte güncelle."
 
-**Phase:** Doctor command.
+**How to avoid:**
+For each refactor: (1) run the full test suite before touching anything to establish a green baseline, (2) move one function at a time with re-exports at old paths for backward compat, (3) update all test mocks in the same commit as the source move, (4) run `npm test` after every individual move. Do not batch multiple adapter refactors into one commit. Layer violation fix (`core/deploy.ts` importing from `commands/`) must use dependency injection or move the shared logic to `core/` — do not import command modules from core.
 
----
+**Warning signs:**
+Any commit that moves adapter code without simultaneously updating test mock paths. `import` from `commands/` inside any file in `core/`.
 
-### P15: Backup Schedule Confirmation Not Persisted — Lost After Machine Restart
-
-**What goes wrong:** `backup --schedule "every 6 hours"` installs the cron entry on the server and returns success. But the schedule configuration is not written to `~/.kastell/servers.json` (the local record). After the user's machine is wiped or Kastell is reinstalled, `kastell server list` shows no schedule information, and `kastell guard status` cannot report whether scheduled backups are configured.
-
-**Prevention:**
-1. Add `backupSchedule: string | null` field to `ServerRecord` type. Persist the schedule expression when installing.
-2. `kastell guard status <ip>` should report: backup schedule, last backup time (read from server log), next scheduled run.
-3. Schedule expression in `ServerRecord` is the source of truth for re-installation — `guard reinstall` can restore the cron entry from the stored config.
-
-**Phase:** Backup scheduling.
+**Phase to address:**
+Tech debt cleanup phase — treat as highest-risk phase, plan each refactor individually.
 
 ---
 
-### P16: Risk Trend With Only One Snapshot — Division by Zero / Misleading Delta
+## Technical Debt Patterns
 
-**What goes wrong:** User runs `kastell doctor` after the very first audit snapshot. There is only one data point. The trend shows "Risk: 68 (baseline)" which is fine. But if the code naively computes `delta = current - previous`, and there is no previous, it crashes or shows "Risk: 68 → undefined (↑ NaN%)".
+Shortcuts that seem reasonable but create long-term problems.
 
-**Prevention:**
-1. Require at least 2 snapshots for trend display. If fewer exist, show "Insufficient history for trend. Run `kastell audit --save-snapshot <ip>` again after 24 hours."
-2. All trend math must handle the single-snapshot case explicitly — not via null-coalescing to 0 (which implies the score was 0 before).
-3. Guard the trend computation with a type-safe helper: `computeTrend(snapshots: AuditSnapshot[]): TrendResult | null` — returns null when insufficient data.
-
-**Phase:** Risk trend, doctor command.
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Sequential `for...of` fleet SSH | Simple to write | Unusable for 3+ servers (15s+) | Never — use `Promise.allSettled` + concurrency limit |
+| Notification token in plain JSON config | No extra dep | World-readable credential on multi-user machines | Never — reuse existing `@napi-rs/keyring` pattern |
+| Doctor --fix auto-execute without prompt | Faster UX | Destructive command on wrong server, no rollback | Never — always prompt or require `--force` |
+| Hardcode Discord rate limit (5 req/2s) | Simple | Breaks silently when Discord changes limits | Never — parse `X-RateLimit-*` headers |
+| Inject bot token directly into guard bash heredoc | One less file to manage | Shell injection if token contains `$`, backtick, newline | Never — use separate sourced config file |
+| Fleet audit runs live SSH for all servers | Always fresh data | Minutes of runtime for 10+ servers, users stop using it | Only with explicit `--fresh` flag |
+| Suppress fleet partial failures | Clean output | User thinks all servers are fine when one is unreachable | Never — always show UNREACHABLE state |
 
 ---
 
-## Phase-Specific Warnings
+## Integration Gotchas
 
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| Guard daemon install | P1 (duplicate cron entries), P5 (cron minimal environment) | Sentinel-comment idempotent install, generate guard-env.sh with explicit PATH + tokens |
-| Guard daemon operation | P4 (silent notification failure), P10 (stale script after update) | Log all notify outcomes, embed guard script version, `guard status` checks version |
-| Lock command | P2 (partial hardening on SSH drop), P11 (lockout on no key auth) | Single-SSH heredoc script, test key auth before applying, dry run by default |
-| Fleet management | P3 (parallel SSH exhaustion), P8 (thundering herd on provider API) | p-limit concurrency cap at 5, Promise.allSettled for partial results, SSH-only default tier |
-| Multi-channel notifications | P4 (silent failure), P12 (credential storage permissions) | Sequential fallback chain, log all delivery attempts, 0o600 for notifications.json |
-| Backup scheduling | P6 (overlapping runs), P15 (schedule not persisted) | flock on backup script, unique temp filenames, persist schedule to ServerRecord |
-| Risk trend analysis | P7 (engine change vs server regression), P16 (single snapshot crash) | Distinguish new checks from regressions, require 2+ snapshots, annotate with check count |
-| Doctor command | P9 (contradicts intentional config), P14 (too slow without cache) | Allow check suppression config, use cached snapshots by default |
+Common mistakes when connecting to external notification services.
+
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| Telegram | Sending MarkdownV2 text with unescaped `<`, `>`, `&`, `.` | Use `parse_mode: 'HTML'` consistently or escape all special chars per Telegram docs |
+| Telegram | Bot token valid but user never sent `/start` to the bot (403 Forbidden) | Detect 403, surface: "Send /start to your Telegram bot before using notifications" |
+| Telegram | Using `sendMessage` directly from bash guard script | HTTP calls from bash are fragile; prefer CLI-side notification dispatch polling guard log |
+| Discord | Hardcoding 5 req/2s rate limit | Parse `X-RateLimit-Remaining` and `Retry-After` response headers dynamically |
+| Discord | Retrying on 404 (webhook deleted) | 404 = permanent failure; disable channel and surface "webhook deleted" error |
+| Slack | Treating incoming webhook URL as permanent | Webhook URLs can be revoked; detect 403/404 and surface re-setup prompt |
+| Slack | Not handling 2025 rate limit changes for non-Marketplace apps | Parse `Retry-After` on all 429 responses; do not assume previous limits still apply |
+| Email via SMTP | Blocking SMTP send from within guard bash cron | SMTP from bash is fragile and blocking; use HTTP-based transactional API (Resend, Mailgun) or dispatch from CLI side |
+| All channels | Sending alert immediately on detection, no cooldown | Implement per-breach-type cooldown (1h default) with state file on server |
+| All channels | Silent failure when delivery fails | Log all delivery attempts and outcomes to `/var/log/kastell-guard.log` |
+
+---
+
+## Performance Traps
+
+Patterns that work at small scale but fail as usage grows.
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| Sequential fleet SSH | `fleet status` takes N × 3s | `Promise.allSettled` + `p-limit(5)` | At 3+ servers |
+| `Promise.all` for fleet | One unreachable server aborts all | Use `Promise.allSettled` always | At first unreachable server |
+| Live SSH for fleet audit | `fleet audit` takes minutes | Cache-first: use stored snapshots, `--fresh` to override | At 5+ servers |
+| Concurrent notification sends | Discord/Slack 429 errors | Sequential send with header-driven rate limiting | When 2+ servers breach simultaneously |
+| Guard script redeploy overwrites notify state | Alert storm after `guard start --force` | Merge existing notify-state.json, do not overwrite | On first guard update after v1.8 |
+| `guard-state.json` write without file lock | Concurrent guard commands corrupt state | Extend `withFileLock` from `utils/fileLock.ts` to guard state writes | When multiple guard commands run in parallel |
+
+---
+
+## Security Mistakes
+
+Domain-specific security issues beyond general web security.
+
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| Notification tokens in 0o644 file | Any local user reads Telegram/SMTP credentials | Reuse `@napi-rs/keyring` from `core/tokens.ts`; file storage at `0o600` minimum |
+| Bot token interpolated into guard bash heredoc | Shell injection if token contains `$`, backtick, newline | Deploy as separate `/root/.kastell-notify.conf` with `chmod 600`, sourced at runtime |
+| Doctor --fix without IP validation | Wrong server targeted if `assertValidIp` bypassed | Always call `assertValidIp(ip)` at entry of fix orchestrator, same as all other SSH functions |
+| Fleet JSON output includes full server IPs | Terminal history exposes entire fleet topology | Respect existing `KASTELL_SAFE_MODE` pattern; truncate in verbose log output |
+| Notification webhook URL logged on error | Webhook URL in error logs = leaked credential | Pass notification URLs through existing `sanitizeResponseData()` before logging |
+| `kastell notify setup` accepting token as CLI flag | Token appears in shell history and `ps aux` | Use `inquirer.password()` prompt only; reject `--token` flag pattern for secrets |
+
+---
+
+## UX Pitfalls
+
+Common user experience mistakes in this domain.
+
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| Fleet all-or-nothing output | One unreachable server hides all results | Per-server row with UNREACHABLE state; never abort entire fleet |
+| Doctor --fix executes without showing command | No chance to review what will run on production | Show command, prompt `[y/N]` (default N), then execute |
+| No notification test command | Users configure wrong token, never find out | `kastell notify test <channel>` sends test message immediately after setup |
+| Alert storm from repeat breaches | Users mute channel, lose trust in guard | Per-type cooldown (1h default) with recovery notification when breach clears |
+| Fleet audit output overwhelming for 10+ servers | Wall of text, nothing actionable | Compact table: one row per server. Unhealthy servers first. `--verbose` for details |
+| Doctor cold-start shows "no data" without explanation | Users think doctor is broken | Explicit message: "No cached data. Run with `--fresh` to collect current metrics." |
+| Shell completions miss new `fleet` and `notify` commands | `kastell <TAB>` does not show new commands | Update `commands/completions.ts` in same PR as new command |
+
+---
+
+## "Looks Done But Isn't" Checklist
+
+Things that appear complete but are missing critical pieces.
+
+- [ ] **Fleet status:** Shows server list but uses `Promise.all` — verify `Promise.allSettled` and UNREACHABLE state rendering
+- [ ] **Fleet status:** Concurrency capped — verify `p-limit` or equivalent; test with 10 servers simultaneously
+- [ ] **Fleet audit:** Shows scores but runs live SSH — verify cache-first behavior, `--fresh` flag works
+- [ ] **Notifications:** Channel sends first message but has no cooldown — verify notify-state.json written and read per-breach-type
+- [ ] **Notifications:** Tokens configured but file permissions not verified — `ls -la ~/.kastell/` should show `0o600`
+- [ ] **Notifications:** Setup complete but no test send — verify `kastell notify test <channel>` sends message
+- [ ] **Doctor --fix:** Displays fix commands but check for `inquirer.prompt` gate before `sshExec` call
+- [ ] **Doctor --fix:** `--dry-run` flag defined and implemented — verify it shows commands without executing
+- [ ] **Guard + notifications:** Guard script redeployed via `guard start --force` — verify notify-state.json preserved
+- [ ] **Guard script version:** v1.8 script has `KASTELL_GUARD_VERSION="1.8.0"` embedded — verify `guardStatus()` reads and compares it
+- [ ] **Shell completions:** `fleet` and `notify` commands in `completions.ts` — verify `kastell <TAB>` shows them
+- [ ] **MCP parity:** `fleet` and `notify` functions accessible via MCP tools — verify against v1.5/v1.7 tool pattern
+- [ ] **Tech debt refactor:** All adapter test mock paths updated after adapter consolidation — `npm test` passes clean after each move
+
+---
+
+## Recovery Strategies
+
+When pitfalls occur despite prevention, how to recover.
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| Notification token stored plaintext | LOW | Delete `notifications.json`, re-run `kastell notify setup`, tokens migrate to keychain |
+| Alert storm already sent | LOW | Deploy cooldown logic via `kastell guard start --force`, send "alerts now rate-limited" message to channel |
+| Doctor --fix ran `docker system prune -a` without confirm | HIGH | No automatic recovery — containers may be irrecoverable; audit what was lost; add confirmation gate as breaking change; document clearly |
+| Guard heredoc injection broke script | MEDIUM | `kastell guard stop <server> && kastell guard start <server>` redeploys fixed script |
+| Fleet partial failures silent | LOW | Add UNREACHABLE state to renderer; no data loss, purely display bug |
+| Tech debt refactor broke tests | MEDIUM | `git revert` the refactor commit, redo it function-by-function with test updates in same commit |
+| Shell completions missing new commands | LOW | Add entries to `completions.ts` and publish patch release |
+
+---
+
+## Pitfall-to-Phase Mapping
+
+How roadmap phases should address these pitfalls.
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| Fleet sequential SSH | Fleet visibility (first commit) | `kastell fleet status` on 3 servers completes in under 10 seconds |
+| Fleet partial failure silent | Fleet visibility (renderer design) | Kill one server's SSH port; verify fleet still shows all other servers |
+| Guard script injection | Notifications (before any channel code) | Credential with `$`, backtick in value — guard script deploys without corruption |
+| Doctor --fix no confirmation | Doctor --fix (first — gates before execution) | `kastell doctor --fix` without `--force` — must show prompt before running any command |
+| Alert storm | Notifications (cooldown design) | Trigger same breach 12 times; verify only 1 alert sent within 1-hour window |
+| Notification token plaintext | Notifications (config storage) | `ls -la ~/.kastell/` — all notification credential files show `600` permissions |
+| Guard script version mismatch | Notifications (script extension) | `guardStatus()` output includes version; mismatch shows migration prompt |
+| Tech debt refactor breaks tests | Tech debt cleanup (each move individually) | `npm test` green after every individual function move, not only at end |
+| Shell completions gap | Tech debt cleanup phase | `kastell <TAB>` shows `fleet` and `notify` on bash, zsh, fish |
 
 ---
 
 ## Sources
 
-- Kastell codebase: `utils/ssh.ts` (sshExec pattern, SSH_EXEC_TIMEOUT_MS=30s, MAX_BUFFER_SIZE=1MB), `core/secure.ts` (SSH command sequential pattern), `core/backup.ts` (SCP/temp file pattern), `core/audit/history.ts` (MAX_ENTRIES_PER_SERVER cap), `utils/fileLock.ts` (withFileLock pattern), `utils/retry.ts` (withRetry pattern)
-- PROJECT.md: Guard autonomous architecture (cron-based, no AI, multi-channel, risk trend with cause)
-- LESSONS.md: SSH timeout considerations, Inquirer non-interactive requirement for --force, core functions need context (platform/mode)
-- [Cron environment pitfalls — cronitor.io](https://cronitor.io/guides/cron-troubleshooting-guide): 52% of cron failures are PATH/environment issues
-- [Crontab idempotency — Ansible issue #37355](https://github.com/ansible/ansible/issues/37355): cron module not idempotent without name; overwrite vs append pattern
-- [Slack rate limits](https://docs.slack.dev/apis/web-api/rate-limits/): ~1 message/s per webhook URL
-- [Discord webhook rate limits](https://birdie0.github.io/discord-webhooks-guide/other/rate_limits.html): 5 requests/2s, shared across community webhooks
-- [Telegram rate limits — Poracle](https://muckelba.github.io/poracleWiki/operation/ratelimits.html): ~30 messages/s bulk limit
-- [Fleet: SSH certificate trust vulnerability](https://github.com/rancher/fleet/security/advisories/GHSA-xgpc-q899-67p8): fleet management tools that auto-trust SSH certs — directly analogous to TOFU concern
-- [Google SRE distributed cron](https://sre.google/sre-book/distributed-periodic-scheduling/): idempotency as the most valuable safety feature for scheduled jobs
-- [Linux server hardening idempotency — linux.com](https://www.linux.com/topic/linux/linux-server-hardening-using-idempotency-ansible-part-2/): idempotent hardening prevents intermediate states
-- [SSH hardening lockout risk — zsec.uk](https://blog.zsec.uk/locking-down-ssh-the-right-way/): verify key auth before disabling password auth
-- v1.6 PITFALLS.md: P7 (thundering herd), P15 (rate limit state not persisted) — both apply to fleet operations in v1.7
+- Kastell codebase: `src/core/guard.ts` (heredoc construction lines 80-148, notify stub line 97, guard state pattern)
+- Kastell codebase: `src/core/doctor.ts` (DoctorFinding.command pattern, cache-first orchestrator lines 327-412)
+- Kastell codebase: `src/utils/config.ts` (atomic writes, `0o600` file permissions pattern)
+- Kastell codebase: `src/core/tokens.ts`, `src/core/tokenBuffer.ts` (keychain token reuse pattern)
+- Kastell codebase: `src/commands/guard.ts` (inquirer.prompt + --force guard pattern to replicate in doctor --fix)
+- Kastell codebase: `src/utils/retry.ts` (withRetry + Retry-After header parsing, reuse for notification rate limits)
+- Kastell LESSONS.md: "Re-export kaldırırken TÜM test import+mock path'lerini birlikte güncelle"
+- [Discord Rate Limits](https://docs.discord.com/developers/topics/rate-limits) — 5 req/2s per webhook, parse headers; 404 = stop retrying
+- [Discord Webhook Rate Limits Guide](https://birdie0.github.io/discord-webhooks-guide/other/rate_limits.html) — failed requests count against quota
+- [Slack Rate Limits](https://api.slack.com/docs/rate-limits) — HTTP 429 + Retry-After header
+- [Slack 2025 Rate Limit Changes](https://api.slack.com/changelog/2025-05-terms-rate-limit-update-and-faq) — new limits for non-Marketplace apps
+- [Auto-Remediation Safety Guide](https://medium.com/@anudeepballa7/kill-the-pager-a-practical-guide-to-auto-remediation-and-self-healing-systems-f1507343f9f2) — Detect→Decide→Do; fail-safe defaults; start with low-risk fixes; idempotent and reversible
+- [Webhook Security 2026](https://www.hooklistener.com/learn/webhook-security-fundamentals) — token storage and rotation patterns
 
 ---
-*Research completed: 2026-03-14*
+*Pitfalls research for: Kastell v1.8 Fleet + Notifications + Doctor --fix*
+*Researched: 2026-03-14*
