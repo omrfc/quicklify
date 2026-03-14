@@ -128,7 +128,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
   3. User runs `kastell lock <server> --production --dry-run` and sees a preview of all changes without any modification to the server
   4. Lock correctly preserves Coolify port 8000 or Dokploy port 3000 in UFW rules based on the server's registered platform
   5. The output shows the audit score before and after hardening so the user can verify improvement
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 28-01-PLAN.md — Core lock module (types, command builders, applyLock orchestrator)
@@ -227,7 +227,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-27. Prior milestones | v1.2.0–v1.6 | All | Complete | 2026-03-11 |
-| 28. Lock | v1.7 | 0/TBD | Not started | - |
+| 28. Lock | 1/2 | In Progress|  | - |
 | 29. Backup Schedule | v1.7 | 0/TBD | Not started | - |
 | 30. Guard Daemon | v1.7 | 0/TBD | Not started | - |
 | 31. Risk Trend | v1.7 | 0/TBD | Not started | - |
