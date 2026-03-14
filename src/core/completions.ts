@@ -1,7 +1,7 @@
 /**
  * Static shell completion script generators for kastell CLI.
  * Scripts are hardcoded strings (not runtime-derived from Commander)
- * covering all 26 commands with per-command options.
+ * covering all 30 commands with per-command options.
  */
 
 export function generateBashCompletions(): string {
@@ -13,7 +13,7 @@ _kastell() {
   COMPREPLY=()
   cur="\${COMP_WORDS[COMP_CWORD]}"
   prev="\${COMP_WORDS[COMP_CWORD-1]}"
-  commands="init list status destroy config ssh update restart logs monitor health doctor firewall domain secure backup restore export import add remove maintain snapshot completions guard lock"
+  commands="init list status destroy config ssh update restart logs monitor health doctor firewall domain secure backup restore export import add remove maintain snapshot completions guard lock audit evidence fleet notify"
 
   # Subcommand completions
   case "\${prev}" in
@@ -43,6 +43,10 @@ _kastell() {
       ;;
     guard)
       COMPREPLY=( $(compgen -W "start stop status" -- "\${cur}") )
+      return 0
+      ;;
+    notify)
+      COMPREPLY=( $(compgen -W "add test" -- "\${cur}") )
       return 0
       ;;
   esac
@@ -83,7 +87,7 @@ _kastell() {
         return 0
         ;;
       doctor)
-        COMPREPLY=( $(compgen -W "--check-tokens --fresh --json" -- "\${cur}") )
+        COMPREPLY=( $(compgen -W "--check-tokens --fresh --json --fix --force --dry-run" -- "\${cur}") )
         return 0
         ;;
       firewall)
@@ -128,6 +132,22 @@ _kastell() {
         ;;
       lock)
         COMPREPLY=( $(compgen -W "--production --dry-run --force" -- "\${cur}") )
+        return 0
+        ;;
+      audit)
+        COMPREPLY=( $(compgen -W "--json --badge --report --summary --score-only --fix --dry-run --watch --host --threshold --category --snapshot --snapshots --diff --compare --trend --days" -- "\${cur}") )
+        return 0
+        ;;
+      evidence)
+        COMPREPLY=( $(compgen -W "--name --output --lines --no-docker --no-sysinfo --quiet --force --json" -- "\${cur}") )
+        return 0
+        ;;
+      fleet)
+        COMPREPLY=( $(compgen -W "--json --sort" -- "\${cur}") )
+        return 0
+        ;;
+      notify)
+        COMPREPLY=( $(compgen -W "--bot-token --chat-id --webhook-url --force" -- "\${cur}") )
         return 0
         ;;
     esac
@@ -177,6 +197,10 @@ _kastell() {
     'completions:Generate shell completion scripts'
     'guard:Manage autonomous security monitoring daemon'
     'lock:Harden server to production standard'
+    'audit:Run a security audit on a server'
+    'evidence:Collect forensic evidence package from a server'
+    'fleet:Show health and security posture of all registered servers'
+    'notify:Manage notification channels'
   )
 
   _arguments -C \\
@@ -246,7 +270,10 @@ _kastell() {
           _arguments \\
             '--check-tokens[Validate provider API tokens]' \\
             '--fresh[Force fresh SSH probe, skip cache]' \\
-            '--json[Output result as JSON]'
+            '--json[Output result as JSON]' \\
+            '--fix[Interactive fix mode]' \\
+            '--force[Skip confirmation prompts]' \\
+            '--dry-run[Show fix commands without executing]'
           ;;
         firewall)
           local -a subcommands
@@ -328,6 +355,52 @@ _kastell() {
             '--dry-run[Show commands without executing]' \\
             '--force[Skip confirmation prompts]'
           ;;
+        audit)
+          _arguments \\
+            '--json[Output results as JSON]' \\
+            '--badge[Output SVG badge with score]' \\
+            '--report[Generate report]:format:(html md)' \\
+            '--summary[Show compact dashboard summary]' \\
+            '--score-only[Output only the score]' \\
+            '--fix[Interactive fix mode]' \\
+            '--dry-run[Show fix commands without executing]' \\
+            '--watch[Watch mode]:interval:' \\
+            '--host[Audit unregistered server]:user@ip:' \\
+            '--threshold[Exit code 1 if score below]:score:' \\
+            '--category[Comma-separated categories]:list:' \\
+            '--snapshot[Save audit as snapshot]:name:' \\
+            '--snapshots[List saved snapshots]' \\
+            '--diff[Compare two snapshots]:before:after:' \\
+            '--compare[Compare two servers]:server1:server2:' \\
+            '--trend[Show score trend over time]' \\
+            '--days[Limit trend to N days]:n:'
+          ;;
+        evidence)
+          _arguments \\
+            '--name[Label for evidence directory]:label:' \\
+            '--output[Override output directory]:dir:_files' \\
+            '--lines[Log lines to collect]:n:' \\
+            '--no-docker[Skip Docker data collection]' \\
+            '--no-sysinfo[Skip system info collection]' \\
+            '--quiet[Suppress spinner output]' \\
+            '--force[Overwrite existing evidence]' \\
+            '--json[Print manifest JSON to stdout]'
+          ;;
+        fleet)
+          _arguments \\
+            '--json[Output machine-readable JSON]' \\
+            '--sort[Sort by field]:field:(score name provider)'
+          ;;
+        notify)
+          local -a subcommands
+          subcommands=('add' 'test')
+          _describe 'subcommand' subcommands
+          _arguments \\
+            '--bot-token[Telegram bot token]:token:' \\
+            '--chat-id[Telegram chat ID]:id:' \\
+            '--webhook-url[Discord or Slack webhook URL]:url:' \\
+            '--force[Skip interactive prompts]'
+          ;;
       esac
       ;;
   esac
@@ -382,6 +455,10 @@ complete -c kastell -n '__kastell_no_subcommand' -a 'snapshot' -d 'Manage server
 complete -c kastell -n '__kastell_no_subcommand' -a 'completions' -d 'Generate shell completions'
 complete -c kastell -n '__kastell_no_subcommand' -a 'guard' -d 'Manage guard daemon'
 complete -c kastell -n '__kastell_no_subcommand' -a 'lock' -d 'Harden server to production standard'
+complete -c kastell -n '__kastell_no_subcommand' -a 'audit' -d 'Run a security audit'
+complete -c kastell -n '__kastell_no_subcommand' -a 'evidence' -d 'Collect forensic evidence'
+complete -c kastell -n '__kastell_no_subcommand' -a 'fleet' -d 'Show fleet health and security'
+complete -c kastell -n '__kastell_no_subcommand' -a 'notify' -d 'Manage notification channels'
 
 # init options
 complete -c kastell -n '__kastell_using_subcommand init' -l provider -d 'Cloud provider'
@@ -430,6 +507,9 @@ complete -c kastell -n '__kastell_using_subcommand monitor' -l containers -d 'Sh
 complete -c kastell -n '__kastell_using_subcommand doctor' -l check-tokens -d 'Validate API tokens'
 complete -c kastell -n '__kastell_using_subcommand doctor' -l fresh -d 'Force fresh SSH probe, skip cache'
 complete -c kastell -n '__kastell_using_subcommand doctor' -l json -d 'Output result as JSON'
+complete -c kastell -n '__kastell_using_subcommand doctor' -l fix -d 'Interactive fix mode'
+complete -c kastell -n '__kastell_using_subcommand doctor' -l force -d 'Skip confirmation prompts'
+complete -c kastell -n '__kastell_using_subcommand doctor' -l dry-run -d 'Show fix commands without executing'
 
 # firewall subcommands and options
 complete -c kastell -n '__kastell_using_subcommand firewall' -a 'setup add remove status'
@@ -488,5 +568,45 @@ complete -c kastell -n '__kastell_using_subcommand guard' -l force -d 'Skip conf
 # lock options
 complete -c kastell -n '__kastell_using_subcommand lock' -l production -d 'Apply full production hardening profile'
 complete -c kastell -n '__kastell_using_subcommand lock' -l dry-run -d 'Show commands without executing'
-complete -c kastell -n '__kastell_using_subcommand lock' -l force -d 'Skip confirmation prompts'`;
+complete -c kastell -n '__kastell_using_subcommand lock' -l force -d 'Skip confirmation prompts'
+
+# audit options
+complete -c kastell -n '__kastell_using_subcommand audit' -l json -d 'Output results as JSON'
+complete -c kastell -n '__kastell_using_subcommand audit' -l badge -d 'Output SVG badge with score'
+complete -c kastell -n '__kastell_using_subcommand audit' -l report -d 'Generate report (html or md)'
+complete -c kastell -n '__kastell_using_subcommand audit' -l summary -d 'Compact dashboard summary'
+complete -c kastell -n '__kastell_using_subcommand audit' -l score-only -d 'Output only the score'
+complete -c kastell -n '__kastell_using_subcommand audit' -l fix -d 'Interactive fix mode'
+complete -c kastell -n '__kastell_using_subcommand audit' -l dry-run -d 'Show fix commands without executing'
+complete -c kastell -n '__kastell_using_subcommand audit' -l watch -d 'Watch mode'
+complete -c kastell -n '__kastell_using_subcommand audit' -l host -d 'Audit unregistered server'
+complete -c kastell -n '__kastell_using_subcommand audit' -l threshold -d 'Exit code 1 if below threshold'
+complete -c kastell -n '__kastell_using_subcommand audit' -l category -d 'Comma-separated categories'
+complete -c kastell -n '__kastell_using_subcommand audit' -l snapshot -d 'Save audit as snapshot'
+complete -c kastell -n '__kastell_using_subcommand audit' -l snapshots -d 'List saved snapshots'
+complete -c kastell -n '__kastell_using_subcommand audit' -l diff -d 'Compare two snapshots'
+complete -c kastell -n '__kastell_using_subcommand audit' -l compare -d 'Compare two servers'
+complete -c kastell -n '__kastell_using_subcommand audit' -l trend -d 'Show score trend over time'
+complete -c kastell -n '__kastell_using_subcommand audit' -l days -d 'Limit trend to N days'
+
+# evidence options
+complete -c kastell -n '__kastell_using_subcommand evidence' -l name -d 'Label for evidence directory'
+complete -c kastell -n '__kastell_using_subcommand evidence' -l output -d 'Override output directory'
+complete -c kastell -n '__kastell_using_subcommand evidence' -l lines -d 'Log lines to collect'
+complete -c kastell -n '__kastell_using_subcommand evidence' -l no-docker -d 'Skip Docker collection'
+complete -c kastell -n '__kastell_using_subcommand evidence' -l no-sysinfo -d 'Skip system info'
+complete -c kastell -n '__kastell_using_subcommand evidence' -l quiet -d 'Suppress spinner output'
+complete -c kastell -n '__kastell_using_subcommand evidence' -l force -d 'Overwrite existing evidence'
+complete -c kastell -n '__kastell_using_subcommand evidence' -l json -d 'Print manifest JSON'
+
+# fleet options
+complete -c kastell -n '__kastell_using_subcommand fleet' -l json -d 'Output machine-readable JSON'
+complete -c kastell -n '__kastell_using_subcommand fleet' -l sort -d 'Sort by score/name/provider'
+
+# notify subcommands and options
+complete -c kastell -n '__kastell_using_subcommand notify' -a 'add test'
+complete -c kastell -n '__kastell_using_subcommand notify' -l bot-token -d 'Telegram bot token'
+complete -c kastell -n '__kastell_using_subcommand notify' -l chat-id -d 'Telegram chat ID'
+complete -c kastell -n '__kastell_using_subcommand notify' -l webhook-url -d 'Discord or Slack webhook URL'
+complete -c kastell -n '__kastell_using_subcommand notify' -l force -d 'Skip interactive prompts'`;
 }
