@@ -14,7 +14,7 @@ function showDryRun(server: { name: string; ip: string }): void {
   logger.info("No changes applied (dry run).");
 }
 
-export async function removeCommand(query?: string, options?: { dryRun?: boolean }): Promise<void> {
+export async function removeCommand(query?: string, options?: { dryRun?: boolean; force?: boolean }): Promise<void> {
   const server = await resolveServer(query, "Select a server to remove:");
   if (!server) return;
 
@@ -23,18 +23,20 @@ export async function removeCommand(query?: string, options?: { dryRun?: boolean
     return;
   }
 
-  const { confirm } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "confirm",
-      message: `Remove "${server.name}" (${server.ip}) from local config? (Server will NOT be destroyed)`,
-      default: false,
-    },
-  ]);
+  if (!options?.force) {
+    const { confirm } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "confirm",
+        message: `Remove "${server.name}" (${server.ip}) from local config? (Server will NOT be destroyed)`,
+        default: false,
+      },
+    ]);
 
-  if (!confirm) {
-    logger.info("Remove cancelled.");
-    return;
+    if (!confirm) {
+      logger.info("Remove cancelled.");
+      return;
+    }
   }
 
   await removeServer(server.id);
@@ -46,23 +48,27 @@ export async function removeCommand(query?: string, options?: { dryRun?: boolean
   // Offer to clean up backups
   const backups = listBackups(server.name);
   if (backups.length > 0) {
-    const { cleanBackups } = await inquirer.prompt([
-      {
-        type: "confirm",
-        name: "cleanBackups",
-        message: `Found ${backups.length} backup(s) for "${server.name}". Remove them?`,
-        default: false,
-      },
-    ]);
-    if (cleanBackups) {
-      const result = cleanupServerBackups(server.name);
-      if (result.removed) {
-        logger.success("Backups removed.");
-      } else {
-        logger.warning("Failed to remove backups.");
-      }
+    if (options?.force) {
+      logger.info(`Skipping backup cleanup for "${server.name}" (${backups.length} backup(s) kept).`);
     } else {
-      logger.info("Backups kept. Run 'kastell backup cleanup' later to remove orphans.");
+      const { cleanBackups } = await inquirer.prompt([
+        {
+          type: "confirm",
+          name: "cleanBackups",
+          message: `Found ${backups.length} backup(s) for "${server.name}". Remove them?`,
+          default: false,
+        },
+      ]);
+      if (cleanBackups) {
+        const result = cleanupServerBackups(server.name);
+        if (result.removed) {
+          logger.success("Backups removed.");
+        } else {
+          logger.warning("Failed to remove backups.");
+        }
+      } else {
+        logger.info("Backups kept. Run 'kastell backup cleanup' later to remove orphans.");
+      }
     }
   }
 }

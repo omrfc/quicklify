@@ -78,12 +78,13 @@ describe("resolveServerForMcp", () => {
 // ─── mcpSuccess ───────────────────────────────────────────────────────────────
 
 describe("mcpSuccess", () => {
-  it("wraps data in content array with type text", () => {
+  it("wraps data in content array with type text and includes version", () => {
     const data = { status: "ok", count: 3 };
     const result = mcpSuccess(data);
-    expect(result).toEqual({
-      content: [{ type: "text", text: JSON.stringify(data) }],
-    });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.status).toBe("ok");
+    expect(parsed.count).toBe(3);
+    expect(parsed._kastell_version).toBeDefined();
   });
 
   it("does not set isError", () => {

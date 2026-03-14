@@ -19,6 +19,7 @@ interface MaintainOptions {
   all?: boolean;
   dryRun?: boolean;
   skipSnapshot?: boolean;
+  force?: boolean;
 }
 
 function showDryRun(server: ServerRecord, skipReboot: boolean): void {
@@ -139,7 +140,7 @@ async function runMaintain(
   logger.title(`Maintenance: ${server.name} (${server.ip})`);
 
   // Step 0: Offer snapshot (UI logic — stays in command)
-  await offerSnapshot(server, apiToken, options.skipSnapshot);
+  await offerSnapshot(server, apiToken, options.skipSnapshot || options.force);
   console.log();
 
   // Steps 1-5: Delegate to core

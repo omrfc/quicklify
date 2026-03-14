@@ -2,6 +2,17 @@ import { findServer } from "../utils/config.js";
 import { getProviderToken } from "../core/tokens.js";
 import type { ServerRecord } from "../types/index.js";
 
+// Version injected at startup by setMcpVersion()
+let _version = "unknown";
+
+export function setMcpVersion(version: string): void {
+  _version = version;
+}
+
+export function getMcpVersion(): string {
+  return _version;
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type McpResponse = {
@@ -38,7 +49,7 @@ export function resolveServerForMcp(
  */
 export function mcpSuccess(data: Record<string, unknown>): McpResponse {
   return {
-    content: [{ type: "text", text: JSON.stringify(data) }],
+    content: [{ type: "text", text: JSON.stringify({ ...data, _kastell_version: _version }) }],
   };
 }
 

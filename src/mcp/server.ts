@@ -15,6 +15,7 @@ import { serverGuardSchema, handleServerGuard } from "./tools/serverGuard.js";
 import { serverDoctorSchema, handleServerDoctor } from "./tools/serverDoctor.js";
 import { serverLockSchema, handleServerLock } from "./tools/serverLock.js";
 import { serverFleetSchema, handleServerFleet } from "./tools/serverFleet.js";
+import { setMcpVersion } from "./utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -22,6 +23,7 @@ const pkgPath = join(__dirname, "..", "..", "package.json");
 const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { name: string; version: string };
 
 export function createMcpServer(): McpServer {
+  setMcpVersion(pkg.version);
   const server = new McpServer(
     { name: pkg.name, version: pkg.version },
     { capabilities: { logging: {} } },

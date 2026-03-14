@@ -4,9 +4,14 @@ import { destroyCloudServer, removeServerRecord } from "../core/manage.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { listBackups, cleanupServerBackups } from "../core/backup.js";
 
-async function promptBackupCleanup(serverName: string): Promise<void> {
+async function promptBackupCleanup(serverName: string, force?: boolean): Promise<void> {
   const backups = listBackups(serverName);
   if (backups.length === 0) return;
+
+  if (force) {
+    logger.info(`Skipping backup cleanup for "${serverName}" (${backups.length} backup(s) kept).`);
+    return;
+  }
 
   const { cleanBackups } = await inquirer.prompt([
     {
@@ -39,7 +44,7 @@ function showDryRun(server: { name: string; ip: string; provider: string }): voi
   logger.info("No changes applied (dry run).");
 }
 
-export async function destroyCommand(query?: string, options?: { dryRun?: boolean }): Promise<void> {
+export async function destroyCommand(query?: string, options?: { dryRun?: boolean; force?: boolean }): Promise<void> {
   const server = await resolveServer(query, "Select a server to destroy:");
   if (!server) return;
 
@@ -48,33 +53,35 @@ export async function destroyCommand(query?: string, options?: { dryRun?: boolea
     return;
   }
 
-  // First confirmation
-  const { confirm } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "confirm",
-      message: `Are you sure you want to destroy "${server.name}" (${server.ip})?`,
-      default: false,
-    },
-  ]);
+  if (!options?.force) {
+    // First confirmation
+    const { confirm } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "confirm",
+        message: `Are you sure you want to destroy "${server.name}" (${server.ip})?`,
+        default: false,
+      },
+    ]);
 
-  if (!confirm) {
-    logger.info("Destroy cancelled.");
-    return;
-  }
+    if (!confirm) {
+      logger.info("Destroy cancelled.");
+      return;
+    }
 
-  // Second confirmation: type server name
-  const { confirmName } = await inquirer.prompt([
-    {
-      type: "input",
-      name: "confirmName",
-      message: `Type the server name "${server.name}" to confirm:`,
-    },
-  ]);
+    // Second confirmation: type server name
+    const { confirmName } = await inquirer.prompt([
+      {
+        type: "input",
+        name: "confirmName",
+        message: `Type the server name "${server.name}" to confirm:`,
+      },
+    ]);
 
-  if (confirmName.trim() !== server.name) {
-    logger.error("Server name does not match. Destroy cancelled.");
-    return;
+    if (confirmName.trim() !== server.name) {
+      logger.error("Server name does not match. Destroy cancelled.");
+      return;
+    }
   }
 
   const spinner = createSpinner("Destroying server...");
@@ -86,14 +93,14 @@ export async function destroyCommand(query?: string, options?: { dryRun?: boolea
   if (result.success && result.cloudDeleted) {
     spinner.succeed(`Server "${server.name}" destroyed`);
     logger.success("Server has been removed from your cloud provider and local config.");
-    await promptBackupCleanup(server.name);
+    await promptBackupCleanup(server.name, options?.force);
     return;
   }
 
   if (result.success && result.hint) {
     spinner.warn(`Server not found on ${server.provider} (may have been deleted manually)`);
     logger.info("Removed from local config.");
-    await promptBackupCleanup(server.name);
+    await promptBackupCleanup(server.name, options?.force);
     return;
   }
 
@@ -102,18 +109,25 @@ export async function destroyCommand(query?: string, options?: { dryRun?: boolea
   if (result.error) logger.error(result.error);
   if (result.hint) logger.info(result.hint);
 
-  const { removeLocal } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "removeLocal",
-      message: "Remove this server from local config anyway?",
-      default: false,
-    },
-  ]);
-  if (removeLocal) {
+  if (options?.force) {
     const removeResult = await removeServerRecord(server.name);
     if (removeResult.success) {
       logger.success("Removed from local config.");
+    }
+  } else {
+    const { removeLocal } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "removeLocal",
+        message: "Remove this server from local config anyway?",
+        default: false,
+      },
+    ]);
+    if (removeLocal) {
+      const removeResult = await removeServerRecord(server.name);
+      if (removeResult.success) {
+        logger.success("Removed from local config.");
+      }
     }
   }
 }

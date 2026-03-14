@@ -39,7 +39,7 @@ export {
 
 export async function restoreCommand(
   query?: string,
-  options?: { dryRun?: boolean; backup?: string },
+  options?: { dryRun?: boolean; backup?: string; force?: boolean },
 ): Promise<void> {
   if (!checkSshAvailable()) {
     logger.error("SSH client not found. Please install OpenSSH.");
@@ -152,32 +152,34 @@ export async function restoreCommand(
     return;
   }
 
-  // Double confirmation
-  const { confirm } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "confirm",
-      message: `This will restore "${server.name}" from backup ${selectedBackup}. Current data will be OVERWRITTEN. Continue?`,
-      default: false,
-    },
-  ]);
+  if (!options?.force) {
+    // Double confirmation
+    const { confirm } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "confirm",
+        message: `This will restore "${server.name}" from backup ${selectedBackup}. Current data will be OVERWRITTEN. Continue?`,
+        default: false,
+      },
+    ]);
 
-  if (!confirm) {
-    logger.info("Restore cancelled.");
-    return;
-  }
+    if (!confirm) {
+      logger.info("Restore cancelled.");
+      return;
+    }
 
-  const { confirmName } = await inquirer.prompt([
-    {
-      type: "input",
-      name: "confirmName",
-      message: `Type the server name "${server.name}" to confirm:`,
-    },
-  ]);
+    const { confirmName } = await inquirer.prompt([
+      {
+        type: "input",
+        name: "confirmName",
+        message: `Type the server name "${server.name}" to confirm:`,
+      },
+    ]);
 
-  if (confirmName.trim() !== server.name) {
-    logger.error("Server name does not match. Restore cancelled.");
-    return;
+    if (confirmName.trim() !== server.name) {
+      logger.error("Server name does not match. Restore cancelled.");
+      return;
+    }
   }
 
   // Bare server: restore system config files (no Coolify stop/start)

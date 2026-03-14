@@ -133,7 +133,7 @@ async function backupAll(dryRun: boolean): Promise<void> {
 
 // Backup cleanup command
 
-async function backupCleanupCommand(): Promise<void> {
+async function backupCleanupCommand(force?: boolean): Promise<void> {
   const servers = getServers();
   const activeNames = servers.map((s) => s.name);
   const orphans = listOrphanBackups(activeNames);
@@ -150,18 +150,20 @@ async function backupCleanupCommand(): Promise<void> {
   }
   console.log();
 
-  const { confirm } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "confirm",
-      message: `Remove all ${orphans.length} orphan backup folder(s)?`,
-      default: false,
-    },
-  ]);
+  if (!force) {
+    const { confirm } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "confirm",
+        message: `Remove all ${orphans.length} orphan backup folder(s)?`,
+        default: false,
+      },
+    ]);
 
-  if (!confirm) {
-    logger.info("Cleanup cancelled.");
-    return;
+    if (!confirm) {
+      logger.info("Cleanup cancelled.");
+      return;
+    }
   }
 
   let removed = 0;
@@ -240,7 +242,7 @@ async function handleScheduleOption(query: string | undefined, scheduleValue: st
 
 export async function backupCommand(
   query?: string,
-  options?: { dryRun?: boolean; all?: boolean; schedule?: string },
+  options?: { dryRun?: boolean; all?: boolean; schedule?: string; force?: boolean },
 ): Promise<void> {
   // Handle schedule option
   if (options?.schedule !== undefined) {
@@ -249,7 +251,7 @@ export async function backupCommand(
 
   // Handle cleanup subcommand
   if (query === "cleanup") {
-    return backupCleanupCommand();
+    return backupCleanupCommand(options?.force);
   }
 
   if (options?.all) {

@@ -63,7 +63,7 @@ _kastell() {
         return 0
         ;;
       destroy)
-        COMPREPLY=( $(compgen -W "--dry-run" -- "\${cur}") )
+        COMPREPLY=( $(compgen -W "--dry-run --force" -- "\${cur}") )
         return 0
         ;;
       ssh)
@@ -75,7 +75,7 @@ _kastell() {
         return 0
         ;;
       restart)
-        COMPREPLY=( $(compgen -W "--dry-run" -- "\${cur}") )
+        COMPREPLY=( $(compgen -W "--dry-run --force" -- "\${cur}") )
         return 0
         ;;
       logs)
@@ -91,7 +91,7 @@ _kastell() {
         return 0
         ;;
       firewall)
-        COMPREPLY=( $(compgen -W "--port --protocol --dry-run" -- "\${cur}") )
+        COMPREPLY=( $(compgen -W "--port --protocol --dry-run --force" -- "\${cur}") )
         return 0
         ;;
       domain)
@@ -103,11 +103,11 @@ _kastell() {
         return 0
         ;;
       backup)
-        COMPREPLY=( $(compgen -W "--dry-run --all" -- "\${cur}") )
+        COMPREPLY=( $(compgen -W "--dry-run --all --force" -- "\${cur}") )
         return 0
         ;;
       restore)
-        COMPREPLY=( $(compgen -W "--backup --dry-run" -- "\${cur}") )
+        COMPREPLY=( $(compgen -W "--backup --dry-run --force" -- "\${cur}") )
         return 0
         ;;
       add)
@@ -115,11 +115,11 @@ _kastell() {
         return 0
         ;;
       remove)
-        COMPREPLY=( $(compgen -W "--dry-run" -- "\${cur}") )
+        COMPREPLY=( $(compgen -W "--dry-run --force" -- "\${cur}") )
         return 0
         ;;
       maintain)
-        COMPREPLY=( $(compgen -W "--skip-reboot --all --dry-run" -- "\${cur}") )
+        COMPREPLY=( $(compgen -W "--skip-reboot --all --dry-run --force" -- "\${cur}") )
         return 0
         ;;
       snapshot)
@@ -235,7 +235,8 @@ _kastell() {
           ;;
         destroy)
           _arguments \\
-            '--dry-run[Show commands without executing]'
+            '--dry-run[Show commands without executing]' \\
+            '--force[Skip confirmation prompts]'
           ;;
         config)
           local -a subcommands
@@ -254,7 +255,8 @@ _kastell() {
           ;;
         restart)
           _arguments \\
-            '--dry-run[Show commands without executing]'
+            '--dry-run[Show commands without executing]' \\
+            '--force[Skip confirmation prompts]'
           ;;
         logs)
           _arguments \\
@@ -282,7 +284,8 @@ _kastell() {
           _arguments \\
             '--port[Port number]:port:' \\
             '--protocol[Protocol]:protocol:(tcp udp)' \\
-            '--dry-run[Show commands without executing]'
+            '--dry-run[Show commands without executing]' \\
+            '--force[Skip confirmation prompts]'
           ;;
         domain)
           local -a subcommands
@@ -305,12 +308,14 @@ _kastell() {
         backup)
           _arguments \\
             '--dry-run[Show commands without executing]' \\
-            '--all[Backup all servers]'
+            '--all[Backup all servers]' \\
+            '--force[Skip confirmation prompts]'
           ;;
         restore)
           _arguments \\
             '--backup[Backup timestamp]:backup:' \\
-            '--dry-run[Show commands without executing]'
+            '--dry-run[Show commands without executing]' \\
+            '--force[Skip confirmation prompts]'
           ;;
         add)
           _arguments \\
@@ -322,13 +327,15 @@ _kastell() {
           ;;
         remove)
           _arguments \\
-            '--dry-run[Show commands without executing]'
+            '--dry-run[Show commands without executing]' \\
+            '--force[Skip confirmation prompts]'
           ;;
         maintain)
           _arguments \\
             '--skip-reboot[Skip the reboot step]' \\
             '--all[Maintain all servers]' \\
-            '--dry-run[Show commands without executing]'
+            '--dry-run[Show commands without executing]' \\
+            '--force[Skip confirmation prompts]'
           ;;
         snapshot)
           local -a subcommands
@@ -480,6 +487,7 @@ complete -c kastell -n '__kastell_using_subcommand status' -l autostart -d 'Rest
 
 # destroy options
 complete -c kastell -n '__kastell_using_subcommand destroy' -l dry-run -d 'Show commands without executing'
+complete -c kastell -n '__kastell_using_subcommand destroy' -l force -d 'Skip confirmation prompts'
 
 # config subcommands
 complete -c kastell -n '__kastell_using_subcommand config' -a 'set get list reset validate'
@@ -494,6 +502,7 @@ complete -c kastell -n '__kastell_using_subcommand update' -l force -d 'Skip con
 
 # restart options
 complete -c kastell -n '__kastell_using_subcommand restart' -l dry-run -d 'Show commands without executing'
+complete -c kastell -n '__kastell_using_subcommand restart' -l force -d 'Skip confirmation prompts'
 
 # logs options
 complete -c kastell -n '__kastell_using_subcommand logs' -s n -l lines -d 'Number of log lines'
@@ -516,6 +525,7 @@ complete -c kastell -n '__kastell_using_subcommand firewall' -a 'setup add remov
 complete -c kastell -n '__kastell_using_subcommand firewall' -l port -d 'Port number'
 complete -c kastell -n '__kastell_using_subcommand firewall' -l protocol -d 'Protocol (tcp/udp)'
 complete -c kastell -n '__kastell_using_subcommand firewall' -l dry-run -d 'Show commands without executing'
+complete -c kastell -n '__kastell_using_subcommand firewall' -l force -d 'Skip confirmation prompts'
 
 # domain subcommands and options
 complete -c kastell -n '__kastell_using_subcommand domain' -a 'add check remove'
@@ -532,10 +542,12 @@ complete -c kastell -n '__kastell_using_subcommand secure' -l force -d 'Skip con
 # backup options
 complete -c kastell -n '__kastell_using_subcommand backup' -l dry-run -d 'Show commands without executing'
 complete -c kastell -n '__kastell_using_subcommand backup' -l all -d 'Backup all servers'
+complete -c kastell -n '__kastell_using_subcommand backup' -l force -d 'Skip confirmation prompts'
 
 # restore options
 complete -c kastell -n '__kastell_using_subcommand restore' -l backup -d 'Backup timestamp'
 complete -c kastell -n '__kastell_using_subcommand restore' -l dry-run -d 'Show commands without executing'
+complete -c kastell -n '__kastell_using_subcommand restore' -l force -d 'Skip confirmation prompts'
 
 # add options
 complete -c kastell -n '__kastell_using_subcommand add' -l provider -d 'Cloud provider'
@@ -546,11 +558,13 @@ complete -c kastell -n '__kastell_using_subcommand add' -l mode -d 'Server mode'
 
 # remove options
 complete -c kastell -n '__kastell_using_subcommand remove' -l dry-run -d 'Show commands without executing'
+complete -c kastell -n '__kastell_using_subcommand remove' -l force -d 'Skip confirmation prompts'
 
 # maintain options
 complete -c kastell -n '__kastell_using_subcommand maintain' -l skip-reboot -d 'Skip reboot step'
 complete -c kastell -n '__kastell_using_subcommand maintain' -l all -d 'Maintain all servers'
 complete -c kastell -n '__kastell_using_subcommand maintain' -l dry-run -d 'Show commands without executing'
+complete -c kastell -n '__kastell_using_subcommand maintain' -l force -d 'Skip confirmation prompts'
 
 # snapshot subcommands and options
 complete -c kastell -n '__kastell_using_subcommand snapshot' -a 'create list delete'

@@ -86,7 +86,8 @@ program
   .command("destroy [query]")
   .description("Destroy a registered server")
   .option("--dry-run", "Show what would happen without executing")
-  .action((query?: string, options?: { dryRun?: boolean }) =>
+  .option("--force", "Skip confirmation prompts")
+  .action((query?: string, options?: { dryRun?: boolean; force?: boolean }) =>
     destroyCommand(query, options),
   );
 
@@ -115,7 +116,8 @@ program
   .command("restart [query]")
   .description("Restart a registered server")
   .option("--dry-run", "Show what would happen without executing")
-  .action((query?: string, options?: { dryRun?: boolean }) =>
+  .option("--force", "Skip confirmation prompts")
+  .action((query?: string, options?: { dryRun?: boolean; force?: boolean }) =>
     restartCommand(query, options),
   );
 
@@ -169,11 +171,12 @@ program
   .option("--port <port>", "Port number (for add/remove)")
   .option("--protocol <protocol>", "Protocol: tcp or udp (default: tcp)")
   .option("--dry-run", "Show commands without executing")
+  .option("--force", "Skip confirmation prompts")
   .action(
     (
       subcommand?: string,
       query?: string,
-      options?: { port?: string; protocol?: string; dryRun?: boolean },
+      options?: { port?: string; protocol?: string; dryRun?: boolean; force?: boolean },
     ) => firewallCommand(subcommand, query, options),
   );
 
@@ -236,7 +239,8 @@ program
   .option("--dry-run", "Show commands without executing")
   .option("--all", "Backup all servers")
   .option("--schedule <value>", 'Cron expression, "list", or "remove"')
-  .action((query?: string, options?: { dryRun?: boolean; all?: boolean; schedule?: string }) =>
+  .option("--force", "Skip confirmation prompts")
+  .action((query?: string, options?: { dryRun?: boolean; all?: boolean; schedule?: string; force?: boolean }) =>
     backupCommand(query, options),
   );
 
@@ -245,7 +249,8 @@ program
   .description("Restore Coolify from a backup")
   .option("--backup <backup>", "Backup timestamp to restore (skip selection prompt)")
   .option("--dry-run", "Show commands without executing")
-  .action((query?: string, options?: { backup?: string; dryRun?: boolean }) =>
+  .option("--force", "Skip confirmation prompts")
+  .action((query?: string, options?: { backup?: string; dryRun?: boolean; force?: boolean }) =>
     restoreCommand(query, options),
   );
 
@@ -275,7 +280,8 @@ program
   .command("remove [query]")
   .description("Remove a server from local config (does not destroy the cloud server)")
   .option("--dry-run", "Show what would happen without executing")
-  .action((query?: string, options?: { dryRun?: boolean }) =>
+  .option("--force", "Skip confirmation prompts")
+  .action((query?: string, options?: { dryRun?: boolean; force?: boolean }) =>
     removeCommand(query, options),
   );
 
@@ -285,7 +291,8 @@ program
   .option("--skip-reboot", "Skip the reboot step")
   .option("--all", "Maintain all servers sequentially")
   .option("--dry-run", "Show steps without executing")
-  .action((query?: string, options?: { skipReboot?: boolean; all?: boolean; dryRun?: boolean }) =>
+  .option("--force", "Skip confirmation prompts")
+  .action((query?: string, options?: { skipReboot?: boolean; all?: boolean; dryRun?: boolean; force?: boolean }) =>
     maintainCommand(query, options),
   );
 

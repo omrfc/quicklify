@@ -17,7 +17,7 @@ function showDryRun(server: { name: string; ip: string; provider: string }): voi
   logger.info("No changes applied (dry run).");
 }
 
-export async function restartCommand(query?: string, options?: { dryRun?: boolean }): Promise<void> {
+export async function restartCommand(query?: string, options?: { dryRun?: boolean; force?: boolean }): Promise<void> {
   const server = await resolveServer(query, "Select a server to restart:");
   if (!server) return;
 
@@ -26,18 +26,20 @@ export async function restartCommand(query?: string, options?: { dryRun?: boolea
     return;
   }
 
-  const { confirm } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "confirm",
-      message: `Restart server "${server.name}" (${server.ip})? This will cause brief downtime.`,
-      default: false,
-    },
-  ]);
+  if (!options?.force) {
+    const { confirm } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "confirm",
+        message: `Restart server "${server.name}" (${server.ip})? This will cause brief downtime.`,
+        default: false,
+      },
+    ]);
 
-  if (!confirm) {
-    logger.info("Restart cancelled.");
-    return;
+    if (!confirm) {
+      logger.info("Restart cancelled.");
+      return;
+    }
   }
 
   const spinner = createSpinner("Rebooting server...");

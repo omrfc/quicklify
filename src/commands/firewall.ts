@@ -38,7 +38,7 @@ import type { FirewallProtocol } from "../types/index.js";
 export async function firewallCommand(
   subcommand?: string,
   query?: string,
-  options?: { port?: string; protocol?: string; dryRun?: boolean },
+  options?: { port?: string; protocol?: string; dryRun?: boolean; force?: boolean },
 ): Promise<void> {
   if (!checkSshAvailable()) {
     logger.error("SSH client not found. Please install OpenSSH.");
@@ -70,7 +70,7 @@ export async function firewallCommand(
       break;
     case "remove": {
       const removePlatform = resolvePlatform(server);
-      await firewallRemove(server.ip, server.name, options, dryRun, removePlatform);
+      await firewallRemove(server.ip, server.name, options, dryRun, removePlatform, options?.force);
       break;
     }
     case "list":
@@ -135,6 +135,7 @@ async function firewallRemove(
   options?: { port?: string; protocol?: string },
   dryRun?: boolean,
   platform?: import("../types/index.js").Platform,
+  force?: boolean,
 ): Promise<void> {
   const port = parseInt(options?.port || "", 10);
   if (!options?.port || !isValidPort(port)) {
@@ -157,7 +158,7 @@ async function firewallRemove(
     (platform === "coolify" && COOLIFY_PORTS.includes(port)) ||
     (platform === "dokploy" && DOKPLOY_PORTS.includes(port));
 
-  if (isPlatformPort) {
+  if (isPlatformPort && !force) {
     const platformName = platform === "coolify" ? "Coolify" : "Dokploy";
     const { confirm } = await inquirer.prompt([
       {
