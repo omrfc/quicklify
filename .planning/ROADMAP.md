@@ -253,7 +253,7 @@ Plans:
 | 36. Notification Module | 2/2 | Complete    | 2026-03-14 | - |
 | 37. Doctor Fix | 1/1 | Complete    | 2026-03-14 | - |
 | 38. Fleet Visibility | 2/2 | Complete    | 2026-03-14 | - |
-| 39. Guard Notification Integration | 1/1 | Complete   | 2026-03-14 | - |
+| 39. Guard Notification Integration | 1/1 | Complete    | 2026-03-14 | - |
 | 40. Shell Completions + Polish | v1.8 | 0/TBD | Not started | - |
 
 ---
