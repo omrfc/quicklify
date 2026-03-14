@@ -1,0 +1,263 @@
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { join } from "path";
+import { sshExec, assertValidIp } from "../utils/ssh.js";
+import { CONFIG_DIR } from "../utils/config.js";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface GuardStateEntry {
+  installedAt: string; // ISO timestamp
+  cronExpr: string; // "*/5 * * * *"
+}
+
+export interface GuardStartResult {
+  success: boolean;
+  error?: string;
+  hint?: string;
+}
+
+export interface GuardStopResult {
+  success: boolean;
+  error?: string;
+  hint?: string;
+}
+
+export interface GuardStatusResult {
+  success: boolean;
+  isActive: boolean;
+  lastRunAt?: string; // parsed from last log line timestamp
+  breaches: string[]; // recent BREACH log lines
+  logTail: string; // raw last N lines for display
+  installedAt?: string; // from local guard-state.json
+  error?: string;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+export const GUARD_CRON_EXPR = "*/5 * * * *";
+export const GUARD_SCRIPT_PATH = "/root/kastell-guard.sh";
+export const GUARD_LOG_PATH = "/var/log/kastell-guard.log";
+export const GUARD_METRICS_PATH = "/var/lib/kastell/metrics.json";
+export const GUARD_MARKER = "# kastell-guard";
+
+const GUARD_STATE_FILE = join(CONFIG_DIR, "guard-state.json");
+
+// ─── Local State Persistence ──────────────────────────────────────────────────
+
+export function getGuardStates(): Record<string, GuardStateEntry> {
+  if (!existsSync(GUARD_STATE_FILE)) return {};
+  try {
+    return JSON.parse(readFileSync(GUARD_STATE_FILE, "utf-8")) as Record<string, GuardStateEntry>;
+  } catch {
+    return {};
+  }
+}
+
+export function saveGuardState(serverName: string, entry: GuardStateEntry): void {
+  mkdirSync(CONFIG_DIR, { recursive: true });
+  const states = getGuardStates();
+  states[serverName] = entry;
+  writeFileSync(GUARD_STATE_FILE, JSON.stringify(states, null, 2), { mode: 0o600 });
+}
+
+export function removeGuardState(serverName: string): void {
+  mkdirSync(CONFIG_DIR, { recursive: true });
+  const states = getGuardStates();
+  delete states[serverName];
+  writeFileSync(GUARD_STATE_FILE, JSON.stringify(states, null, 2), { mode: 0o600 });
+}
+
+// ─── Command Builders ─────────────────────────────────────────────────────────
+
+export function buildDeployGuardScriptCommand(): string {
+  const lines = [
+    `cat <<'KASTELL_EOF' > ${GUARD_SCRIPT_PATH}`,
+    "#!/bin/bash",
+    "# kastell-guard v1.7 — autonomous security monitoring",
+    "exec 200>/tmp/kastell-guard.lock",
+    `flock -n 200 || { echo "[kastell-guard] already running, skipping"; exit 0; }`,
+    `LOG=${GUARD_LOG_PATH}`,
+    "METRICS_DIR=/var/lib/kastell",
+    `METRICS_FILE=${GUARD_METRICS_PATH}`,
+    "TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+    "mkdir -p \"$METRICS_DIR\"",
+    "log() { echo \"[kastell-guard] $TS $1: $2\" >> \"$LOG\" 2>/dev/null || true; }",
+    "# KASTELL_NOTIFY_HOOK — notification stub. v1.8 will inject implementation here.",
+    "notify() {",
+    "  local level=\"$1\" msg=\"$2\"",
+    "  # placeholder — wire Telegram/Discord/Slack/Email here in v1.8",
+    "  :",
+    "}",
+    "# ─── Disk check ──────────────────────────────────────────────────────────",
+    "DISK_PCT=$(df / --output=pcent 2>/dev/null | tail -1 | tr -d ' %' || echo \"0\")",
+    "if [ \"$DISK_PCT\" -ge 80 ] 2>/dev/null; then",
+    "  log \"BREACH\" \"Disk usage ${DISK_PCT}% exceeds 80% threshold\"",
+    "  notify \"warn\" \"Disk ${DISK_PCT}% on $(hostname)\"",
+    "else",
+    "  log \"OK\" \"Disk ${DISK_PCT}%\"",
+    "fi",
+    "# ─── RAM check ───────────────────────────────────────────────────────────",
+    "RAM_USED_PCT=$(free | awk '/^Mem:/{printf \"%.0f\", $3/$2*100}' 2>/dev/null || echo \"0\")",
+    "if [ \"$RAM_USED_PCT\" -ge 90 ] 2>/dev/null; then",
+    "  log \"BREACH\" \"RAM usage ${RAM_USED_PCT}% exceeds 90% threshold\"",
+    "  notify \"warn\" \"RAM ${RAM_USED_PCT}% on $(hostname)\"",
+    "else",
+    "  log \"OK\" \"RAM ${RAM_USED_PCT}%\"",
+    "fi",
+    "# ─── CPU check (1-min load avg vs nproc) ─────────────────────────────────",
+    "LOAD1=$(awk '{print $1}' /proc/loadavg 2>/dev/null | cut -d. -f1 || echo \"0\")",
+    "NCPU=$(nproc 2>/dev/null || echo \"1\")",
+    "if [ \"$LOAD1\" -ge \"$NCPU\" ] 2>/dev/null; then",
+    "  log \"BREACH\" \"CPU load avg ${LOAD1} >= ${NCPU} (nproc)\"",
+    "  notify \"warn\" \"CPU load ${LOAD1} on $(hostname)\"",
+    "else",
+    "  log \"OK\" \"CPU load ${LOAD1}/${NCPU}\"",
+    "fi",
+    "# ─── Audit proxy check (GUARD-04) ────────────────────────────────────────",
+    "PASSWD_AUTH=$(sshd -T 2>/dev/null | grep -i 'passwordauthentication no' | wc -l || echo \"0\")",
+    "PREV_SCORE=$(python3 -c \"import json,sys; d=json.load(open('$METRICS_FILE')); print(d.get('auditScore',0))\" 2>/dev/null || echo \"0\")",
+    "if [ \"$PASSWD_AUTH\" -eq 0 ] && [ \"$PREV_SCORE\" -gt 50 ] 2>/dev/null; then",
+    "  log \"REGRESSION\" \"Audit score regression detected (passwordauth may have changed)\"",
+    "  notify \"warn\" \"Audit regression on $(hostname)\"",
+    "fi",
+    "# ─── MetricSnapshot write (GUARD-09) ─────────────────────────────────────",
+    "cat > \"$METRICS_FILE\" <<METRICS_EOF",
+    "{",
+    "  \"timestamp\": \"$TS\",",
+    "  \"diskPct\": $DISK_PCT,",
+    "  \"ramPct\": $RAM_USED_PCT,",
+    "  \"cpuLoad1\": $LOAD1,",
+    "  \"ncpu\": $NCPU,",
+    "  \"auditScore\": 0",
+    "}",
+    "METRICS_EOF",
+    "log \"OK\" \"MetricSnapshot written to $METRICS_FILE\"",
+    "log \"OK\" \"Guard run complete\"",
+    "KASTELL_EOF",
+    `chmod +x ${GUARD_SCRIPT_PATH}`,
+  ];
+  return lines.join("\n");
+}
+
+export function buildInstallGuardCronCommand(): string {
+  const entry = `${GUARD_CRON_EXPR} ${GUARD_SCRIPT_PATH} ${GUARD_MARKER}`;
+  return `(crontab -l 2>/dev/null | grep -v '${GUARD_MARKER}'; echo "${entry}") | crontab -`;
+}
+
+export function buildListGuardCronCommand(): string {
+  return `crontab -l 2>/dev/null | grep '${GUARD_MARKER}' || echo ""`;
+}
+
+export function buildRemoveGuardCronCommand(): string {
+  return `(crontab -l 2>/dev/null | grep -v '${GUARD_MARKER}') | crontab -`;
+}
+
+export function buildGuardStatusCommand(): string {
+  return (
+    `crontab -l 2>/dev/null | grep -q '${GUARD_MARKER}' && echo "CRON_ACTIVE" || echo "CRON_INACTIVE"` +
+    ` && tail -30 ${GUARD_LOG_PATH} 2>/dev/null || echo "LOG_EMPTY"`
+  );
+}
+
+// ─── Orchestrators ────────────────────────────────────────────────────────────
+
+export async function startGuard(ip: string, serverName: string): Promise<GuardStartResult> {
+  assertValidIp(ip);
+
+  const deployResult = await sshExec(ip, buildDeployGuardScriptCommand());
+  if (deployResult.code !== 0) {
+    return {
+      success: false,
+      error: "Failed to deploy guard script",
+      hint: deployResult.stderr || undefined,
+    };
+  }
+
+  const cronResult = await sshExec(ip, buildInstallGuardCronCommand());
+  if (cronResult.code !== 0) {
+    return {
+      success: false,
+      error: "Failed to install guard cron entry",
+      hint: cronResult.stderr || undefined,
+    };
+  }
+
+  saveGuardState(serverName, {
+    installedAt: new Date().toISOString(),
+    cronExpr: GUARD_CRON_EXPR,
+  });
+
+  return { success: true };
+}
+
+export async function stopGuard(ip: string, serverName: string): Promise<GuardStopResult> {
+  assertValidIp(ip);
+
+  const result = await sshExec(ip, buildRemoveGuardCronCommand());
+  if (result.code !== 0) {
+    return {
+      success: false,
+      error: "Failed to remove guard cron entry",
+      hint: result.stderr || undefined,
+    };
+  }
+
+  removeGuardState(serverName);
+
+  return { success: true };
+}
+
+export async function guardStatus(ip: string, serverName: string): Promise<GuardStatusResult> {
+  assertValidIp(ip);
+
+  const result = await sshExec(ip, buildGuardStatusCommand());
+  if (result.code !== 0) {
+    return {
+      success: false,
+      isActive: false,
+      breaches: [],
+      logTail: "",
+      error: "Failed to check guard status",
+    };
+  }
+
+  const output = result.stdout;
+  const isActive = output.includes("CRON_ACTIVE");
+
+  // Extract log lines (lines after the CRON_ACTIVE/CRON_INACTIVE line)
+  const lines = output.split("\n").filter((l) => l.trim().length > 0);
+  const logLines = lines.filter((l) => l.includes("[kastell-guard]"));
+  const logTail = logLines.join("\n");
+
+  // Parse BREACH lines
+  const breaches = logLines
+    .filter((l) => l.includes("BREACH:"))
+    .map((l) => {
+      // Extract the message after the level prefix: "[kastell-guard] <TS> BREACH: <msg>"
+      const match = l.match(/\[kastell-guard\]\s+\S+\s+BREACH:\s+(.*)/);
+      return match ? match[1].trim() : l;
+    });
+
+  // Extract last timestamp from most recent log line
+  let lastRunAt: string | undefined;
+  for (let i = logLines.length - 1; i >= 0; i--) {
+    const match = logLines[i].match(/\[kastell-guard\]\s+(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)/);
+    if (match) {
+      lastRunAt = match[1];
+      break;
+    }
+  }
+
+  // Supplementary local state
+  const states = getGuardStates();
+  const installedAt = states[serverName]?.installedAt;
+
+  return {
+    success: true,
+    isActive,
+    lastRunAt,
+    breaches,
+    logTail,
+    installedAt,
+  };
+}
