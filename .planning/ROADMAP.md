@@ -113,7 +113,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 - [x] **Phase 29: Backup Schedule** - Scheduled backup via remote cron with overlap protection and idempotent install (completed 2026-03-14)
 - [x] **Phase 30: Guard Daemon** - Autonomous security monitoring daemon running as remote cron on VPS with metric collection (completed 2026-03-14)
 - [x] **Phase 31: Risk Trend** - Audit score trend with per-check cause attribution and time-bounded queries (completed 2026-03-14)
-- [ ] **Phase 32: Doctor** - Proactive operations analysis from cached snapshots and metric history
+- [x] **Phase 32: Doctor** - Proactive operations analysis from cached snapshots and metric history (completed 2026-03-14)
 - [ ] **Phase 33: MCP + Completions** - MCP tools for guard/doctor/lock and shell completion updates
 
 ## Phase Details
@@ -193,7 +193,7 @@ Plans:
   3. Doctor detects and reports high swap usage, stale packages, elevated fail2ban ban rate, audit score regression streaks, old backups, and reclaimable Docker disk space when present
   4. Each finding includes a description of the problem and a specific `kastell` or shell command the user can run to address it
   5. Doctor completes using cached snapshots without making a live SSH connection unless `--fresh` is passed
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 32-01-PLAN.md — Core doctor module (types, 7 pure check functions, metrics cache, orchestrator)
@@ -247,7 +247,7 @@ Plans:
 | 29. Backup Schedule | 2/2 | Complete    | 2026-03-14 | - |
 | 30. Guard Daemon | 2/2 | Complete    | 2026-03-14 | - |
 | 31. Risk Trend | 2/2 | Complete    | 2026-03-14 | - |
-| 32. Doctor | 1/2 | In Progress|  | - |
+| 32. Doctor | 2/2 | Complete   | 2026-03-14 | - |
 | 33. MCP + Completions | v1.7 | 0/TBD | Not started | - |
 
 ---

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Guard Core
 status: ready_to_plan
-stopped_at: Completed 32-doctor-01-PLAN.md
-last_updated: "2026-03-14T10:43:36.467Z"
+stopped_at: Completed 32-doctor-02-PLAN.md
+last_updated: "2026-03-14T10:52:38.819Z"
 last_activity: 2026-03-14 — Roadmap created, phases 28-33 defined
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
   percent: 100
 ---
 
@@ -71,6 +71,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 31-risk-trend P01 | 234 | 2 tasks | 4 files |
 | Phase 31-risk-trend P02 | 480 | 1 tasks | 3 files |
 | Phase 32-doctor P01 | 900 | 1 tasks | 2 files |
+| Phase 32-doctor P02 | 353 | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 31-risk-trend]: days option parsed with parseInt in command layer keeping computeTrend signature clean
 - [Phase 32-doctor]: Swap/packages/fail2ban/backup/docker checks skip gracefully (null) when SSH data unavailable — no --fresh run yet
 - [Phase 32-doctor]: checkAuditRegressionStreak requires 2+ consecutive score-decrease transitions (maxStreak >= 2) per DOC-04 streak semantics
+- [Phase 32-doctor]: doctorCommand signature changed from (options?, version?) to (server?, options?, version?) — backward-compatible since both params optional
+- [Phase 32-doctor]: ora mocked in tests via jest.mock to prevent spinner.start TypeError in non-TTY environment
 
 ### Pending Todos
 
@@ -112,6 +115,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-14T10:43:36.459Z
-Stopped at: Completed 32-doctor-01-PLAN.md
+Last session: 2026-03-14T10:52:38.811Z
+Stopped at: Completed 32-doctor-02-PLAN.md
 Next action: `/gsd:plan-phase 28`
