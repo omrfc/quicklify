@@ -36,6 +36,7 @@ import { evidenceCommand } from "./commands/evidence.js";
 import { lockCommand } from "./commands/lock.js";
 import { guardCommand } from "./commands/guard.js";
 import { notifyCommand } from "./commands/notify.js";
+import { fleetCommand } from "./commands/fleet.js";
 import { printHeader, printQuickHelp } from "./cli/header.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -347,6 +348,7 @@ program
   );
 
 notifyCommand(program);
+fleetCommand(program);
 
 registerAuthCommands(program);
 
