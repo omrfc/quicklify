@@ -56,7 +56,7 @@ function formatServerList(servers: ServerRecord[]): Record<string, unknown> {
       region: s.region,
       size: s.size,
       id: s.id,
-      mode: s.mode ?? "coolify",
+      mode: resolvePlatform(s) ?? s.mode ?? "coolify",
       createdAt: s.createdAt,
     })),
     total: servers.length,
@@ -74,7 +74,7 @@ function formatStatusResult(result: StatusResult): object {
     provider: result.server.provider,
     region: result.server.region,
     size: result.server.size,
-    mode: result.server.mode ?? "coolify",
+    mode: resolvePlatform(result.server) ?? result.server.mode ?? "coolify",
     serverStatus: result.serverStatus,
     platformStatus: result.platformStatus,
     ...(result.error ? { error: result.error } : {}),
@@ -284,7 +284,7 @@ export async function handleServerInfo(params: {
             return {
               name: s.name,
               ip: s.ip,
-              mode: s.mode ?? "coolify",
+              mode: plat ?? s.mode ?? "coolify",
               platform: plat ?? "coolify",
               platformStatus: platStatus,
             };

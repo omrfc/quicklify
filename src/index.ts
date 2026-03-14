@@ -235,7 +235,7 @@ program
 
 program
   .command("backup [query]")
-  .description("Backup server data, or manage backup schedule")
+  .description("Backup server data, or manage backup schedule (use 'list' or 'cleanup' as query)")
   .option("--dry-run", "Show commands without executing")
   .option("--all", "Backup all servers")
   .option("--schedule <value>", 'Cron expression, "list", or "remove"')

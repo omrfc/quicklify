@@ -88,7 +88,7 @@ export async function handleServerSecure(params: {
     if (domainActions.includes(params.action)) {
       const modeError = requireManagedMode(server, params.action);
       if (modeError) {
-        return mcpError(modeError, "Domain management requires Coolify. Use SSH for bare server DNS configuration.");
+        return mcpError(modeError, "Domain management requires a managed platform (Coolify or Dokploy). Use SSH for bare server DNS configuration.");
       }
     }
 
@@ -302,7 +302,7 @@ export async function handleServerSecure(params: {
           );
         }
 
-        const result = await setDomain(server.ip, params.domain, params.ssl ?? true);
+        const result = await setDomain(server.ip, params.domain, params.ssl ?? true, resolvePlatform(server));
 
         if (!result.success) {
           return {
@@ -331,7 +331,7 @@ export async function handleServerSecure(params: {
       }
 
       case "domain-remove": {
-        const result = await removeDomain(server.ip);
+        const result = await removeDomain(server.ip, resolvePlatform(server));
 
         if (!result.success) {
           return {
@@ -394,7 +394,7 @@ export async function handleServerSecure(params: {
       }
 
       case "domain-info": {
-        const result = await getDomain(server.ip);
+        const result = await getDomain(server.ip, resolvePlatform(server));
 
         if (result.error) {
           return {

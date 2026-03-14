@@ -61,7 +61,7 @@ export function createMcpServer(): McpServer {
 
   server.registerTool("server_manage", {
     description:
-      "Manage Kastell servers. Actions: 'add' registers an existing Coolify or bare server to local config (validates API token, optionally verifies Coolify via SSH — pass mode:'bare' for servers without Coolify). 'remove' unregisters a server from local config only (cloud server keeps running). 'destroy' PERMANENTLY DELETES the server from the cloud provider and removes from local config. Requires provider API tokens as environment variables. Destroy is blocked when KASTELL_SAFE_MODE=true.",
+      "Manage Kastell servers. Actions: 'add' registers an existing Coolify or bare server to local config (validates API token, optionally verifies Coolify via SSH — pass mode:'bare' for servers without Coolify). 'remove' unregisters a server from local config only (cloud server keeps running). 'destroy' PERMANENTLY DELETES the server from the cloud provider and removes from local config. Requires provider API tokens as environment variables. Destroy is blocked when KASTELL_SAFE_MODE=true. Server mode for 'add' action: 'coolify', 'dokploy', or 'bare'. Default: coolify",
     inputSchema: serverManageSchema,
     annotations: {
       title: "Server Management",

@@ -2,7 +2,7 @@ import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
-import { COOLIFY_DB_CONTAINER } from "../constants.js";
+import { COOLIFY_DB_CONTAINER, DOKPLOY_DB_CONTAINER } from "../constants.js";
 import { requireManagedMode } from "../utils/modeGuard.js";
 import { updateServer } from "../utils/config.js";
 import { resolvePlatform } from "../adapters/factory.js";
@@ -16,7 +16,9 @@ import {
   buildDnsCheckCommand,
   parseDnsResult,
   parseFqdn,
+  buildPlatformCheckCommand,
 } from "../core/domain.js";
+import type { Platform } from "../types/index.js";
 export {
   isValidDomain,
   sanitizeDomain,
@@ -24,6 +26,7 @@ export {
   buildSetFqdnCommand,
   buildGetFqdnCommand,
   buildCoolifyCheckCommand,
+  buildPlatformCheckCommand,
   buildDnsCheckCommand,
   parseDnsResult,
   parseFqdn,
@@ -57,28 +60,23 @@ export async function domainCommand(
   }
 
   const platform = resolvePlatform(server) ?? "coolify";
-  if (platform === "dokploy") {
-    logger.error("Domain management is not supported for Dokploy servers. Use the Dokploy dashboard instead.");
-    return;
-  }
-
   const dryRun = options?.dryRun || false;
 
   switch (sub) {
     case "add":
-      await domainAdd(server.ip, server.name, options, dryRun);
+      await domainAdd(server.ip, server.name, platform, options, dryRun);
       break;
     case "remove":
-      await domainRemove(server.ip, server.name, dryRun);
+      await domainRemove(server.ip, server.name, platform, dryRun);
       break;
     case "check":
       await domainCheck(server.ip, options);
       break;
     case "list":
-      await domainList(server.ip, server.name);
+      await domainList(server.ip, server.name, platform);
       break;
     case "info":
-      await domainInfo(server.ip, server.name);
+      await domainInfo(server.ip, server.name, platform);
       break;
   }
 }
@@ -86,6 +84,7 @@ export async function domainCommand(
 async function domainAdd(
   ip: string,
   name: string,
+  platform: Platform,
   options?: { domain?: string; ssl?: boolean },
   dryRun?: boolean,
 ): Promise<void> {
@@ -101,11 +100,14 @@ async function domainAdd(
   }
 
   const ssl = options?.ssl !== false; // default true
-  const command = buildSetFqdnCommand(domain, ssl);
+  const command = buildSetFqdnCommand(domain, ssl, platform);
+  const dbContainer = platform === "dokploy" ? DOKPLOY_DB_CONTAINER : COOLIFY_DB_CONTAINER;
+  const platformLabel = platform === "dokploy" ? "Dokploy" : "Coolify";
 
   if (dryRun) {
     logger.title("Dry Run - Add Domain");
     logger.info(`Server: ${name} (${ip})`);
+    logger.info(`Platform: ${platformLabel}`);
     logger.info(`Domain: ${domain}`);
     logger.info(`SSL: ${ssl ? "enabled" : "disabled"}`);
     console.log();
@@ -122,11 +124,10 @@ async function domainAdd(
   spinner.start();
 
   try {
-    // Check if coolify-db container is running
-    const checkResult = await sshExec(ip, buildCoolifyCheckCommand());
-    if (!checkResult.stdout.includes(COOLIFY_DB_CONTAINER)) {
-      spinner.fail("Coolify database container not found");
-      logger.error("Is Coolify installed and running on this server?");
+    const checkResult = await sshExec(ip, buildPlatformCheckCommand(platform));
+    if (!checkResult.stdout.includes(dbContainer)) {
+      spinner.fail(`${platformLabel} database container not found`);
+      logger.error(`Is ${platformLabel} installed and running on this server?`);
       logger.info("Run: kastell status <server> to check");
       return;
     }
@@ -141,7 +142,7 @@ async function domainAdd(
     spinner.succeed(`Domain set to ${domain} on ${name}`);
     await updateServer(name, { domain });
     const protocol = ssl ? "https" : "http";
-    logger.success(`Coolify is now accessible at ${protocol}://${domain}`);
+    logger.success(`${platformLabel} is now accessible at ${protocol}://${domain}`);
     logger.info("Make sure your DNS A record points to " + ip);
   } catch (error: unknown) {
     spinner.fail("Failed to set domain");
@@ -151,13 +152,15 @@ async function domainAdd(
   }
 }
 
-async function domainRemove(ip: string, name: string, dryRun: boolean): Promise<void> {
-  const command = buildSetFqdnCommand(`${ip}:8000`, false);
+async function domainRemove(ip: string, name: string, platform: Platform, dryRun: boolean): Promise<void> {
+  const defaultPort = platform === "dokploy" ? 3000 : 8000;
+  const platformLabel = platform === "dokploy" ? "Dokploy" : "Coolify";
+  const command = buildSetFqdnCommand(`${ip}:${defaultPort}`, false, platform);
 
   if (dryRun) {
     logger.title("Dry Run - Remove Domain");
     logger.info(`Server: ${name} (${ip})`);
-    logger.info(`Will reset to: http://${ip}:8000`);
+    logger.info(`Will reset to: http://${ip}:${defaultPort}`);
     console.log();
     logger.info("Commands to execute:");
     for (const cmd of command.split(" && ")) {
@@ -181,7 +184,7 @@ async function domainRemove(ip: string, name: string, dryRun: boolean): Promise<
 
     spinner.succeed(`Domain removed from ${name}`);
     await updateServer(name, { domain: undefined });
-    logger.success(`Coolify is now accessible at http://${ip}:8000`);
+    logger.success(`${platformLabel} is now accessible at http://${ip}:${defaultPort}`);
   } catch (error: unknown) {
     spinner.fail("Failed to remove domain");
     logger.error(getErrorMessage(error));
@@ -229,12 +232,22 @@ async function domainCheck(ip: string, options?: { domain?: string }): Promise<v
   }
 }
 
-async function domainList(ip: string, name: string): Promise<void> {
+async function domainList(ip: string, name: string, platform: Platform): Promise<void> {
   const spinner = createSpinner(`Fetching domain from ${name}...`);
   spinner.start();
+  const defaultPort = platform === "dokploy" ? 3000 : 8000;
+  const dbContainer = platform === "dokploy" ? DOKPLOY_DB_CONTAINER : COOLIFY_DB_CONTAINER;
+  const platformLabel = platform === "dokploy" ? "Dokploy" : "Coolify";
 
   try {
-    const result = await sshExec(ip, buildGetFqdnCommand());
+    const checkResult = await sshExec(ip, buildPlatformCheckCommand(platform));
+    if (!checkResult.stdout.includes(dbContainer)) {
+      spinner.fail(`${platformLabel} database container not found`);
+      logger.error(`Is ${platformLabel} installed and running on this server?`);
+      return;
+    }
+
+    const result = await sshExec(ip, buildGetFqdnCommand(platform));
     if (result.code !== 0) {
       spinner.fail("Failed to fetch domain");
       if (result.stderr) logger.error(result.stderr);
@@ -247,7 +260,7 @@ async function domainList(ip: string, name: string): Promise<void> {
       logger.info(`FQDN: ${fqdn}`);
     } else {
       spinner.succeed(`No custom domain set for ${name}`);
-      logger.info(`Default: http://${ip}:8000`);
+      logger.info(`Default: http://${ip}:${defaultPort}`);
     }
   } catch (error: unknown) {
     spinner.fail("Failed to fetch domain");
@@ -257,12 +270,22 @@ async function domainList(ip: string, name: string): Promise<void> {
   }
 }
 
-async function domainInfo(ip: string, name: string): Promise<void> {
+async function domainInfo(ip: string, name: string, platform: Platform): Promise<void> {
   const spinner = createSpinner(`Fetching domain info for ${name}...`);
   spinner.start();
+  const defaultPort = platform === "dokploy" ? 3000 : 8000;
+  const dbContainer = platform === "dokploy" ? DOKPLOY_DB_CONTAINER : COOLIFY_DB_CONTAINER;
+  const platformLabel = platform === "dokploy" ? "Dokploy" : "Coolify";
 
   try {
-    const result = await sshExec(ip, buildGetFqdnCommand());
+    const checkResult = await sshExec(ip, buildPlatformCheckCommand(platform));
+    if (!checkResult.stdout.includes(dbContainer)) {
+      spinner.fail(`${platformLabel} database container not found`);
+      logger.error(`Is ${platformLabel} installed and running on this server?`);
+      return;
+    }
+
+    const result = await sshExec(ip, buildGetFqdnCommand(platform));
     if (result.code !== 0) {
       spinner.fail("Failed to fetch domain info");
       if (result.stderr) logger.error(result.stderr);
@@ -273,6 +296,7 @@ async function domainInfo(ip: string, name: string): Promise<void> {
     spinner.succeed(`Domain info for ${name}`);
     console.log();
     logger.info(`Server: ${name} (${ip})`);
+    logger.info(`Platform: ${platformLabel}`);
     if (fqdn) {
       logger.info(`FQDN: ${fqdn}`);
       const isHttps = fqdn.startsWith("https://");
@@ -280,7 +304,7 @@ async function domainInfo(ip: string, name: string): Promise<void> {
       logger.info(`URL: ${fqdn}`);
     } else {
       logger.info(`FQDN: not set (using IP)`);
-      logger.info(`URL: http://${ip}:8000`);
+      logger.info(`URL: http://${ip}:${defaultPort}`);
     }
   } catch (error: unknown) {
     spinner.fail("Failed to fetch domain info");

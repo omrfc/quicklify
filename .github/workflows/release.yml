@@ -52,3 +52,14 @@ jobs:
             ${{ steps.prerelease.outputs.flag }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify website to sync CLI data
+        continue-on-error: true
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          CHANGELOG=$(jq -Rs . < release-notes.md)
+          jq -n --arg v "$VERSION" --argjson cl "$CHANGELOG" \
+            '{"event_type":"cli-release","client_payload":{"version":$v,"changelog":$cl}}' \
+            | gh api repos/kastelldev/kastell-website/dispatches --method POST --input -
+        env:
+          GH_TOKEN: ${{ secrets.WEBSITE_SYNC_PAT }}

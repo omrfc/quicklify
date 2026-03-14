@@ -29,10 +29,10 @@ export const serverManageSchema = {
     "Skip Coolify SSH verification when adding a server (only for 'add' action)",
   ),
   mode: z
-    .enum(["coolify", "bare"])
+    .enum(["coolify", "dokploy", "bare"])
     .default("coolify")
     .describe(
-      "Server mode for 'add' action: 'coolify' or 'bare'. Default: coolify",
+      "Server mode for 'add' action: 'coolify', 'dokploy', or 'bare'. Default: coolify",
     ),
 };
 
@@ -43,7 +43,7 @@ export async function handleServerManage(params: {
   ip?: string;
   name?: string;
   skipVerify?: boolean;
-  mode?: "coolify" | "bare";
+  mode?: "coolify" | "dokploy" | "bare";
 }): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
   try {
     switch (params.action) {

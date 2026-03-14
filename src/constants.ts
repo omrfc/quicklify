@@ -77,3 +77,8 @@ export const COOLIFY_SOURCE_DIR = "/data/coolify/source";
 export const COOLIFY_DB_CONTAINER = "coolify-db";
 export const COOLIFY_DB_USER = "coolify";
 export const COOLIFY_DB_NAME = "coolify";
+
+// Dokploy database/paths
+export const DOKPLOY_DB_CONTAINER = "dokploy-postgres";
+export const DOKPLOY_DB_USER = "dokploy";
+export const DOKPLOY_DB_NAME = "dokploy";

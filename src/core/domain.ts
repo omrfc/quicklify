@@ -5,7 +5,11 @@ import {
   COOLIFY_DB_CONTAINER,
   COOLIFY_DB_USER,
   COOLIFY_DB_NAME,
+  DOKPLOY_DB_CONTAINER,
+  DOKPLOY_DB_USER,
+  DOKPLOY_DB_NAME,
 } from "../constants.js";
+import type { Platform } from "../types/index.js";
 
 // ─── Pure Functions ─────────────────────────────────────────────────────────
 
@@ -26,24 +30,40 @@ export function escapePsqlString(input: string): string {
   return input.replace(/'/g, "''");
 }
 
-export function buildSetFqdnCommand(domain: string, ssl: boolean): string {
+export function buildSetFqdnCommand(domain: string, ssl: boolean, platform?: Platform): string {
   if (/[^a-zA-Z0-9.:_-]/.test(domain)) {
     throw new Error(`Invalid domain for FQDN command: ${domain}`);
   }
   const protocol = ssl ? "https" : "http";
   const url = escapePsqlString(`${protocol}://${domain}`);
+
+  if (platform === "dokploy") {
+    return `docker exec $(docker ps --filter name=${DOKPLOY_DB_CONTAINER} -q | head -1) psql -U ${DOKPLOY_DB_USER} -d ${DOKPLOY_DB_NAME} -c "UPDATE \\"webServerSettings\\" SET host='${escapePsqlString(domain)}', https=${ssl} WHERE id=(SELECT id FROM \\"webServerSettings\\" LIMIT 1);"`;
+  }
+
   return [
     `docker exec ${COOLIFY_DB_CONTAINER} psql -U ${COOLIFY_DB_USER} -d ${COOLIFY_DB_NAME} -c "UPDATE instance_settings SET fqdn='${url}' WHERE id=0;"`,
     `cd ${COOLIFY_SOURCE_DIR} && docker compose -f docker-compose.yml -f docker-compose.prod.yml restart coolify`,
   ].join(" && ");
 }
 
-export function buildGetFqdnCommand(): string {
+export function buildGetFqdnCommand(platform?: Platform): string {
+  if (platform === "dokploy") {
+    return `docker exec $(docker ps --filter name=${DOKPLOY_DB_CONTAINER} -q | head -1) psql -U ${DOKPLOY_DB_USER} -d ${DOKPLOY_DB_NAME} -t -c "SELECT CASE WHEN host IS NOT NULL AND host != '' THEN CASE WHEN https THEN 'https://' ELSE 'http://' END || host ELSE NULL END FROM \\"webServerSettings\\" LIMIT 1;"`;
+  }
   return `docker exec ${COOLIFY_DB_CONTAINER} psql -U ${COOLIFY_DB_USER} -d ${COOLIFY_DB_NAME} -t -c "SELECT fqdn FROM instance_settings WHERE id=0;"`;
 }
 
-export function buildCoolifyCheckCommand(): string {
+export function buildPlatformCheckCommand(platform?: Platform): string {
+  if (platform === "dokploy") {
+    return `docker ps --filter name=${DOKPLOY_DB_CONTAINER} --format '{{.Names}}' 2>/dev/null`;
+  }
   return `docker ps --filter name=${COOLIFY_DB_CONTAINER} --format '{{.Names}}' 2>/dev/null`;
+}
+
+/** @deprecated Use buildPlatformCheckCommand instead */
+export function buildCoolifyCheckCommand(): string {
+  return buildPlatformCheckCommand("coolify");
 }
 
 export function buildDnsCheckCommand(domain: string): string {
@@ -89,6 +109,7 @@ export async function setDomain(
   ip: string,
   domain: string,
   ssl: boolean = true,
+  platform?: Platform,
 ): Promise<DomainResult> {
   assertValidIp(ip);
 
@@ -97,17 +118,19 @@ export async function setDomain(
     return { success: false, error: `Invalid domain: ${cleanDomain}` };
   }
 
+  const dbContainer = platform === "dokploy" ? DOKPLOY_DB_CONTAINER : COOLIFY_DB_CONTAINER;
+  const platformLabel = platform === "dokploy" ? "Dokploy" : "Coolify";
+
   try {
-    // Check if coolify-db container is running
-    const checkResult = await sshExec(ip, buildCoolifyCheckCommand());
-    if (!checkResult.stdout.includes(COOLIFY_DB_CONTAINER)) {
+    const checkResult = await sshExec(ip, buildPlatformCheckCommand(platform));
+    if (!checkResult.stdout.includes(dbContainer)) {
       return {
         success: false,
-        error: "Coolify database container not found. Is Coolify installed and running?",
+        error: `${platformLabel} database container not found. Is ${platformLabel} installed and running?`,
       };
     }
 
-    const command = buildSetFqdnCommand(cleanDomain, ssl);
+    const command = buildSetFqdnCommand(cleanDomain, ssl, platform);
     const result = await sshExec(ip, command);
     if (result.code !== 0) {
       return {
@@ -127,20 +150,23 @@ export async function setDomain(
   }
 }
 
-export async function removeDomain(ip: string): Promise<DomainResult> {
+export async function removeDomain(ip: string, platform?: Platform): Promise<DomainResult> {
   assertValidIp(ip);
 
+  const dbContainer = platform === "dokploy" ? DOKPLOY_DB_CONTAINER : COOLIFY_DB_CONTAINER;
+  const platformLabel = platform === "dokploy" ? "Dokploy" : "Coolify";
+  const defaultPort = platform === "dokploy" ? 3000 : 8000;
+
   try {
-    // Check if coolify-db container is running
-    const checkResult = await sshExec(ip, buildCoolifyCheckCommand());
-    if (!checkResult.stdout.includes(COOLIFY_DB_CONTAINER)) {
+    const checkResult = await sshExec(ip, buildPlatformCheckCommand(platform));
+    if (!checkResult.stdout.includes(dbContainer)) {
       return {
         success: false,
-        error: "Coolify database container not found. Is Coolify installed and running?",
+        error: `${platformLabel} database container not found. Is ${platformLabel} installed and running?`,
       };
     }
 
-    const command = buildSetFqdnCommand(`${ip}:8000`, false);
+    const command = buildSetFqdnCommand(`${ip}:${defaultPort}`, false, platform);
     const result = await sshExec(ip, command);
     if (result.code !== 0) {
       return {
@@ -160,11 +186,11 @@ export async function removeDomain(ip: string): Promise<DomainResult> {
   }
 }
 
-export async function getDomain(ip: string): Promise<DomainInfoResult> {
+export async function getDomain(ip: string, platform?: Platform): Promise<DomainInfoResult> {
   assertValidIp(ip);
 
   try {
-    const result = await sshExec(ip, buildGetFqdnCommand());
+    const result = await sshExec(ip, buildGetFqdnCommand(platform));
     if (result.code !== 0) {
       return {
         fqdn: null,

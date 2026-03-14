@@ -238,6 +238,34 @@ async function handleScheduleOption(query: string | undefined, scheduleValue: st
   }
 }
 
+async function backupListCommand(): Promise<void> {
+  const servers = getServers();
+  if (servers.length === 0) {
+    logger.warning("No servers registered. Add a server first.");
+    return;
+  }
+
+  logger.title("Backup List");
+  let hasBackups = false;
+
+  for (const server of servers) {
+    const backups = listBackups(server.name);
+    if (backups.length > 0) {
+      hasBackups = true;
+      logger.info(`${server.name} (${server.ip}):`);
+      for (const backup of backups) {
+        logger.step(backup);
+      }
+      console.log();
+    }
+  }
+
+  if (!hasBackups) {
+    logger.info("No backups found for any server.");
+    logger.info("Run: kastell backup <server> to create a backup");
+  }
+}
+
 // Command
 
 export async function backupCommand(
@@ -252,6 +280,11 @@ export async function backupCommand(
   // Handle cleanup subcommand
   if (query === "cleanup") {
     return backupCleanupCommand(options?.force);
+  }
+
+  // Handle list subcommand
+  if (query === "list") {
+    return backupListCommand();
   }
 
   if (options?.all) {
