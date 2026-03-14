@@ -21,6 +21,12 @@ import {
   listOrphanBackups,
   cleanupServerBackups,
 } from "../core/backup.js";
+import {
+  scheduleBackup,
+  listBackupSchedule,
+  removeBackupSchedule,
+  validateCronExpr,
+} from "../core/backupSchedule.js";
 
 // Re-export pure functions from core/backup.ts for backward compatibility
 export {
@@ -171,12 +177,76 @@ async function backupCleanupCommand(): Promise<void> {
   logger.success(`Cleaned up ${removed}/${orphans.length} orphan backup(s).`);
 }
 
+// Schedule option handler
+
+async function handleScheduleOption(query: string | undefined, scheduleValue: string): Promise<void> {
+  if (!checkSshAvailable()) {
+    logger.error("SSH client not found. Please install OpenSSH.");
+    return;
+  }
+
+  const server = await resolveServer(query, "Select a server to manage schedule:");
+  if (!server) return;
+
+  if (scheduleValue === "list") {
+    const result = await listBackupSchedule(server.ip, server.name);
+    if (!result.success) {
+      logger.error(result.error ?? "Failed to list backup schedule");
+      return;
+    }
+    if (result.cronExpr) {
+      logger.info(`Backup schedule: ${result.cronExpr}`);
+      if (result.localCronExpr && result.localCronExpr !== result.cronExpr) {
+        logger.info(`Local record: ${result.localCronExpr}`);
+      }
+    } else {
+      logger.info("No backup schedule installed on this server.");
+    }
+    return;
+  }
+
+  if (scheduleValue === "remove") {
+    const spinner = createSpinner("Removing backup schedule...");
+    spinner.start();
+    const result = await removeBackupSchedule(server.ip, server.name);
+    if (result.success) {
+      spinner.succeed("Backup schedule removed");
+    } else {
+      spinner.fail(result.error ?? "Failed to remove backup schedule");
+      if (result.hint) logger.info(result.hint);
+    }
+    return;
+  }
+
+  // Treat as cron expression
+  const validation = validateCronExpr(scheduleValue);
+  if (!validation.valid) {
+    logger.error(`Invalid cron expression: ${validation.error}`);
+    return;
+  }
+
+  const spinner = createSpinner(`Scheduling backup with cron: ${scheduleValue}`);
+  spinner.start();
+  const result = await scheduleBackup(server.ip, server.name, scheduleValue);
+  if (result.success) {
+    spinner.succeed(`Backup scheduled: ${scheduleValue}`);
+  } else {
+    spinner.fail(result.error ?? "Failed to schedule backup");
+    if (result.hint) logger.info(result.hint);
+  }
+}
+
 // Command
 
 export async function backupCommand(
   query?: string,
-  options?: { dryRun?: boolean; all?: boolean },
+  options?: { dryRun?: boolean; all?: boolean; schedule?: string },
 ): Promise<void> {
+  // Handle schedule option
+  if (options?.schedule !== undefined) {
+    return handleScheduleOption(query, options.schedule);
+  }
+
   // Handle cleanup subcommand
   if (query === "cleanup") {
     return backupCleanupCommand();
