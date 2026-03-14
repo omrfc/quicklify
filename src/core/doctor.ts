@@ -22,6 +22,7 @@ export interface DoctorFinding {
   severity: DoctorSeverity;
   description: string;
   command: string;
+  fixCommand?: string;
 }
 
 export interface DoctorResult {
@@ -153,6 +154,7 @@ export function checkStalePackages(aptOutput: string): DoctorFinding | null {
     severity,
     description: `${count} package${count === 1 ? "" : "s"} available for upgrade — keep packages updated to reduce security exposure`,
     command: "sudo apt update && sudo apt upgrade",
+    fixCommand: "sudo apt update && sudo apt upgrade -y",
   };
 }
 
@@ -271,6 +273,7 @@ export function checkDockerDisk(dockerDfOutput: string): DoctorFinding | null {
     severity,
     description: `Docker has ~${gbDisplay} GB of reclaimable disk space`,
     command: "docker system prune -a",
+    fixCommand: "docker system prune -a --force",
   };
 }
 
