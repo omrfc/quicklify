@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Guard Core
 status: ready_to_plan
-stopped_at: Completed 30-guard-daemon-02-PLAN.md
-last_updated: "2026-03-14T09:22:51.401Z"
+stopped_at: Completed 31-risk-trend-01-PLAN.md
+last_updated: "2026-03-14T10:10:54.372Z"
 last_activity: 2026-03-14 — Roadmap created, phases 28-33 defined
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 8
+  completed_plans: 7
   percent: 100
 ---
 
@@ -68,6 +68,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 29-backup-schedule P02 | 262 | 2 tasks | 3 files |
 | Phase 30-guard-daemon P01 | 238 | 1 tasks | 3 files |
 | Phase 30-guard-daemon P02 | 173 | 1 tasks | 3 files |
+| Phase 31-risk-trend P01 | 234 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 30-guard-daemon]: Guard shell script uses sshd -T as audit proxy (GUARD-04) — VPS cannot call kastell binary
 - [Phase 30-guard-daemon]: status subcommand skips checkSshAvailable pre-flight — guardStatus handles SSH errors directly
 - [Phase 30-guard-daemon]: parent guard command has no .action() — only subcommands get actions to avoid Commander routing issue
+- [Phase 31-risk-trend]: computeTrend is a pure function — no I/O, accepts history array + options
+- [Phase 31-risk-trend]: formatters/trend.ts not exported through formatters/index.ts — audit command in Plan 02 imports directly
 
 ### Pending Todos
 
@@ -103,6 +106,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-14T09:19:23.598Z
-Stopped at: Completed 30-guard-daemon-02-PLAN.md
+Last session: 2026-03-14T10:10:54.364Z
+Stopped at: Completed 31-risk-trend-01-PLAN.md
 Next action: `/gsd:plan-phase 28`

@@ -37,11 +37,11 @@
 
 ### Risk Trend
 
-- [ ] **TREND-01**: User can view audit score trend (`kastell audit <server> --trend`)
-- [ ] **TREND-02**: Each trend data point shows score, delta, and cause list (which checks changed)
-- [ ] **TREND-03**: Trend supports `--days N` for time-bounded view
-- [ ] **TREND-04**: Trend supports `--json` for machine-readable output
-- [ ] **TREND-05**: Graceful fallback when snapshots missing — show score without cause
+- [x] **TREND-01**: User can view audit score trend (`kastell audit <server> --trend`)
+- [x] **TREND-02**: Each trend data point shows score, delta, and cause list (which checks changed)
+- [x] **TREND-03**: Trend supports `--days N` for time-bounded view
+- [x] **TREND-04**: Trend supports `--json` for machine-readable output
+- [x] **TREND-05**: Graceful fallback when snapshots missing — show score without cause
 
 ### Doctor
 
@@ -116,11 +116,11 @@
 | GUARD-08 | Phase 30 | Complete |
 | GUARD-09 | Phase 30 | Complete |
 | GUARD-10 | Phase 30 | Complete |
-| TREND-01 | Phase 31 | Pending |
-| TREND-02 | Phase 31 | Pending |
-| TREND-03 | Phase 31 | Pending |
-| TREND-04 | Phase 31 | Pending |
-| TREND-05 | Phase 31 | Pending |
+| TREND-01 | Phase 31 | Complete |
+| TREND-02 | Phase 31 | Complete |
+| TREND-03 | Phase 31 | Complete |
+| TREND-04 | Phase 31 | Complete |
+| TREND-05 | Phase 31 | Complete |
 | DOC-01 | Phase 32 | Pending |
 | DOC-02 | Phase 32 | Pending |
 | DOC-03 | Phase 32 | Pending |

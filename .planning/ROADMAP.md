@@ -177,7 +177,11 @@ Plans:
   3. User runs `kastell audit <server> --trend --days 7` and sees only data points from the last 7 days
   4. User runs `kastell audit <server> --trend --json` and receives machine-readable output suitable for scripting or CI
   5. If only one snapshot exists, the command shows the score without a delta or cause list rather than crashing
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 31-01-PLAN.md — Core trend types, computeTrend engine, formatters, unit tests
+- [ ] 31-02-PLAN.md — CLI --trend/--days flags wired into audit command
 
 ### Phase 32: Doctor
 **Goal**: Users can run a proactive health analysis that predicts problems before they become incidents, with each finding linked to a concrete remediation command
@@ -238,7 +242,7 @@ Plans:
 | 28. Lock | 2/2 | Complete    | 2026-03-14 | - |
 | 29. Backup Schedule | 2/2 | Complete    | 2026-03-14 | - |
 | 30. Guard Daemon | 2/2 | Complete    | 2026-03-14 | - |
-| 31. Risk Trend | v1.7 | 0/TBD | Not started | - |
+| 31. Risk Trend | 1/2 | In Progress|  | - |
 | 32. Doctor | v1.7 | 0/TBD | Not started | - |
 | 33. MCP + Completions | v1.7 | 0/TBD | Not started | - |
 
