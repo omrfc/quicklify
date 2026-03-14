@@ -176,7 +176,7 @@ export async function applyLock(
   return {
     success: steps.sshHardening,
     steps,
-    ...(scoreBefore !== undefined ? { scoreBefore } : {}),
-    ...(scoreAfter !== undefined ? { scoreAfter } : {}),
+    scoreBefore,
+    scoreAfter,
   };
 }
