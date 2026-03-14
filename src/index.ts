@@ -307,6 +307,8 @@ program
   .option("--snapshots", "List saved snapshots for the server")
   .option("--diff <before:after>", "Compare two snapshots (e.g. pre-upgrade:latest)")
   .option("--compare <server1:server2>", "Compare latest snapshots from two servers")
+  .option("--trend", "Show audit score trend over time")
+  .option("--days <n>", "Limit trend to last N days")
   .action((serverName?: string, options?: Record<string, unknown>) =>
     auditCommand(serverName, options),
   );

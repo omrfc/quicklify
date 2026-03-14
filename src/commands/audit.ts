@@ -9,7 +9,8 @@ import { assertValidIp } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { runAudit } from "../core/audit/index.js";
 import { selectFormatter } from "../core/audit/formatters/index.js";
-import { saveAuditHistory, loadAuditHistory, detectTrend } from "../core/audit/history.js";
+import { saveAuditHistory, loadAuditHistory, detectTrend, computeTrend } from "../core/audit/history.js";
+import { formatTrendTerminal, formatTrendJson } from "../core/audit/formatters/trend.js";
 import { saveSnapshot, listSnapshots } from "../core/audit/snapshot.js";
 import { runFix } from "../core/audit/fix.js";
 import { watchAudit } from "../core/audit/watch.js";
@@ -36,6 +37,8 @@ export interface AuditCommandOptions extends AuditCliOptions {
   snapshots?: boolean;
   diff?: string;
   compare?: string;
+  trend?: boolean;
+  days?: string;
 }
 
 /**
@@ -67,6 +70,19 @@ export async function auditCommand(
     ip = server.ip;
     name = server.name;
     platform = server.platform ?? server.mode ?? "bare";
+  }
+
+  // --trend mode: display score timeline without running SSH audit
+  if (options.trend) {
+    const history = loadAuditHistory(ip);
+    const days = options.days ? parseInt(options.days, 10) : undefined;
+    const trendResult = computeTrend(history, { days });
+    if (options.json) {
+      console.log(formatTrendJson(trendResult));
+    } else {
+      console.log(formatTrendTerminal(trendResult));
+    }
+    return;
   }
 
   // --snapshots mode: list saved snapshots without running audit
