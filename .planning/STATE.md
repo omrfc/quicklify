@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Fleet + Notifications
 status: ready_to_plan
-stopped_at: Completed 39-01-PLAN.md (Guard Notification Integration)
-last_updated: "2026-03-14T20:38:24.055Z"
+stopped_at: Completed 40-02-PLAN.md (postSetup decomposition)
+last_updated: "2026-03-14T21:00:01.426Z"
 last_activity: 2026-03-14 — Roadmap created, 7 phases defined (34-40)
 progress:
   total_phases: 7
-  completed_phases: 6
-  total_plans: 8
-  completed_plans: 8
+  completed_phases: 7
+  total_plans: 10
+  completed_plans: 10
   percent: 100
 ---
 
@@ -70,6 +70,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 38-fleet-visibility P01 | 30min | 2 tasks | 11 files |
 | Phase 38-fleet-visibility P02 | 3min | 1 tasks | 3 files |
 | Phase 39-guard-notification-integration P01 | 20min | 2 tasks | 4 files |
+| Phase 40-shell-completions-polish P02 | 3min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 38-fleet-visibility]: server_fleet uses readOnlyHint:true — fleet probing reads state but never modifies servers
 - [Phase 39-guard-notification-integration]: Sequential for...of in dispatchGuardBreaches (not Promise.all) — avoids concurrent cooldown JSON write races
 - [Phase 39-guard-notification-integration]: categorizeBreach is private — tested indirectly via dispatchGuardBreaches by asserting findingType arg to mocked dispatchWithCooldown
+- [Phase 40-shell-completions-polish]: postSetup sub-functions use minimal signatures (only needed params) — providerChoice/region/serverSize consumed by saveServer in dispatcher only
+- [Phase 40-shell-completions-polish]: saveServer stays in dispatcher (shared by both paths) — not duplicated into barePostSetup or platformPostSetup
 
 ### Pending Todos
 
@@ -112,6 +115,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-14T20:35:07.134Z
-Stopped at: Completed 39-01-PLAN.md (Guard Notification Integration)
+Last session: 2026-03-14T20:59:41.963Z
+Stopped at: Completed 40-02-PLAN.md (postSetup decomposition)
 Next action: `/gsd:plan-phase 34`

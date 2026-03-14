@@ -121,7 +121,7 @@ MCP server with 7 tools, 12 security fixes, SSH key auto-generation, full docs u
 
 </details>
 
-### 🚧 v1.8 Fleet + Notifications (In Progress)
+### v1.8 Fleet + Notifications (In Progress)
 
 **Milestone Goal:** Multi-server fleet visibility, multi-channel alert notifications for guard/doctor, doctor auto-remediation with per-finding interactive confirmation, and structural tech debt cleanup — making Kastell operationally complete for multi-server environments.
 
@@ -213,7 +213,10 @@ Plans:
   1. Tab completion for bash, zsh, and fish includes `fleet`, `notify`, and the `--fix`, `--force`, `--sort` flags added in v1.8
   2. `audit` and `evidence` commands and their flags (`--schedule`, `--trend`, `--days`) are present in completion scripts
   3. `postSetup` is decomposed into separate bare and platform functions with no behavioral change to provisioning
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 40-01-PLAN.md — Update shell completions (bash/zsh/fish) with all v1.8 commands and flags
+- [ ] 40-02-PLAN.md — Decompose postSetup into barePostSetup and platformPostSetup
 
 ## Paralel Track: kastell.dev Website
 
@@ -254,8 +257,8 @@ Plans:
 | 37. Doctor Fix | 1/1 | Complete    | 2026-03-14 | - |
 | 38. Fleet Visibility | 2/2 | Complete    | 2026-03-14 | - |
 | 39. Guard Notification Integration | 1/1 | Complete    | 2026-03-14 | - |
-| 40. Shell Completions + Polish | v1.8 | 0/TBD | Not started | - |
+| 40. Shell Completions + Polish | 2/2 | Complete   | 2026-03-14 | - |
 
 ---
 *Roadmap created: 2026-02-27*
-*Last updated: 2026-03-14 — Phase 39 Guard Notification Integration planned (1 plan)*
+*Last updated: 2026-03-14 — Phase 40 Shell Completions + Polish planned (2 plans)*
