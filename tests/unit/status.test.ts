@@ -322,7 +322,7 @@ describe("statusCommand", () => {
       await statusCommand(undefined, { all: true });
 
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("Mode");
+      expect(output).toContain("Platform");
     });
   });
 

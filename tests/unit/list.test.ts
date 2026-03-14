@@ -85,7 +85,7 @@ describe("listCommand", () => {
     expect(output).toContain("Total: 2 server(s)");
   });
 
-  it("should include Mode column header in list output", async () => {
+  it("should include Platform column header in list output", async () => {
     mockedConfig.getServers.mockReturnValue([
       {
         id: "123",
@@ -102,10 +102,10 @@ describe("listCommand", () => {
     await listCommand();
 
     const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("Mode");
+    expect(output).toContain("Platform");
   });
 
-  it("should show bare mode in Mode column", async () => {
+  it("should show bare mode in Platform column", async () => {
     mockedConfig.getServers.mockReturnValue([
       {
         id: "bare-1",

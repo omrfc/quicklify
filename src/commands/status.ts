@@ -7,7 +7,7 @@ import {
   getCloudServerStatus,
   checkAllServersStatus,
 } from "../core/status.js";
-import { isBareServer, getServerMode } from "../utils/modeGuard.js";
+import { isBareServer, getServerModeLabel } from "../utils/modeGuard.js";
 import { getAdapter, resolvePlatform } from "../adapters/factory.js";
 import type { ServerRecord } from "../types/index.js";
 import type { StatusResult } from "../core/status.js";
@@ -19,16 +19,16 @@ interface StatusOptions {
 }
 
 function printStatusTable(results: StatusResult[]): void {
-  const header = `${"Name".padEnd(20)} ${"IP".padEnd(16)} ${"Provider".padEnd(14)} ${"Mode".padEnd(10)} ${"Server".padEnd(12)} ${"Coolify".padEnd(14)}`;
+  const header = `${"Name".padEnd(20)} ${"IP".padEnd(16)} ${"Provider".padEnd(14)} ${"Platform".padEnd(10)} ${"Server".padEnd(12)} ${"Platform".padEnd(14)}`;
   console.log(header);
   console.log("─".repeat(header.length));
 
   for (const r of results) {
     const serverStr = r.error ? "error" : r.serverStatus;
     const coolifyStr = r.platformStatus;
-    const modeStr = getServerMode(r.server);
+    const modeLabel = getServerModeLabel(r.server);
     console.log(
-      `${r.server.name.padEnd(20)} ${r.server.ip.padEnd(16)} ${r.server.provider.padEnd(14)} ${modeStr.padEnd(10)} ${serverStr.padEnd(12)} ${coolifyStr.padEnd(14)}`,
+      `${r.server.name.padEnd(20)} ${r.server.ip.padEnd(16)} ${r.server.provider.padEnd(14)} ${modeLabel.padEnd(10)} ${serverStr.padEnd(12)} ${coolifyStr.padEnd(14)}`,
     );
   }
 }
@@ -128,12 +128,12 @@ export async function statusCommand(query?: string, options?: StatusOptions): Pr
     logger.info(`IP:             ${server.ip}`);
     logger.info(`Region:         ${server.region}`);
     logger.info(`Size:           ${server.size}`);
-    logger.info(`Mode:           ${getServerMode(server)}`);
+    logger.info(`Platform:       ${getServerModeLabel(server)}`);
     logger.info(`Server Status:  ${serverStatus}`);
 
     if (isBareServer(server)) {
       // Bare servers: no Coolify, show SSH info
-      logger.info("Mode: bare (no platform installed)");
+      logger.info("No platform installed (bare server)");
       console.log();
       logger.info(`SSH:            ssh root@${server.ip}`);
     } else {

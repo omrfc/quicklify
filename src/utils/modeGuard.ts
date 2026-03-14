@@ -5,6 +5,13 @@ export function getServerMode(server: ServerRecord): ServerMode {
   return server.mode || "coolify";
 }
 
+/** Returns display label for CLI output: "coolify", "dokploy", or "bare" */
+export function getServerModeLabel(server: ServerRecord): string {
+  if (isBareServer(server)) return "bare";
+  const platform = resolvePlatform(server);
+  return platform ?? "coolify";
+}
+
 export function isBareServer(server: ServerRecord): boolean {
   return resolvePlatform(server) === undefined;
 }
