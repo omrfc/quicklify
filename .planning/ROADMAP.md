@@ -144,7 +144,7 @@ Plans:
   3. User runs `kastell backup <server> --schedule remove` and the cron entry is removed from the VPS
   4. Running `kastell backup <server> --schedule "0 3 * * *"` a second time replaces the existing entry — there is exactly one kastell backup cron line after any number of installs
   5. If two backup runs overlap, the second exits immediately without corrupting the backup, because a lock file on the VPS prevents concurrent execution
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 29-01-PLAN.md — Core backupSchedule module (types, command builders, orchestrators, schedules.json)
@@ -232,7 +232,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 1-27. Prior milestones | v1.2.0–v1.6 | All | Complete | 2026-03-11 |
 | 28. Lock | 2/2 | Complete    | 2026-03-14 | - |
-| 29. Backup Schedule | v1.7 | 0/2 | Planned | - |
+| 29. Backup Schedule | 1/2 | In Progress|  | - |
 | 30. Guard Daemon | v1.7 | 0/TBD | Not started | - |
 | 31. Risk Trend | v1.7 | 0/TBD | Not started | - |
 | 32. Doctor | v1.7 | 0/TBD | Not started | - |

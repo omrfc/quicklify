@@ -29,11 +29,11 @@
 
 ### Backup Schedule
 
-- [ ] **BKUP-01**: User can schedule backups via remote cron (`kastell backup <server> --schedule "cron-expr"`)
-- [ ] **BKUP-02**: User can list scheduled backup cron entry (`--schedule list`)
-- [ ] **BKUP-03**: User can remove scheduled backup cron entry (`--schedule remove`)
-- [ ] **BKUP-04**: Schedule is idempotent — calling twice replaces entry, no duplicates
-- [ ] **BKUP-05**: Overlap protection — lock file prevents concurrent backup runs
+- [x] **BKUP-01**: User can schedule backups via remote cron (`kastell backup <server> --schedule "cron-expr"`)
+- [x] **BKUP-02**: User can list scheduled backup cron entry (`--schedule list`)
+- [x] **BKUP-03**: User can remove scheduled backup cron entry (`--schedule remove`)
+- [x] **BKUP-04**: Schedule is idempotent — calling twice replaces entry, no duplicates
+- [x] **BKUP-05**: Overlap protection — lock file prevents concurrent backup runs
 
 ### Risk Trend
 
@@ -101,11 +101,11 @@
 | LOCK-04 | Phase 28 | Complete |
 | LOCK-05 | Phase 28 | Complete |
 | LOCK-06 | Phase 28 | Complete |
-| BKUP-01 | Phase 29 | Pending |
-| BKUP-02 | Phase 29 | Pending |
-| BKUP-03 | Phase 29 | Pending |
-| BKUP-04 | Phase 29 | Pending |
-| BKUP-05 | Phase 29 | Pending |
+| BKUP-01 | Phase 29 | Complete |
+| BKUP-02 | Phase 29 | Complete |
+| BKUP-03 | Phase 29 | Complete |
+| BKUP-04 | Phase 29 | Complete |
+| BKUP-05 | Phase 29 | Complete |
 | GUARD-01 | Phase 30 | Pending |
 | GUARD-02 | Phase 30 | Pending |
 | GUARD-03 | Phase 30 | Pending |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Guard Core
 status: ready_to_plan
-stopped_at: Completed 28-lock-02-PLAN.md
-last_updated: "2026-03-14T07:07:20.158Z"
+stopped_at: Completed 29-backup-schedule-01-PLAN.md
+last_updated: "2026-03-14T07:42:10.666Z"
 last_activity: 2026-03-14 — Roadmap created, phases 28-33 defined
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 4
+  completed_plans: 3
   percent: 100
 ---
 
@@ -64,6 +64,7 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion*
 | Phase 28-lock P01 | 164s | 1 tasks | 2 files |
 | Phase 28-lock P02 | 210 | 2 tasks | 3 files |
+| Phase 29-backup-schedule P01 | 266 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 28-lock]: SSH hardening is the only critical step — its failure determines overall success=false, all other 4 steps non-fatal
 - [Phase 28-lock]: applyLock uses runAudit for before/after scoring — failures are non-fatal, scoreBefore/scoreAfter remain undefined
 - [Phase 28-lock]: Pass server.platform (not server.mode) to applyLock — Platform is coolify|dokploy, ServerMode is coolify|bare
+- [Phase 29-backup-schedule]: schedules.json separate from servers.json — avoids schema mutation and migration risk
+- [Phase 29-backup-schedule]: Runtime bare/Coolify detection in backup script via docker ps | grep coolify — handles server type changes after scheduling
+- [Phase 29-backup-schedule]: validateCronExpr does 5-field minimal check only — VPS crontab binary is authoritative validator
 
 ### Pending Todos
 
@@ -91,6 +95,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-14T07:04:06.020Z
-Stopped at: Completed 28-lock-02-PLAN.md
+Last session: 2026-03-14T07:42:10.659Z
+Stopped at: Completed 29-backup-schedule-01-PLAN.md
 Next action: `/gsd:plan-phase 28`
