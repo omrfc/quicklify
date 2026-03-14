@@ -326,11 +326,9 @@ describe("dispatchNotification", () => {
 
 describe("dispatchWithCooldown", () => {
   it("dispatches when key is not in cooldown state (NOTF-06)", async () => {
+    // loadCooldownState: no file, loadNotifyConfig: no file
     mockedExistsSync.mockReturnValue(false);
     mockedAxiosPost.mockResolvedValue({ status: 200 });
-
-    // loadNotifyConfig and loadCooldownState — both return empty
-    mockedExistsSync.mockReturnValue(false);
 
     const result = await dispatchWithCooldown("web", "disk", "Disk 85%");
 
@@ -338,12 +336,13 @@ describe("dispatchWithCooldown", () => {
   });
 
   it("skips dispatch when same key sent within 30 minutes (NOTF-06)", async () => {
-    const now = Date.now();
-    const recentTimestamp = new Date(now - 10 * 60 * 1000).toISOString(); // 10 minutes ago
+    const fixedNow = 1_700_000_000_000;
+    jest.spyOn(Date, "now").mockReturnValue(fixedNow);
+    const recentTimestamp = new Date(fixedNow - 10 * 60 * 1000).toISOString(); // 10 minutes ago
 
-    jest.spyOn(Date, "now").mockReturnValue(now);
-
-    mockedExistsSync.mockReturnValueOnce(false).mockReturnValueOnce(true);
+    // dispatchWithCooldown: loadCooldownState calls existsSync then readFileSync
+    // loadNotifyConfig is NOT called because we skip before dispatchNotification
+    mockedExistsSync.mockReturnValueOnce(true); // cooldown file exists
     mockedReadFileSync.mockReturnValueOnce(
       JSON.stringify({ "web:disk": recentTimestamp }),
     );
@@ -356,13 +355,15 @@ describe("dispatchWithCooldown", () => {
   });
 
   it("dispatches when cooldown has expired (NOTF-06)", async () => {
-    const now = Date.now();
-    const expiredTimestamp = new Date(now - 31 * 60 * 1000).toISOString(); // 31 minutes ago
+    const fixedNow = 1_700_000_000_000;
+    jest.spyOn(Date, "now").mockReturnValue(fixedNow);
+    const expiredTimestamp = new Date(fixedNow - 31 * 60 * 1000).toISOString(); // 31 minutes ago
 
-    jest.spyOn(Date, "now").mockReturnValue(now);
-
-    // First call: loadNotifyConfig (no file), second: loadCooldownState (has state)
-    mockedExistsSync.mockReturnValueOnce(false).mockReturnValueOnce(true);
+    // loadCooldownState: file exists, returns expired state
+    // dispatchNotification -> loadNotifyConfig: no file
+    mockedExistsSync
+      .mockReturnValueOnce(true)  // cooldown file exists
+      .mockReturnValueOnce(false); // notify.json does not exist
     mockedReadFileSync.mockReturnValueOnce(
       JSON.stringify({ "web:disk": expiredTimestamp }),
     );
@@ -374,17 +375,18 @@ describe("dispatchWithCooldown", () => {
   });
 
   it("updates cooldown timestamp when at least one channel succeeds (NOTF-06)", async () => {
-    const now = Date.now();
-    jest.spyOn(Date, "now").mockReturnValue(now);
+    const fixedNow = 1_700_000_000_000;
+    jest.spyOn(Date, "now").mockReturnValue(fixedNow);
 
-    mockedExistsSync.mockReturnValue(false);
-    mockedAxiosPost.mockResolvedValue({ status: 200 });
-
-    // Load a telegram config
-    mockedExistsSync.mockReturnValueOnce(true).mockReturnValueOnce(false);
+    // loadCooldownState: no cooldown file
+    // dispatchNotification -> loadNotifyConfig: has telegram config
+    mockedExistsSync
+      .mockReturnValueOnce(false) // cooldown file missing
+      .mockReturnValueOnce(true); // notify.json exists
     mockedReadFileSync.mockReturnValueOnce(
       JSON.stringify({ telegram: { botToken: "bot", chatId: "cid" } }),
     );
+    mockedAxiosPost.mockResolvedValue({ status: 200 });
 
     await dispatchWithCooldown("api", "ram", "RAM 95%");
 
@@ -396,11 +398,14 @@ describe("dispatchWithCooldown", () => {
   });
 
   it("does not update cooldown when all channels fail (NOTF-06)", async () => {
-    const now = Date.now();
-    jest.spyOn(Date, "now").mockReturnValue(now);
+    const fixedNow = 1_700_000_000_000;
+    jest.spyOn(Date, "now").mockReturnValue(fixedNow);
 
-    // Load a telegram config, no cooldown state
-    mockedExistsSync.mockReturnValueOnce(true).mockReturnValueOnce(false);
+    // loadCooldownState: no cooldown file
+    // dispatchNotification -> loadNotifyConfig: has telegram config
+    mockedExistsSync
+      .mockReturnValueOnce(false) // cooldown file missing
+      .mockReturnValueOnce(true); // notify.json exists
     mockedReadFileSync.mockReturnValueOnce(
       JSON.stringify({ telegram: { botToken: "bot", chatId: "cid" } }),
     );
@@ -416,13 +421,15 @@ describe("dispatchWithCooldown", () => {
   });
 
   it("uses composite key serverName:findingType to prevent cross-server collision (NOTF-06)", async () => {
-    const now = Date.now();
-    const recentTimestamp = new Date(now - 5 * 60 * 1000).toISOString(); // 5 minutes ago
+    const fixedNow = 1_700_000_000_000;
+    jest.spyOn(Date, "now").mockReturnValue(fixedNow);
+    const recentTimestamp = new Date(fixedNow - 5 * 60 * 1000).toISOString(); // 5 minutes ago
 
-    jest.spyOn(Date, "now").mockReturnValue(now);
-
-    // serverA:disk is in cooldown — serverB:disk should not be skipped
-    mockedExistsSync.mockReturnValueOnce(false).mockReturnValueOnce(true);
+    // loadCooldownState: has serverA:disk in cooldown — serverB:disk should not be skipped
+    // dispatchNotification -> loadNotifyConfig: no notify.json
+    mockedExistsSync
+      .mockReturnValueOnce(true)  // cooldown file exists
+      .mockReturnValueOnce(false); // notify.json does not exist
     mockedReadFileSync.mockReturnValueOnce(
       JSON.stringify({ "serverA:disk": recentTimestamp }),
     );
