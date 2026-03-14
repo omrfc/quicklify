@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Guard Core
 status: ready_to_plan
-stopped_at: Completed 31-risk-trend-01-PLAN.md
-last_updated: "2026-03-14T10:10:54.372Z"
+stopped_at: Completed 31-risk-trend-02-PLAN.md
+last_updated: "2026-03-14T10:18:54.573Z"
 last_activity: 2026-03-14 — Roadmap created, phases 28-33 defined
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
   percent: 100
 ---
 
@@ -69,6 +69,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 30-guard-daemon P01 | 238 | 1 tasks | 3 files |
 | Phase 30-guard-daemon P02 | 173 | 1 tasks | 3 files |
 | Phase 31-risk-trend P01 | 234 | 2 tasks | 4 files |
+| Phase 31-risk-trend P02 | 480 | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 30-guard-daemon]: parent guard command has no .action() — only subcommands get actions to avoid Commander routing issue
 - [Phase 31-risk-trend]: computeTrend is a pure function — no I/O, accepts history array + options
 - [Phase 31-risk-trend]: formatters/trend.ts not exported through formatters/index.ts — audit command in Plan 02 imports directly
+- [Phase 31-risk-trend]: --trend branch placed after server resolution so ip is available for loadAuditHistory
+- [Phase 31-risk-trend]: days option parsed with parseInt in command layer keeping computeTrend signature clean
 
 ### Pending Todos
 
@@ -106,6 +109,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-14T10:10:54.364Z
-Stopped at: Completed 31-risk-trend-01-PLAN.md
+Last session: 2026-03-14T10:16:00.616Z
+Stopped at: Completed 31-risk-trend-02-PLAN.md
 Next action: `/gsd:plan-phase 28`
