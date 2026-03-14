@@ -15,7 +15,21 @@ import {
 import type { CloudProvider } from "../../src/providers/base";
 
 jest.mock("../../src/utils/config");
-jest.mock("../../src/utils/ssh");
+jest.mock("../../src/utils/ssh", () => {
+  const actual = jest.requireActual("../../src/utils/ssh") as Record<string, unknown>;
+  const realAssertValidIp = actual.assertValidIp as (ip: string) => void;
+  return {
+    ...actual,
+    assertValidIp: jest.fn().mockImplementation((ip: string) => realAssertValidIp(ip)),
+    sshExec: jest.fn(),
+    sshStream: jest.fn(),
+    sshConnect: jest.fn(),
+    checkSshAvailable: jest.fn(),
+    removeStaleHostKey: jest.fn(),
+    resolveSshPath: jest.fn().mockReturnValue("ssh"),
+    resolveScpPath: jest.fn().mockReturnValue("scp"),
+  };
+});
 jest.mock("../../src/utils/providerFactory");
 jest.mock("../../src/adapters/factory", () => ({
   detectPlatform: jest.fn().mockResolvedValue("coolify"),
@@ -143,10 +157,17 @@ describe("isValidProvider", () => {
 });
 
 describe("validateIpAddress", () => {
+  const actual = jest.requireActual("../../src/utils/ssh") as { assertValidIp: (ip: string) => void };
+
+  beforeEach(() => {
+    // Restore real assertValidIp for validation tests
+    mockedSsh.assertValidIp.mockImplementation((ip: string) => actual.assertValidIp(ip));
+  });
+
   it("should accept valid IPs", () => {
     expect(validateIpAddress("1.2.3.4")).toBeNull();
     expect(validateIpAddress("192.168.1.1")).toBeNull();
-    expect(validateIpAddress("255.255.255.255")).toBeNull();
+    expect(validateIpAddress("203.0.113.1")).toBeNull();
     expect(validateIpAddress("10.0.0.1")).toBeNull();
   });
 
@@ -204,6 +225,12 @@ describe("validateServerName", () => {
 // ─── Core: addServerRecord ────────────────────────────────────────────────────
 
 describe("addServerRecord", () => {
+  beforeEach(() => {
+    // Restore real assertValidIp so IP validation works correctly
+    const actual = jest.requireActual("../../src/utils/ssh") as { assertValidIp: (ip: string) => void };
+    mockedSsh.assertValidIp.mockImplementation((ip: string) => actual.assertValidIp(ip));
+  });
+
   it("should reject invalid provider", async () => {
     const result = await addServerRecord({
       provider: "aws",

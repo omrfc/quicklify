@@ -1,10 +1,11 @@
-import { homedir } from "os";
+import { homedir, platform } from "os";
 import { join } from "path";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { SUPPORTED_PROVIDERS, PROVIDER_ENV_KEYS } from "../constants.js";
 import type { SupportedProvider } from "../constants.js";
 
 const SERVICE_NAME = "kastell";
+let _warnedPlaintext = false;
 
 const IS_ANDROID =
   process.platform === "android" ||
@@ -57,6 +58,12 @@ function getKeychainEntry(provider: string) {
 export function setToken(provider: string, token: string): boolean {
   if (!SUPPORTED_PROVIDERS.includes(provider as SupportedProvider)) return false;
   if (IS_ANDROID || !loadKeyring()) {
+    if (platform() === "win32" && !_warnedPlaintext) {
+      _warnedPlaintext = true;
+      process.stderr.write(
+        "[warn] OS keychain unavailable — token stored in plaintext at ~/.kastell/tokens.json\n",
+      );
+    }
     const data = readTokensFile();
     data[provider] = token;
     return writeTokensFile(data);

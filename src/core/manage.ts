@@ -1,6 +1,6 @@
 import { getServers, saveServer, removeServer, findServer } from "../utils/config.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
-import { sshExec, checkSshAvailable } from "../utils/ssh.js";
+import { sshExec, checkSshAvailable, assertValidIp } from "../utils/ssh.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { getProviderToken } from "./tokens.js";
 import { detectPlatform } from "../adapters/factory.js";
@@ -44,21 +44,12 @@ export function isValidProvider(provider: string): boolean {
 
 export function validateIpAddress(ip: string): string | null {
   if (!ip) return "IP address is required";
-  if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) {
-    return "Invalid IP address format";
+  try {
+    assertValidIp(ip);
+    return null;
+  } catch (err) {
+    return err instanceof Error ? err.message : "Invalid IP address";
   }
-  const parts = ip.split(".");
-  if (parts.some((p) => p.length > 1 && p.startsWith("0"))) {
-    return "Invalid IP address: leading zeros not allowed";
-  }
-  const octets = parts.map(Number);
-  if (octets.some((o) => o < 0 || o > 255)) {
-    return "Invalid IP address (octets must be 0-255)";
-  }
-  if (ip === "0.0.0.0" || ip.startsWith("127.")) {
-    return "Reserved IP address not allowed";
-  }
-  return null;
 }
 
 export function validateServerName(name: string): string | null {

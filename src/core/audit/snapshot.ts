@@ -19,6 +19,32 @@ import type { AuditResult, SnapshotFile, SnapshotListEntry } from "./types.js";
 
 const SCHEMA_VERSION = 1;
 
+const auditCheckSchema = z.object({
+  id: z.string(),
+  category: z.string(),
+  name: z.string(),
+  severity: z.enum(["critical", "warning", "info"]),
+  passed: z.boolean(),
+  currentValue: z.string(),
+  expectedValue: z.string(),
+  fixCommand: z.string().optional(),
+  explain: z.string().optional(),
+});
+
+const categorySchema = z.object({
+  name: z.string(),
+  checks: z.array(auditCheckSchema),
+  score: z.number(),
+  maxScore: z.number(),
+});
+
+const quickWinSchema = z.object({
+  commands: z.array(z.string()),
+  currentScore: z.number(),
+  projectedScore: z.number(),
+  description: z.string(),
+});
+
 const snapshotFileSchema = z.object({
   schemaVersion: z.literal(1),
   name: z.string().optional(),
@@ -29,8 +55,8 @@ const snapshotFileSchema = z.object({
     platform: z.enum(["coolify", "dokploy", "bare"]),
     timestamp: z.string(),
     overallScore: z.number(),
-    categories: z.array(z.any()),
-    quickWins: z.array(z.any()),
+    categories: z.array(categorySchema),
+    quickWins: z.array(quickWinSchema),
   }),
 });
 

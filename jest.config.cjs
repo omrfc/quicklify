@@ -1,4 +1,8 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
+
+// Allow private IPs in test environment (tests use 192.168.x, 10.x mock IPs)
+process.env.KASTELL_ALLOW_PRIVATE_IPS = 'true';
+
 module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],

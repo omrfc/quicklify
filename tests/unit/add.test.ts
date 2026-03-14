@@ -244,12 +244,12 @@ describe("addCommand", () => {
       expect(ipValidator("")).toBe("IP address is required");
       expect(ipValidator("   ")).toBe("IP address is required");
       expect(ipValidator("not-an-ip")).toBe("Invalid IP address format");
-      expect(ipValidator("999.999.999.999")).toBe("Invalid IP address (octets must be 0-255)");
-      expect(ipValidator("256.1.1.1")).toBe("Invalid IP address (octets must be 0-255)");
+      expect(ipValidator("999.999.999.999")).toBe("Invalid IP address: octets must be 0-255");
+      expect(ipValidator("256.1.1.1")).toBe("Invalid IP address: octets must be 0-255");
       expect(ipValidator("1.2.3.4")).toBe(true);
       expect(ipValidator("0.0.0.0")).toBe("Reserved IP address not allowed");
       expect(ipValidator("127.0.0.1")).toBe("Reserved IP address not allowed");
-      expect(ipValidator("255.255.255.255")).toBe(true);
+      expect(ipValidator("203.0.113.1")).toBe(true);
     });
 
     it("should validate server name", async () => {

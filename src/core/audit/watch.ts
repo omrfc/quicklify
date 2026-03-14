@@ -125,11 +125,23 @@ export async function watchAudit(
     process.on("SIGINT", onSigint);
 
     // Run immediately
+    let consecutiveFailures = 0;
+    const MAX_CONSECUTIVE_FAILURES = 3;
+
     runOnce().then(() => {
       timer = setInterval(() => {
-        runOnce().catch((err: unknown) => {
-          log(`[Error] Watch audit failed: ${err instanceof Error ? err.message : String(err)}`);
-        });
+        runOnce()
+          .then(() => {
+            consecutiveFailures = 0;
+          })
+          .catch((err: unknown) => {
+            consecutiveFailures++;
+            log(`[Error] Watch audit failed: ${err instanceof Error ? err.message : String(err)}`);
+            if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+              log(`[Error] ${MAX_CONSECUTIVE_FAILURES} consecutive failures — stopping watch mode.`);
+              cleanup();
+            }
+          });
       }, interval);
     }).catch((err: unknown) => {
       log(`[Error] Initial audit failed: ${err instanceof Error ? err.message : String(err)}`);

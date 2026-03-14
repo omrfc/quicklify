@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
+import { z } from "zod";
 import { sshExec, assertValidIp } from "../utils/ssh.js";
 import { CONFIG_DIR } from "../utils/config.js";
 
@@ -44,10 +45,17 @@ const GUARD_STATE_FILE = join(CONFIG_DIR, "guard-state.json");
 
 // ─── Local State Persistence ──────────────────────────────────────────────────
 
+const guardStateEntrySchema = z.object({
+  installedAt: z.string(),
+  cronExpr: z.string(),
+});
+const guardStateSchema = z.record(z.string(), guardStateEntrySchema);
+
 export function getGuardStates(): Record<string, GuardStateEntry> {
   if (!existsSync(GUARD_STATE_FILE)) return {};
   try {
-    return JSON.parse(readFileSync(GUARD_STATE_FILE, "utf-8")) as Record<string, GuardStateEntry>;
+    const parsed = guardStateSchema.safeParse(JSON.parse(readFileSync(GUARD_STATE_FILE, "utf-8")));
+    return parsed.success ? parsed.data : {};
   } catch {
     return {};
   }
@@ -74,7 +82,7 @@ export function buildDeployGuardScriptCommand(): string {
     `cat <<'KASTELL_EOF' > ${GUARD_SCRIPT_PATH}`,
     "#!/bin/bash",
     "# kastell-guard v1.7 — autonomous security monitoring",
-    "exec 200>/tmp/kastell-guard.lock",
+    "exec 200>/run/kastell-guard.lock",
     `flock -n 200 || { echo "[kastell-guard] already running, skipping"; exit 0; }`,
     `LOG=${GUARD_LOG_PATH}`,
     "METRICS_DIR=/var/lib/kastell",
@@ -140,8 +148,13 @@ export function buildDeployGuardScriptCommand(): string {
 }
 
 export function buildInstallGuardCronCommand(): string {
+  // Defense-in-depth: validate even hardcoded cron expressions
+  const fields = GUARD_CRON_EXPR.trim().split(/\s+/);
+  if (fields.length !== 5 || fields.some((f) => !/^[0-9*,/-]+$/.test(f))) {
+    throw new Error("Invalid guard cron expression");
+  }
   const entry = `${GUARD_CRON_EXPR} ${GUARD_SCRIPT_PATH} ${GUARD_MARKER}`;
-  return `(crontab -l 2>/dev/null | grep -v '${GUARD_MARKER}'; echo "${entry}") | crontab -`;
+  return `(crontab -l 2>/dev/null | grep -v '${GUARD_MARKER}'; echo '${entry}') | crontab -`;
 }
 
 export function buildListGuardCronCommand(): string {

@@ -139,6 +139,11 @@ export async function collectEvidence(
   const collectedAt = new Date().toISOString();
   const dirName = buildDirName(opts);
 
+  // Guard against path traversal via crafted server names
+  if (/[/\\]|\.\./.test(serverName)) {
+    return { success: false, error: "Invalid server name: contains path separator or traversal" };
+  }
+
   // Resolve evidence directory
   let evidenceDir: string;
   if (opts.output) {

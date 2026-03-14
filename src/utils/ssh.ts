@@ -85,8 +85,25 @@ export function assertValidIp(ip: string): void {
   if (octets.some((o) => o < 0 || o > 255)) {
     throw new Error(`Invalid IP address: octets must be 0-255`);
   }
+  // Always block loopback and special addresses
   if (ip === "0.0.0.0" || ip.startsWith("127.")) {
     throw new Error(`Reserved IP address not allowed`);
+  }
+  // Block private/reserved ranges unless explicitly allowed (homelab, dev)
+  if (process.env.KASTELL_ALLOW_PRIVATE_IPS !== "true") {
+    if (
+      ip.startsWith("10.") ||
+      ip.startsWith("192.168.") ||
+      ip.startsWith("169.254.") ||
+      octets[0] === 224 ||
+      octets[0] >= 240
+    ) {
+      throw new Error(`Private/reserved IP address not allowed. Set KASTELL_ALLOW_PRIVATE_IPS=true to allow.`);
+    }
+    // 172.16.0.0 - 172.31.255.255 (RFC 1918)
+    if (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) {
+      throw new Error(`Private/reserved IP address not allowed. Set KASTELL_ALLOW_PRIVATE_IPS=true to allow.`);
+    }
   }
 }
 

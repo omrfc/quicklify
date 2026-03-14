@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
+import { z } from "zod";
 import { sshExec, assertValidIp } from "../utils/ssh.js";
 import { CONFIG_DIR } from "../utils/config.js";
 
@@ -22,10 +23,13 @@ export interface ListScheduleResult {
 
 const SCHEDULES_FILE = join(CONFIG_DIR, "schedules.json");
 
+const schedulesSchema = z.record(z.string(), z.string());
+
 export function getSchedules(): Record<string, string> {
   if (!existsSync(SCHEDULES_FILE)) return {};
   try {
-    return JSON.parse(readFileSync(SCHEDULES_FILE, "utf-8")) as Record<string, string>;
+    const parsed = schedulesSchema.safeParse(JSON.parse(readFileSync(SCHEDULES_FILE, "utf-8")));
+    return parsed.success ? parsed.data : {};
   } catch {
     return {};
   }
@@ -55,7 +59,7 @@ export function validateCronExpr(expr: string): { valid: boolean; error?: string
   if (fields.length !== 5) {
     return { valid: false, error: `Cron expression must have 5 fields, got ${fields.length}` };
   }
-  const fieldPattern = /^[0-9*,/\-]+$/;
+  const fieldPattern = /^[0-9*,/-]+$/;
   for (const field of fields) {
     if (!fieldPattern.test(field)) {
       return { valid: false, error: `Invalid cron field: "${field}"` };
@@ -91,8 +95,14 @@ export function buildDeployBackupScriptCommand(): string {
 }
 
 export function buildInstallCronCommand(cronExpr: string): string {
+  // Defense-in-depth: validate inside command builder so callers cannot bypass
+  const validation = validateCronExpr(cronExpr);
+  if (!validation.valid) {
+    throw new Error(`Invalid cron expression: ${validation.error}`);
+  }
   const entry = `${cronExpr} /root/kastell-backup.sh # kastell-backup`;
-  return `(crontab -l 2>/dev/null | grep -v '# kastell-backup'; echo "${entry}") | crontab -`;
+  // Single quotes prevent shell expansion of interpolated cron expression
+  return `(crontab -l 2>/dev/null | grep -v '# kastell-backup'; echo '${entry}') | crontab -`;
 }
 
 export function buildListCronCommand(): string {
