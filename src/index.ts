@@ -34,6 +34,7 @@ import { registerAuthCommands } from "./commands/auth.js";
 import { auditCommand } from "./commands/audit.js";
 import { evidenceCommand } from "./commands/evidence.js";
 import { lockCommand } from "./commands/lock.js";
+import { guardCommand } from "./commands/guard.js";
 import { printHeader, printQuickHelp } from "./cli/header.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -178,6 +179,27 @@ program
   .option("--dry-run", "Preview changes without applying")
   .option("--force", "Skip confirmation prompt")
   .action((query, options) => lockCommand(query, options));
+
+const guard = program
+  .command("guard")
+  .description("Manage autonomous security monitoring daemon on a server");
+
+guard
+  .command("start [query]")
+  .description("Install guard daemon (checks disk, RAM, CPU every 5 minutes)")
+  .option("--force", "Skip confirmation prompt")
+  .action((query, options) => guardCommand("start", query, options));
+
+guard
+  .command("status [query]")
+  .description("Show guard daemon status and recent alerts")
+  .action((query) => guardCommand("status", query, {}));
+
+guard
+  .command("stop [query]")
+  .description("Remove guard daemon from server")
+  .option("--force", "Skip confirmation prompt")
+  .action((query, options) => guardCommand("stop", query, options));
 
 program
   .command("secure [subcommand] [query]")
