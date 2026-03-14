@@ -316,12 +316,12 @@ describe("scheduleBackup", () => {
     expect(mockedWriteFileSync).not.toHaveBeenCalled();
   });
 
-  it("throws synchronously when assertValidIp throws (invalid IP)", async () => {
+  it("rejects when assertValidIp throws (invalid IP)", async () => {
     mockedSsh.assertValidIp.mockImplementation(() => {
       throw new Error("Invalid IP address format");
     });
 
-    expect(() => scheduleBackup("invalid-ip", SERVER_NAME, CRON_EXPR)).toThrow("Invalid IP");
+    await expect(scheduleBackup("invalid-ip", SERVER_NAME, CRON_EXPR)).rejects.toThrow("Invalid IP");
   });
 
   it("rejects empty cron expression", async () => {
