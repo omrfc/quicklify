@@ -1,0 +1,158 @@
+import { parseFileIntegrityChecks } from "../../src/core/audit/checks/fileintegrity.js";
+
+describe("parseFileIntegrityChecks", () => {
+  // Simulates SSH batch output with AIDE and auditd fully configured
+  const validOutput = [
+    // dpkg -l aide
+    "ii  aide  0.17.4-1  amd64  Advanced Intrusion Detection Environment",
+    // dpkg -l tripwire
+    "NOT_INSTALLED",
+    // AIDE db exists
+    "AIDE_DB_EXISTS",
+    // AIDE cron
+    "/etc/cron.daily/aide: 30 2 * * * root /usr/sbin/aide --check",
+    // dpkg -l auditd
+    "ii  auditd  1:3.0.7-1  amd64  User space tools for security auditing",
+    // systemctl is-active auditd
+    "active",
+    // auditctl -l rules
+    "-w /etc/passwd -p wa -k identity\n-w /etc/shadow -p wa -k identity\n-w /etc/sudoers -p wa -k identity",
+  ].join("\n");
+
+  const missingOutput = [
+    // No AIDE
+    "NOT_INSTALLED",
+    // No tripwire
+    "NOT_INSTALLED",
+    // No AIDE db
+    "AIDE_DB_MISSING",
+    // No AIDE cron
+    "NO_AIDE_CRON",
+    // No auditd
+    "NOT_INSTALLED",
+    // auditd inactive
+    "inactive",
+    // No audit rules
+    "NO_RULES",
+  ].join("\n");
+
+  it("should return 8+ checks for the File Integrity category", () => {
+    const checks = parseFileIntegrityChecks(validOutput, "bare");
+    expect(checks.length).toBeGreaterThanOrEqual(8);
+    checks.forEach((c) => expect(c.category).toBe("File Integrity"));
+  });
+
+  it("all check IDs should start with FINT-", () => {
+    const checks = parseFileIntegrityChecks(validOutput, "bare");
+    checks.forEach((c) => expect(c.id).toMatch(/^FINT-/));
+  });
+
+  it("all checks should have explain > 20 chars and fixCommand defined", () => {
+    const checks = parseFileIntegrityChecks(validOutput, "bare");
+    checks.forEach((c) => {
+      expect(c.explain!.length).toBeGreaterThan(20);
+      expect(c.fixCommand).toBeDefined();
+      expect(c.fixCommand!.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("severity budget: 0% critical", () => {
+    const checks = parseFileIntegrityChecks("", "bare");
+    const criticalCount = checks.filter((c) => c.severity === "critical").length;
+    expect(criticalCount).toBe(0);
+  });
+
+  it("should handle N/A output gracefully", () => {
+    const checks = parseFileIntegrityChecks("N/A", "bare");
+    expect(checks.length).toBeGreaterThanOrEqual(8);
+    checks.forEach((c) => {
+      expect(c.passed).toBe(false);
+      expect(c.currentValue).toBe("Unable to determine");
+    });
+  });
+
+  it("should handle empty string output gracefully", () => {
+    const checks = parseFileIntegrityChecks("", "bare");
+    expect(checks.length).toBeGreaterThanOrEqual(8);
+    checks.forEach((c) => expect(c.passed).toBe(false));
+  });
+
+  it("FINT-AIDE-INSTALLED passes when 'ii  aide' found in dpkg output", () => {
+    const checks = parseFileIntegrityChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-AIDE-INSTALLED");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("FINT-AIDE-INSTALLED fails when NOT_INSTALLED", () => {
+    const checks = parseFileIntegrityChecks(missingOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-AIDE-INSTALLED");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("FINT-TRIPWIRE-INSTALLED fails when NOT_INSTALLED", () => {
+    const checks = parseFileIntegrityChecks(missingOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-TRIPWIRE-INSTALLED");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("FINT-AIDE-DB-EXISTS passes when AIDE_DB_EXISTS found", () => {
+    const checks = parseFileIntegrityChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-AIDE-DB-EXISTS");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("FINT-AIDE-DB-EXISTS fails when AIDE_DB_MISSING", () => {
+    const checks = parseFileIntegrityChecks(missingOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-AIDE-DB-EXISTS");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("FINT-AIDE-CRON passes when aide cron entry found", () => {
+    const checks = parseFileIntegrityChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-AIDE-CRON");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("FINT-AIDE-CRON fails when NO_AIDE_CRON", () => {
+    const checks = parseFileIntegrityChecks(missingOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-AIDE-CRON");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("FINT-AUDITD-INSTALLED passes when 'ii  auditd' found", () => {
+    const checks = parseFileIntegrityChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-AUDITD-INSTALLED");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("FINT-AUDITD-RUNNING passes when auditd active", () => {
+    const checks = parseFileIntegrityChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-AUDITD-RUNNING");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("FINT-AUDITD-RUNNING fails when inactive", () => {
+    const checks = parseFileIntegrityChecks(missingOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-AUDITD-RUNNING");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("FINT-AUDIT-PASSWD-RULE passes when /etc/passwd in auditctl output", () => {
+    const checks = parseFileIntegrityChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-AUDIT-PASSWD-RULE");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("FINT-AUDIT-SHADOW-RULE passes when /etc/shadow in auditctl output", () => {
+    const checks = parseFileIntegrityChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-AUDIT-SHADOW-RULE");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("FINT-AUDIT-SHADOW-RULE fails when NO_RULES", () => {
+    const checks = parseFileIntegrityChecks(missingOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-AUDIT-SHADOW-RULE");
+    expect(check!.passed).toBe(false);
+  });
+});

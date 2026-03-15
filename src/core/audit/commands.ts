@@ -183,6 +183,31 @@ function bannersSection(): string {
   ].join("\n");
 }
 
+function fileIntegritySection(): string {
+  return [
+    NAMED_SEP("FILEINTEGRITY"),
+    `dpkg -l aide 2>/dev/null | grep '^ii' || echo 'NOT_INSTALLED'`,
+    `dpkg -l tripwire 2>/dev/null | grep '^ii' || echo 'NOT_INSTALLED'`,
+    `test -f /var/lib/aide/aide.db.gz && echo 'AIDE_DB_EXISTS' || test -f /var/lib/aide/aide.db && echo 'AIDE_DB_EXISTS' || echo 'AIDE_DB_MISSING'`,
+    `grep -r 'aide' /etc/cron.daily /etc/cron.weekly /var/spool/cron/crontabs/ 2>/dev/null | head -5 || echo 'NO_AIDE_CRON'`,
+    `dpkg -l auditd 2>/dev/null | grep '^ii' || echo 'NOT_INSTALLED'`,
+    `systemctl is-active auditd 2>/dev/null || echo 'inactive'`,
+    `auditctl -l 2>/dev/null | grep -E '/etc/passwd|/etc/shadow|/etc/sudoers' | head -5 || echo 'NO_RULES'`,
+  ].join("\n");
+}
+
+function malwareSection(): string {
+  return [
+    NAMED_SEP("MALWARE"),
+    `dpkg -l chkrootkit 2>/dev/null | grep '^ii' || echo 'NOT_INSTALLED'`,
+    `dpkg -l rkhunter 2>/dev/null | grep '^ii' || echo 'NOT_INSTALLED'`,
+    `find /tmp -perm -4000 -type f 2>/dev/null | head -10 || echo 'NONE'`,
+    `find /dev -perm -4000 -type f 2>/dev/null | head -5 || echo 'NONE'`,
+    `find /root -perm -o+w -type f -maxdepth 3 2>/dev/null | head -5 || echo 'NONE'`,
+    `test -f /var/log/rkhunter.log && tail -30 /var/log/rkhunter.log 2>/dev/null | grep -i 'system checks summary' | tail -1 || echo 'NO_SCAN'`,
+  ].join("\n");
+}
+
 function cryptoSection(): string {
   return [
     NAMED_SEP("CRYPTO"),
@@ -248,6 +273,8 @@ export function buildAuditBatchCommands(platform: string): BatchDef[] {
     command: [
       filesystemSection(),
       cryptoSection(),
+      fileIntegritySection(),
+      malwareSection(),
     ].join("\n"),
   };
 
