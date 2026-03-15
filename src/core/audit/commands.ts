@@ -183,6 +183,19 @@ function bannersSection(): string {
   ].join("\n");
 }
 
+function cryptoSection(): string {
+  return [
+    NAMED_SEP("CRYPTO"),
+    `openssl version 2>/dev/null || echo 'NOT_INSTALLED'`,
+    `sshd -T 2>/dev/null | grep -iE '^ciphers|^macs|^kexalgorithms|^hostkeyalgorithms' || echo 'N/A'`,
+    `ls /etc/ssh/ssh_host_*_key 2>/dev/null || echo 'N/A'`,
+    `lsblk -f 2>/dev/null | grep -i 'crypto_luks' || echo 'NO_LUKS'`,
+    `cat /etc/ssl/openssl.cnf 2>/dev/null | grep -iE 'MinProtocol|CipherString' || echo 'N/A'`,
+    `ss -tlnp 2>/dev/null | grep -E ':443 |:8443 ' | head -5 || echo 'NO_TLS_PORTS'`,
+    `ss -tlnp 2>/dev/null | grep -q ':443' && timeout 5 openssl s_client -connect localhost:443 -servername localhost 2>/dev/null < /dev/null | openssl x509 -noout -enddate 2>/dev/null || echo 'N/A'`,
+  ].join("\n");
+}
+
 function filesystemSection(): string {
   return [
     NAMED_SEP("FILESYSTEM"),
@@ -198,7 +211,7 @@ function filesystemSection(): string {
  *
  * Batch 1 (fast):   SSH, Firewall, Updates, Auth, Accounts, Boot, Scheduling, Banners — config reads (30s timeout)
  * Batch 2 (medium): Docker, Network, Logging, Kernel, Services, Time — active probes (60s timeout)
- * Batch 3 (slow):   Filesystem — find commands that can take time (120s timeout)
+ * Batch 3 (slow):   Filesystem, Crypto, FileIntegrity, Malware — find commands and TLS probes (120s timeout)
  *
  * Each section is preceded by an ---SECTION:NAME--- named separator.
  * Parsers route by section name, not integer index.
@@ -232,7 +245,10 @@ export function buildAuditBatchCommands(platform: string): BatchDef[] {
 
   const slow: BatchDef = {
     tier: "slow",
-    command: filesystemSection(),
+    command: [
+      filesystemSection(),
+      cryptoSection(),
+    ].join("\n"),
   };
 
   return [fast, medium, slow];

@@ -20,6 +20,7 @@ import { parseBootChecks } from "./boot.js";
 import { parseSchedulingChecks } from "./scheduling.js";
 import { parseTimeChecks } from "./time.js";
 import { parseBannersChecks } from "./banners.js";
+import { parseCryptoChecks } from "./crypto.js";
 
 export interface CategoryEntry {
   name: string;
@@ -44,6 +45,7 @@ export const CHECK_REGISTRY: CategoryEntry[] = [
   { name: "Scheduling", sectionName: "SCHEDULING", parser: parseSchedulingChecks },
   { name: "Time", sectionName: "TIME", parser: parseTimeChecks },
   { name: "Banners", sectionName: "BANNERS", parser: parseBannersChecks },
+  { name: "Crypto", sectionName: "CRYPTO", parser: parseCryptoChecks },
 ];
 
 /** Named separator pattern used between sections in SSH batch output */
