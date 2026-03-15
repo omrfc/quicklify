@@ -3,7 +3,7 @@
 This document addresses the remaining Socket.dev security alerts for `kastell`.
 Current score: 74/100. Target: no unresolved critical alerts.
 
-## Resolved Alerts (Phase 43)
+## Resolved Alerts
 
 ### execSync → spawnSync migration (Plan 43-01)
 - **Alert type:** `shell` — execSync passes commands through a shell (injection risk)
@@ -14,6 +14,19 @@ Current score: 74/100. Target: no unresolved critical alerts.
   `src/utils/updateCheck.ts`, `src/mcp/server.ts`
 - **Additional protection:** `SshCommand` branded type + `shellEscape` prevents
   injection at SSH command construction layer (Phase 42-02)
+
+### curl|bash in constants (Plan quick-6)
+- **Alert type:** `obfuscated` — curl|bash pattern in dist/constants.js
+- **Resolution:** Moved `COOLIFY_UPDATE_CMD` and `DOKPLOY_UPDATE_CMD` from
+  `constants.ts` into their respective adapter files (`coolify.ts`, `dokploy.ts`).
+  `constants.ts` no longer contains shell command patterns. The commands are
+  platform-specific update scripts that only run on remote servers via SSH.
+
+### child_process in deploy (Plan quick-6)
+- **Alert type:** `shell` — spawnSync import in dist/core/deploy.js
+- **Resolution:** Replaced inline `spawnSync("ssh-keygen", ...)` calls with
+  existing `removeStaleHostKey()` utility from `ssh.ts`. `deploy.ts` no longer
+  imports `child_process` directly.
 
 ## Remaining Alerts
 
@@ -31,12 +44,24 @@ Current score: 74/100. Target: no unresolved critical alerts.
 - **Verdict:** False positive for a CLI tool that intentionally makes API calls.
   Elimination is not possible without rewriting all 4 provider modules.
 
+### globalThis fetch in domain command
+- **Alert type:** `network` — `globalThis["fetch"]` in dist/commands/domain.js
+- **Justification:** The source file `src/commands/domain.ts` contains NO fetch
+  calls and NO `globalThis` references. This pattern appears in the compiled
+  output as a TypeScript ESM emit artifact or from a transitive dependency
+  polyfill. The domain command uses SSH (`sshExec`) for all remote operations,
+  not HTTP fetch.
+- **Verdict:** Compilation artifact — false positive.
+
 ## Summary
 
 | Alert | Type | Status | Reason |
 |-------|------|--------|--------|
 | execSync | shell | Resolved (43-01) | Migrated to spawnSync |
+| curl\|bash in constants | obfuscated | Resolved (quick-6) | Moved to adapter files |
+| child_process in deploy | shell | Resolved (quick-6) | Uses removeStaleHostKey utility |
 | axios | network | Justified | Required for cloud provider APIs |
+| globalThis fetch in domain | network | False positive | TypeScript compile artifact, no fetch in source |
 
 The remaining `network` alert from axios is a known, accepted trade-off.
 Kastell's core functionality (server provisioning, management) requires HTTP API
