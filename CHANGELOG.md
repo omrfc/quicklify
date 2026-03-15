@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.8.2] - 2026-03-15
+## [1.9.0] - 2026-03-15
 
 ### Fixed
 - **doctor --fix apt hang** — `DEBIAN_FRONTEND=noninteractive` prefix added to apt fix commands over SSH, preventing interactive prompts on headless servers
