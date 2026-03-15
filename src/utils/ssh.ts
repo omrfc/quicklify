@@ -1,6 +1,7 @@
 import { spawn, execSync, type ChildProcess } from "child_process";
 import { existsSync } from "fs";
 import { dirname, join } from "path";
+import type { SshCommand } from "./sshCommand.js";
 
 /** Default SSH connect timeout in seconds */
 const SSH_CONNECT_TIMEOUT = 10;
@@ -164,7 +165,7 @@ export function sshConnect(ip: string): Promise<number> {
   });
 }
 
-function sshStreamInner(ip: string, command: string, retried: boolean): Promise<number> {
+function sshStreamInner(ip: string, command: string | SshCommand, retried: boolean): Promise<number> {
   const sshBin = resolveSshPath();
   return new Promise((resolve) => {
     let settled = false;
@@ -220,7 +221,7 @@ function sshStreamInner(ip: string, command: string, retried: boolean): Promise<
   });
 }
 
-export function sshStream(ip: string, command: string): Promise<number> {
+export function sshStream(ip: string, command: string | SshCommand): Promise<number> {
   assertValidIp(ip);
   return sshStreamInner(ip, command, false);
 }
@@ -237,7 +238,7 @@ function killChild(child: ChildProcess): void {
 
 function sshExecInner(
   ip: string,
-  command: string,
+  command: string | SshCommand,
   retried: boolean,
   timeoutMs: number = SSH_EXEC_TIMEOUT_MS,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
@@ -303,7 +304,7 @@ function sshExecInner(
 
 export function sshExec(
   ip: string,
-  command: string,
+  command: string | SshCommand,
   opts?: { timeoutMs?: number },
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   assertValidIp(ip);
