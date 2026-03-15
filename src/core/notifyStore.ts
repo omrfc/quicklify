@@ -1,0 +1,306 @@
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { homedir, platform } from "os";
+import { join } from "path";
+import { storeToken, readToken } from "./tokenBuffer.js";
+import type { NotifyConfig } from "./notify.js";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const NOTIFY_SERVICE = "kastell-notify";
+const KASTELL_DIR = join(homedir(), ".kastell");
+const NOTIFY_CHANNELS_FILE = join(KASTELL_DIR, "notify-channels.json");
+const NOTIFY_SECRETS_FILE = join(KASTELL_DIR, "notify-secrets.json");
+const NOTIFY_LEGACY_FILE = join(KASTELL_DIR, "notify.json");
+
+// Channel field definitions
+const CHANNEL_FIELDS: Record<string, string[]> = {
+  telegram: ["botToken", "chatId"],
+  discord: ["webhookUrl"],
+  slack: ["webhookUrl"],
+};
+
+// ─── Android detection ───────────────────────────────────────────────────────
+
+const IS_ANDROID =
+  process.platform === "android" ||
+  process.env["PREFIX"]?.includes("com.termux") ||
+  existsSync("/data/data/com.termux");
+
+// ─── Keyring lazy-load ────────────────────────────────────────────────────────
+
+type KeyringEntry = import("@napi-rs/keyring").Entry;
+let _Entry: (new (service: string, key: string) => KeyringEntry) | null = null;
+let _keyringLoaded = false;
+
+function loadKeyring(): typeof _Entry {
+  if (_keyringLoaded) return _Entry;
+  _keyringLoaded = true;
+  if (IS_ANDROID) return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("@napi-rs/keyring") as typeof import("@napi-rs/keyring");
+    _Entry = mod.Entry;
+  } catch {
+    _Entry = null;
+  }
+  return _Entry;
+}
+
+function getKeychainEntry(channel: string, field: string): KeyringEntry | null {
+  const EntryClass = loadKeyring();
+  if (!EntryClass) return null;
+  try {
+    return new EntryClass(NOTIFY_SERVICE, `${channel}:${field}`);
+  } catch {
+    return null;
+  }
+}
+
+// ─── Fallback file helpers ────────────────────────────────────────────────────
+
+function readSecretsFile(): Record<string, string> {
+  try {
+    if (!existsSync(NOTIFY_SECRETS_FILE)) return {};
+    return JSON.parse(readFileSync(NOTIFY_SECRETS_FILE, "utf-8")) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+function writeSecretsFile(data: Record<string, string>): void {
+  try {
+    if (!existsSync(KASTELL_DIR)) mkdirSync(KASTELL_DIR, { recursive: true });
+    writeFileSync(NOTIFY_SECRETS_FILE, JSON.stringify(data, null, 2), { mode: 0o600 });
+  } catch { /* ignore */ }
+}
+
+// ─── Channel metadata helpers ─────────────────────────────────────────────────
+
+function readChannelMetadata(): Record<string, boolean> {
+  try {
+    if (!existsSync(NOTIFY_CHANNELS_FILE)) return {};
+    return JSON.parse(readFileSync(NOTIFY_CHANNELS_FILE, "utf-8")) as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+}
+
+function writeChannelMetadata(metadata: Record<string, boolean>): void {
+  if (!existsSync(KASTELL_DIR)) mkdirSync(KASTELL_DIR, { recursive: true });
+  writeFileSync(NOTIFY_CHANNELS_FILE, JSON.stringify(metadata, null, 2), { mode: 0o600 });
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+/**
+ * Store a notify secret in the OS keychain.
+ * Falls back to tokenBuffer + file when keychain unavailable.
+ */
+export function storeNotifySecret(channel: string, field: string, value: string): boolean {
+  const entry = getKeychainEntry(channel, field);
+  if (entry) {
+    try {
+      entry.setPassword(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Fallback: tokenBuffer (in-memory) + file persistence
+  if (platform() === "win32") {
+    process.stderr.write(
+      "[warn] OS keychain unavailable — notify secret stored in plaintext at ~/.kastell/notify-secrets.json\n",
+    );
+  }
+  storeToken(`${channel}:${field}`, value);
+  const existing = readSecretsFile();
+  existing[`${channel}:${field}`] = value;
+  writeSecretsFile(existing);
+  return true;
+}
+
+/**
+ * Read a notify secret from the OS keychain.
+ * Falls back to tokenBuffer → file when keychain unavailable.
+ */
+export function readNotifySecret(channel: string, field: string): string | undefined {
+  const entry = getKeychainEntry(channel, field);
+  if (entry) {
+    try {
+      return entry.getPassword() ?? undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  // Fallback: check tokenBuffer first
+  const buffered = readToken(`${channel}:${field}`);
+  if (buffered !== undefined) return buffered;
+
+  // Then check file
+  const secrets = readSecretsFile();
+  return secrets[`${channel}:${field}`];
+}
+
+/**
+ * Remove a notify secret from the OS keychain.
+ * Falls back to tokenBuffer + file removal when keychain unavailable.
+ */
+export function removeNotifySecret(channel: string, field: string): boolean {
+  const entry = getKeychainEntry(channel, field);
+  if (entry) {
+    try {
+      entry.deletePassword();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Fallback: remove from file
+  const secrets = readSecretsFile();
+  if (!((`${channel}:${field}`) in secrets)) return false;
+  delete secrets[`${channel}:${field}`];
+  writeSecretsFile(secrets);
+  return true;
+}
+
+/**
+ * Save all secrets for a channel to keychain, then update channel metadata.
+ * Metadata file only records which channels are active — no secrets.
+ */
+export function saveNotifyChannel(
+  channel: string,
+  config: NonNullable<NotifyConfig[keyof NotifyConfig]>,
+): void {
+  const fields = CHANNEL_FIELDS[channel];
+  if (!fields) return;
+
+  for (const field of fields) {
+    const value = (config as Record<string, string>)[field];
+    if (value !== undefined) {
+      storeNotifySecret(channel, field, value);
+    }
+  }
+
+  const metadata = readChannelMetadata();
+  metadata[channel] = true;
+  writeChannelMetadata(metadata);
+}
+
+/**
+ * Load all configured channels by reading metadata + resolving secrets from keychain.
+ * Automatically migrates legacy notify.json on first call.
+ */
+export function loadNotifyChannels(): NotifyConfig {
+  // Migration: check for legacy notify.json with plain-text secrets
+  let migrationMetadata: Record<string, boolean> | undefined;
+  if (existsSync(NOTIFY_LEGACY_FILE) && !existsSync(NOTIFY_CHANNELS_FILE)) {
+    migrationMetadata = migrateFromLegacyNotifyJson();
+  }
+
+  const metadata = migrationMetadata ?? readChannelMetadata();
+  const config: NotifyConfig = {};
+
+  if (metadata.telegram) {
+    const botToken = readNotifySecret("telegram", "botToken");
+    const chatId = readNotifySecret("telegram", "chatId");
+    if (botToken && chatId) {
+      config.telegram = { botToken, chatId };
+    }
+  }
+
+  if (metadata.discord) {
+    const webhookUrl = readNotifySecret("discord", "webhookUrl");
+    if (webhookUrl) {
+      config.discord = { webhookUrl };
+    }
+  }
+
+  if (metadata.slack) {
+    const webhookUrl = readNotifySecret("slack", "webhookUrl");
+    if (webhookUrl) {
+      config.slack = { webhookUrl };
+    }
+  }
+
+  return config;
+}
+
+/**
+ * Remove all secrets for a channel from keychain, then update metadata.
+ */
+export function removeNotifyChannel(channel: string): void {
+  const fields = CHANNEL_FIELDS[channel] ?? [];
+  for (const field of fields) {
+    removeNotifySecret(channel, field);
+  }
+
+  const metadata = readChannelMetadata();
+  metadata[channel] = false;
+  writeChannelMetadata(metadata);
+}
+
+/**
+ * Check if the OS keychain is available for notify secrets.
+ */
+export function isNotifyKeychainAvailable(): boolean {
+  const EntryClass = loadKeyring();
+  if (IS_ANDROID || !EntryClass) return false;
+  try {
+    new EntryClass(NOTIFY_SERVICE, "__test__");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Migration ────────────────────────────────────────────────────────────────
+
+function migrateFromLegacyNotifyJson(): Record<string, boolean> | undefined {
+  try {
+    const raw = JSON.parse(readFileSync(NOTIFY_LEGACY_FILE, "utf-8")) as Record<string, unknown>;
+    const metadata: Record<string, boolean> = { telegram: false, discord: false, slack: false };
+
+    if (raw.telegram && typeof raw.telegram === "object") {
+      const tg = raw.telegram as { botToken?: string; chatId?: string };
+      if (tg.botToken && tg.chatId) {
+        storeNotifySecret("telegram", "botToken", tg.botToken);
+        storeNotifySecret("telegram", "chatId", tg.chatId);
+        metadata.telegram = true;
+      }
+    }
+
+    if (raw.discord && typeof raw.discord === "object") {
+      const dc = raw.discord as { webhookUrl?: string };
+      if (dc.webhookUrl) {
+        storeNotifySecret("discord", "webhookUrl", dc.webhookUrl);
+        metadata.discord = true;
+      }
+    }
+
+    if (raw.slack && typeof raw.slack === "object") {
+      const sl = raw.slack as { webhookUrl?: string };
+      if (sl.webhookUrl) {
+        storeNotifySecret("slack", "webhookUrl", sl.webhookUrl);
+        metadata.slack = true;
+      }
+    }
+
+    // Write channel metadata (no secrets)
+    writeChannelMetadata(metadata);
+
+    // Strip secrets from legacy notify.json (write empty channel flags only)
+    const stripped: Record<string, unknown> = {};
+    if (raw.telegram) stripped.telegram = true;
+    if (raw.discord) stripped.discord = true;
+    if (raw.slack) stripped.slack = true;
+    writeFileSync(NOTIFY_LEGACY_FILE, JSON.stringify(stripped, null, 2), { mode: 0o600 });
+
+    return metadata;
+  } catch {
+    // Migration failed silently — don't break normal operation
+    return undefined;
+  }
+}
