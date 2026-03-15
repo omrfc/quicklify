@@ -72,6 +72,7 @@ describe("Audit types", () => {
       serverIp: "1.2.3.4",
       platform: "bare",
       timestamp: "2026-01-01T00:00:00Z",
+      auditVersion: "1.0.0",
       categories: [],
       overallScore: 0,
       quickWins: [],

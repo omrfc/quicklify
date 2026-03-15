@@ -35,6 +35,7 @@ function makeResult(categories: AuditCategory[]): AuditResult {
     serverIp: "1.2.3.4",
     platform: "bare",
     timestamp: new Date().toISOString(),
+    auditVersion: "1.0.0",
     categories,
     overallScore,
     quickWins: [],

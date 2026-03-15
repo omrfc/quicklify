@@ -41,6 +41,7 @@ export interface AuditResult {
   serverIp: string;
   platform: "coolify" | "dokploy" | "bare";
   timestamp: string;
+  auditVersion: string;          // Score methodology version — e.g. "1.10.0"
   categories: AuditCategory[];
   overallScore: number;          // Weighted average 0-100
   quickWins: QuickWin[];

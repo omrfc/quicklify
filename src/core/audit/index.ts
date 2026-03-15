@@ -10,6 +10,7 @@ import { calculateOverallScore } from "./scoring.js";
 import { parseAllChecks } from "./checks/index.js";
 import { sshExec } from "../../utils/ssh.js";
 import { calculateQuickWins } from "./quickwin.js";
+import { AUDIT_VERSION } from "../../constants.js";
 
 /**
  * Run a full server security audit.
@@ -51,6 +52,7 @@ export async function runAudit(
       serverIp: ip,
       platform: platform as AuditResult["platform"],
       timestamp: new Date().toISOString(),
+      auditVersion: AUDIT_VERSION,
       categories,
       overallScore,
       quickWins: [],

@@ -107,3 +107,6 @@ export function formatSnapshotCost(provider: string, sizeGb: number): string {
   if (!cost) return "N/A";
   return `${cost.currency}${(sizeGb * cost.rate).toFixed(2)}/mo`;
 }
+
+// ─── Audit Versioning ─────────────────────────────────────────────────────────
+export const AUDIT_VERSION = "1.10.0";
