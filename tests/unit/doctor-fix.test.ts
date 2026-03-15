@@ -36,7 +36,7 @@ const stalePackages = makeFinding({
   id: "STALE_PACKAGES",
   severity: "warning",
   description: "15 packages available for upgrade",
-  fixCommand: "sudo apt update && sudo apt upgrade -y",
+  fixCommand: "DEBIAN_FRONTEND=noninteractive sudo apt update && sudo apt upgrade -y",
 });
 
 const dockerDisk = makeFinding({
@@ -225,7 +225,7 @@ describe("runDoctorFix — interactive mode", () => {
 
     const extraFinding = makeFinding({
       id: "HIGH_SWAP",
-      fixCommand: "sudo apt update && sudo apt upgrade -y",
+      fixCommand: "DEBIAN_FRONTEND=noninteractive sudo apt update && sudo apt upgrade -y",
     });
 
     const result = await runDoctorFix(

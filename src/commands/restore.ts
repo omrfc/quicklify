@@ -64,6 +64,14 @@ export async function restoreCommand(
 
   if (options?.backup) {
     selectedBackup = basename(options.backup);
+  } else if (options?.force) {
+    const backups = listBackups(server.name);
+    if (backups.length === 0) {
+      logger.info(`No backups found for ${server.name}. Run 'kastell backup' first.`);
+      return;
+    }
+    selectedBackup = backups[backups.length - 1]; // latest backup
+    logger.info(`Auto-selected latest backup: ${selectedBackup}`);
   } else {
     const backups = listBackups(server.name);
     if (backups.length === 0) {

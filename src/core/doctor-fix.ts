@@ -15,7 +15,7 @@ import type { DoctorFinding } from "./doctor.js";
 
 /** Whitelist of known safe fix commands produced by doctor checks */
 const KNOWN_FIX_COMMANDS = new Set([
-  "sudo apt update && sudo apt upgrade -y",
+  "DEBIAN_FRONTEND=noninteractive sudo apt update && sudo apt upgrade -y",
   "docker system prune -a --force",
 ]);
 
