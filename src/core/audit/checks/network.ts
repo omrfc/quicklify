@@ -125,14 +125,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
   };
 
   // NET-06: hosts.allow exists
-  const hostsAllowPresent = !output.includes("NO_HOSTS_ALLOW") && output.includes("hosts.allow") === false
-    ? /^(?!NO_HOSTS_ALLOW).*\S/m.test(
-        (() => {
-          const idx = output.indexOf("NO_HOSTS_ALLOW");
-          return idx === -1 ? "PRESENT" : "NO_HOSTS_ALLOW";
-        })(),
-      )
-    : !output.includes("NO_HOSTS_ALLOW");
+  const hostsAllowPresent = !output.includes("NO_HOSTS_ALLOW");
   const net06: AuditCheck = {
     id: "NET-HOSTS-ACCESS",
     category: "Network",

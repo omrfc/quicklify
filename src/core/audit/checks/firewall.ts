@@ -93,18 +93,9 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     explain: "IPv6 firewall rules prevent bypassing security through IPv6 connections.",
   };
 
-  
+
   // FW-06: nftables available
-  const nftOutput = sectionOutput.includes("nft") && !sectionOutput.includes("nft list ruleset") ? false :
-    /tables+w+/.test(sectionOutput) || /chains+w+/.test(sectionOutput);
-  const hasNftAvailable = /command -v nft/.test(sectionOutput) === false &&
-    sectionOutput.includes("nft") && !sectionOutput.trim().endsWith("N/A");
-  // Detect nft by checking output that is not just N/A
-  const nftSection = (() => {
-    const lines = sectionOutput.split("\n");
-    const nftIdx = lines.findIndex((l) => /tables+|chains+|counter/.test(l));
-    return nftIdx !== -1;
-  })();
+  const nftSection = lines.some((l) => /\btables?\b|\bchains?\b|counter/.test(l));
   const fw06: AuditCheck = {
     id: "FW-NFTABLES-PRESENT",
     category: "Firewall",
@@ -132,7 +123,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
   };
 
   // FW-08: iptables has rules beyond defaults (wc line > 8)
-  const iptablesCountStr = output.split("\n").find((l) => /^d+$/.test(l.trim())) ?? "0";
+  const iptablesCountStr = output.split("\n").find((l) => /^\d+$/.test(l.trim())) ?? "0";
   const iptablesCount = parseInt(iptablesCountStr, 10);
   const hasIptablesRules = !isNaN(iptablesCount) && iptablesCount > 8;
   const fw08: AuditCheck = {
@@ -169,7 +160,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     category: "Firewall",
     name: "REJECT Rules Present",
     severity: "info",
-    passed: isNA ? false : isActive,
+    passed: isNA ? false : hasRejectRules,
     currentValue: hasRejectRules ? "REJECT rules present" : "No REJECT rules found (DROP-only)",
     expectedValue: "REJECT preferred for user-facing services",
     fixCommand: "iptables -A INPUT -j REJECT --reject-with icmp-port-unreachable",
@@ -184,7 +175,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     category: "Firewall",
     name: "Outbound Traffic Restricted",
     severity: "info",
-    passed: isNA ? false : isActive,
+    passed: isNA ? false : hasRestrictedOutput,
     currentValue: isNA ? "Unable to determine" : hasRestrictedOutput ? "OUTPUT chain restricted" : "OUTPUT chain not restricted",
     expectedValue: "Consider restricting outbound traffic",
     fixCommand: "iptables -P OUTPUT DROP && iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT",
@@ -192,7 +183,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
   };
 
   // FW-12: Rate limiting rules present
-  const hasRateLimit = /limit/.test(output) && !output.split("\n").filter((l) => /limit/.test(l)).every((l) => l.trim() === "NONE");
+  const hasRateLimit = output.split("\n").some((l) => /limit/.test(l) && l.trim() !== "NONE");
   const fw12: AuditCheck = {
     id: "FW-RATE-LIMIT",
     category: "Firewall",

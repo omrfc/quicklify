@@ -205,18 +205,8 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
   };
 
   // AUTH-NO-UID0-DUPS: Only root should have UID 0
-  // awk output contains one username per line for UID 0 accounts
-  const uid0Lines = output.split("\n").filter((l) => {
-    const t = l.trim();
-    return /^[a-z_][a-z0-9_-]{0,31}$/i.test(t) && t !== "N/A" && !t.includes("=") && !t.includes(":") &&
-      !t.includes("pam_") && !t.includes("auth ") && !t.includes("password ") && !t.includes("PASS_") &&
-      !t.includes("sudo") && !t.includes("NONE") && !t.includes("required") && !t.includes("sufficient") &&
-      !t.includes("optional") && !t.includes("requisite") && !t.includes("include") && !t.includes("substack") &&
-      !t.includes("session") && !t.includes("account") && !t.includes("nullok") && !t.includes("common");
-  });
-  // Look specifically for lines that could be UID 0 accounts — this is a simplified heuristic
-  // The awk output from UID 0 check is in the output along with other data
-  // We look for "root" specifically and whether "toor" or other UID 0 aliases appear
+  // awk output from `awk -F: '($3 == 0) {print $1}' /etc/passwd` lists usernames with UID 0
+  // We check for "toor" or any non-root username that could be a UID 0 alias
   const hasOnlyRoot = !output.includes("toor") && !output.match(/^(?!root)[a-z_][a-z0-9_-]{0,31}\s*$/m);
   const auth10: AuditCheck = {
     id: "AUTH-NO-UID0-DUPS",

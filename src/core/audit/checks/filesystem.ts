@@ -143,114 +143,58 @@ export const parseFilesystemChecks: CheckParser = (sectionOutput: string, _platf
   // NEW CHECKS: mount option hardening and additional filesystem security
   // These parse data from the expanded filesystemSection() commands.
 
-  // FS-HOME-NOEXEC: /home mounted with noexec
-  const mountOutput = output;
-  const homeMount = mountOutput.split("\n").find((l) => /\s\/home(\s|$)/.test(l) || l.startsWith("/home "));
-  const homeMountOptions = homeMount ?? "";
-  const fs06: AuditCheck = {
-    id: "FS-HOME-NOEXEC",
-    category: "Filesystem",
-    name: "/home Mount noexec",
-    severity: "warning",
-    passed: isNA ? false : homeMountOptions.includes("noexec"),
-    currentValue: isNA
-      ? "Unable to determine"
-      : homeMountOptions
-        ? homeMountOptions.includes("noexec") ? "noexec set on /home" : "noexec not set on /home"
-        : "/home mount options not detected",
-    expectedValue: "/home mounted with noexec",
-    fixCommand: "mount -o remount,noexec /home  # also add noexec to /etc/fstab",
-    explain: "Mounting /home with noexec prevents execution of scripts placed in user home directories.",
-  };
+  const mountLines = output.split("\n");
 
-  // FS-HOME-NOSUID: /home mounted with nosuid
-  const fs07: AuditCheck = {
-    id: "FS-HOME-NOSUID",
-    category: "Filesystem",
-    name: "/home Mount nosuid",
-    severity: "warning",
-    passed: isNA ? false : homeMountOptions.includes("nosuid"),
-    currentValue: isNA
-      ? "Unable to determine"
-      : homeMountOptions
-        ? homeMountOptions.includes("nosuid") ? "nosuid set on /home" : "nosuid not set on /home"
-        : "/home mount options not detected",
-    expectedValue: "/home mounted with nosuid",
-    fixCommand: "mount -o remount,nosuid /home  # also add nosuid to /etc/fstab",
-    explain: "Mounting /home with nosuid prevents SUID binaries placed in user home directories from being exploited.",
-  };
+  /** Find mount line for a path and check if it has a specific option */
+  function checkMountOption(
+    mountPath: string,
+    option: string,
+  ): { hasOption: boolean; detected: boolean } {
+    const escapedPath = mountPath.replace(/\//g, "\\/");
+    const line = mountLines.find((l) => new RegExp(`\\s${escapedPath}(\\s|$)`).test(l) || l.startsWith(`${mountPath} `));
+    if (!line) return { hasOption: false, detected: false };
+    return { hasOption: line.includes(option), detected: true };
+  }
 
-  // FS-VAR-TMP-NOEXEC: /var/tmp mounted with noexec
-  const varTmpMount = mountOutput.split("\n").find((l) => /\s\/var\/tmp(\s|$)/.test(l) || l.startsWith("/var/tmp "));
-  const varTmpMountOptions = varTmpMount ?? "";
-  const fs08: AuditCheck = {
-    id: "FS-VAR-TMP-NOEXEC",
-    category: "Filesystem",
-    name: "/var/tmp Mount noexec",
-    severity: "warning",
-    passed: isNA ? false : varTmpMountOptions.includes("noexec"),
-    currentValue: isNA
-      ? "Unable to determine"
-      : varTmpMountOptions
-        ? varTmpMountOptions.includes("noexec") ? "noexec set on /var/tmp" : "noexec not set on /var/tmp"
-        : "/var/tmp mount options not detected",
-    expectedValue: "/var/tmp mounted with noexec",
-    fixCommand: "mount -o remount,noexec /var/tmp  # also add noexec to /etc/fstab",
-    explain: "Mounting /var/tmp with noexec prevents execution of attacker-placed scripts in the temp directory.",
-  };
+  function makeMountCheck(
+    id: string, name: string, mountPath: string, option: string,
+    severity: "warning" | "info", fixCommand: string, explain: string,
+  ): AuditCheck {
+    const { hasOption, detected } = checkMountOption(mountPath, option);
+    return {
+      id, category: "Filesystem", name, severity,
+      passed: isNA ? false : hasOption,
+      currentValue: isNA ? "Unable to determine"
+        : detected ? (hasOption ? `${option} set on ${mountPath}` : `${option} not set on ${mountPath}`)
+        : `${mountPath} mount options not detected`,
+      expectedValue: `${mountPath} mounted with ${option}`,
+      fixCommand, explain,
+    };
+  }
 
-  // FS-VAR-TMP-NOSUID: /var/tmp mounted with nosuid
-  const fs09: AuditCheck = {
-    id: "FS-VAR-TMP-NOSUID",
-    category: "Filesystem",
-    name: "/var/tmp Mount nosuid",
-    severity: "warning",
-    passed: isNA ? false : varTmpMountOptions.includes("nosuid"),
-    currentValue: isNA
-      ? "Unable to determine"
-      : varTmpMountOptions
-        ? varTmpMountOptions.includes("nosuid") ? "nosuid set on /var/tmp" : "nosuid not set on /var/tmp"
-        : "/var/tmp mount options not detected",
-    expectedValue: "/var/tmp mounted with nosuid",
-    fixCommand: "mount -o remount,nosuid /var/tmp  # also add nosuid to /etc/fstab",
-    explain: "Mounting /var/tmp with nosuid prevents SUID exploitation from world-writable temp directories.",
-  };
+  const fs06 = makeMountCheck("FS-HOME-NOEXEC", "/home Mount noexec", "/home", "noexec", "warning",
+    "mount -o remount,noexec /home  # also add noexec to /etc/fstab",
+    "Mounting /home with noexec prevents execution of scripts placed in user home directories.");
 
-  // FS-DEV-SHM-NOEXEC: /dev/shm mounted with noexec
-  const devShmMount = mountOutput.split("\n").find((l) => /\s\/dev\/shm(\s|$)/.test(l) || l.startsWith("/dev/shm "));
-  const devShmMountOptions = devShmMount ?? "";
-  const fs10: AuditCheck = {
-    id: "FS-DEV-SHM-NOEXEC",
-    category: "Filesystem",
-    name: "/dev/shm Mount noexec",
-    severity: "warning",
-    passed: isNA ? false : devShmMountOptions.includes("noexec"),
-    currentValue: isNA
-      ? "Unable to determine"
-      : devShmMountOptions
-        ? devShmMountOptions.includes("noexec") ? "noexec set on /dev/shm" : "noexec not set on /dev/shm"
-        : "/dev/shm mount options not detected",
-    expectedValue: "/dev/shm mounted with noexec",
-    fixCommand: "mount -o remount,noexec /dev/shm  # also add noexec to /etc/fstab",
-    explain: "Mounting /dev/shm with noexec prevents in-memory exploits from executing arbitrary code.",
-  };
+  const fs07 = makeMountCheck("FS-HOME-NOSUID", "/home Mount nosuid", "/home", "nosuid", "warning",
+    "mount -o remount,nosuid /home  # also add nosuid to /etc/fstab",
+    "Mounting /home with nosuid prevents SUID binaries placed in user home directories from being exploited.");
 
-  // FS-DEV-SHM-NOSUID: /dev/shm mounted with nosuid
-  const fs11: AuditCheck = {
-    id: "FS-DEV-SHM-NOSUID",
-    category: "Filesystem",
-    name: "/dev/shm Mount nosuid",
-    severity: "info",
-    passed: isNA ? false : devShmMountOptions.includes("nosuid"),
-    currentValue: isNA
-      ? "Unable to determine"
-      : devShmMountOptions
-        ? devShmMountOptions.includes("nosuid") ? "nosuid set on /dev/shm" : "nosuid not set on /dev/shm"
-        : "/dev/shm mount options not detected",
-    expectedValue: "/dev/shm mounted with nosuid",
-    fixCommand: "mount -o remount,nosuid /dev/shm  # also add nosuid to /etc/fstab",
-    explain: "Mounting /dev/shm with nosuid reduces risk of SUID exploitation from shared memory.",
-  };
+  const fs08 = makeMountCheck("FS-VAR-TMP-NOEXEC", "/var/tmp Mount noexec", "/var/tmp", "noexec", "warning",
+    "mount -o remount,noexec /var/tmp  # also add noexec to /etc/fstab",
+    "Mounting /var/tmp with noexec prevents execution of attacker-placed scripts in the temp directory.");
+
+  const fs09 = makeMountCheck("FS-VAR-TMP-NOSUID", "/var/tmp Mount nosuid", "/var/tmp", "nosuid", "warning",
+    "mount -o remount,nosuid /var/tmp  # also add nosuid to /etc/fstab",
+    "Mounting /var/tmp with nosuid prevents SUID exploitation from world-writable temp directories.");
+
+  const fs10 = makeMountCheck("FS-DEV-SHM-NOEXEC", "/dev/shm Mount noexec", "/dev/shm", "noexec", "warning",
+    "mount -o remount,noexec /dev/shm  # also add noexec to /etc/fstab",
+    "Mounting /dev/shm with noexec prevents in-memory exploits from executing arbitrary code.");
+
+  const fs11 = makeMountCheck("FS-DEV-SHM-NOSUID", "/dev/shm Mount nosuid", "/dev/shm", "nosuid", "info",
+    "mount -o remount,nosuid /dev/shm  # also add nosuid to /etc/fstab",
+    "Mounting /dev/shm with nosuid reduces risk of SUID exploitation from shared memory.");
 
   // FS-UMASK-RESTRICTIVE: umask is 022 or 027
   const umaskMatch = output.match(/\b(0?0?27|0?0?22)\b/);
@@ -272,23 +216,9 @@ export const parseFilesystemChecks: CheckParser = (sectionOutput: string, _platf
   };
 
   // FS-TMP-NOEXEC: /tmp mounted with noexec
-  const tmpMount = mountOutput.split("\n").find((l) => /\s\/tmp(\s|$)/.test(l) || l.startsWith("/tmp "));
-  const tmpMountOptions = tmpMount ?? "";
-  const fs13: AuditCheck = {
-    id: "FS-TMP-NOEXEC",
-    category: "Filesystem",
-    name: "/tmp Mount noexec",
-    severity: "warning",
-    passed: isNA ? false : tmpMountOptions.includes("noexec"),
-    currentValue: isNA
-      ? "Unable to determine"
-      : tmpMountOptions
-        ? tmpMountOptions.includes("noexec") ? "noexec set on /tmp" : "noexec not set on /tmp"
-        : "/tmp mount options not detected",
-    expectedValue: "/tmp mounted with noexec",
-    fixCommand: "mount -o remount,noexec /tmp  # also add noexec to /etc/fstab",
-    explain: "Mounting /tmp with noexec is a key hardening step that prevents execution of attacker-dropped scripts.",
-  };
+  const fs13 = makeMountCheck("FS-TMP-NOEXEC", "/tmp Mount noexec", "/tmp", "noexec", "warning",
+    "mount -o remount,noexec /tmp  # also add noexec to /etc/fstab",
+    "Mounting /tmp with noexec is a key hardening step that prevents execution of attacker-dropped scripts.");
 
   // FS-NO-UNOWNED-FILES: No unowned files (proxy: world-writable count is low)
   // We infer from the existing world-writable file list — short list (<3 items) means clean
@@ -309,21 +239,9 @@ export const parseFilesystemChecks: CheckParser = (sectionOutput: string, _platf
   };
 
   // FS-TMP-NOSUID: /tmp mounted with nosuid
-  const fs15: AuditCheck = {
-    id: "FS-TMP-NOSUID",
-    category: "Filesystem",
-    name: "/tmp Mount nosuid",
-    severity: "warning",
-    passed: isNA ? false : tmpMountOptions.includes("nosuid"),
-    currentValue: isNA
-      ? "Unable to determine"
-      : tmpMountOptions
-        ? tmpMountOptions.includes("nosuid") ? "nosuid set on /tmp" : "nosuid not set on /tmp"
-        : "/tmp mount options not detected",
-    expectedValue: "/tmp mounted with nosuid",
-    fixCommand: "mount -o remount,nosuid /tmp  # also add nosuid to /etc/fstab",
-    explain: "Mounting /tmp with nosuid prevents SUID bit exploitation from world-writable temp directory.",
-  };
+  const fs15 = makeMountCheck("FS-TMP-NOSUID", "/tmp Mount nosuid", "/tmp", "nosuid", "warning",
+    "mount -o remount,nosuid /tmp  # also add nosuid to /etc/fstab",
+    "Mounting /tmp with nosuid prevents SUID bit exploitation from world-writable temp directory.");
 
   return [fs01, fs02, fs03, fs04, fs05, fs06, fs07, fs08, fs09, fs10, fs11, fs12, fs13, fs14, fs15];
 };

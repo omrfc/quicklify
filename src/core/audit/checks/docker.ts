@@ -170,15 +170,17 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     explain: "Container logs are essential for incident investigation and monitoring.",
   };
 
-  
+
+  // Split lines once for all subsequent checks
+  const allLines = sectionOutput.split("\n");
+
   // Parse daemon.json if present in output
   let daemonJson: Record<string, unknown> = {};
   try {
-    const lines2 = sectionOutput.split("\n");
-    for (const line2 of lines2) {
-      const trimmed2 = line2.trim();
-      if (trimmed2.startsWith("{") && trimmed2.includes(":") && trimmed2 !== "{}" ) {
-        try { daemonJson = JSON.parse(trimmed2); if (Object.keys(daemonJson).length > 0) break; } catch { /* skip */ }
+    for (const line of allLines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("{") && trimmed.includes(":") && trimmed !== "{}") {
+        try { daemonJson = JSON.parse(trimmed); if (Object.keys(daemonJson).length > 0) break; } catch { /* skip */ }
       }
     }
   } catch { /* skip */ }
@@ -253,7 +255,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
   };
 
   // DCK-11: docker.sock permissions are 660 root:docker
-  const sockStatLine = sectionOutput.split("\n").find((l) => /^\d{3}\s+\w+\s+\w+/.test(l.trim())) ?? "";
+  const sockStatLine = allLines.find((l) => /^\d{3}\s+\w+\s+\w+/.test(l.trim())) ?? "";
   const sockPermOk = /^660\s+root\s+docker/.test(sockStatLine.trim());
   const dck11: AuditCheck = {
     id: "DCK-SOCKET-PERMS",
@@ -268,7 +270,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
   };
 
   // DCK-12: No root containers
-  const containerUserLines = sectionOutput.split("\n").filter((l) => l.includes("User="));
+  const containerUserLines = allLines.filter((l) => l.includes("User="));
   const hasRootContainers = hasRunningContainers &&
     containerUserLines.some((l) => /User=$/.test(l.trim()) || /User=""/.test(l));
   const dck12: AuditCheck = {
@@ -288,7 +290,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
   };
 
   // DCK-13: Read-only root filesystem
-  const readonlyLines = sectionOutput.split("\n").filter((l) => l.includes("ReadonlyRootfs="));
+  const readonlyLines = allLines.filter((l) => l.includes("ReadonlyRootfs="));
   const allReadOnly = hasRunningContainers && readonlyLines.length > 0 &&
     readonlyLines.every((l) => l.includes("ReadonlyRootfs=true"));
   const dck13: AuditCheck = {
@@ -338,7 +340,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
   };
 
   // DCK-16: seccomp profile applied
-  const seccompLines = sectionOutput.split("\n").filter((l) => l.includes("SecurityOpt="));
+  const seccompLines = allLines.filter((l) => l.includes("SecurityOpt="));
   const hasSeccomp = !hasRunningContainers ||
     (seccompLines.length > 0 && seccompLines.some((l) => l.includes("seccomp")));
   const dck16: AuditCheck = {
@@ -372,7 +374,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
   };
 
   // DCK-18: No sensitive mounts (checks Privileged=true in inspect output)
-  const privilegedInspectLines = sectionOutput.split("\n").filter((l) => l.includes("Privileged="));
+  const privilegedInspectLines = allLines.filter((l) => l.includes("Privileged="));
   const hasPrivilegedFromInspect = hasRunningContainers &&
     privilegedInspectLines.some((l) => l.includes("Privileged=true"));
   const dck18: AuditCheck = {
@@ -411,7 +413,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
   };
 
   // DCK-20: No privileged port bindings (informational)
-  const privilegedPorts = sectionOutput.split("\n")
+  const privilegedPorts = allLines
     .filter((l) => /0\.0\.0\.0:\d+->/.test(l))
     .flatMap((l) => {
       const matches = l.match(/0\.0\.0\.0:(\d+)->/g) ?? [];

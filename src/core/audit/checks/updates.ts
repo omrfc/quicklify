@@ -119,7 +119,7 @@ export const parseUpdatesChecks: CheckParser = (sectionOutput: string, _platform
     (Math.floor(Date.now() / 1000) - dpkgTimestamp) < thirtyDays;
   // If we can't distinguish from apt timestamp, use a broader heuristic
   const allTimestamps = lines.filter((l) => /^\d{10,}$/.test(l)).map((l) => parseInt(l, 10));
-  const latestTimestamp = allTimestamps.length > 0 ? Math.max(...allTimestamps) : NaN;
+  const latestTimestamp = allTimestamps.length > 0 ? allTimestamps.reduce((a, b) => (b > a ? b : a)) : NaN;
   const isUpgradeRecent = !isNaN(latestTimestamp) && (Math.floor(Date.now() / 1000) - latestTimestamp) < thirtyDays;
   const upd05: AuditCheck = {
     id: "UPD-LAST-UPGRADE-RECENT",
@@ -169,7 +169,7 @@ export const parseUpdatesChecks: CheckParser = (sectionOutput: string, _platform
   };
 
   // UPD-08: Running kernel version present (informational)
-  const kernelVersion = lines.find((l) => /^d+.d+./.test(l)) ?? "";
+  const kernelVersion = lines.find((l) => /^\d+\.\d+\./.test(l)) ?? "";
   const hasKernelInfo = kernelVersion.length > 0;
   const upd08: AuditCheck = {
     id: "UPD-KERNEL-CURRENT",
