@@ -1,5 +1,6 @@
 import { sshExec } from "../utils/ssh.js";
 import { getErrorMessage, mapSshError, sanitizeStderr } from "../utils/errorMapper.js";
+import { cmd, raw, type SshCommand } from "../utils/sshCommand.js";
 
 export type LogService = "coolify" | "dokploy" | "docker" | "system";
 
@@ -36,28 +37,37 @@ const EMPTY_METRICS: SystemMetrics = {
   diskPercent: "N/A",
 };
 
-export function buildLogCommand(service: LogService, lines: number, follow: boolean = false): string {
+export function buildLogCommand(service: LogService, lines: number, follow: boolean = false): SshCommand {
   const safeLines = Math.max(1, Math.min(500, Math.floor(lines)));
   switch (service) {
     case "coolify":
-      return `docker logs coolify --tail ${safeLines}${follow ? " --follow" : ""}`;
+      // safeLines is a clamped integer — safe to use with cmd()
+      return follow
+        ? cmd("docker", "logs", "coolify", "--tail", String(safeLines), "--follow")
+        : cmd("docker", "logs", "coolify", "--tail", String(safeLines));
     case "dokploy":
-      return `docker service logs dokploy_dokploy --tail ${safeLines}${follow ? " --follow" : ""}`;
+      return follow
+        ? cmd("docker", "service", "logs", "dokploy_dokploy", "--tail", String(safeLines), "--follow")
+        : cmd("docker", "service", "logs", "dokploy_dokploy", "--tail", String(safeLines));
     case "docker":
-      return `journalctl -u docker --no-pager -n ${safeLines}${follow ? " -f" : ""}`;
+      return follow
+        ? cmd("journalctl", "-u", "docker", "--no-pager", "-n", String(safeLines), "-f")
+        : cmd("journalctl", "-u", "docker", "--no-pager", "-n", String(safeLines));
     case "system":
-      return `journalctl --no-pager -n ${safeLines}${follow ? " -f" : ""}`;
+      return follow
+        ? cmd("journalctl", "--no-pager", "-n", String(safeLines), "-f")
+        : cmd("journalctl", "--no-pager", "-n", String(safeLines));
   }
 }
 
-export function buildMonitorCommand(includeContainers: boolean): string {
+export function buildMonitorCommand(includeContainers: boolean): SshCommand {
   let command =
     "LANG=C LC_ALL=C top -bn1 | head -5 && echo '---SEPARATOR---' && LANG=C LC_ALL=C free -h && echo '---SEPARATOR---' && LANG=C LC_ALL=C df -h --total | grep -E '(Filesystem|total)'";
   if (includeContainers) {
     command +=
       " && echo '---SEPARATOR---' && (docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}' 2>/dev/null || echo 'Docker not installed')";
   }
-  return command;
+  return raw(command);
 }
 
 export function parseMetrics(stdout: string): SystemMetrics {

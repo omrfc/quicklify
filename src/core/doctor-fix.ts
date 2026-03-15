@@ -11,6 +11,7 @@
 
 import inquirer from "inquirer";
 import { assertValidIp, sshExec } from "../utils/ssh.js";
+import { raw } from "../utils/sshCommand.js";
 import type { DoctorFinding } from "./doctor.js";
 
 /** Whitelist of known safe fix commands produced by doctor checks */
@@ -90,7 +91,8 @@ export async function runDoctorFix(
     }
 
     try {
-      const result = await sshExec(ip, finding.fixCommand);
+      // finding.fixCommand is validated against KNOWN_FIX_COMMANDS whitelist above
+      const result = await sshExec(ip, raw(finding.fixCommand));
       if (result.code !== 0) {
         const reason = result.stderr?.trim()
           ? `exit ${result.code} — ${result.stderr.trim()}`

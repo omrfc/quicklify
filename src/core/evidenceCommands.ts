@@ -3,6 +3,7 @@
  * Produces a single batched command with ---SEPARATOR--- delimiters between sections.
  * Section order is deterministic — parsers index into split output by EVIDENCE_SECTION_INDICES.
  */
+import { raw, type SshCommand } from "../utils/sshCommand.js";
 
 /** Deterministic section indices for parsers to locate their output */
 export const EVIDENCE_SECTION_INDICES = {
@@ -135,7 +136,7 @@ export function buildEvidenceBatchCommand(
   platform: string,
   lines: number,
   options?: EvidenceBuildOptions,
-): string {
+): SshCommand {
   const noDocker = options?.noDocker ?? false;
   const noSysinfo = options?.noSysinfo ?? false;
   const includeDocker = !noDocker && (platform === "coolify" || platform === "dokploy");
@@ -158,5 +159,5 @@ export function buildEvidenceBatchCommand(
     sections.push(dockerLogsSection(platform, safeLines));
   }
 
-  return sections.join(`\n${SEPARATOR}\n`);
+  return raw(sections.join(`\n${SEPARATOR}\n`));
 }

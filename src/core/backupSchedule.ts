@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { z } from "zod";
 import { sshExec, assertValidIp } from "../utils/ssh.js";
+import { raw, type SshCommand } from "../utils/sshCommand.js";
 import { CONFIG_DIR } from "../utils/config.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -70,7 +71,7 @@ export function validateCronExpr(expr: string): { valid: boolean; error?: string
 
 // ─── Command Builders ─────────────────────────────────────────────────────────
 
-export function buildDeployBackupScriptCommand(): string {
+export function buildDeployBackupScriptCommand(): SshCommand {
   const lines = [
     "cat <<'KASTELL_EOF' > /root/kastell-backup.sh",
     "#!/bin/bash",
@@ -91,10 +92,10 @@ export function buildDeployBackupScriptCommand(): string {
     "KASTELL_EOF",
     "chmod +x /root/kastell-backup.sh",
   ];
-  return lines.join("\n");
+  return raw(lines.join("\n"));
 }
 
-export function buildInstallCronCommand(cronExpr: string): string {
+export function buildInstallCronCommand(cronExpr: string): SshCommand {
   // Defense-in-depth: validate inside command builder so callers cannot bypass
   const validation = validateCronExpr(cronExpr);
   if (!validation.valid) {
@@ -102,15 +103,15 @@ export function buildInstallCronCommand(cronExpr: string): string {
   }
   const entry = `${cronExpr} /root/kastell-backup.sh # kastell-backup`;
   // Single quotes prevent shell expansion of interpolated cron expression
-  return `(crontab -l 2>/dev/null | grep -v '# kastell-backup'; echo '${entry}') | crontab -`;
+  return raw(`(crontab -l 2>/dev/null | grep -v '# kastell-backup'; echo '${entry}') | crontab -`);
 }
 
-export function buildListCronCommand(): string {
-  return `crontab -l 2>/dev/null | grep '# kastell-backup' || echo ""`;
+export function buildListCronCommand(): SshCommand {
+  return raw(`crontab -l 2>/dev/null | grep '# kastell-backup' || echo ""`);
 }
 
-export function buildRemoveCronCommand(): string {
-  return `(crontab -l 2>/dev/null | grep -v '# kastell-backup') | crontab -`;
+export function buildRemoveCronCommand(): SshCommand {
+  return raw(`(crontab -l 2>/dev/null | grep -v '# kastell-backup') | crontab -`);
 }
 
 // ─── Orchestrators ────────────────────────────────────────────────────────────

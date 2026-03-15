@@ -1,5 +1,6 @@
 import { sshExec, assertValidIp } from "../utils/ssh.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
+import { raw, type SshCommand } from "../utils/sshCommand.js";
 import {
   COOLIFY_SOURCE_DIR,
   COOLIFY_DB_CONTAINER,
@@ -41,7 +42,7 @@ export function escapePsqlString(input: string): string {
   return input.replace(/'/g, "''");
 }
 
-export function buildSetFqdnCommand(domain: string, ssl: boolean, platform?: Platform): string {
+export function buildSetFqdnCommand(domain: string, ssl: boolean, platform?: Platform): SshCommand {
   if (/[^a-zA-Z0-9.:_-]/.test(domain)) {
     throw new Error(`Invalid domain for FQDN command: ${domain}`);
   }
@@ -49,37 +50,42 @@ export function buildSetFqdnCommand(domain: string, ssl: boolean, platform?: Pla
   const url = escapePsqlString(`${protocol}://${domain}`);
 
   if (platform === "dokploy") {
-    return `docker exec $(docker ps --filter name=${DOKPLOY_DB_CONTAINER} -q | head -1) psql -U ${DOKPLOY_DB_USER} -d ${DOKPLOY_DB_NAME} -c "UPDATE \\"webServerSettings\\" SET host='${escapePsqlString(domain)}', https=${ssl} WHERE id=(SELECT id FROM \\"webServerSettings\\" LIMIT 1);"`;
+    // Domain is validated above — safe to use in raw() SQL template
+    return raw(`docker exec $(docker ps --filter name=${DOKPLOY_DB_CONTAINER} -q | head -1) psql -U ${DOKPLOY_DB_USER} -d ${DOKPLOY_DB_NAME} -c "UPDATE \\"webServerSettings\\" SET host='${escapePsqlString(domain)}', https=${ssl} WHERE id=(SELECT id FROM \\"webServerSettings\\" LIMIT 1);"`);
   }
 
-  return [
-    `docker exec ${COOLIFY_DB_CONTAINER} psql -U ${COOLIFY_DB_USER} -d ${COOLIFY_DB_NAME} -c "UPDATE instance_settings SET fqdn='${url}' WHERE id=0;"`,
-    `cd ${COOLIFY_SOURCE_DIR} && docker compose -f docker-compose.yml -f docker-compose.prod.yml restart coolify`,
-  ].join(" && ");
+  // Domain is validated above — safe to use in raw() SQL template
+  return raw(
+    [
+      `docker exec ${COOLIFY_DB_CONTAINER} psql -U ${COOLIFY_DB_USER} -d ${COOLIFY_DB_NAME} -c "UPDATE instance_settings SET fqdn='${url}' WHERE id=0;"`,
+      `cd ${COOLIFY_SOURCE_DIR} && docker compose -f docker-compose.yml -f docker-compose.prod.yml restart coolify`,
+    ].join(" && "),
+  );
 }
 
-export function buildGetFqdnCommand(platform?: Platform): string {
+export function buildGetFqdnCommand(platform?: Platform): SshCommand {
   if (platform === "dokploy") {
-    return `docker exec $(docker ps --filter name=${DOKPLOY_DB_CONTAINER} -q | head -1) psql -U ${DOKPLOY_DB_USER} -d ${DOKPLOY_DB_NAME} -t -c "SELECT CASE WHEN host IS NOT NULL AND host != '' THEN CASE WHEN https THEN 'https://' ELSE 'http://' END || host ELSE NULL END FROM \\"webServerSettings\\" LIMIT 1;"`;
+    return raw(`docker exec $(docker ps --filter name=${DOKPLOY_DB_CONTAINER} -q | head -1) psql -U ${DOKPLOY_DB_USER} -d ${DOKPLOY_DB_NAME} -t -c "SELECT CASE WHEN host IS NOT NULL AND host != '' THEN CASE WHEN https THEN 'https://' ELSE 'http://' END || host ELSE NULL END FROM \\"webServerSettings\\" LIMIT 1;"`);
   }
-  return `docker exec ${COOLIFY_DB_CONTAINER} psql -U ${COOLIFY_DB_USER} -d ${COOLIFY_DB_NAME} -t -c "SELECT fqdn FROM instance_settings WHERE id=0;"`;
+  return raw(`docker exec ${COOLIFY_DB_CONTAINER} psql -U ${COOLIFY_DB_USER} -d ${COOLIFY_DB_NAME} -t -c "SELECT fqdn FROM instance_settings WHERE id=0;"`);
 }
 
-export function buildPlatformCheckCommand(platform?: Platform): string {
+export function buildPlatformCheckCommand(platform?: Platform): SshCommand {
   if (platform === "dokploy") {
-    return `docker ps --filter name=${DOKPLOY_DB_CONTAINER} --format '{{.Names}}' 2>/dev/null`;
+    return raw(`docker ps --filter name=${DOKPLOY_DB_CONTAINER} --format '{{.Names}}' 2>/dev/null`);
   }
-  return `docker ps --filter name=${COOLIFY_DB_CONTAINER} --format '{{.Names}}' 2>/dev/null`;
+  return raw(`docker ps --filter name=${COOLIFY_DB_CONTAINER} --format '{{.Names}}' 2>/dev/null`);
 }
 
 /** @deprecated Use buildPlatformCheckCommand instead */
-export function buildCoolifyCheckCommand(): string {
+export function buildCoolifyCheckCommand(): SshCommand {
   return buildPlatformCheckCommand("coolify");
 }
 
-export function buildDnsCheckCommand(domain: string): string {
+export function buildDnsCheckCommand(domain: string): SshCommand {
+  // Strip any non-safe chars as defense-in-depth before using in raw()
   const safeDomain = domain.replace(/[^a-zA-Z0-9.-]/g, "");
-  return `dig +short A ${safeDomain} 2>/dev/null || getent ahosts ${safeDomain} 2>/dev/null | head -1 | awk '{print $1}'`;
+  return raw(`dig +short A ${safeDomain} 2>/dev/null || getent ahosts ${safeDomain} 2>/dev/null | head -1 | awk '{print $1}'`);
 }
 
 export function parseDnsResult(stdout: string): string | null {

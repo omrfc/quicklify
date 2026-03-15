@@ -5,6 +5,7 @@
 
 import type { AuditResult, AuditCheck, Severity } from "./types.js";
 import { sshExec } from "../../utils/ssh.js";
+import { raw } from "../../utils/sshCommand.js";
 import inquirer from "inquirer";
 
 /** A check with pre-condition info for safe fixing */
@@ -186,13 +187,15 @@ export async function runFix(
       try {
         // Check pre-condition before applying fix (prevents lockout scenarios)
         if (check.preCondition) {
-          const preCheck = await sshExec(ip, check.preCondition);
+          // preCondition is a hardcoded string from audit check definitions
+          const preCheck = await sshExec(ip, raw(check.preCondition));
           if (preCheck.code !== 0) {
             errors.push(`${check.id}: pre-condition failed — ${check.preCondition}`);
             continue;
           }
         }
-        const fixResult = await sshExec(ip, check.fixCommand);
+        // fixCommand is a hardcoded string from audit check definitions
+        const fixResult = await sshExec(ip, raw(check.fixCommand));
         if (fixResult.code !== 0) {
           errors.push(`${check.id}: command failed (exit ${fixResult.code})${fixResult.stderr ? ` — ${fixResult.stderr}` : ""}`);
         } else {

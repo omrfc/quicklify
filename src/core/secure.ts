@@ -2,6 +2,7 @@ import inquirer from "inquirer";
 import { sshExec, assertValidIp } from "../utils/ssh.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { cmd, raw, and, type SshCommand } from "../utils/sshCommand.js";
 import type { SshdSetting, SecureAuditResult } from "../types/index.js";
 
 // ─── Pure Functions ─────────────────────────────────────────────────────────
@@ -70,13 +71,13 @@ export function parseAuditResult(stdout: string): SecureAuditResult {
   };
 }
 
-export function buildHardeningCommand(options?: { port?: number }): string {
-  const commands = [
-    "cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak",
-    `sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config`,
-    `sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config`,
-    `sed -i 's/^#\\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config`,
-    `sed -i 's/^#\\?MaxAuthTries.*/MaxAuthTries 3/' /etc/ssh/sshd_config`,
+export function buildHardeningCommand(options?: { port?: number }): SshCommand {
+  const parts: SshCommand[] = [
+    raw("cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak"),
+    raw(`sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config`),
+    raw(`sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config`),
+    raw(`sed -i 's/^#\\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config`),
+    raw(`sed -i 's/^#\\?MaxAuthTries.*/MaxAuthTries 3/' /etc/ssh/sshd_config`),
   ];
 
   // Validate port is a safe integer in range 1-65535 before interpolating into sed command
@@ -84,16 +85,17 @@ export function buildHardeningCommand(options?: { port?: number }): string {
   if (port !== undefined && port !== 22) {
     const isValidPort = Number.isInteger(port) && port >= 1 && port <= 65535;
     if (isValidPort) {
-      commands.push(`sed -i 's/^#\\?Port.*/Port ${port}/' /etc/ssh/sshd_config`);
+      // Port is validated as integer 1-65535 — safe to use cmd() with String(port)
+      parts.push(cmd("sed", "-i", `s/^#\\?Port.*/Port ${port}/`, "/etc/ssh/sshd_config"));
     }
     // If port is invalid (NaN, negative, out of range), silently skip — no injection risk
   }
 
-  commands.push("systemctl restart sshd 2>/dev/null || systemctl restart ssh");
-  return commands.join(" && ");
+  parts.push(raw("systemctl restart sshd 2>/dev/null || systemctl restart ssh"));
+  return and(...parts);
 }
 
-export function buildFail2banCommand(): string {
+export function buildFail2banCommand(): SshCommand {
   const jailContent = [
     "[sshd]",
     "enabled = true",
@@ -105,20 +107,22 @@ export function buildFail2banCommand(): string {
     "findtime = 600",
   ].join("\\n");
 
-  return [
-    "apt-get install -y fail2ban python3-systemd",
-    `printf '${jailContent}\\n' > /etc/fail2ban/jail.local`,
-    "systemctl enable fail2ban",
-    "systemctl restart fail2ban",
-  ].join(" && ");
+  return raw(
+    [
+      "apt-get install -y fail2ban python3-systemd",
+      `printf '${jailContent}\\n' > /etc/fail2ban/jail.local`,
+      "systemctl enable fail2ban",
+      "systemctl restart fail2ban",
+    ].join(" && "),
+  );
 }
 
-export function buildAuditCommand(): string {
-  return `sshd -T 2>/dev/null || cat /etc/ssh/sshd_config && echo '---SEPARATOR---' && systemctl status fail2ban 2>&1 || true`;
+export function buildAuditCommand(): SshCommand {
+  return raw(`sshd -T 2>/dev/null || cat /etc/ssh/sshd_config && echo '---SEPARATOR---' && systemctl status fail2ban 2>&1 || true`);
 }
 
-export function buildKeyCheckCommand(): string {
-  return "test -f /root/.ssh/authorized_keys && wc -l < /root/.ssh/authorized_keys || echo 0";
+export function buildKeyCheckCommand(): SshCommand {
+  return raw("test -f /root/.ssh/authorized_keys && wc -l < /root/.ssh/authorized_keys || echo 0");
 }
 
 // ─── Types ──────────────────────────────────────────────────────────────────

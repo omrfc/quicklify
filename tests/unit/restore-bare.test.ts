@@ -94,12 +94,13 @@ describe("restoreCommand — bare mode routing", () => {
     mockedReadFileSync.mockReturnValue(JSON.stringify(bareManifest));
     // loadManifest is from core/backup (mocked)
     mockedCoreBackup.loadManifest.mockReturnValue(bareManifest);
-    mockedCoreBackup.buildStopCoolifyCommand.mockReturnValue("docker compose stop");
-    mockedCoreBackup.buildStartCoolifyCommand.mockReturnValue("docker compose up -d");
-    mockedCoreBackup.buildStartDbCommand.mockReturnValue("docker compose up -d postgres");
-    mockedCoreBackup.buildRestoreDbCommand.mockReturnValue("gunzip psql");
-    mockedCoreBackup.buildRestoreConfigCommand.mockReturnValue("tar xzf coolify-config.tar.gz");
-    mockedCoreBackup.buildCleanupCommand.mockReturnValue("rm -f /tmp/*.gz");
+    // Cast to any to satisfy the SshCommand branded type in mocks
+    mockedCoreBackup.buildStopCoolifyCommand.mockReturnValue("docker compose stop" as any);
+    mockedCoreBackup.buildStartCoolifyCommand.mockReturnValue("docker compose up -d" as any);
+    mockedCoreBackup.buildStartDbCommand.mockReturnValue("docker compose up -d postgres" as any);
+    mockedCoreBackup.buildRestoreDbCommand.mockReturnValue("gunzip psql" as any);
+    mockedCoreBackup.buildRestoreConfigCommand.mockReturnValue("tar xzf coolify-config.tar.gz" as any);
+    mockedCoreBackup.buildCleanupCommand.mockReturnValue("rm -f /tmp/*.gz" as any);
     mockedCoreBackup.tryRestartCoolify.mockResolvedValue(undefined);
     mockedCoreBackup.scpUpload.mockResolvedValue({ code: 0, stderr: "" });
   });

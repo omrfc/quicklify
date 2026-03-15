@@ -2,6 +2,7 @@ import { sshExec, assertValidIp } from "../utils/ssh.js";
 import { buildHardeningCommand, buildFail2banCommand, buildKeyCheckCommand } from "./secure.js";
 import { buildFirewallSetupCommand } from "./firewall.js";
 import { runAudit } from "./audit/index.js";
+import { raw, type SshCommand } from "../utils/sshCommand.js";
 import type { Platform } from "../types/index.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -31,7 +32,7 @@ export interface LockResult {
 
 // ─── Command Builders ────────────────────────────────────────────────────────
 
-export function buildSysctlHardeningCommand(): string {
+export function buildSysctlHardeningCommand(): SshCommand {
   const settings = [
     "net.ipv4.conf.all.accept_redirects=0",
     "net.ipv4.conf.default.accept_redirects=0",
@@ -43,23 +44,27 @@ export function buildSysctlHardeningCommand(): string {
     "net.ipv4.icmp_echo_ignore_broadcasts=1",
   ].join("\\n");
 
-  return [
-    `printf '${settings}\\n' > /etc/sysctl.d/99-kastell.conf`,
-    "sysctl -p /etc/sysctl.d/99-kastell.conf 2>/dev/null || true",
-  ].join(" && ");
+  return raw(
+    [
+      `printf '${settings}\\n' > /etc/sysctl.d/99-kastell.conf`,
+      "sysctl -p /etc/sysctl.d/99-kastell.conf 2>/dev/null || true",
+    ].join(" && "),
+  );
 }
 
-export function buildUnattendedUpgradesCommand(): string {
+export function buildUnattendedUpgradesCommand(): SshCommand {
   const periodicConfig = [
     'APT::Periodic::Update-Package-Lists "1";',
     'APT::Periodic::Unattended-Upgrade "1";',
     'APT::Periodic::AutocleanInterval "7";',
   ].join("\\n");
 
-  return [
-    "apt-get install -y unattended-upgrades",
-    `printf '${periodicConfig}\\n' > /etc/apt/apt.conf.d/20auto-upgrades`,
-  ].join(" && ");
+  return raw(
+    [
+      "apt-get install -y unattended-upgrades",
+      `printf '${periodicConfig}\\n' > /etc/apt/apt.conf.d/20auto-upgrades`,
+    ].join(" && "),
+  );
 }
 
 // ─── Orchestrator ────────────────────────────────────────────────────────────

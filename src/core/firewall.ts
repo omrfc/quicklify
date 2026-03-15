@@ -1,6 +1,7 @@
 import { sshExec, assertValidIp } from "../utils/ssh.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 import { logger, createSpinner } from "../utils/logger.js";
+import { cmd, raw, and, type SshCommand } from "../utils/sshCommand.js";
 import type { FirewallStatus, FirewallRule, FirewallProtocol } from "../types/index.js";
 import type { Platform } from "../types/index.js";
 
@@ -26,41 +27,42 @@ export function getPortsForPlatform(platform?: Platform): number[] {
   return COOLIFY_PORTS;
 }
 
-export function buildFirewallSetupCommand(platform?: Platform): string {
+export function buildFirewallSetupCommand(platform?: Platform): SshCommand {
   const ports = platform ? getPortsForPlatform(platform) : COOLIFY_PORTS;
-  const commands = [
-    "apt-get install -y ufw",
-    "ufw default deny incoming",
-    "ufw default allow outgoing",
-    ...ports.map((p) => `ufw allow ${p}/tcp`),
-    "ufw allow 22/tcp",
-    'echo "y" | ufw enable',
+  const parts: SshCommand[] = [
+    cmd("apt-get", "install", "-y", "ufw"),
+    cmd("ufw", "default", "deny", "incoming"),
+    cmd("ufw", "default", "allow", "outgoing"),
+    ...ports.map((p) => cmd("ufw", "allow", `${p}/tcp`)),
+    cmd("ufw", "allow", "22/tcp"),
+    raw('echo "y" | ufw enable'),
   ];
-  return commands.join(" && ");
+  return and(...parts);
 }
 
-export function buildBareFirewallSetupCommand(): string {
-  const commands = [
-    "apt-get install -y ufw",
-    "ufw default deny incoming",
-    "ufw default allow outgoing",
-    ...BARE_PORTS.map((p) => `ufw allow ${p}/tcp`),
-    "ufw allow 22/tcp",
-    'echo "y" | ufw enable',
+export function buildBareFirewallSetupCommand(): SshCommand {
+  const parts: SshCommand[] = [
+    cmd("apt-get", "install", "-y", "ufw"),
+    cmd("ufw", "default", "deny", "incoming"),
+    cmd("ufw", "default", "allow", "outgoing"),
+    ...BARE_PORTS.map((p) => cmd("ufw", "allow", `${p}/tcp`)),
+    cmd("ufw", "allow", "22/tcp"),
+    raw('echo "y" | ufw enable'),
   ];
-  return commands.join(" && ");
+  return and(...parts);
 }
 
 export function buildUfwRuleCommand(
   action: "allow" | "delete allow",
   port: number,
   protocol: FirewallProtocol = "tcp",
-): string {
-  return `ufw ${action} ${port}/${protocol}`;
+): SshCommand {
+  // action is a literal union type (safe), port is a number (safe), protocol is a literal union type (safe)
+  return raw(`ufw ${action} ${port}/${protocol}`);
 }
 
-export function buildUfwStatusCommand(): string {
-  return "ufw status numbered";
+export function buildUfwStatusCommand(): SshCommand {
+  return raw("ufw status numbered");
 }
 
 export function parseUfwStatus(stdout: string): FirewallStatus {

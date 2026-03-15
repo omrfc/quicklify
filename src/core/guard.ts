@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { z } from "zod";
 import { sshExec, assertValidIp } from "../utils/ssh.js";
+import { raw, type SshCommand } from "../utils/sshCommand.js";
 import { CONFIG_DIR } from "../utils/config.js";
 import { dispatchWithCooldown } from "./notify.js";
 
@@ -78,7 +79,7 @@ export function removeGuardState(serverName: string): void {
 
 // ─── Command Builders ─────────────────────────────────────────────────────────
 
-export function buildDeployGuardScriptCommand(): string {
+export function buildDeployGuardScriptCommand(): SshCommand {
   const lines = [
     `cat <<'KASTELL_EOF' > ${GUARD_SCRIPT_PATH}`,
     "#!/bin/bash",
@@ -145,31 +146,31 @@ export function buildDeployGuardScriptCommand(): string {
     "KASTELL_EOF",
     `chmod +x ${GUARD_SCRIPT_PATH}`,
   ];
-  return lines.join("\n");
+  return raw(lines.join("\n"));
 }
 
-export function buildInstallGuardCronCommand(): string {
+export function buildInstallGuardCronCommand(): SshCommand {
   // Defense-in-depth: validate even hardcoded cron expressions
   const fields = GUARD_CRON_EXPR.trim().split(/\s+/);
   if (fields.length !== 5 || fields.some((f) => !/^[0-9*,/-]+$/.test(f))) {
     throw new Error("Invalid guard cron expression");
   }
   const entry = `${GUARD_CRON_EXPR} ${GUARD_SCRIPT_PATH} ${GUARD_MARKER}`;
-  return `(crontab -l 2>/dev/null | grep -v '${GUARD_MARKER}'; echo '${entry}') | crontab -`;
+  return raw(`(crontab -l 2>/dev/null | grep -v '${GUARD_MARKER}'; echo '${entry}') | crontab -`);
 }
 
-export function buildListGuardCronCommand(): string {
-  return `crontab -l 2>/dev/null | grep '${GUARD_MARKER}' || echo ""`;
+export function buildListGuardCronCommand(): SshCommand {
+  return raw(`crontab -l 2>/dev/null | grep '${GUARD_MARKER}' || echo ""`);
 }
 
-export function buildRemoveGuardCronCommand(): string {
-  return `(crontab -l 2>/dev/null | grep -v '${GUARD_MARKER}') | crontab -`;
+export function buildRemoveGuardCronCommand(): SshCommand {
+  return raw(`(crontab -l 2>/dev/null | grep -v '${GUARD_MARKER}') | crontab -`);
 }
 
-export function buildGuardStatusCommand(): string {
-  return (
+export function buildGuardStatusCommand(): SshCommand {
+  return raw(
     `crontab -l 2>/dev/null | grep -q '${GUARD_MARKER}' && echo "CRON_ACTIVE" || echo "CRON_INACTIVE"` +
-    ` && tail -30 ${GUARD_LOG_PATH} 2>/dev/null || echo "LOG_EMPTY"`
+    ` && tail -30 ${GUARD_LOG_PATH} 2>/dev/null || echo "LOG_EMPTY"`,
   );
 }
 
