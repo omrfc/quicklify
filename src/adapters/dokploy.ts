@@ -7,9 +7,13 @@ import type {
   UpdateResult,
 } from "./interface.js";
 import type { BackupManifest } from "../types/index.js";
-import { DOKPLOY_UPDATE_CMD, DOKPLOY_PORT } from "../constants.js";
+import { DOKPLOY_INSTALL_URL, DOKPLOY_PORT } from "../constants.js";
 import { sharedHealthCheck, sharedUpdate, sharedGetStatus, sharedCreateBackup, sharedRestoreBackup } from "./shared.js";
 import type { AdapterBackupConfig, AdapterRestoreConfig } from "./shared.js";
+
+// Download-then-execute with script validation — private to dokploy adapter
+const SCRIPT_VALIDATE = 'head -c2 "$1" | grep -q "#!" && [ "$(wc -c < "$1")" -gt 100 ]';
+const DOKPLOY_UPDATE_CMD = `curl -sSL ${DOKPLOY_INSTALL_URL} -o /tmp/dokploy-install.sh && ${SCRIPT_VALIDATE.replace(/\$1/g, "/tmp/dokploy-install.sh")} && sh /tmp/dokploy-install.sh update && rm -f /tmp/dokploy-install.sh`;
 
 export class DokployAdapter implements PlatformAdapter {
   readonly name = "dokploy";

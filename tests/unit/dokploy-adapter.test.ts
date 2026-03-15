@@ -1,5 +1,4 @@
 import { DokployAdapter } from "../../src/adapters/dokploy";
-import { DOKPLOY_UPDATE_CMD } from "../../src/constants";
 
 // Mock dependencies
 jest.mock("../../src/utils/ssh", () => ({
@@ -280,7 +279,7 @@ describe("DokployAdapter", () => {
     it("should call sshExec with DOKPLOY_UPDATE_CMD and return success on code 0", async () => {
       mockSshExec.mockResolvedValueOnce({ code: 0, stdout: "Updated successfully", stderr: "" });
       const result = await adapter.update("1.2.3.4");
-      expect(mockSshExec).toHaveBeenCalledWith("1.2.3.4", DOKPLOY_UPDATE_CMD, { timeoutMs: 180000 });
+      expect(mockSshExec).toHaveBeenCalledWith("1.2.3.4", expect.stringContaining("dokploy-install.sh"), { timeoutMs: 180000 });
       expect(result).toEqual({ success: true, output: "Updated successfully" });
     });
 

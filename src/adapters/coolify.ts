@@ -7,9 +7,13 @@ import type {
   UpdateResult,
 } from "./interface.js";
 import type { BackupManifest } from "../types/index.js";
-import { COOLIFY_UPDATE_CMD, COOLIFY_PORT } from "../constants.js";
+import { COOLIFY_INSTALL_URL, COOLIFY_PORT } from "../constants.js";
 import { sharedHealthCheck, sharedUpdate, sharedGetStatus, sharedCreateBackup, sharedRestoreBackup } from "./shared.js";
 import type { AdapterBackupConfig, AdapterRestoreConfig } from "./shared.js";
+
+// Download-then-execute with script validation — private to coolify adapter
+const SCRIPT_VALIDATE = 'head -c2 "$1" | grep -q "#!" && [ "$(wc -c < "$1")" -gt 100 ]';
+const COOLIFY_UPDATE_CMD = `curl -fsSL ${COOLIFY_INSTALL_URL} -o /tmp/coolify-install.sh && ${SCRIPT_VALIDATE.replace(/\$1/g, "/tmp/coolify-install.sh")} && bash /tmp/coolify-install.sh && rm -f /tmp/coolify-install.sh`;
 
 export class CoolifyAdapter implements PlatformAdapter {
   readonly name = "coolify";
