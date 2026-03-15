@@ -5,7 +5,7 @@
 
 import type { KastellResult } from "../../types/index.js";
 import type { AuditResult } from "./types.js";
-import { buildAuditBatchCommands } from "./commands.js";
+import { buildAuditBatchCommands, BATCH_TIMEOUTS } from "./commands.js";
 import { calculateOverallScore } from "./scoring.js";
 import { parseAllChecks } from "./checks/index.js";
 import { sshExec } from "../../utils/ssh.js";
@@ -15,8 +15,8 @@ import { calculateQuickWins } from "./quickwin.js";
  * Run a full server security audit.
  *
  * 1. Build SSH batch commands for the target platform
- * 2. Execute each batch via SSH (with per-batch error handling)
- * 3. Split output into sections and route to category parsers
+ * 2. Execute each batch via SSH with per-batch timeout
+ * 3. Parse output sections by name and route to category parsers
  * 4. Calculate per-category and overall scores
  * 5. Return AuditResult wrapped in KastellResult
  */
@@ -26,16 +26,18 @@ export async function runAudit(
   platform: string,
 ): Promise<KastellResult<AuditResult>> {
   try {
-    const batchCommands = buildAuditBatchCommands(platform);
+    const batches = buildAuditBatchCommands(platform);
     const batchOutputs: string[] = [];
 
-    // Execute each batch — handle partial failures gracefully
-    for (const cmd of batchCommands) {
+    // Execute each batch with its tier-specific timeout
+    for (const batch of batches) {
       try {
-        const result = await sshExec(ip, cmd);
+        const result = await sshExec(ip, batch.command, {
+          timeoutMs: BATCH_TIMEOUTS[batch.tier],
+        });
         batchOutputs.push(result.stdout);
       } catch {
-        // If a batch fails, push empty string so section indexing stays aligned
+        // If a batch fails, push empty string so name-keyed routing stays safe
         batchOutputs.push("");
       }
     }
@@ -54,7 +56,6 @@ export async function runAudit(
       quickWins: [],
     };
 
-    // Calculate quick wins after building the result
     auditResult.quickWins = calculateQuickWins(auditResult);
 
     return { success: true, data: auditResult };

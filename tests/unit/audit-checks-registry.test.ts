@@ -31,7 +31,7 @@ describe("CHECK_REGISTRY", () => {
     CHECK_REGISTRY.forEach((e: CategoryEntry) => {
       expect(typeof e.sectionName).toBe("string");
       expect(e.sectionName.length).toBeGreaterThan(0);
-      expect((e as Record<string, unknown>)["sectionIndex"]).toBeUndefined();
+      expect((e as unknown as Record<string, unknown>)["sectionIndex"]).toBeUndefined();
     });
   });
 

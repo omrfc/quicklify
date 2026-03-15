@@ -1,10 +1,9 @@
 /**
- * Check registry — maps section indices to parser functions.
- * Routes batched SSH output to the correct category parser.
+ * Check registry — maps section names to parser functions.
+ * Routes batched SSH output to the correct category parser by named separator.
  */
 
 import type { AuditCategory, CheckParser } from "../types.js";
-import { SECTION_INDICES } from "../commands.js";
 import { calculateCategoryScore } from "../scoring.js";
 import { parseSSHChecks } from "./ssh.js";
 import { parseFirewallChecks } from "./firewall.js";
@@ -18,56 +17,70 @@ import { parseKernelChecks } from "./kernel.js";
 
 export interface CategoryEntry {
   name: string;
-  sectionIndex: number;
+  sectionName: string;
   parser: CheckParser;
 }
 
-/** Check registry — maps section indices to parser functions */
+/** Check registry — maps section names to parser functions */
 export const CHECK_REGISTRY: CategoryEntry[] = [
-  { name: "SSH", sectionIndex: SECTION_INDICES.SSH, parser: parseSSHChecks },
-  { name: "Firewall", sectionIndex: SECTION_INDICES.FIREWALL, parser: parseFirewallChecks },
-  { name: "Updates", sectionIndex: SECTION_INDICES.UPDATES, parser: parseUpdatesChecks },
-  { name: "Auth", sectionIndex: SECTION_INDICES.AUTH, parser: parseAuthChecks },
-  { name: "Docker", sectionIndex: SECTION_INDICES.DOCKER, parser: parseDockerChecks },
-  { name: "Network", sectionIndex: SECTION_INDICES.NETWORK, parser: parseNetworkChecks },
-  { name: "Filesystem", sectionIndex: SECTION_INDICES.FILESYSTEM, parser: parseFilesystemChecks },
-  { name: "Logging", sectionIndex: SECTION_INDICES.LOGGING, parser: parseLoggingChecks },
-  { name: "Kernel", sectionIndex: SECTION_INDICES.KERNEL, parser: parseKernelChecks },
+  { name: "SSH", sectionName: "SSH", parser: parseSSHChecks },
+  { name: "Firewall", sectionName: "FIREWALL", parser: parseFirewallChecks },
+  { name: "Updates", sectionName: "UPDATES", parser: parseUpdatesChecks },
+  { name: "Auth", sectionName: "AUTH", parser: parseAuthChecks },
+  { name: "Docker", sectionName: "DOCKER", parser: parseDockerChecks },
+  { name: "Network", sectionName: "NETWORK", parser: parseNetworkChecks },
+  { name: "Filesystem", sectionName: "FILESYSTEM", parser: parseFilesystemChecks },
+  { name: "Logging", sectionName: "LOGGING", parser: parseLoggingChecks },
+  { name: "Kernel", sectionName: "KERNEL", parser: parseKernelChecks },
 ];
 
-/** Number of sections in batch 1 */
-const BATCH1_SECTION_COUNT = 4;
+/** Named separator pattern used between sections in SSH batch output */
+const SECTION_PATTERN = /---SECTION:([A-Z_]+)---/;
 
-/** Separator used between sections in SSH batch output */
-const SEPARATOR = "---SEPARATOR---";
+/**
+ * Build a map of section name → section content from a batch output string.
+ * Splits on named separators using a capturing group so names and content alternate.
+ */
+function buildSectionMap(batchOutput: string): Map<string, string> {
+  const map = new Map<string, string>();
+  const parts = batchOutput.split(SECTION_PATTERN);
+
+  // parts: [ text-before-first-sep, NAME1, content1, NAME2, content2, ... ]
+  // With capturing group split: index 0 is pre-separator text, then name/content pairs
+  for (let i = 1; i + 1 < parts.length; i += 2) {
+    const sectionName = parts[i];
+    const sectionContent = parts[i + 1].trim();
+    map.set(sectionName, sectionContent);
+  }
+
+  return map;
+}
 
 /**
  * Parse all batch outputs into AuditCategory arrays.
  *
- * 1. Splits each batch output by ---SEPARATOR---
- * 2. Maps section indices to the correct parser function
- * 3. Calls each parser with its section output
+ * 1. Concatenates all batch outputs into a unified section map
+ * 2. Routes by section name (---SECTION:NAME---) to the correct parser
+ * 3. Calls each parser with its section output (empty string if section absent)
  * 4. Wraps results into AuditCategory objects with calculateCategoryScore
  */
 export function parseAllChecks(
   batchOutputs: string[],
   platform: string,
 ): AuditCategory[] {
-  // Build section map from batch outputs
-  const sections = new Map<number, string>();
+  // Build unified section map from all batches
+  const sections = new Map<string, string>();
 
-  for (let batchIdx = 0; batchIdx < batchOutputs.length; batchIdx++) {
-    const parts = batchOutputs[batchIdx].split(SEPARATOR);
-    const baseIndex = batchIdx === 0 ? 0 : BATCH1_SECTION_COUNT;
-
-    for (let i = 0; i < parts.length; i++) {
-      sections.set(baseIndex + i, parts[i].trim());
+  for (const output of batchOutputs) {
+    const batchMap = buildSectionMap(output);
+    for (const [name, content] of batchMap) {
+      sections.set(name, content);
     }
   }
 
-  // Run each category parser against its section
+  // Run each category parser against its named section
   return CHECK_REGISTRY.map((entry) => {
-    const sectionOutput = sections.get(entry.sectionIndex) ?? "";
+    const sectionOutput = sections.get(entry.sectionName) ?? "";
     const checks = entry.parser(sectionOutput, platform);
     const { score, maxScore } = calculateCategoryScore(checks);
 
