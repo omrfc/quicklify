@@ -208,6 +208,30 @@ function malwareSection(): string {
   ].join("\n");
 }
 
+function macSection(): string {
+  return [
+    NAMED_SEP("MAC"),
+    `cat /sys/kernel/security/lsm 2>/dev/null || echo 'N/A'`,
+    `aa-status 2>/dev/null | head -20 || apparmor_status 2>/dev/null | head -20 || echo 'N/A'`,
+    `systemctl is-active apparmor 2>/dev/null || echo 'inactive'`,
+    `command -v getenforce >/dev/null 2>&1 && getenforce 2>/dev/null || echo 'NOT_INSTALLED'`,
+    `test -f /etc/selinux/config && grep '^SELINUX=' /etc/selinux/config 2>/dev/null || echo 'N/A'`,
+    `cat /proc/self/status 2>/dev/null | grep Seccomp || echo 'N/A'`,
+  ].join("\n");
+}
+
+function memorySection(): string {
+  return [
+    NAMED_SEP("MEMORY"),
+    `sysctl vm.overcommit_memory vm.overcommit_ratio vm.oom_kill_allocating_task 2>/dev/null || echo 'N/A'`,
+    `cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || echo 'N/A'`,
+    `ps aux 2>/dev/null | grep -c ' Z ' || echo '0'`,
+    `cat /proc/sys/kernel/pid_max 2>/dev/null || echo 'N/A'`,
+    `ulimit -a 2>/dev/null | head -20 || echo 'N/A'`,
+    `sysctl fs.suid_dumpable 2>/dev/null || echo 'N/A'`,
+  ].join("\n");
+}
+
 function cryptoSection(): string {
   return [
     NAMED_SEP("CRYPTO"),
@@ -235,7 +259,7 @@ function filesystemSection(): string {
  * Build 3 tiered SSH batch commands for server auditing.
  *
  * Batch 1 (fast):   SSH, Firewall, Updates, Auth, Accounts, Boot, Scheduling, Banners — config reads (30s timeout)
- * Batch 2 (medium): Docker, Network, Logging, Kernel, Services, Time — active probes (60s timeout)
+ * Batch 2 (medium): Docker, Network, Logging, Kernel, Services, Time, MAC, Memory — active probes (60s timeout)
  * Batch 3 (slow):   Filesystem, Crypto, FileIntegrity, Malware — find commands and TLS probes (120s timeout)
  *
  * Each section is preceded by an ---SECTION:NAME--- named separator.
@@ -265,6 +289,8 @@ export function buildAuditBatchCommands(platform: string): BatchDef[] {
       kernelSection(),
       servicesSection(),
       timeSection(),
+      macSection(),
+      memorySection(),
     ].join("\n"),
   };
 

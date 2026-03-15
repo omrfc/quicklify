@@ -1,0 +1,201 @@
+/**
+ * MAC (Mandatory Access Control) security check parser.
+ * Parses AppArmor status, SELinux enforcement mode, and seccomp
+ * kernel support into 7 security checks.
+ */
+
+import type { AuditCheck, CheckParser, Severity } from "../types.js";
+
+interface MACCheckDef {
+  id: string;
+  name: string;
+  severity: Severity;
+  check: (output: string) => { passed: boolean; currentValue: string };
+  expectedValue: string;
+  fixCommand: string;
+  explain: string;
+}
+
+const MAC_CHECKS: MACCheckDef[] = [
+  {
+    id: "MAC-LSM-ACTIVE",
+    name: "LSM Active (AppArmor or SELinux)",
+    severity: "warning",
+    check: (output) => {
+      const hasAppArmor = /apparmor/i.test(output);
+      const hasSelinux = /selinux/i.test(output);
+      const passed = hasAppArmor || hasSelinux;
+      const active = hasAppArmor ? "AppArmor" : hasSelinux ? "SELinux" : "none";
+      return {
+        passed,
+        currentValue: passed ? `LSM active: ${active}` : "No LSM (AppArmor/SELinux) detected",
+      };
+    },
+    expectedValue: "apparmor or selinux present in /sys/kernel/security/lsm",
+    fixCommand: "apt install apparmor apparmor-utils -y && systemctl enable apparmor && systemctl start apparmor",
+    explain:
+      "A mandatory access control system (AppArmor or SELinux) enforces security policies that restrict what programs can do, limiting the impact of exploited vulnerabilities.",
+  },
+  {
+    id: "MAC-APPARMOR-ACTIVE",
+    name: "AppArmor Service Active",
+    severity: "warning",
+    check: (output) => {
+      const isActive = /\bactive\b/.test(output);
+      const hasProfiles = /profiles are loaded/i.test(output);
+      const passed = isActive || hasProfiles;
+      return {
+        passed,
+        currentValue: passed ? "AppArmor service is active" : "AppArmor service is not active",
+      };
+    },
+    expectedValue: "systemctl is-active apparmor == active",
+    fixCommand: "systemctl enable apparmor && systemctl start apparmor",
+    explain:
+      "AppArmor must be running to enforce security profiles. A stopped AppArmor service provides no MAC protection even if profiles are defined.",
+  },
+  {
+    id: "MAC-APPARMOR-PROFILES",
+    name: "AppArmor Enforce Mode Profiles",
+    severity: "info",
+    check: (output) => {
+      const match = output.match(/(\d+)\s+profiles?\s+are\s+in\s+enforce\s+mode/i);
+      if (!match) {
+        return { passed: false, currentValue: "No enforce mode profile count found" };
+      }
+      const count = parseInt(match[1], 10);
+      return {
+        passed: count > 0,
+        currentValue: count > 0 ? `${count} profiles in enforce mode` : "0 profiles in enforce mode",
+      };
+    },
+    expectedValue: "At least 1 profile in AppArmor enforce mode",
+    fixCommand: "aa-enforce /etc/apparmor.d/* # Enable enforce mode for all AppArmor profiles",
+    explain:
+      "AppArmor profiles in enforce mode actively block policy violations. Profiles only in complain mode log violations without blocking them, providing weaker protection.",
+  },
+  {
+    id: "MAC-APPARMOR-NO-UNCONFINED",
+    name: "Minimal Unconfined Processes",
+    severity: "info",
+    check: (output) => {
+      const match = output.match(/(\d+)\s+processes?\s+are\s+unconfined/i);
+      if (!match) {
+        return { passed: true, currentValue: "Unconfined process count not available" };
+      }
+      const count = parseInt(match[1], 10);
+      const passed = count < 50;
+      return {
+        passed,
+        currentValue: passed
+          ? `${count} unconfined processes (acceptable)`
+          : `${count} unconfined processes (high)`,
+      };
+    },
+    expectedValue: "Unconfined process count is low (< 50)",
+    fixCommand: "aa-genprof <process> # Generate an AppArmor profile for unconfined processes",
+    explain:
+      "Processes running without an AppArmor profile (unconfined) have unrestricted access. A high count of unconfined processes indicates incomplete MAC coverage.",
+  },
+  {
+    id: "MAC-SELINUX-ENFORCING",
+    name: "SELinux Enforcing (if present)",
+    severity: "warning",
+    check: (output) => {
+      const notInstalled = /NOT_INSTALLED/i.test(output);
+      if (notInstalled) {
+        return { passed: true, currentValue: "SELinux not present (AppArmor system)" };
+      }
+      const enforcing = /^Enforcing$/mi.test(output);
+      const mode = output.match(/^(Enforcing|Permissive|Disabled)$/mi)?.[1] ?? "unknown";
+      return {
+        passed: enforcing,
+        currentValue: enforcing ? "SELinux: Enforcing" : `SELinux: ${mode}`,
+      };
+    },
+    expectedValue: "SELinux Enforcing or not installed (AppArmor system)",
+    fixCommand: "setenforce 1 && sed -i 's/SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config",
+    explain:
+      "SELinux in Enforcing mode actively blocks policy violations. Permissive mode only logs violations without blocking them. On AppArmor systems (Ubuntu), SELinux absence is expected and not a finding.",
+  },
+  {
+    id: "MAC-SELINUX-CONFIG",
+    name: "SELinux Config Enforcing",
+    severity: "info",
+    check: (output) => {
+      // If SELINUX= not found, config not present (AppArmor system) — pass
+      if (!output.includes("SELINUX=")) {
+        return { passed: true, currentValue: "SELinux config not present (AppArmor system)" };
+      }
+      const enforcing = /SELINUX=enforcing/i.test(output);
+      const mode = output.match(/SELINUX=(\w+)/i)?.[1] ?? "unknown";
+      return {
+        passed: enforcing,
+        currentValue: enforcing ? "SELINUX=enforcing in config" : `SELINUX=${mode} in config`,
+      };
+    },
+    expectedValue: "SELINUX=enforcing in /etc/selinux/config, or config not present",
+    fixCommand: "sed -i 's/SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config && reboot",
+    explain:
+      "The SELinux config file sets the mode that persists across reboots. Without SELINUX=enforcing in the config, a reboot can revert SELinux to permissive or disabled mode.",
+  },
+  {
+    id: "MAC-SECCOMP-ENABLED",
+    name: "Seccomp Kernel Support",
+    severity: "info",
+    check: (output) => {
+      const match = output.match(/Seccomp:\s*(\d+)/i);
+      if (!match) {
+        return { passed: false, currentValue: "Seccomp status not found in /proc/self/status" };
+      }
+      const value = parseInt(match[1], 10);
+      return {
+        passed: value > 0,
+        currentValue: value > 0 ? `Seccomp enabled (value: ${value})` : "Seccomp: 0 (disabled)",
+      };
+    },
+    expectedValue: "Seccomp field in /proc/self/status > 0",
+    fixCommand: "# Seccomp is a kernel feature — upgrade kernel or enable CONFIG_SECCOMP",
+    explain:
+      "Seccomp (secure computing mode) restricts the system calls available to processes, limiting the attack surface if a process is compromised.",
+  },
+];
+
+export const parseMACChecks: CheckParser = (
+  sectionOutput: string,
+  _platform: string,
+): AuditCheck[] => {
+  const isNA =
+    !sectionOutput ||
+    sectionOutput.trim() === "N/A" ||
+    sectionOutput.trim() === "";
+  const output = isNA ? "" : sectionOutput;
+
+  return MAC_CHECKS.map((def) => {
+    if (isNA) {
+      return {
+        id: def.id,
+        category: "MAC",
+        name: def.name,
+        severity: def.severity,
+        passed: false,
+        currentValue: "Unable to determine",
+        expectedValue: def.expectedValue,
+        fixCommand: def.fixCommand,
+        explain: def.explain,
+      };
+    }
+    const { passed, currentValue } = def.check(output);
+    return {
+      id: def.id,
+      category: "MAC",
+      name: def.name,
+      severity: def.severity,
+      passed,
+      currentValue,
+      expectedValue: def.expectedValue,
+      fixCommand: def.fixCommand,
+      explain: def.explain,
+    };
+  });
+};
