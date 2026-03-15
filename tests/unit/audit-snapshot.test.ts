@@ -72,12 +72,12 @@ describe("saveSnapshot", () => {
     );
   });
 
-  it("should produce JSON with schemaVersion: 1", async () => {
+  it("should produce JSON with schemaVersion: 2 (v2 schema)", async () => {
     await saveSnapshot(makeAuditResult());
 
     const writeContent = (mockedFs.writeFileSync as jest.Mock).mock.calls[0][1] as string;
     const parsed = JSON.parse(writeContent);
-    expect(parsed.schemaVersion).toBe(1);
+    expect(parsed.schemaVersion).toBe(2);
   });
 
   it("should contain full audit result in envelope", async () => {
@@ -161,17 +161,28 @@ describe("loadSnapshot", () => {
     jest.clearAllMocks();
   });
 
-  it("should return parsed SnapshotFile for valid JSON", async () => {
+  it("should return parsed SnapshotFile for valid v1 JSON (migrated to v2)", async () => {
+    // V1 snapshot: schemaVersion=1, no auditVersion in audit
     const snapshotData = {
       schemaVersion: 1,
       savedAt: "2026-03-08T10:00:00.000Z",
-      audit: makeAuditResult(),
+      audit: {
+        serverName: "test-server",
+        serverIp: "1.2.3.4",
+        platform: "bare",
+        timestamp: "2026-03-08T10:00:00.000Z",
+        categories: [{ name: "SSH", checks: [], score: 80, maxScore: 100 }],
+        overallScore: 70,
+        quickWins: [],
+        // no auditVersion — v1 format
+      },
     };
     mockedFs.readFileSync.mockReturnValue(JSON.stringify(snapshotData));
 
     const result = await loadSnapshot("1.2.3.4", "2026-03-08T10-00-00-000Z.json");
     expect(result).not.toBeNull();
-    expect(result!.schemaVersion).toBe(1);
+    // V1 is auto-migrated to v2 on load
+    expect(result!.schemaVersion).toBe(2);
     expect(result!.audit.serverIp).toBe("1.2.3.4");
   });
 
