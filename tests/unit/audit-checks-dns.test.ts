@@ -6,6 +6,8 @@ describe("parseDnsChecks", () => {
     "DOH_DOT_TOOL_INSTALLED:stubby",
     "RESOLV_CONF_IMMUTABLE",
     "NAMESERVER_CONFIGURED:8.8.8.8",
+    "2",
+    "nameserver 8.8.8.8\nnameserver 8.8.4.4",
   ].join("\n");
 
   const badOutput = [
@@ -33,9 +35,9 @@ describe("parseDnsChecks", () => {
   });
 
   describe("check count and shape", () => {
-    it("returns at least 4 checks", () => {
+    it("returns at least 6 checks", () => {
       const checks = parseDnsChecks(validOutput, "bare");
-      expect(checks.length).toBeGreaterThanOrEqual(4);
+      expect(checks.length).toBeGreaterThanOrEqual(6);
     });
 
     it("all check IDs start with DNS-", () => {
@@ -142,6 +144,41 @@ describe("parseDnsChecks", () => {
       const check = checks.find((c) => c.id === "DNS-NAMESERVER-CONFIGURED");
       expect(check).toBeDefined();
       expect(check!.currentValue).toContain("8.8.8.8");
+    });
+  });
+
+  describe("DNS-MULTIPLE-NAMESERVERS", () => {
+    it("passes when count is 2 or more", () => {
+      const checks = parseDnsChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "DNS-MULTIPLE-NAMESERVERS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when no digits found in output (cannot determine nameserver count)", () => {
+      // Use badOutput which has no numeric counts in it
+      const output = "DNSSEC_DISABLED\nDOH_DOT_TOOL_NOT_INSTALLED\nRESOLV_CONF_MUTABLE\nNAMESERVER_NOT_CONFIGURED";
+      const checks = parseDnsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "DNS-MULTIPLE-NAMESERVERS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("DNS-RESOLV-NOT-LOCALHOST-ONLY", () => {
+    it("passes when nameserver lines include external IP", () => {
+      const checks = parseDnsChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "DNS-RESOLV-NOT-LOCALHOST-ONLY");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("passes when systemd-resolved (127.0.0.53) is the nameserver", () => {
+      const output = validOutput.replace("nameserver 8.8.8.8\nnameserver 8.8.4.4", "nameserver 127.0.0.53");
+      const checks = parseDnsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "DNS-RESOLV-NOT-LOCALHOST-ONLY");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
     });
   });
 });

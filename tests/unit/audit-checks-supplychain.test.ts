@@ -10,6 +10,8 @@ describe("parseSupplyChainChecks", () => {
     "REPOS_HAVE_SIGNATURES",
     "GPG_VERIFY_OK",
     "NO_UNAUTH_SOURCES",
+    "NONE",
+    "debian-archive-keyring.gpg ubuntu-keyring-2018-archive.gpg",
   ].join("\n");
 
   const badOutput = [
@@ -41,9 +43,9 @@ describe("parseSupplyChainChecks", () => {
   });
 
   describe("check count and shape", () => {
-    it("returns at least 6 checks", () => {
+    it("returns at least 10 checks", () => {
       const checks = parseSupplyChainChecks(validOutput, "bare");
-      expect(checks.length).toBeGreaterThanOrEqual(6);
+      expect(checks.length).toBeGreaterThanOrEqual(10);
     });
 
     it("all check IDs start with SUPPLY-", () => {
@@ -134,6 +136,41 @@ describe("parseSupplyChainChecks", () => {
     it("fails when apt-key deprecated warning present", () => {
       const checks = parseSupplyChainChecks(badOutput, "bare");
       const check = checks.find((c) => c.id === "SUPPLY-APT-KEY-DEPRECATED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("SUPPLY-NO-INSECURE-REPOS", () => {
+    it("passes when NONE sentinel in apt-config output", () => {
+      const checks = parseSupplyChainChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "SUPPLY-NO-INSECURE-REPOS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when AllowUnauthenticated true found in apt-config (no NONE sentinel)", () => {
+      // Use output without NONE so the check doesn't short-circuit
+      const output = 'APT::Get::AllowUnauthenticated "true";\nAPT::Get::AllowInsecureRepositories "false";';
+      const checks = parseSupplyChainChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SUPPLY-NO-INSECURE-REPOS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("SUPPLY-GPG-KEYS-PRESENT", () => {
+    it("passes when .gpg key files found in trusted.gpg.d", () => {
+      const checks = parseSupplyChainChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "SUPPLY-GPG-KEYS-PRESENT");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when no GPG key files found", () => {
+      const output = validOutput.replace("debian-archive-keyring.gpg ubuntu-keyring-2018-archive.gpg", "NONE_FOUND");
+      const checks = parseSupplyChainChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SUPPLY-GPG-KEYS-PRESENT");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
     });

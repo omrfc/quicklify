@@ -20,8 +20,8 @@ describe("parseFilesystemChecks", () => {
     "1777 root root",
     // Disk usage
     "Filesystem      Size  Used Avail Use% Mounted on\n/dev/sda1        50G   20G   28G  42% /",
-    // findmnt output with noexec/nosuid on relevant mounts
-    "/home rw,nosuid,noexec,relatime\n/var/tmp rw,nosuid,noexec,relatime\n/dev/shm rw,nosuid,noexec\n/tmp rw,nosuid,noexec,relatime",
+    // findmnt output with noexec/nosuid on relevant mounts (includes /var/log as separate mount)
+    "/home rw,nosuid,noexec,relatime\n/var/tmp rw,nosuid,noexec,relatime\n/dev/shm rw,nosuid,noexec\n/tmp rw,nosuid,noexec,relatime\n/var/log rw,nosuid,noexec,relatime\n/media rw,nodev,relatime\n/boot rw,nosuid,noexec,relatime",
     // /dev/shm stat
     "1777 root root",
     // umask
@@ -53,9 +53,9 @@ describe("parseFilesystemChecks", () => {
     "1777 root root",
   ].join("\n");
 
-  it("should return 15 checks", () => {
+  it("should return 18 checks", () => {
     const checks = parseFilesystemChecks(secureOutput, "bare");
-    expect(checks).toHaveLength(15);
+    expect(checks).toHaveLength(18);
     checks.forEach((check) => {
       expect(check.category).toBe("Filesystem");
       expect(check.id).toMatch(/^FS-[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)+$/);
@@ -134,8 +134,29 @@ describe("parseFilesystemChecks", () => {
     expect(check!.passed).toBe(false);
   });
 
+  it("should return FS-NODEV-REMOVABLE passed when /media mount has nodev", () => {
+    const checks = parseFilesystemChecks(secureOutput, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "FS-NODEV-REMOVABLE");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("should return FS-VAR-LOG-SEPARATE passed when /var/log is a separate mount", () => {
+    const checks = parseFilesystemChecks(secureOutput, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "FS-VAR-LOG-SEPARATE");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("should return FS-BOOT-NOSUID passed when /boot mount has nosuid", () => {
+    const checks = parseFilesystemChecks(secureOutput, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "FS-BOOT-NOSUID");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
   it("should handle N/A output gracefully", () => {
     const checks = parseFilesystemChecks("N/A", "bare");
-    expect(checks).toHaveLength(15);
+    expect(checks).toHaveLength(18);
   });
 });

@@ -10,6 +10,8 @@ describe("parseIncidentReadyChecks", () => {
     "LAST_AVAILABLE",
     "LASTB_AVAILABLE",
     "WTMP_ROTATION_CONFIGURED",
+    "-rw-rw-r-- 1 root utmp 12345 Mar 15 10:00 /var/log/wtmp",
+    "-rw-r----- 1 root utmp  6789 Mar 15 10:00 /var/log/btmp",
   ].join("\n");
 
   const badOutput = [
@@ -40,14 +42,14 @@ describe("parseIncidentReadyChecks", () => {
   });
 
   describe("check count and shape", () => {
-    it("returns at least 6 checks", () => {
+    it("returns at least 10 checks", () => {
       const checks = parseIncidentReadyChecks(validOutput, "bare");
-      expect(checks.length).toBeGreaterThanOrEqual(6);
+      expect(checks.length).toBeGreaterThanOrEqual(10);
     });
 
-    it("all check IDs start with INCIDENT-", () => {
+    it("all check IDs start with INCIDENT- or INCID-", () => {
       const checks = parseIncidentReadyChecks("", "bare");
-      checks.forEach((c) => expect(c.id).toMatch(/^INCIDENT-/));
+      checks.forEach((c) => expect(c.id).toMatch(/^(INCIDENT|INCID)-/));
     });
 
     it("all checks have explain.length > 20", () => {
@@ -206,6 +208,38 @@ describe("parseIncidentReadyChecks", () => {
     it("fails when wtmp rotation is not configured", () => {
       const checks = parseIncidentReadyChecks(badOutput, "bare");
       const check = checks.find((c) => c.id === "INCIDENT-WTMP-ROTATION");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("INCID-WTMP-EXISTS", () => {
+    it("passes when /var/log/wtmp is present in ls output", () => {
+      const checks = parseIncidentReadyChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "INCID-WTMP-EXISTS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when /var/log/wtmp not present in output", () => {
+      const checks = parseIncidentReadyChecks(badOutput, "bare");
+      const check = checks.find((c) => c.id === "INCID-WTMP-EXISTS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("INCID-BTMP-EXISTS", () => {
+    it("passes when /var/log/btmp is present in ls output", () => {
+      const checks = parseIncidentReadyChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "INCID-BTMP-EXISTS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when /var/log/btmp not present in output", () => {
+      const checks = parseIncidentReadyChecks(badOutput, "bare");
+      const check = checks.find((c) => c.id === "INCID-BTMP-EXISTS");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
     });

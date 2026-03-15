@@ -8,6 +8,9 @@ describe("parseResourceLimitsChecks", () => {
     "THREADS_MAX:kernel.threads-max = 32768",
     "LIMITS_CONF_NPROC_SET",
     "LIMITS_CONF_MAXLOGINS_SET",
+    "* soft nproc 4096",
+    "* hard nproc 8192",
+    "* hard maxlogins 10",
   ].join("\n");
 
   const badOutput = [
@@ -37,9 +40,9 @@ describe("parseResourceLimitsChecks", () => {
   });
 
   describe("check count and shape", () => {
-    it("returns at least 6 checks", () => {
+    it("returns at least 8 checks", () => {
       const checks = parseResourceLimitsChecks(validOutput, "bare");
-      expect(checks.length).toBeGreaterThanOrEqual(6);
+      expect(checks.length).toBeGreaterThanOrEqual(8);
     });
 
     it("all check IDs start with RLIMIT-", () => {
@@ -167,6 +170,41 @@ describe("parseResourceLimitsChecks", () => {
     it("fails when maxlogins is not set", () => {
       const checks = parseResourceLimitsChecks(badOutput, "bare");
       const check = checks.find((c) => c.id === "RLIMIT-MAXLOGINS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("RLIMIT-LIMITS-CONF-CONFIGURED", () => {
+    it("passes when active entries in limits.conf", () => {
+      const checks = parseResourceLimitsChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "RLIMIT-LIMITS-CONF-CONFIGURED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when limits.conf has only comments and no active entries", () => {
+      // Simulate output that has no non-comment, non-empty lines for limits.conf
+      const emptyLimitsOutput = "# This file is empty\n# No active limits configured";
+      const checks = parseResourceLimitsChecks(emptyLimitsOutput, "bare");
+      const check = checks.find((c) => c.id === "RLIMIT-LIMITS-CONF-CONFIGURED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("RLIMIT-NPROC-LIMITED", () => {
+    it("passes when nproc limit is within safe range", () => {
+      const checks = parseResourceLimitsChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "RLIMIT-NPROC-LIMITED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when nproc limit is excessively high", () => {
+      const output = validOutput.replace("* soft nproc 4096", "* soft nproc 99999");
+      const checks = parseResourceLimitsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "RLIMIT-NPROC-LIMITED");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
     });

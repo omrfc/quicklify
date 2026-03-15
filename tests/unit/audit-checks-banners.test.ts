@@ -15,15 +15,15 @@ describe("parseBannersChecks", () => {
     "N/A",
   ].join("\n");
 
-  it("should return 5 checks for the Banners category", () => {
+  it("should return 6 checks for the Banners category", () => {
     const checks = parseBannersChecks(secureOutput, "bare");
-    expect(checks.length).toBeGreaterThanOrEqual(5);
+    expect(checks.length).toBeGreaterThanOrEqual(6);
     checks.forEach((c) => expect(c.category).toBe("Banners"));
   });
 
-  it("all check IDs should start with BANNER-", () => {
+  it("all check IDs should start with BANNER- or BNR-", () => {
     const checks = parseBannersChecks(secureOutput, "bare");
-    checks.forEach((c) => expect(c.id).toMatch(/^BANNER-/));
+    checks.forEach((c) => expect(c.id).toMatch(/^(BANNER|BNR)-/));
   });
 
   it("all checks should have explain > 20 chars and fixCommand defined", () => {
@@ -64,9 +64,23 @@ describe("parseBannersChecks", () => {
     expect(check!.passed).toBe(true);
   });
 
+  it("BNR-ISSUE-NET-SET passes when issue.net has a proper warning banner", () => {
+    const checks = parseBannersChecks(secureOutput, "bare");
+    const check = checks.find((c) => c.id === "BNR-ISSUE-NET-SET");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("BNR-ISSUE-NET-SET fails when issue.net is MISSING", () => {
+    const checks = parseBannersChecks(insecureOutput, "bare");
+    const check = checks.find((c) => c.id === "BNR-ISSUE-NET-SET");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(false);
+  });
+
   it("should handle N/A output gracefully", () => {
     const checks = parseBannersChecks("N/A", "bare");
-    expect(checks.length).toBeGreaterThanOrEqual(5);
+    expect(checks.length).toBeGreaterThanOrEqual(6);
     checks.forEach((c) => {
       expect(c.passed).toBe(false);
       expect(c.currentValue).toBe("Unable to determine");

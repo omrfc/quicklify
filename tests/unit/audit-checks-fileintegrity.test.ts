@@ -36,9 +36,9 @@ describe("parseFileIntegrityChecks", () => {
     "NO_RULES",
   ].join("\n");
 
-  it("should return 8+ checks for the File Integrity category", () => {
+  it("should return 10+ checks for the File Integrity category", () => {
     const checks = parseFileIntegrityChecks(validOutput, "bare");
-    expect(checks.length).toBeGreaterThanOrEqual(8);
+    expect(checks.length).toBeGreaterThanOrEqual(10);
     checks.forEach((c) => expect(c.category).toBe("File Integrity"));
   });
 
@@ -64,7 +64,7 @@ describe("parseFileIntegrityChecks", () => {
 
   it("should handle N/A output gracefully", () => {
     const checks = parseFileIntegrityChecks("N/A", "bare");
-    expect(checks.length).toBeGreaterThanOrEqual(8);
+    expect(checks.length).toBeGreaterThanOrEqual(10);
     checks.forEach((c) => {
       expect(c.passed).toBe(false);
       expect(c.currentValue).toBe("Unable to determine");
@@ -73,7 +73,7 @@ describe("parseFileIntegrityChecks", () => {
 
   it("should handle empty string output gracefully", () => {
     const checks = parseFileIntegrityChecks("", "bare");
-    expect(checks.length).toBeGreaterThanOrEqual(8);
+    expect(checks.length).toBeGreaterThanOrEqual(10);
     checks.forEach((c) => expect(c.passed).toBe(false));
   });
 
@@ -153,6 +153,36 @@ describe("parseFileIntegrityChecks", () => {
   it("FINT-AUDIT-SHADOW-RULE fails when NO_RULES", () => {
     const checks = parseFileIntegrityChecks(missingOutput, "bare");
     const check = checks.find((c) => c.id === "FINT-AUDIT-SHADOW-RULE");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("FINT-AIDE-DB-RECENT passes when no 10-digit epoch in output (AIDE not installed)", () => {
+    const checks = parseFileIntegrityChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-AIDE-DB-RECENT");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("FINT-AIDE-DB-RECENT passes when epoch is recent (< 30 days ago)", () => {
+    const recentEpoch = Math.floor(Date.now() / 1000) - 86400; // 1 day ago
+    const output = validOutput + `\n${recentEpoch}`;
+    const checks = parseFileIntegrityChecks(output, "bare");
+    const check = checks.find((c) => c.id === "FINT-AIDE-DB-RECENT");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("FINT-CRITICAL-FILE-MONITORING passes when audit rules for /etc/passwd found", () => {
+    const checks = parseFileIntegrityChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-CRITICAL-FILE-MONITORING");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("FINT-CRITICAL-FILE-MONITORING fails when NO_RULES", () => {
+    const checks = parseFileIntegrityChecks(missingOutput, "bare");
+    const check = checks.find((c) => c.id === "FINT-CRITICAL-FILE-MONITORING");
+    expect(check).toBeDefined();
     expect(check!.passed).toBe(false);
   });
 });

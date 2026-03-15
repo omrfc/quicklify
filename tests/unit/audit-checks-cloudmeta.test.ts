@@ -35,14 +35,14 @@ describe("parseCloudMetaChecks", () => {
   });
 
   describe("IS_VPS — check count and shape", () => {
-    it("returns at least 4 checks when IS_VPS sentinel present", () => {
+    it("returns at least 6 checks when IS_VPS sentinel present", () => {
       const checks = parseCloudMetaChecks(vpsOutput, "coolify");
-      expect(checks.length).toBeGreaterThanOrEqual(4);
+      expect(checks.length).toBeGreaterThanOrEqual(6);
     });
 
-    it("all check IDs start with CLOUDMETA-", () => {
+    it("all check IDs start with CLOUDMETA- or CLOUD-", () => {
       const checks = parseCloudMetaChecks(vpsOutput, "coolify");
-      checks.forEach((c) => expect(c.id).toMatch(/^CLOUDMETA-/));
+      checks.forEach((c) => expect(c.id).toMatch(/^(CLOUDMETA|CLOUD)-/));
     });
 
     it("all checks have explain.length > 20", () => {
@@ -112,6 +112,30 @@ describe("parseCloudMetaChecks", () => {
     it("fails when IMDSV2_UNAVAILABLE sentinel present", () => {
       const checks = parseCloudMetaChecks(vpsFailOutput, "coolify");
       const check = checks.find((c) => c.id === "CLOUDMETA-IMDSV2-ENFORCED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("CLOUD-IMDSV1-DISABLED", () => {
+    it("passes when METADATA_BLOCKED sentinel present", () => {
+      const checks = parseCloudMetaChecks(vpsOutput, "coolify");
+      const check = checks.find((c) => c.id === "CLOUD-IMDSV1-DISABLED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("passes when IMDSV2_AVAILABLE sentinel present", () => {
+      const output = "IS_VPS\nIMDSV2_AVAILABLE\nCLOUDINIT_CLEAN";
+      const checks = parseCloudMetaChecks(output, "coolify");
+      const check = checks.find((c) => c.id === "CLOUD-IMDSV1-DISABLED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when neither METADATA_BLOCKED nor IMDSV2_AVAILABLE present", () => {
+      const checks = parseCloudMetaChecks(vpsFailOutput, "coolify");
+      const check = checks.find((c) => c.id === "CLOUD-IMDSV1-DISABLED");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
     });

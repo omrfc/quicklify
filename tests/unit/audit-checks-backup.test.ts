@@ -8,6 +8,8 @@ describe("parseBackupChecks", () => {
     "BACKUP_TOOL_INSTALLED:rsync",
     "BACKUP_CRON_JOB_FOUND",
     "VAR_BACKUPS_EXISTS",
+    "NONE",
+    "/usr/bin/rsync",
   ].join("\n");
 
   const badOutput = [
@@ -37,14 +39,14 @@ describe("parseBackupChecks", () => {
   });
 
   describe("check count and shape", () => {
-    it("returns at least 6 checks", () => {
+    it("returns at least 8 checks", () => {
       const checks = parseBackupChecks(validOutput, "bare");
-      expect(checks.length).toBeGreaterThanOrEqual(6);
+      expect(checks.length).toBeGreaterThanOrEqual(8);
     });
 
-    it("all check IDs start with BACKUP-", () => {
+    it("all check IDs start with BACKUP- or BKUP-", () => {
       const checks = parseBackupChecks("", "bare");
-      checks.forEach((c) => expect(c.id).toMatch(/^BACKUP-/));
+      checks.forEach((c) => expect(c.id).toMatch(/^(BACKUP|BKUP)-/));
     });
 
     it("all checks have explain.length > 20", () => {
@@ -170,6 +172,41 @@ describe("parseBackupChecks", () => {
     it("fails when /var/backups missing", () => {
       const checks = parseBackupChecks(badOutput, "bare");
       const check = checks.find((c) => c.id === "BACKUP-VAR-BACKUPS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("BKUP-ENCRYPTED-BACKUPS", () => {
+    it("passes when .gpg backup files found", () => {
+      const output = validOutput.replace("NONE", "/var/backups/data.tar.gpg");
+      const checks = parseBackupChecks(output, "bare");
+      const check = checks.find((c) => c.id === "BKUP-ENCRYPTED-BACKUPS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("passes when entire find output is NONE (no unencrypted backups to flag)", () => {
+      // When the entire section output is just "NONE", isNone=true → pass
+      const checks = parseBackupChecks("NONE", "bare");
+      const check = checks.find((c) => c.id === "BKUP-ENCRYPTED-BACKUPS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+  });
+
+  describe("BKUP-BACKUP-TOOL-INSTALLED", () => {
+    it("passes when rsync is installed", () => {
+      const checks = parseBackupChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "BKUP-BACKUP-TOOL-INSTALLED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when NO_BACKUP_TOOLS sentinel present", () => {
+      const output = badOutput + "\nNO_BACKUP_TOOLS";
+      const checks = parseBackupChecks(output, "bare");
+      const check = checks.find((c) => c.id === "BKUP-BACKUP-TOOL-INSTALLED");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
     });

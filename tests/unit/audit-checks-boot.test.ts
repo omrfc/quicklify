@@ -10,6 +10,7 @@ describe("parseBootChecks", () => {
     "/boot ext4 rw,nosuid,nodev 0 0",
     "/usr/lib/systemd/system/rescue.service:ExecStart=-/usr/lib/systemd/systemd-sulogin-shell rescue",
     "kernel.modules_disabled = 1",
+    "UEFI",
   ].join("\n");
 
   const insecureOutput = [
@@ -21,11 +22,12 @@ describe("parseBootChecks", () => {
     "N/A",
     "N/A",
     "kernel.modules_disabled = 0",
+    "BIOS",
   ].join("\n");
 
-  it("should return 8 checks for the Boot category", () => {
+  it("should return 10 checks for the Boot category", () => {
     const checks = parseBootChecks(secureOutput, "bare");
-    expect(checks.length).toBeGreaterThanOrEqual(8);
+    expect(checks).toHaveLength(10);
     checks.forEach((c) => expect(c.category).toBe("Boot"));
   });
 
@@ -79,9 +81,30 @@ describe("parseBootChecks", () => {
     expect(check!.passed).toBe(true);
   });
 
+  it("BOOT-UEFI-SECURE passes when UEFI detected", () => {
+    const checks = parseBootChecks(secureOutput, "bare");
+    const check = checks.find((c) => c.id === "BOOT-UEFI-SECURE");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("BOOT-UEFI-SECURE fails when BIOS detected", () => {
+    const checks = parseBootChecks(insecureOutput, "bare");
+    const check = checks.find((c) => c.id === "BOOT-UEFI-SECURE");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(false);
+  });
+
+  it("BOOT-RESCUE-AUTH passes when sulogin configured", () => {
+    const checks = parseBootChecks(secureOutput, "bare");
+    const check = checks.find((c) => c.id === "BOOT-RESCUE-AUTH");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
   it("should handle N/A output gracefully", () => {
     const checks = parseBootChecks("N/A", "bare");
-    expect(checks.length).toBeGreaterThanOrEqual(8);
+    expect(checks).toHaveLength(10);
     checks.forEach((c) => {
       expect(c.passed).toBe(false);
       expect(c.currentValue).toBe("Unable to determine");

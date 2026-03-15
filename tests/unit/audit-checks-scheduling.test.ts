@@ -26,9 +26,9 @@ describe("parseSchedulingChecks", () => {
     "/etc/cron.d/somefile",
   ].join("\n");
 
-  it("should return 8 checks for the Scheduling category", () => {
+  it("should return 10 checks for the Scheduling category", () => {
     const checks = parseSchedulingChecks(secureOutput, "bare");
-    expect(checks.length).toBeGreaterThanOrEqual(8);
+    expect(checks.length).toBeGreaterThanOrEqual(10);
     checks.forEach((c) => expect(c.category).toBe("Scheduling"));
   });
 
@@ -75,9 +75,37 @@ describe("parseSchedulingChecks", () => {
     expect(check!.passed).toBe(true);
   });
 
+  it("SCHED-CRONTAB-OWNER passes when /etc/crontab is 600 root root", () => {
+    const checks = parseSchedulingChecks(secureOutput, "bare");
+    const check = checks.find((c) => c.id === "SCHED-CRONTAB-OWNER");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("SCHED-CRONTAB-OWNER fails when /etc/crontab is 644 nobody nogroup", () => {
+    const checks = parseSchedulingChecks(insecureOutput, "bare");
+    const check = checks.find((c) => c.id === "SCHED-CRONTAB-OWNER");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(false);
+  });
+
+  it("SCHED-NO-USER-CRONTABS passes when no world-writable cron entries", () => {
+    const checks = parseSchedulingChecks(secureOutput, "bare");
+    const check = checks.find((c) => c.id === "SCHED-NO-USER-CRONTABS");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("SCHED-NO-USER-CRONTABS fails when world-writable cron directories found", () => {
+    const checks = parseSchedulingChecks(insecureOutput, "bare");
+    const check = checks.find((c) => c.id === "SCHED-NO-USER-CRONTABS");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(false);
+  });
+
   it("should handle N/A output gracefully", () => {
     const checks = parseSchedulingChecks("N/A", "bare");
-    expect(checks.length).toBeGreaterThanOrEqual(8);
+    expect(checks.length).toBeGreaterThanOrEqual(10);
     checks.forEach((c) => {
       expect(c.passed).toBe(false);
       expect(c.currentValue).toBe("Unable to determine");

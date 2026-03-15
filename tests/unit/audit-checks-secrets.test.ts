@@ -13,6 +13,8 @@ describe("parseSecretsChecks", () => {
     "NO_AWS_CREDS",
     "NO_DOCKER_ENV",
     "NO_NPMRC_TOKEN",
+    "NONE",
+    "allowagentforwarding no",
   ].join("\n");
 
   const badOutput = [
@@ -46,14 +48,14 @@ describe("parseSecretsChecks", () => {
   });
 
   describe("check count and shape", () => {
-    it("returns at least 10 checks", () => {
+    it("returns at least 12 checks", () => {
       const checks = parseSecretsChecks(validOutput, "bare");
-      expect(checks.length).toBeGreaterThanOrEqual(10);
+      expect(checks.length).toBeGreaterThanOrEqual(12);
     });
 
-    it("all check IDs start with SECRETS-", () => {
+    it("all check IDs start with SECRETS- or SEC-", () => {
       const checks = parseSecretsChecks("", "bare");
-      checks.forEach((c) => expect(c.id).toMatch(/^SECRETS-/));
+      checks.forEach((c) => expect(c.id).toMatch(/^(SECRETS|SEC)-/));
     });
 
     it("all checks have explain.length > 20", () => {
@@ -139,6 +141,40 @@ describe("parseSecretsChecks", () => {
     it("fails when plaintext credentials found in /etc", () => {
       const checks = parseSecretsChecks(badOutput, "bare");
       const check = checks.find((c) => c.id === "SECRETS-ETC-PLAINTEXT-CRED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("SEC-NO-READABLE-HISTORY", () => {
+    it("passes when no world-readable .bash_history files found", () => {
+      const checks = parseSecretsChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "SEC-NO-READABLE-HISTORY");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when world-readable .bash_history files found", () => {
+      const output = validOutput + "\n/home/alice/.bash_history";
+      const checks = parseSecretsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SEC-NO-READABLE-HISTORY");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("SEC-NO-SSH-AGENT-FORWARDING", () => {
+    it("passes when allowagentforwarding no", () => {
+      const checks = parseSecretsChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "SEC-NO-SSH-AGENT-FORWARDING");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when allowagentforwarding yes", () => {
+      const output = validOutput.replace("allowagentforwarding no", "allowagentforwarding yes");
+      const checks = parseSecretsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SEC-NO-SSH-AGENT-FORWARDING");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
     });

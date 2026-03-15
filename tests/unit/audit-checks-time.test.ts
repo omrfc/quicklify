@@ -25,9 +25,9 @@ describe("parseTimeChecks", () => {
     "N/A",
   ].join("\n");
 
-  it("should return 6 checks for the Time category", () => {
+  it("should return 8 checks for the Time category", () => {
     const checks = parseTimeChecks(syncedOutput, "bare");
-    expect(checks.length).toBeGreaterThanOrEqual(6);
+    expect(checks.length).toBeGreaterThanOrEqual(8);
     checks.forEach((c) => expect(c.category).toBe("Time"));
   });
 
@@ -74,9 +74,38 @@ describe("parseTimeChecks", () => {
     expect(check!.passed).toBe(true);
   });
 
+  it("TIME-NTP-PEERS-CONFIGURED passes when chrony Reference ID detected", () => {
+    const checks = parseTimeChecks(syncedOutput, "bare");
+    const check = checks.find((c) => c.id === "TIME-NTP-PEERS-CONFIGURED");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("TIME-NTP-PEERS-CONFIGURED passes when ntpq peer lines present", () => {
+    const ntpOutput = syncedOutput + "\n* ntp1.example.com  0.0.0.0  2  u  1  64  377  0.000  0.000  0.000\n+ ntp2.example.com  0.0.0.0  2  u  2  64  377  0.001  0.001  0.001";
+    const checks = parseTimeChecks(ntpOutput, "bare");
+    const check = checks.find((c) => c.id === "TIME-NTP-PEERS-CONFIGURED");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("TIME-NO-DRIFT passes when NTP synchronized: yes", () => {
+    const checks = parseTimeChecks(syncedOutput, "bare");
+    const check = checks.find((c) => c.id === "TIME-NO-DRIFT");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("TIME-NO-DRIFT fails when NTP not synchronized", () => {
+    const checks = parseTimeChecks(unsyncedOutput, "bare");
+    const check = checks.find((c) => c.id === "TIME-NO-DRIFT");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(false);
+  });
+
   it("should handle N/A output gracefully", () => {
     const checks = parseTimeChecks("N/A", "bare");
-    expect(checks.length).toBeGreaterThanOrEqual(6);
+    expect(checks.length).toBeGreaterThanOrEqual(8);
     checks.forEach((c) => {
       expect(c.passed).toBe(false);
       expect(c.currentValue).toBe("Unable to determine");
