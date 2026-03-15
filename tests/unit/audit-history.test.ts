@@ -7,7 +7,7 @@ jest.mock("../../src/utils/config.js", () => ({
   CONFIG_DIR: "/home/user/.kastell",
 }));
 jest.mock("../../src/utils/fileLock", () => ({
-  withFileLock: jest.fn((_path: string, fn: () => any) => fn()),
+  withFileLock: jest.fn((_path: string, fn: () => unknown) => fn()),
 }));
 
 const mockedFs = fs as jest.Mocked<typeof fs>;
@@ -18,7 +18,7 @@ function makeResult(overrides: Partial<AuditResult> = {}): AuditResult {
     serverIp: "1.2.3.4",
     platform: "bare",
     timestamp: "2026-03-08T10:00:00Z",
-    auditVersion: "1.0.0",
+    auditVersion: "1.10.0",
     categories: [
       { name: "SSH", checks: [], score: 80, maxScore: 100 },
       { name: "Firewall", checks: [], score: 60, maxScore: 100 },
@@ -74,6 +74,48 @@ describe("loadAuditHistory", () => {
     const history = loadAuditHistory("1.2.3.4");
     expect(history).toEqual([]);
   });
+
+  it("should reject entries with extra fields (Zod .strict())", () => {
+    // Entry has extra field 'checks' — strict schema should reject the whole array
+    const entriesWithExtra = [
+      {
+        serverIp: "1.2.3.4",
+        serverName: "test-server",
+        timestamp: "2026-03-07T10:00:00Z",
+        overallScore: 60,
+        categoryScores: { SSH: 70 },
+        checks: [], // extra field — not in schema
+      },
+    ];
+
+    mockedFs.existsSync.mockReturnValue(true);
+    mockedFs.readFileSync.mockReturnValue(JSON.stringify(entriesWithExtra));
+
+    const history = loadAuditHistory("1.2.3.4");
+    expect(history).toEqual([]);
+  });
+
+  it("should accept entries without auditVersion (legacy entries)", () => {
+    // Legacy entry missing auditVersion — should load OK since auditVersion is optional
+    const legacyEntries = [
+      {
+        serverIp: "1.2.3.4",
+        serverName: "test-server",
+        timestamp: "2026-03-07T10:00:00Z",
+        overallScore: 60,
+        categoryScores: { SSH: 70 },
+        // no auditVersion
+      },
+    ];
+
+    mockedFs.existsSync.mockReturnValue(true);
+    mockedFs.readFileSync.mockReturnValue(JSON.stringify(legacyEntries));
+
+    const history = loadAuditHistory("1.2.3.4");
+    expect(history).toHaveLength(1);
+    expect(history[0].overallScore).toBe(60);
+    expect(history[0].auditVersion).toBeUndefined();
+  });
 });
 
 describe("saveAuditHistory", () => {
@@ -103,6 +145,16 @@ describe("saveAuditHistory", () => {
     expect(written).toHaveLength(2);
   });
 
+  it("should persist auditVersion in history entry", async () => {
+    mockedFs.existsSync.mockReturnValue(false);
+
+    await saveAuditHistory(makeResult({ auditVersion: "1.10.0" }));
+
+    const writeCall = (mockedFs.writeFileSync as jest.Mock).mock.calls[0];
+    const written = JSON.parse(writeCall[1] as string) as AuditHistoryEntry[];
+    expect(written[0].auditVersion).toBe("1.10.0");
+  });
+
   it("should cap history at 50 entries per server", async () => {
     const existing: AuditHistoryEntry[] = Array.from({ length: 50 }, (_, i) =>
       makeHistoryEntry({
@@ -127,37 +179,79 @@ describe("saveAuditHistory", () => {
 
 describe("detectTrend", () => {
   it('should return "first audit" when no history', () => {
-    const trend = detectTrend(70, []);
+    const trend = detectTrend(70, "1.10.0", []);
     expect(trend).toContain("first audit");
   });
 
-  it("should return improvement when score increased", () => {
-    const history = [makeHistoryEntry({ overallScore: 60 })];
-    const trend = detectTrend(75, history);
+  it("should return improvement when score increased (same version)", () => {
+    const history = [makeHistoryEntry({ overallScore: 60, auditVersion: "1.10.0" })];
+    const trend = detectTrend(75, "1.10.0", history);
     expect(trend).toContain("+15");
     expect(trend.toLowerCase()).toContain("improvement");
   });
 
-  it("should return regression when score decreased", () => {
-    const history = [makeHistoryEntry({ overallScore: 80 })];
-    const trend = detectTrend(65, history);
+  it("should return regression when score decreased (same version)", () => {
+    const history = [makeHistoryEntry({ overallScore: 80, auditVersion: "1.10.0" })];
+    const trend = detectTrend(65, "1.10.0", history);
     expect(trend).toContain("15");
     expect(trend.toLowerCase()).toContain("regression");
   });
 
-  it("should return unchanged when score is the same", () => {
-    const history = [makeHistoryEntry({ overallScore: 70 })];
-    const trend = detectTrend(70, history);
+  it("should return unchanged when score is the same (same version)", () => {
+    const history = [makeHistoryEntry({ overallScore: 70, auditVersion: "1.10.0" })];
+    const trend = detectTrend(70, "1.10.0", history);
     expect(trend.toLowerCase()).toContain("unchanged");
   });
 
-  it("should compare against the most recent entry", () => {
+  it("should compare against the most recent same-version entry", () => {
     const history = [
-      makeHistoryEntry({ overallScore: 50, timestamp: "2026-03-06T00:00:00Z" }),
-      makeHistoryEntry({ overallScore: 80, timestamp: "2026-03-07T00:00:00Z" }),
+      makeHistoryEntry({ overallScore: 50, timestamp: "2026-03-06T00:00:00Z", auditVersion: "1.10.0" }),
+      makeHistoryEntry({ overallScore: 80, timestamp: "2026-03-07T00:00:00Z", auditVersion: "1.10.0" }),
     ];
     // Compare against most recent (80), not first (50)
-    const trend = detectTrend(85, history);
+    const trend = detectTrend(85, "1.10.0", history);
     expect(trend).toContain("+5");
+  });
+
+  it("should return methodology-change when all history is different version", () => {
+    // History from v1.0.0, current audit is v1.10.0
+    const history = [
+      makeHistoryEntry({ overallScore: 80, auditVersion: "1.0.0" }),
+      makeHistoryEntry({ overallScore: 75, auditVersion: "1.0.0" }),
+    ];
+    const trend = detectTrend(70, "1.10.0", history);
+    expect(trend).toBe("methodology-change");
+  });
+
+  it("should filter to same-version entries when mixed history", () => {
+    // Mixed: one v1.0.0 and one v1.10.0 entry
+    const history = [
+      makeHistoryEntry({ overallScore: 50, auditVersion: "1.0.0", timestamp: "2026-03-06T00:00:00Z" }),
+      makeHistoryEntry({ overallScore: 80, auditVersion: "1.10.0", timestamp: "2026-03-07T00:00:00Z" }),
+    ];
+    // Should only compare against the v1.10.0 entry (score 80), not the v1.0.0 entry (score 50)
+    const trend = detectTrend(85, "1.10.0", history);
+    expect(trend).toContain("+5");
+    expect(trend).not.toBe("methodology-change");
+  });
+
+  it("should treat history entries without auditVersion as version 1.0.0", () => {
+    // Legacy entries without auditVersion field should be treated as 1.0.0
+    const history = [
+      makeHistoryEntry({ overallScore: 60 }), // no auditVersion
+    ];
+    // Current version is 1.10.0 — legacy entries don't match, so methodology-change
+    const trend = detectTrend(70, "1.10.0", history);
+    expect(trend).toBe("methodology-change");
+  });
+
+  it("should compare legacy history when current version is also 1.0.0", () => {
+    // If running old version and history has no auditVersion — both treated as 1.0.0
+    const history = [
+      makeHistoryEntry({ overallScore: 60 }), // no auditVersion = treated as "1.0.0"
+    ];
+    const trend = detectTrend(70, "1.0.0", history);
+    expect(trend).toContain("+10");
+    expect(trend.toLowerCase()).toContain("improvement");
   });
 });
