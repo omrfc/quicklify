@@ -10,6 +10,20 @@ describe("parseKernelChecks", () => {
       "net.ipv4.conf.all.log_martians = 1",
       "net.ipv4.tcp_syncookies = 1",
       "kernel.core_uses_pid = 1",
+      "kernel.dmesg_restrict = 1",
+      "kernel.yama.ptrace_scope = 1",
+      "kernel.kptr_restrict = 1",
+      "kernel.perf_event_paranoid = 2",
+      "net.ipv4.ip_forward = 0",
+      "net.ipv4.conf.all.rp_filter = 1",
+      "net.ipv4.tcp_timestamps = 0",
+      "net.ipv4.icmp_echo_ignore_broadcasts = 1",
+      "net.ipv6.conf.all.accept_redirects = 0",
+      "kernel.unprivileged_bpf_disabled = 1",
+      "kernel.modules_disabled = 0",
+      "net.ipv6.conf.all.forwarding = 0",
+      "net.ipv4.conf.all.send_redirects = 0",
+      "net.ipv4.conf.all.secure_redirects = 0",
     ].join("\n"),
     // Kernel version
     "5.15.0-91-generic",
@@ -24,6 +38,8 @@ describe("parseKernelChecks", () => {
       "net.ipv4.conf.all.accept_redirects = 1",
       "net.ipv4.conf.all.accept_source_route = 1",
       "net.ipv4.conf.all.log_martians = 0",
+      "kernel.yama.ptrace_scope = 0",
+      "net.ipv4.ip_forward = 1",
     ].join("\n"),
     // Old kernel
     "4.15.0-20-generic",
@@ -31,9 +47,9 @@ describe("parseKernelChecks", () => {
     "N/A",
   ].join("\n");
 
-  it("should return 5 checks", () => {
+  it("should return 19 checks", () => {
     const checks = parseKernelChecks(secureOutput, "bare");
-    expect(checks).toHaveLength(5);
+    expect(checks).toHaveLength(19);
     checks.forEach((check) => {
       expect(check.category).toBe("Kernel");
       expect(check.id).toMatch(/^KRN-[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)+$/);
@@ -80,9 +96,36 @@ describe("parseKernelChecks", () => {
     expect(krn05!.passed).toBe(true);
   });
 
+  it("should return KRN-PTRACE-SCOPE passed with ptrace_scope=1, failed with 0", () => {
+    const passChecks = parseKernelChecks("kernel.yama.ptrace_scope = 1", "bare");
+    const pass = passChecks.find((c: { id: string }) => c.id === "KRN-PTRACE-SCOPE");
+    expect(pass!.passed).toBe(true);
+
+    const failChecks = parseKernelChecks("kernel.yama.ptrace_scope = 0", "bare");
+    const fail = failChecks.find((c: { id: string }) => c.id === "KRN-PTRACE-SCOPE");
+    expect(fail!.passed).toBe(false);
+  });
+
+  it("should return KRN-IP-FORWARD-DISABLED passed with ip_forward=0, failed with 1", () => {
+    const passChecks = parseKernelChecks("net.ipv4.ip_forward = 0", "bare");
+    const pass = passChecks.find((c: { id: string }) => c.id === "KRN-IP-FORWARD-DISABLED");
+    expect(pass!.passed).toBe(true);
+
+    const failChecks = parseKernelChecks("net.ipv4.ip_forward = 1", "bare");
+    const fail = failChecks.find((c: { id: string }) => c.id === "KRN-IP-FORWARD-DISABLED");
+    expect(fail!.passed).toBe(false);
+  });
+
+  it("should return KRN-BPF-UNPRIVILEGED present in checks", () => {
+    const checks = parseKernelChecks(secureOutput, "bare");
+    const bpf = checks.find((c: { id: string }) => c.id === "KRN-BPF-UNPRIVILEGED");
+    expect(bpf).toBeDefined();
+    expect(bpf!.passed).toBe(true);
+  });
+
   it("should handle N/A output gracefully", () => {
     const checks = parseKernelChecks("N/A", "bare");
-    expect(checks).toHaveLength(5);
+    expect(checks).toHaveLength(19);
     checks.forEach((check) => {
       expect(check.passed).toBe(false);
     });

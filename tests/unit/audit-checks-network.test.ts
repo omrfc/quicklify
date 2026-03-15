@@ -15,6 +15,22 @@ describe("parseNetworkChecks", () => {
     "net.ipv4.ip_forward = 0",
     // DNS resolver
     "nameserver 1.1.1.1",
+    // NTP
+    "NTP synchronized: yes",
+    // hosts.allow content
+    "sshd: ALL",
+    // hosts.deny content
+    "ALL : ALL",
+    // Additional sysctl values
+    "net.ipv6.conf.all.disable_ipv6 = 1",
+    "net.ipv4.conf.all.send_redirects = 0",
+    "net.ipv4.conf.all.secure_redirects = 0",
+    "net.ipv6.conf.all.accept_source_route = 0",
+    "net.ipv4.conf.all.rp_filter = 1",
+    "net.ipv4.tcp_syn_retries = 3",
+    "net.ipv4.conf.all.log_martians = 1",
+    // No exposed mgmt ports
+    "NONE",
   ].join("\n");
 
   const insecureOutput = [
@@ -29,11 +45,15 @@ describe("parseNetworkChecks", () => {
     "N/A",
     "net.ipv4.ip_forward = 1",
     "nameserver 1.1.1.1",
+    "NO_HOSTS_ALLOW",
+    "NO_HOSTS_DENY",
+    "net.ipv4.conf.all.send_redirects = 1",
+    "net.ipv4.conf.all.secure_redirects = 1",
   ].join("\n");
 
-  it("should return 5 checks", () => {
+  it("should return 15 checks", () => {
     const checks = parseNetworkChecks(secureOutput, "bare");
-    expect(checks).toHaveLength(5);
+    expect(checks).toHaveLength(15);
     checks.forEach((check) => {
       expect(check.category).toBe("Network");
       expect(check.id).toMatch(/^NET-[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)+$/);
@@ -78,8 +98,28 @@ describe("parseNetworkChecks", () => {
     expect(net05!.passed).toBe(true);
   });
 
+  it("should return NET-HOSTS-DENY passed when ALL:ALL present, failed when NO_HOSTS_DENY", () => {
+    const passChecks = parseNetworkChecks("ALL : ALL", "bare");
+    const pass = passChecks.find((c) => c.id === "NET-HOSTS-DENY");
+    expect(pass!.passed).toBe(true);
+
+    const failChecks = parseNetworkChecks("NO_HOSTS_DENY", "bare");
+    const fail = failChecks.find((c) => c.id === "NET-HOSTS-DENY");
+    expect(fail!.passed).toBe(false);
+  });
+
+  it("should return NET-NO-EXPOSED-MGMT-PORTS passed with NONE, failed with port listing", () => {
+    const passChecks = parseNetworkChecks("NONE", "bare");
+    const pass = passChecks.find((c) => c.id === "NET-NO-EXPOSED-MGMT-PORTS");
+    expect(pass!.passed).toBe(true);
+
+    const failChecks = parseNetworkChecks("LISTEN 0.0.0.0:8080", "bare");
+    const fail = failChecks.find((c) => c.id === "NET-NO-EXPOSED-MGMT-PORTS");
+    expect(fail).toBeDefined();
+  });
+
   it("should handle N/A output gracefully", () => {
     const checks = parseNetworkChecks("N/A", "bare");
-    expect(checks).toHaveLength(5);
+    expect(checks).toHaveLength(15);
   });
 });
