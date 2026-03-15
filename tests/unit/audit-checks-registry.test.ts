@@ -2,8 +2,8 @@ import { parseAllChecks, CHECK_REGISTRY } from "../../src/core/audit/checks/inde
 import type { CategoryEntry } from "../../src/core/audit/checks/index.js";
 
 describe("CHECK_REGISTRY", () => {
-  it("should have entries for all 18 categories", () => {
-    expect(CHECK_REGISTRY).toHaveLength(18);
+  it("should have entries for all 20 categories", () => {
+    expect(CHECK_REGISTRY).toHaveLength(20);
     const names = CHECK_REGISTRY.map((e: CategoryEntry) => e.name);
     expect(names).toContain("SSH");
     expect(names).toContain("Firewall");
@@ -24,6 +24,9 @@ describe("CHECK_REGISTRY", () => {
     expect(names).toContain("Crypto");
     expect(names).toContain("File Integrity");
     expect(names).toContain("Malware");
+    // Phase 47 Wave 2 additions
+    expect(names).toContain("MAC");
+    expect(names).toContain("Memory");
   });
 
   it("should map section names to correct parsers", () => {
@@ -84,9 +87,9 @@ describe("parseAllChecks", () => {
     expect(pwdCheck!.passed).toBe(true);
   });
 
-  it("should correctly route all 18 categories to their parsers", () => {
+  it("should correctly route all 20 categories to their parsers", () => {
     const categories = parseAllChecks([minimalBatch1, minimalBatch2, minimalBatch3], "bare");
-    expect(categories).toHaveLength(18);
+    expect(categories).toHaveLength(20);
     const names = categories.map((c) => c.name);
     expect(names).toContain("SSH");
     expect(names).toContain("Firewall");
@@ -106,6 +109,8 @@ describe("parseAllChecks", () => {
     expect(names).toContain("Crypto");
     expect(names).toContain("File Integrity");
     expect(names).toContain("Malware");
+    expect(names).toContain("MAC");
+    expect(names).toContain("Memory");
   });
 
   it("should not shift FIREWALL parser when a new category is inserted between SSH and FIREWALL", () => {
@@ -144,9 +149,9 @@ describe("parseAllChecks", () => {
     expect(docker!.checks.length).toBeGreaterThan(0);
   });
 
-  it("should return 18 AuditCategory objects from batch outputs", () => {
+  it("should return 20 AuditCategory objects from batch outputs", () => {
     const categories = parseAllChecks([minimalBatch1, minimalBatch2, minimalBatch3], "bare");
-    expect(categories).toHaveLength(18);
+    expect(categories).toHaveLength(20);
     categories.forEach((cat) => {
       expect(cat.name).toBeDefined();
       expect(cat.checks).toBeDefined();
@@ -158,7 +163,7 @@ describe("parseAllChecks", () => {
 
   it("should handle empty batch outputs gracefully", () => {
     const categories = parseAllChecks(["", "", ""], "bare");
-    expect(categories).toHaveLength(18);
+    expect(categories).toHaveLength(20);
     categories.forEach((cat) => {
       expect(cat.checks.length).toBeGreaterThan(0);
     });
