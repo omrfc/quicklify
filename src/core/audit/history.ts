@@ -235,12 +235,8 @@ export function detectTrend(
     return "first audit";
   }
 
-  const sorted = [...history].sort((a, b) =>
-    b.timestamp.localeCompare(a.timestamp),
-  );
-
-  // Filter to same audit version for meaningful comparison
-  const sameVersion = sorted.filter(
+  // Filter to same audit version first, then find most recent
+  const sameVersion = history.filter(
     (e) => (e.auditVersion ?? "1.0.0") === currentVersion,
   );
 
@@ -248,7 +244,14 @@ export function detectTrend(
     return "methodology-change";
   }
 
-  const lastScore = sameVersion[0].overallScore;
+  let latest = sameVersion[0];
+  for (let i = 1; i < sameVersion.length; i++) {
+    if (sameVersion[i].timestamp > latest.timestamp) {
+      latest = sameVersion[i];
+    }
+  }
+
+  const lastScore = latest.overallScore;
   const diff = currentScore - lastScore;
 
   if (diff > 0) {

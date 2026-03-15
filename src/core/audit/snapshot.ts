@@ -57,37 +57,34 @@ const quickWinSchema = z.object({
   description: z.string(),
 });
 
+/** Shared audit fields across schema versions */
+const baseAuditSchema = z.object({
+  serverName: z.string(),
+  serverIp: z.string(),
+  platform: z.enum(["coolify", "dokploy", "bare"]),
+  timestamp: z.string(),
+  overallScore: z.number(),
+  categories: z.array(categorySchema),
+  quickWins: z.array(quickWinSchema),
+});
+
+const snapshotEnvelopeBase = {
+  name: z.string().optional(),
+  savedAt: z.string(),
+};
+
 /** Schema v1 — legacy format, no auditVersion field */
 const snapshotFileV1Schema = z.object({
   schemaVersion: z.literal(1),
-  name: z.string().optional(),
-  savedAt: z.string(),
-  audit: z.object({
-    serverName: z.string(),
-    serverIp: z.string(),
-    platform: z.enum(["coolify", "dokploy", "bare"]),
-    timestamp: z.string(),
-    overallScore: z.number(),
-    categories: z.array(categorySchema),
-    quickWins: z.array(quickWinSchema),
-  }),
+  ...snapshotEnvelopeBase,
+  audit: baseAuditSchema,
 });
 
 /** Schema v2 — includes auditVersion in audit object */
 const snapshotFileV2Schema = z.object({
   schemaVersion: z.literal(2),
-  name: z.string().optional(),
-  savedAt: z.string(),
-  audit: z.object({
-    serverName: z.string(),
-    serverIp: z.string(),
-    platform: z.enum(["coolify", "dokploy", "bare"]),
-    timestamp: z.string(),
-    auditVersion: z.string(),
-    overallScore: z.number(),
-    categories: z.array(categorySchema),
-    quickWins: z.array(quickWinSchema),
-  }),
+  ...snapshotEnvelopeBase,
+  audit: baseAuditSchema.extend({ auditVersion: z.string() }),
 });
 
 /** Get the snapshot directory for a server IP (dots replaced with hyphens) */
@@ -123,22 +120,21 @@ function parseSnapshotFile(raw: string): SnapshotFile | null {
     return null;
   }
 
-  // Try v2 first
-  const v2 = snapshotFileV2Schema.safeParse(parsed);
-  if (v2.success) {
-    return v2.data as SnapshotFile;
+  const obj = parsed as Record<string, unknown>;
+  if (obj.schemaVersion === 2) {
+    const v2 = snapshotFileV2Schema.safeParse(parsed);
+    return v2.success ? (v2.data as SnapshotFile) : null;
   }
-
-  // Fall back to v1 with migration
-  const v1 = snapshotFileV1Schema.safeParse(parsed);
-  if (v1.success) {
-    return {
-      ...v1.data,
-      schemaVersion: 2,
-      audit: { ...v1.data.audit, auditVersion: "1.0.0" },
-    } as SnapshotFile;
+  if (obj.schemaVersion === 1) {
+    const v1 = snapshotFileV1Schema.safeParse(parsed);
+    if (v1.success) {
+      return {
+        ...v1.data,
+        schemaVersion: 2,
+        audit: { ...v1.data.audit, auditVersion: "1.0.0" },
+      } as SnapshotFile;
+    }
   }
-
   return null;
 }
 
