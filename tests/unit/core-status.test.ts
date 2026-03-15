@@ -1,7 +1,6 @@
 import axios from "axios";
 import * as providerFactory from "../../src/utils/providerFactory";
 import {
-  checkCoolifyHealth,
   getCloudServerStatus,
   checkServerStatus,
   checkAllServersStatus,
@@ -57,52 +56,6 @@ const mockProvider: CloudProvider = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-});
-
-describe("checkCoolifyHealth", () => {
-  it("should return 'running' when Coolify responds", async () => {
-    mockedAxios.get.mockResolvedValueOnce({ status: 200 });
-
-    const result = await checkCoolifyHealth("1.2.3.4");
-
-    expect(result).toBe("running");
-    expect(mockedAxios.get).toHaveBeenCalledWith("http://1.2.3.4:8000", {
-      timeout: 5000,
-      validateStatus: expect.any(Function),
-    });
-  });
-
-  it("should return 'not reachable' when Coolify does not respond", async () => {
-    mockedAxios.get.mockRejectedValueOnce(new Error("ECONNREFUSED"));
-
-    const result = await checkCoolifyHealth("1.2.3.4");
-
-    expect(result).toBe("not reachable");
-  });
-
-  it("should return 'running' for any HTTP status (validateStatus always true)", async () => {
-    mockedAxios.get.mockResolvedValueOnce({ status: 502 });
-
-    const result = await checkCoolifyHealth("1.2.3.4");
-
-    expect(result).toBe("running");
-
-    // Verify validateStatus returns true for any status
-    const callConfig = mockedAxios.get.mock.calls[0][1] as { validateStatus: (s: number) => boolean };
-    expect(callConfig.validateStatus(404)).toBe(true);
-    expect(callConfig.validateStatus(500)).toBe(true);
-  });
-
-  it("should use port 8000", async () => {
-    mockedAxios.get.mockResolvedValueOnce({ status: 200 });
-
-    await checkCoolifyHealth("10.20.30.40");
-
-    expect(mockedAxios.get).toHaveBeenCalledWith(
-      "http://10.20.30.40:8000",
-      expect.any(Object),
-    );
-  });
 });
 
 describe("getCloudServerStatus", () => {
@@ -263,7 +216,7 @@ describe("checkAllServersStatus", () => {
 // ---- Bare mode tests ----
 
 describe("checkServerStatus - bare mode", () => {
-  it("should return platformStatus='n/a' for bare server without calling checkCoolifyHealth", async () => {
+  it("should return platformStatus='n/a' for bare server without calling adapter healthCheck", async () => {
     const bareServer = { ...sampleServer, mode: "bare" as const };
     (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
     mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
@@ -277,7 +230,7 @@ describe("checkServerStatus - bare mode", () => {
     expect(mockedAxios.get).not.toHaveBeenCalled();
   });
 
-  it("should call checkCoolifyHealth for coolify server (existing behavior unchanged)", async () => {
+  it("should call adapter healthCheck for coolify server", async () => {
     const coolifyServer = { ...sampleServer, mode: "coolify" as const };
     (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
     mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);

@@ -1,5 +1,4 @@
-import axios from "axios";
-import { apiClient, stripSensitiveData, withProviderErrorHandling, assertValidServerId, type CloudProvider } from "./base.js";
+import { apiClient, stripSensitiveData, withProviderErrorHandling, assertValidServerId, uploadSshKeyWithConflict, type CloudProvider } from "./base.js";
 import { withRetry } from "../utils/retry.js";
 import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
 
@@ -68,35 +67,16 @@ export class HetznerProvider implements CloudProvider {
   }
 
   async uploadSshKey(name: string, publicKey: string): Promise<string> {
-    try {
-      const response = await apiClient.post(
-        `${this.baseUrl}/ssh_keys`,
-        { name, public_key: publicKey },
-        {
-          headers: {
-            Authorization: `Bearer ${this.apiToken}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-      return response.data.ssh_key.id.toString();
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      // Key already exists → find by matching public key
-      if (axios.isAxiosError(error) && error.response?.status === 409) {
-        const listResponse = await apiClient.get(`${this.baseUrl}/ssh_keys?per_page=200`, {
-          headers: { Authorization: `Bearer ${this.apiToken}` },
-        });
-        const existing = listResponse.data.ssh_keys.find(
-          (k: { public_key: string }) => k.public_key.trim() === publicKey.trim(),
-        );
-        if (existing) return existing.id.toString();
-      }
-      throw new Error(
-        `Failed to upload SSH key: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    return uploadSshKeyWithConflict(name, publicKey, {
+      apiToken: this.apiToken,
+      baseUrl: this.baseUrl,
+      createPath: "/ssh_keys",
+      bodyKeyField: "public_key",
+      listPath: "/ssh_keys?per_page=200",
+      listArrayField: "ssh_keys",
+      listKeyField: "public_key",
+      conflictStatuses: [409],
+    });
   }
 
   async createServer(config: ServerConfig): Promise<ServerResult> {

@@ -3,6 +3,7 @@ import { homedir, platform } from "os";
 import { join } from "path";
 import { storeToken, readToken } from "./tokenBuffer.js";
 import type { NotifyConfig } from "./notify.js";
+import { isKeychainAvailable as _isKeychainAvailable, getKeychainEntry as _getKeychainEntry } from "../utils/keyring.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -19,41 +20,10 @@ const CHANNEL_FIELDS: Record<string, string[]> = {
   slack: ["webhookUrl"],
 };
 
-// ─── Android detection ───────────────────────────────────────────────────────
+// ─── Keyring helpers ─────────────────────────────────────────────────────────
 
-const IS_ANDROID =
-  process.platform === "android" ||
-  process.env["PREFIX"]?.includes("com.termux") ||
-  existsSync("/data/data/com.termux");
-
-// ─── Keyring lazy-load ────────────────────────────────────────────────────────
-
-type KeyringEntry = import("@napi-rs/keyring").Entry;
-let _Entry: (new (service: string, key: string) => KeyringEntry) | null = null;
-let _keyringLoaded = false;
-
-function loadKeyring(): typeof _Entry {
-  if (_keyringLoaded) return _Entry;
-  _keyringLoaded = true;
-  if (IS_ANDROID) return null;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("@napi-rs/keyring") as typeof import("@napi-rs/keyring");
-    _Entry = mod.Entry;
-  } catch {
-    _Entry = null;
-  }
-  return _Entry;
-}
-
-function getKeychainEntry(channel: string, field: string): KeyringEntry | null {
-  const EntryClass = loadKeyring();
-  if (!EntryClass) return null;
-  try {
-    return new EntryClass(NOTIFY_SERVICE, `${channel}:${field}`);
-  } catch {
-    return null;
-  }
+function getKeychainEntry(channel: string, field: string) {
+  return _getKeychainEntry(NOTIFY_SERVICE, `${channel}:${field}`);
 }
 
 // ─── Fallback file helpers ────────────────────────────────────────────────────
@@ -246,14 +216,7 @@ export function removeNotifyChannel(channel: string): void {
  * Check if the OS keychain is available for notify secrets.
  */
 export function isNotifyKeychainAvailable(): boolean {
-  const EntryClass = loadKeyring();
-  if (IS_ANDROID || !EntryClass) return false;
-  try {
-    new EntryClass(NOTIFY_SERVICE, "__test__");
-    return true;
-  } catch {
-    return false;
-  }
+  return _isKeychainAvailable(NOTIFY_SERVICE);
 }
 
 // ─── Migration ────────────────────────────────────────────────────────────────

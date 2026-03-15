@@ -39,7 +39,7 @@ function assertSafeWebhookUrl(url: string): void {
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const TelegramChannelSchema = z.object({
-  botToken: z.string().min(1),
+  botToken: z.string().regex(/^\d+:[A-Za-z0-9_-]+$/, "Invalid Telegram bot token format"),
   chatId: z.string().min(1),
 });
 

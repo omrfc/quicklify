@@ -1,6 +1,5 @@
 import crypto from "crypto";
-import axios from "axios";
-import { apiClient, stripSensitiveData, withProviderErrorHandling, assertValidServerId, type CloudProvider } from "./base.js";
+import { apiClient, stripSensitiveData, withProviderErrorHandling, assertValidServerId, uploadSshKeyWithConflict, type CloudProvider } from "./base.js";
 import { withRetry } from "../utils/retry.js";
 import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
 
@@ -56,35 +55,17 @@ export class LinodeProvider implements CloudProvider {
   }
 
   async uploadSshKey(name: string, publicKey: string): Promise<string> {
-    try {
-      const response = await apiClient.post(
-        `${this.baseUrl}/profile/sshkeys`,
-        { label: name, ssh_key: publicKey },
-        {
-          headers: {
-            Authorization: `Bearer ${this.apiToken}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-      return response.data.id.toString();
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      // Key already exists → find by matching public key
-      if (axios.isAxiosError(error) && error.response?.status === 400) {
-        const listResponse = await apiClient.get(`${this.baseUrl}/profile/sshkeys`, {
-          headers: { Authorization: `Bearer ${this.apiToken}` },
-        });
-        const existing = listResponse.data.data.find(
-          (k: { ssh_key: string }) => k.ssh_key.trim() === publicKey.trim(),
-        );
-        if (existing) return existing.id.toString();
-      }
-      throw new Error(
-        `Failed to upload SSH key: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    return uploadSshKeyWithConflict(name, publicKey, {
+      apiToken: this.apiToken,
+      baseUrl: this.baseUrl,
+      createPath: "/profile/sshkeys",
+      bodyKeyField: "ssh_key",
+      nameField: "label",
+      listPath: "/profile/sshkeys",
+      listArrayField: "data",
+      listKeyField: "ssh_key",
+      conflictStatuses: [400],
+    });
   }
 
   async createServer(config: ServerConfig): Promise<ServerResult> {

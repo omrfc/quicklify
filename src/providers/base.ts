@@ -121,6 +121,77 @@ export function assertValidServerId(serverId: string): void {
   }
 }
 
+/**
+ * Shared SSH key upload with conflict recovery.
+ * All providers follow the same pattern: POST to create, catch conflict status,
+ * GET list to find existing key by matching public key.
+ */
+export interface SshKeyUploadConfig {
+  apiToken: string;
+  baseUrl: string;
+  /** POST endpoint path (e.g., "/ssh_keys", "/account/keys") */
+  createPath: string;
+  /** POST body key name for the public key (e.g., "public_key", "ssh_key") */
+  bodyKeyField: string;
+  /** POST body key for the name field (default: "name", Linode uses "label") */
+  nameField?: string;
+  /** GET endpoint path for listing keys */
+  listPath: string;
+  /** Response array field (e.g., "ssh_keys", "data") */
+  listArrayField: string;
+  /** Key field in list response items (e.g., "public_key", "ssh_key") */
+  listKeyField: string;
+  /** HTTP status codes that indicate key conflict (e.g., [409], [422], [400]) */
+  conflictStatuses: number[];
+  /** Whether to call .toString() on the returned ID */
+  idToString?: boolean;
+}
+
+export async function uploadSshKeyWithConflict(
+  name: string,
+  publicKey: string,
+  config: SshKeyUploadConfig,
+): Promise<string> {
+  const headers = {
+    Authorization: `Bearer ${config.apiToken}`,
+    "Content-Type": "application/json",
+  };
+  try {
+    const body: Record<string, unknown> = {
+      [config.nameField ?? "name"]: name,
+      [config.bodyKeyField]: publicKey,
+    };
+    const response = await apiClient.post(
+      `${config.baseUrl}${config.createPath}`,
+      body,
+      { headers },
+    );
+    const key = response.data.ssh_key ?? response.data;
+    const id = key.id;
+    return config.idToString !== false ? id.toString() : id;
+  } catch (error: unknown) {
+    stripSensitiveData(error);
+    if (axios.isAxiosError(error) && config.conflictStatuses.includes(error.response?.status ?? 0)) {
+      const listResponse = await apiClient.get(
+        `${config.baseUrl}${config.listPath}`,
+        { headers },
+      );
+      const items = listResponse.data[config.listArrayField] ?? listResponse.data;
+      const existing = (items as Record<string, unknown>[]).find(
+        (k) => (k[config.listKeyField] as string).trim() === publicKey.trim(),
+      );
+      if (existing) {
+        const id = existing.id;
+        return config.idToString !== false ? String(id) : (id as string);
+      }
+    }
+    throw new Error(
+      `Failed to upload SSH key: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+}
+
 export function stripSensitiveData(error: unknown): void {
   if (axios.isAxiosError(error)) {
     if (error.config) {

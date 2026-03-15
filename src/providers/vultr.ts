@@ -1,7 +1,7 @@
-import axios from "axios";
-import { apiClient, stripSensitiveData, withProviderErrorHandling, assertValidServerId, type CloudProvider } from "./base.js";
+import { apiClient, stripSensitiveData, withProviderErrorHandling, assertValidServerId, uploadSshKeyWithConflict, type CloudProvider } from "./base.js";
 import { withRetry } from "../utils/retry.js";
 import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
+import { VULTR_UBUNTU_OS_ID } from "../constants.js";
 
 interface VultrPlan {
   id: string;
@@ -53,35 +53,17 @@ export class VultrProvider implements CloudProvider {
   }
 
   async uploadSshKey(name: string, publicKey: string): Promise<string> {
-    try {
-      const response = await apiClient.post(
-        `${this.baseUrl}/ssh-keys`,
-        { name, ssh_key: publicKey },
-        {
-          headers: {
-            Authorization: `Bearer ${this.apiToken}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-      return response.data.ssh_key.id;
-    } catch (error: unknown) {
-      stripSensitiveData(error);
-      // Key already exists -> find by matching public key
-      if (axios.isAxiosError(error) && error.response?.status === 409) {
-        const listResponse = await apiClient.get(`${this.baseUrl}/ssh-keys`, {
-          headers: { Authorization: `Bearer ${this.apiToken}` },
-        });
-        const existing = listResponse.data.ssh_keys.find(
-          (k: { ssh_key: string }) => k.ssh_key.trim() === publicKey.trim(),
-        );
-        if (existing) return existing.id;
-      }
-      throw new Error(
-        `Failed to upload SSH key: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    return uploadSshKeyWithConflict(name, publicKey, {
+      apiToken: this.apiToken,
+      baseUrl: this.baseUrl,
+      createPath: "/ssh-keys",
+      bodyKeyField: "ssh_key",
+      listPath: "/ssh-keys",
+      listArrayField: "ssh_keys",
+      listKeyField: "ssh_key",
+      conflictStatuses: [409],
+      idToString: false,
+    });
   }
 
   async createServer(config: ServerConfig): Promise<ServerResult> {
@@ -90,7 +72,7 @@ export class VultrProvider implements CloudProvider {
         label: config.name,
         plan: config.size,
         region: config.region,
-        os_id: 2284, // Ubuntu 24.04
+        os_id: VULTR_UBUNTU_OS_ID,
         user_data: Buffer.from(config.cloudInit).toString("base64"),
       };
       if (config.sshKeyIds?.length) {

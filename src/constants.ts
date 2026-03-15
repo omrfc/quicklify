@@ -78,6 +78,9 @@ export const COOLIFY_DB_CONTAINER = "coolify-db";
 export const COOLIFY_DB_USER = "coolify";
 export const COOLIFY_DB_NAME = "coolify";
 
+// Provider-specific OS IDs
+export const VULTR_UBUNTU_OS_ID = 2284; // Ubuntu 24.04
+
 // Dokploy database/paths
 export const DOKPLOY_DB_CONTAINER = "dokploy-postgres";
 export const DOKPLOY_DB_USER = "dokploy";

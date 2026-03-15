@@ -3,14 +3,10 @@ import { join } from "path";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { SUPPORTED_PROVIDERS, PROVIDER_ENV_KEYS } from "../constants.js";
 import type { SupportedProvider } from "../constants.js";
+import { IS_ANDROID, loadKeyring, isKeychainAvailable as _isKeychainAvailable, getKeychainEntry as _getKeychainEntry } from "../utils/keyring.js";
 
 const SERVICE_NAME = "kastell";
 let _warnedPlaintext = false;
-
-const IS_ANDROID =
-  process.platform === "android" ||
-  process.env["PREFIX"]?.includes("com.termux") ||
-  existsSync("/data/data/com.termux");
 
 const KASTELL_DIR = join(homedir(), ".kastell");
 const TOKENS_FILE = join(KASTELL_DIR, "tokens.json");
@@ -30,29 +26,10 @@ function writeTokensFile(data: Record<string, string>): boolean {
   } catch { return false; }
 }
 
-type KeyringEntry = import("@napi-rs/keyring").Entry;
-let _Entry: (new (service: string, key: string) => KeyringEntry) | null = null;
-let _keyringLoaded = false;
-
-function loadKeyring(): typeof _Entry {
-  if (_keyringLoaded) return _Entry;
-  _keyringLoaded = true;
-  if (IS_ANDROID) return null;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("@napi-rs/keyring") as typeof import("@napi-rs/keyring");
-    _Entry = mod.Entry;
-  } catch { _Entry = null; }
-  return _Entry;
-}
-
 function getKeychainEntry(provider: string) {
   const envKey = PROVIDER_ENV_KEYS[provider as SupportedProvider];
   if (!envKey) return null;
-  const EntryClass = loadKeyring();
-  if (!EntryClass) return null;
-  try { return new EntryClass(SERVICE_NAME, envKey); }
-  catch { return null; }
+  return _getKeychainEntry(SERVICE_NAME, envKey);
 }
 
 export function setToken(provider: string, token: string): boolean {
@@ -107,8 +84,5 @@ export function listStoredProviders(): string[] {
 }
 
 export function isKeychainAvailable(): boolean {
-  const EntryClass = loadKeyring();
-  if (IS_ANDROID || !EntryClass) return false;
-  try { new EntryClass(SERVICE_NAME, "__test__"); return true; }
-  catch { return false; }
+  return _isKeychainAvailable(SERVICE_NAME);
 }
