@@ -184,6 +184,44 @@ const INCIDENT_CHECKS: IncidentReadyCheckDef[] = [
     explain:
       "Log rotation for wtmp and btmp prevents unbounded growth that could fill the filesystem. Properly rotated and compressed logs also make historical login analysis feasible during incident investigation.",
   },
+  {
+    id: "INCID-WTMP-EXISTS",
+    name: "wtmp Login Record File Exists",
+    severity: "warning",
+    check: (output) => {
+      // ls -la /var/log/wtmp /var/log/btmp output
+      const wtmpExists = /\/var\/log\/wtmp/.test(output) && !output.includes("N/A");
+      return {
+        passed: wtmpExists,
+        currentValue: wtmpExists
+          ? "/var/log/wtmp exists (login records available)"
+          : "/var/log/wtmp not found",
+      };
+    },
+    expectedValue: "/var/log/wtmp file exists",
+    fixCommand: "touch /var/log/wtmp && chmod 664 /var/log/wtmp && chown root:utmp /var/log/wtmp",
+    explain:
+      "wtmp records all login/logout events; its absence prevents forensic analysis of unauthorized access.",
+  },
+  {
+    id: "INCID-BTMP-EXISTS",
+    name: "btmp Failed Login Record File Exists",
+    severity: "warning",
+    check: (output) => {
+      // ls -la /var/log/wtmp /var/log/btmp output
+      const btmpExists = /\/var\/log\/btmp/.test(output) && !output.includes("N/A");
+      return {
+        passed: btmpExists,
+        currentValue: btmpExists
+          ? "/var/log/btmp exists (failed login records available)"
+          : "/var/log/btmp not found",
+      };
+    },
+    expectedValue: "/var/log/btmp file exists",
+    fixCommand: "touch /var/log/btmp && chmod 600 /var/log/btmp && chown root:utmp /var/log/btmp",
+    explain:
+      "btmp records failed login attempts; its absence prevents detection of brute-force attack patterns.",
+  },
 ];
 
 export const parseIncidentReadyChecks: CheckParser = (

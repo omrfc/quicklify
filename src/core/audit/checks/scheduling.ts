@@ -161,6 +161,49 @@ const SCHEDULING_CHECKS: SchedulingCheckDef[] = [
     explain:
       "Daily cron scripts directory should be restricted to prevent injection of persistent malicious scripts.",
   },
+  {
+    id: "SCHED-CRONTAB-OWNER",
+    name: "/etc/crontab Owned by Root with Restricted Permissions",
+    severity: "warning",
+    check: (output) => {
+      // stat -c '%a %U %G %n' /etc/crontab output: "600 root root /etc/crontab"
+      const match = output.match(/(\d{3,4})\s+(\w+)\s+\w+\s+.*\/etc\/crontab/);
+      if (!match) return { passed: false, currentValue: "Unable to read /etc/crontab ownership" };
+      const perms = match[1];
+      const owner = match[2];
+      const permNum = parseInt(perms, 10);
+      const isOwnerRoot = owner === "root";
+      const isRestrictedPerms = permNum <= 600;
+      const passed = isOwnerRoot && isRestrictedPerms;
+      return {
+        passed,
+        currentValue: `/etc/crontab: permissions ${perms}, owner ${owner}`,
+      };
+    },
+    expectedValue: "/etc/crontab owned by root with permissions <= 600",
+    fixCommand: "chown root:root /etc/crontab && chmod 600 /etc/crontab",
+    explain:
+      "Non-root owned or world-writable crontab files allow privilege escalation through scheduled job injection.",
+  },
+  {
+    id: "SCHED-NO-USER-CRONTABS",
+    name: "No World-Writable Cron Directories",
+    severity: "warning",
+    check: (output) => {
+      // find /etc/cron* -perm -o+w returns paths or "NONE"
+      const hasWorldWritable = !output.includes("NONE") && /\/etc\/cron/i.test(output);
+      return {
+        passed: !hasWorldWritable,
+        currentValue: hasWorldWritable
+          ? "World-writable cron directories or files found"
+          : "No world-writable cron directories",
+      };
+    },
+    expectedValue: "No world-writable entries in /etc/cron.d, /etc/cron.daily, etc.",
+    fixCommand: "chmod -R o-w /etc/cron.d /etc/cron.daily /etc/cron.weekly /etc/cron.monthly",
+    explain:
+      "World-writable cron directories allow any user to inject scheduled tasks for privilege escalation.",
+  },
 ];
 
 export const parseSchedulingChecks: CheckParser = (

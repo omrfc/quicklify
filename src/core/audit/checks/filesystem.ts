@@ -243,5 +243,37 @@ export const parseFilesystemChecks: CheckParser = (sectionOutput: string, _platf
     "mount -o remount,nosuid /tmp  # also add nosuid to /etc/fstab",
     "Mounting /tmp with nosuid prevents SUID bit exploitation from world-writable temp directory.");
 
-  return [fs01, fs02, fs03, fs04, fs05, fs06, fs07, fs08, fs09, fs10, fs11, fs12, fs13, fs14, fs15];
+  // FS-NODEV-REMOVABLE: Removable media mounted with nodev
+  const fs16 = makeMountCheck("FS-NODEV-REMOVABLE", "/media Mount nodev", "/media", "nodev", "info",
+    "Add nodev option to removable media mount points in /etc/fstab",
+    "Mounting removable media with nodev prevents device file exploits from USB or external media.");
+
+  // FS-VAR-LOG-SEPARATE: /var/log on separate partition
+  const varLogLines = output.split("\n").filter((l) => {
+    const t = l.trim();
+    return t.includes("/var/log") && !t.includes("/var/log/");
+  });
+  const hasVarLogSeparate = varLogLines.length > 0;
+  const fs17: AuditCheck = {
+    id: "FS-VAR-LOG-SEPARATE",
+    category: "Filesystem",
+    name: "/var/log on Separate Partition",
+    severity: "info",
+    passed: isNA ? false : hasVarLogSeparate,
+    currentValue: isNA
+      ? "Unable to determine"
+      : hasVarLogSeparate
+        ? "/var/log is on a separate partition"
+        : "/var/log is not on a separate partition",
+    expectedValue: "/var/log mounted as a distinct partition",
+    fixCommand: "Create separate /var/log partition or LVM volume and mount in /etc/fstab",
+    explain: "Separate /var/log partition prevents log flooding from filling the root filesystem.",
+  };
+
+  // FS-BOOT-NOSUID: /boot mounted with nosuid
+  const fs18 = makeMountCheck("FS-BOOT-NOSUID", "/boot Mount nosuid", "/boot", "nosuid", "info",
+    "mount -o remount,nosuid /boot  # also add nosuid to /etc/fstab",
+    "Mounting /boot with nosuid prevents SUID exploitation from modified boot files.");
+
+  return [fs01, fs02, fs03, fs04, fs05, fs06, fs07, fs08, fs09, fs10, fs11, fs12, fs13, fs14, fs15, fs16, fs17, fs18];
 };

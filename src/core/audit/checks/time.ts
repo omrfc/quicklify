@@ -145,6 +145,47 @@ const TIME_CHECKS: TimeCheckDef[] = [
     explain:
       "Excessive clock drift causes Kerberos authentication failures, TLS errors, and unreliable security event timestamps.",
   },
+  {
+    id: "TIME-NTP-PEERS-CONFIGURED",
+    name: "Multiple NTP Sources Configured",
+    severity: "info",
+    check: (output) => {
+      // ntpq -p output lists peer rows starting with * or + or o
+      const ntpPeerLines = output.split("\n").filter((l) => /^[*+o]/.test(l.trim()));
+      const hasChronySource = /Reference ID/i.test(output);
+      const hasPeers = ntpPeerLines.length >= 2 || hasChronySource;
+      return {
+        passed: hasPeers,
+        currentValue: hasPeers
+          ? `NTP peers configured (${ntpPeerLines.length > 0 ? ntpPeerLines.length + " peer(s)" : "chrony source detected"})`
+          : "Fewer than 2 NTP peers detected",
+      };
+    },
+    expectedValue: "At least 2 NTP peer sources configured for redundancy",
+    fixCommand: "# Add additional NTP servers to /etc/ntp.conf or /etc/chrony/chrony.conf",
+    explain:
+      "Multiple NTP sources provide redundancy and protect against time manipulation from a single compromised server.",
+  },
+  {
+    id: "TIME-NO-DRIFT",
+    name: "System Clock Synchronized",
+    severity: "warning",
+    check: (output) => {
+      const synced =
+        /System clock synchronized:\s*yes/i.test(output) ||
+        /NTP synchronized:\s*yes/i.test(output);
+      return {
+        passed: synced,
+        currentValue: synced
+          ? "System clock is synchronized"
+          : "System clock synchronization not confirmed",
+      };
+    },
+    expectedValue: "timedatectl shows 'System clock synchronized: yes'",
+    fixCommand: "timedatectl set-ntp true && systemctl restart systemd-timesyncd",
+    explain:
+      "Clock drift causes TLS certificate validation failures, log correlation errors, and authentication token expiry issues.",
+  },
 ];
 
 export const parseTimeChecks: CheckParser = (

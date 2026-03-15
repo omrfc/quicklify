@@ -123,6 +123,33 @@ const BANNERS_CHECKS: BannersCheckDef[] = [
     explain:
       "OS version disclosure in banners helps attackers identify specific vulnerabilities for the server's distribution and version.",
   },
+  {
+    id: "BNR-ISSUE-NET-SET",
+    name: "/etc/issue.net Contains a Warning Banner",
+    severity: "info",
+    check: (output) => {
+      // The banners section has: cat /etc/issue.net output
+      // Fail if MISSING, too short, or contains OS identifiers
+      const isMissing = output.includes("MISSING");
+      const osIdentifiers = /\b(Ubuntu|Debian|CentOS|Red Hat|RHEL|Fedora|AlmaLinux|Rocky|SUSE|Arch)\b/i;
+      const content = output.replace(/MISSING/g, "").trim();
+      const passed = !isMissing && content.length > 10 && !osIdentifiers.test(content);
+      return {
+        passed,
+        currentValue: passed
+          ? "/etc/issue.net contains a generic warning banner"
+          : isMissing
+            ? "/etc/issue.net is missing"
+            : content.length <= 10
+              ? "/etc/issue.net content is too short"
+              : "/etc/issue.net discloses OS version information",
+      };
+    },
+    expectedValue: "/etc/issue.net has a warning banner without OS version identifiers",
+    fixCommand: "echo 'Authorized users only. All activity may be monitored.' > /etc/issue.net",
+    explain:
+      "A network login banner provides legal notice to unauthorized users and is required by many compliance frameworks.",
+  },
 ];
 
 export const parseBannersChecks: CheckParser = (

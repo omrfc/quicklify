@@ -206,6 +206,50 @@ const SUPPLY_CHECKS: SupplyChainCheckDef[] = [
     explain:
       "Broken or partially installed packages may indicate interrupted updates, package conflicts, or attempted supply chain attacks. dpkg --audit identifies packages in inconsistent states that could be leveraged by attackers or cause service failures.",
   },
+  {
+    id: "SUPPLY-NO-INSECURE-REPOS",
+    name: "No AllowInsecureRepositories or AllowUnauthenticated in APT Config",
+    severity: "warning",
+    check: (output) => {
+      // apt-config dump returns lines or "NONE"
+      if (output.includes("NONE")) {
+        return { passed: true, currentValue: "No insecure APT configuration options found" };
+      }
+      // Check for dangerous settings being set to true
+      const hasInsecure = /AllowUnauthenticated\s*"?true"?/i.test(output) ||
+        /AllowInsecureRepositories\s*"?true"?/i.test(output);
+      return {
+        passed: !hasInsecure,
+        currentValue: hasInsecure
+          ? "APT configured to allow unauthenticated or insecure repositories"
+          : "No AllowUnauthenticated/AllowInsecureRepositories settings detected",
+      };
+    },
+    expectedValue: "No AllowUnauthenticated or AllowInsecureRepositories set to true in apt config",
+    fixCommand: "Remove AllowUnauthenticated and AllowInsecureRepositories from apt configuration",
+    explain:
+      "Allowing unauthenticated or insecure repositories enables package tampering via man-in-the-middle attacks.",
+  },
+  {
+    id: "SUPPLY-GPG-KEYS-PRESENT",
+    name: "GPG Keys Present for Repository Verification",
+    severity: "info",
+    check: (output) => {
+      // ls /etc/apt/trusted.gpg.d/ returns filenames or "NONE"
+      const hasKeyFiles = /\.gpg\b|\.asc\b/.test(output);
+      const isNone = output.trim() === "NONE" || output.trim() === "";
+      return {
+        passed: hasKeyFiles && !isNone,
+        currentValue: hasKeyFiles
+          ? "GPG key files found in /etc/apt/trusted.gpg.d/"
+          : "No GPG key files in /etc/apt/trusted.gpg.d/",
+      };
+    },
+    expectedValue: "At least one .gpg or .asc file in /etc/apt/trusted.gpg.d/",
+    fixCommand: "# Add GPG key: curl -fsSL https://packages.example.com/gpg | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/example.gpg",
+    explain:
+      "GPG keys in the trusted keyring ensure package integrity verification during apt operations.",
+  },
 ];
 
 export const parseSupplyChainChecks: CheckParser = (

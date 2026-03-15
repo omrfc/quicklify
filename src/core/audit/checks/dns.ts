@@ -93,6 +93,60 @@ const DNS_CHECKS: DnsCheckDef[] = [
     explain:
       "A nameserver must be configured in /etc/resolv.conf for the system to perform DNS lookups. Without it, domain name resolution fails entirely, breaking all network services that rely on hostnames rather than IP addresses.",
   },
+  {
+    id: "DNS-MULTIPLE-NAMESERVERS",
+    name: "Multiple DNS Nameservers Configured",
+    severity: "info",
+    check: (output) => {
+      // grep -c 'nameserver' /etc/resolv.conf returns a count
+      const countMatch = output.match(/\b(\d+)\b/);
+      if (!countMatch) {
+        return { passed: false, currentValue: "Unable to determine nameserver count" };
+      }
+      const count = parseInt(countMatch[1], 10);
+      const passed = count >= 2;
+      return {
+        passed,
+        currentValue: passed
+          ? `${count} nameserver(s) configured in /etc/resolv.conf`
+          : `Only ${count} nameserver configured — single point of failure`,
+      };
+    },
+    expectedValue: "At least 2 nameservers in /etc/resolv.conf for redundancy",
+    fixCommand: "echo 'nameserver 8.8.8.8' >> /etc/resolv.conf  # Add secondary DNS",
+    explain:
+      "A single DNS nameserver creates a single point of failure; multiple servers ensure DNS resolution survives outages.",
+  },
+  {
+    id: "DNS-RESOLV-NOT-LOCALHOST-ONLY",
+    name: "DNS Resolution Not Limited to Localhost Only",
+    severity: "info",
+    check: (output) => {
+      // Parse resolv.conf content for nameserver lines
+      const nameserverLines = output.split("\n").filter((l) => /^\s*nameserver\s+/i.test(l));
+      if (nameserverLines.length === 0) {
+        return { passed: false, currentValue: "No nameserver entries found in /etc/resolv.conf" };
+      }
+      // Check if any nameserver is not localhost
+      const hasNonLocalhost = nameserverLines.some((l) => {
+        const ip = l.replace(/^\s*nameserver\s+/i, "").trim();
+        return ip !== "127.0.0.1" && ip !== "::1" && ip !== "127.0.0.53";
+      });
+      // Also check if a local resolver is in use (127.0.0.53 = systemd-resolved is fine)
+      const hasLocalResolver = nameserverLines.some((l) => l.includes("127.0.0.53"));
+      const passed = hasNonLocalhost || hasLocalResolver;
+      return {
+        passed,
+        currentValue: passed
+          ? "DNS configured with external or managed local resolver"
+          : "DNS resolution limited to raw localhost — no external nameserver or managed resolver",
+      };
+    },
+    expectedValue: "At least one nameserver is external or uses systemd-resolved (127.0.0.53)",
+    fixCommand: "echo 'nameserver 1.1.1.1' >> /etc/resolv.conf",
+    explain:
+      "DNS resolution relying solely on localhost without a running resolver causes total DNS failure.",
+  },
 ];
 
 export const parseDnsChecks: CheckParser = (

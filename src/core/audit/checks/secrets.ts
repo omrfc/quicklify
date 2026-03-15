@@ -250,6 +250,50 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     explain:
       "Group or world-writable authorized_keys files can be modified by unprivileged users to insert their own public key, granting them passwordless SSH access to the account. SSH enforces strict permission checks on this file.",
   },
+  {
+    id: "SEC-NO-READABLE-HISTORY",
+    name: "No World-Readable Bash History Files",
+    severity: "warning",
+    check: (output) => {
+      // find /home -maxdepth 3 -name ".bash_history" -perm -o+r returns paths or "NONE"
+      const hasReadableHistory = output !== "NONE" && /\.bash_history/.test(output);
+      return {
+        passed: !hasReadableHistory,
+        currentValue: hasReadableHistory
+          ? "World-readable .bash_history files found"
+          : "No world-readable .bash_history files detected",
+      };
+    },
+    expectedValue: ".bash_history files are not world-readable",
+    fixCommand: "find /home -name '.bash_history' -exec chmod 600 {} \\;",
+    explain:
+      "World-readable bash history files expose previously typed commands including passwords and API tokens.",
+  },
+  {
+    id: "SEC-NO-SSH-AGENT-FORWARDING",
+    name: "SSH Agent Forwarding Not Globally Enabled",
+    severity: "info",
+    check: (output) => {
+      // sshd -T output: "allowagentforwarding yes" or "allowagentforwarding no"
+      const match = output.match(/allowagentforwarding\s+(\w+)/i);
+      if (!match) {
+        // Cannot determine — conservative pass (not configured = default disabled)
+        return { passed: true, currentValue: "AllowAgentForwarding not explicitly set (default: no)" };
+      }
+      const value = match[1].toLowerCase();
+      const passed = value === "no";
+      return {
+        passed,
+        currentValue: passed
+          ? "SSH agent forwarding is disabled (AllowAgentForwarding no)"
+          : "SSH agent forwarding is enabled (AllowAgentForwarding yes)",
+      };
+    },
+    expectedValue: "AllowAgentForwarding is 'no' in sshd configuration",
+    fixCommand: "Add 'AllowAgentForwarding no' to /etc/ssh/sshd_config && systemctl restart sshd",
+    explain:
+      "SSH agent forwarding exposes the user's authentication agent to the remote server, enabling key hijacking.",
+  },
 ];
 
 export const parseSecretsChecks: CheckParser = (

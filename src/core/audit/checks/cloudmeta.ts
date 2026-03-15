@@ -129,6 +129,28 @@ const CLOUDMETA_CHECKS: CloudMetaCheckDef[] = [
     explain:
       "Even with IMDSv2 enabled, restricting metadata endpoint access by process UID using iptables provides defense-in-depth. This prevents compromised non-root services from enumerating instance metadata or acquiring temporary credentials.",
   },
+  {
+    id: "CLOUD-IMDSV1-DISABLED",
+    name: "IMDSv1 Not Accessible (Only IMDSv2 Works)",
+    severity: "info",
+    check: (output) => {
+      const isBlocked = output.includes("METADATA_BLOCKED");
+      const isV2Available = output.includes("IMDSV2_AVAILABLE");
+      const passed = isBlocked || isV2Available;
+      return {
+        passed,
+        currentValue: passed
+          ? isBlocked
+            ? "Metadata endpoint blocked (IMDSv1 not accessible)"
+            : "IMDSv2 token-based endpoint is available (session tokens required)"
+          : "IMDSv1 may be accessible — IMDSv2 enforcement not confirmed",
+      };
+    },
+    expectedValue: "IMDS endpoint blocked or IMDSv2 token endpoint is available",
+    fixCommand: "# AWS: aws ec2 modify-instance-metadata-options --http-tokens required --instance-id INSTANCE_ID",
+    explain:
+      "IMDSv1 is vulnerable to SSRF attacks; restricting to IMDSv2 requires token-based authentication for metadata access.",
+  },
 ];
 
 export const parseCloudMetaChecks: CheckParser = (

@@ -138,6 +138,55 @@ const FILEINTEGRITY_CHECKS: FileIntegrityCheckDef[] = [
     fixCommand: "echo '-w /etc/shadow -p wa -k identity' >> /etc/audit/rules.d/kastell.rules && augenrules --load",
     explain: "Auditing /etc/shadow detects unauthorized password changes or credential manipulation that could indicate a compromise.",
   },
+  {
+    id: "FINT-AIDE-DB-RECENT",
+    name: "AIDE Database Updated Within Last 30 Days",
+    severity: "warning",
+    check: (output) => {
+      // stat -c '%Y' /var/lib/aide/aide.db returns epoch timestamp or N/A
+      const epochMatch = output.match(/\b(\d{10})\b/);
+      if (!epochMatch) {
+        // AIDE not installed or DB missing — treat as pass (not a failure without AIDE)
+        return { passed: true, currentValue: "AIDE not installed or database not present (not applicable)" };
+      }
+      const dbEpoch = parseInt(epochMatch[1], 10);
+      const nowEpoch = Math.floor(Date.now() / 1000);
+      const ageSeconds = nowEpoch - dbEpoch;
+      const thirtyDaysSeconds = 30 * 24 * 3600;
+      const isRecent = ageSeconds < thirtyDaysSeconds;
+      const ageDays = Math.floor(ageSeconds / 86400);
+      return {
+        passed: isRecent,
+        currentValue: isRecent
+          ? `AIDE database updated ${ageDays} day(s) ago (within 30 days)`
+          : `AIDE database is ${ageDays} day(s) old (stale — exceeds 30 days)`,
+      };
+    },
+    expectedValue: "AIDE database updated within the last 30 days",
+    fixCommand: "aide --update && mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db",
+    explain: "A stale AIDE database fails to detect recent unauthorized file modifications.",
+  },
+  {
+    id: "FINT-CRITICAL-FILE-MONITORING",
+    name: "Critical System Files Monitored by auditd",
+    severity: "warning",
+    check: (output) => {
+      // auditctl -l output with /etc/passwd, /etc/shadow, /etc/sudoers rules
+      const hasPasswd = /\/etc\/passwd/.test(output) && !/NO_RULES/.test(output);
+      const hasShadow = /\/etc\/shadow/.test(output) && !/NO_RULES/.test(output);
+      const hasSudoers = /\/etc\/sudoers/.test(output) && !/NO_RULES/.test(output);
+      const passed = hasPasswd || hasShadow || hasSudoers;
+      return {
+        passed,
+        currentValue: passed
+          ? "At least one critical file (/etc/passwd, /etc/shadow, /etc/sudoers) has an audit rule"
+          : "No audit rules for critical files (/etc/passwd, /etc/shadow, /etc/sudoers)",
+      };
+    },
+    expectedValue: "auditctl rules exist for /etc/passwd, /etc/shadow, or /etc/sudoers",
+    fixCommand: "auditctl -w /etc/passwd -p wa -k identity && auditctl -w /etc/shadow -p wa -k identity && auditctl -w /etc/sudoers -p wa -k sudoers",
+    explain: "Monitoring changes to /etc/passwd, /etc/shadow, and /etc/sudoers detects unauthorized privilege modifications.",
+  },
 ];
 
 export const parseFileIntegrityChecks: CheckParser = (

@@ -135,6 +135,49 @@ const BACKUP_CHECKS: BackupCheckDef[] = [
     explain:
       "/var/backups is the standard system backup location on Debian/Ubuntu systems. Its presence with content indicates system configuration and package state are being preserved for recovery purposes.",
   },
+  {
+    id: "BKUP-ENCRYPTED-BACKUPS",
+    name: "Backup Files Are Encrypted",
+    severity: "info",
+    check: (output) => {
+      // find output for .enc or .gpg files returns paths or "NONE"
+      const hasEncrypted = output !== "NONE" && (/\.enc\b/.test(output) || /\.gpg\b/.test(output));
+      const isNone = output.trim() === "NONE";
+      // If no encrypted files found but also no plain backup files = not applicable (pass)
+      return {
+        passed: hasEncrypted || isNone,
+        currentValue: hasEncrypted
+          ? "Encrypted backup files (.enc/.gpg) found in backup directories"
+          : "No encrypted backup files detected (consider encrypting backups)",
+      };
+    },
+    expectedValue: "Backup files use .enc or .gpg encryption",
+    fixCommand: "# Encrypt existing backups: gpg --symmetric --cipher-algo AES256 backup.tar.gz",
+    explain:
+      "Unencrypted backup files expose sensitive data if backup storage is compromised.",
+  },
+  {
+    id: "BKUP-BACKUP-TOOL-INSTALLED",
+    name: "Backup Tool Installed",
+    severity: "info",
+    check: (output) => {
+      // which rsync borg restic returns paths or "NO_BACKUP_TOOLS"
+      const hasNoTools = output.includes("NO_BACKUP_TOOLS");
+      const hasTools = !hasNoTools && (
+        /\brsync\b/.test(output) || /\bborg\b/.test(output) || /\brestic\b/.test(output)
+      );
+      return {
+        passed: hasTools,
+        currentValue: hasTools
+          ? "Backup tool installed (rsync, borg, or restic detected)"
+          : "No backup tool (rsync/borg/restic) installed",
+      };
+    },
+    expectedValue: "At least one of rsync, borg, or restic is installed",
+    fixCommand: "apt-get install -y rsync  # or: apt-get install -y restic",
+    explain:
+      "A proper backup tool enables automated, incremental, and encrypted backups essential for disaster recovery.",
+  },
 ];
 
 export const parseBackupChecks: CheckParser = (

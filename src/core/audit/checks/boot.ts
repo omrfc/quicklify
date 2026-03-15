@@ -174,6 +174,41 @@ const BOOT_CHECKS: BootCheckDef[] = [
     explain:
       "Restricting kernel module loading after boot prevents attackers from loading rootkit kernel modules at runtime.",
   },
+  {
+    id: "BOOT-UEFI-SECURE",
+    name: "System Uses UEFI Boot",
+    severity: "info",
+    check: (output) => {
+      const isUefi = /\bUEFI\b/.test(output);
+      return {
+        passed: isUefi,
+        currentValue: isUefi ? "System boots via UEFI" : "System boots via BIOS (legacy)",
+      };
+    },
+    expectedValue: "System uses UEFI boot mode",
+    fixCommand: "# UEFI vs BIOS is a hardware/firmware setting — configure via BIOS setup",
+    explain:
+      "UEFI boot supports Secure Boot which verifies bootloader integrity, preventing boot-level rootkits.",
+  },
+  {
+    id: "BOOT-RESCUE-AUTH",
+    name: "Rescue/Emergency Mode Requires Authentication",
+    severity: "warning",
+    check: (output) => {
+      const hasAuth = /sulogin/i.test(output);
+      return {
+        passed: hasAuth,
+        currentValue: hasAuth
+          ? "Rescue/emergency mode requires authentication (sulogin found)"
+          : "Rescue/emergency mode may not require authentication",
+      };
+    },
+    expectedValue: "sulogin reference found in rescue.service or emergency.service",
+    fixCommand:
+      "systemctl edit rescue.service  # Add ExecStart=-/usr/lib/systemd/systemd-sulogin-shell rescue",
+    explain:
+      "Without authentication on rescue mode, physical or console access grants immediate root shell.",
+  },
 ];
 
 export const parseBootChecks: CheckParser = (

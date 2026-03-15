@@ -232,6 +232,8 @@ function bootSection(): string {
     `grep '/boot' /proc/mounts 2>/dev/null || echo 'N/A'`,
     `grep -l sulogin /usr/lib/systemd/system/rescue.service /usr/lib/systemd/system/emergency.service 2>/dev/null || echo 'N/A'`,
     `sysctl kernel.modules_disabled 2>/dev/null || echo 'N/A'`,
+    // NEW: UEFI vs BIOS detection
+    `[ -d /sys/firmware/efi ] && echo 'UEFI' || echo 'BIOS'`,
   ].join("\n");
 }
 
@@ -256,6 +258,8 @@ function timeSection(): string {
     `chronyc tracking 2>/dev/null | head -10 || echo 'N/A'`,
     `cat /etc/timezone 2>/dev/null || echo 'N/A'`,
     `hwclock --show 2>/dev/null | head -3 || echo 'N/A'`,
+    // NEW: NTP peer status
+    `ntpq -p 2>/dev/null | head -5 || echo 'N/A'`,
   ].join("\n");
 }
 
@@ -279,6 +283,8 @@ function fileIntegritySection(): string {
     `dpkg -l auditd 2>/dev/null | grep '^ii' || echo 'NOT_INSTALLED'`,
     `systemctl is-active auditd 2>/dev/null || echo 'inactive'`,
     `auditctl -l 2>/dev/null | grep -E '/etc/passwd|/etc/shadow|/etc/sudoers' | head -5 || echo 'NO_RULES'`,
+    // NEW: AIDE database modification timestamp
+    `stat -c '%Y' /var/lib/aide/aide.db 2>/dev/null || stat -c '%Y' /var/lib/aide/aide.db.gz 2>/dev/null || echo 'N/A'`,
   ].join("\n");
 }
 
@@ -375,6 +381,10 @@ function secretsSection(): string {
     `stat -c '%a %n' /root/.ssh/id_rsa /root/.ssh/id_ed25519 /root/.ssh/id_ecdsa 2>/dev/null || echo 'NO_KEYS'`,
     `git config --global --get-regexp 'url.*token' 2>/dev/null | head -5 || echo 'NO_GIT_TOKENS'`,
     `grep -rEl '(password|secret|token|api_key|apikey|passwd)\s*=' /etc 2>/dev/null | grep -v '\.bak' | head -10 || echo 'NONE'`,
+    // NEW: world-readable bash history
+    `find /home -maxdepth 3 -name ".bash_history" -perm -o+r 2>/dev/null | head -5 || echo 'NONE'`,
+    // NEW: SSH agent forwarding
+    `sshd -T 2>/dev/null | grep -i 'allowagentforwarding' || echo 'N/A'`,
   ].join("\n");
 }
 
@@ -395,6 +405,8 @@ function supplyChainSection(): string {
     `ls /etc/apt/trusted.gpg.d/ 2>/dev/null || echo 'NONE'`,
     `dpkg --audit 2>/dev/null | head -10 || echo 'NONE'`,
     `apt-key list 2>&1 | head -20 || echo 'NONE'`,
+    // NEW: insecure apt config
+    `apt-config dump 2>/dev/null | grep -i 'AllowUnauthenticated\|AllowInsecureRepositories' | head -5 || echo 'NONE'`,
   ].join("\n");
 }
 
@@ -406,6 +418,8 @@ function backupSection(): string {
     `grep -rE '(rsync|borg|restic|tar.*backup)' /etc/cron.d /etc/cron.daily /etc/crontab /var/spool/cron/crontabs/ 2>/dev/null | head -10 || echo 'NO_BACKUP_CRON'`,
     `which rsync borg restic 2>/dev/null || echo 'NO_BACKUP_TOOLS'`,
     `find /var/backups /root/.kastell/backups -maxdepth 2 -type f -perm /o+r 2>/dev/null | head -10 || echo 'NONE'`,
+    // NEW: encrypted backup files
+    `find /var/backups /root/.kastell/backups -maxdepth 2 -name "*.enc" -o -name "*.gpg" 2>/dev/null | head -5 || echo 'NONE'`,
   ].join("\n");
 }
 
@@ -416,6 +430,8 @@ function resourceLimitsSection(): string {
     `ulimit -u 2>/dev/null || echo 'N/A'`,
     `sysctl kernel.threads-max 2>/dev/null || echo 'N/A'`,
     `grep -E 'nproc|maxlogins' /etc/security/limits.conf /etc/security/limits.d/*.conf 2>/dev/null | head -10 || echo 'NONE'`,
+    // NEW: limits.conf active entries
+    `cat /etc/security/limits.conf 2>/dev/null | grep -vE '^#|^$' | head -20 || echo 'NONE'`,
   ].join("\n");
 }
 
@@ -428,6 +444,8 @@ function incidentReadySection(): string {
     `systemctl is-active rsyslog vector fluent-bit promtail 2>/dev/null | head -5 || echo 'N/A'`,
     `last 2>/dev/null | head -3 && lastb 2>/dev/null | head -3 || echo 'NO_LAST'`,
     `grep -E 'wtmp|lastb' /etc/logrotate.conf /etc/logrotate.d/* 2>/dev/null | head -5 || echo 'NO_LOGROTATE_WTMP'`,
+    // NEW: wtmp and btmp file existence
+    `ls -la /var/log/wtmp /var/log/btmp 2>/dev/null || echo 'N/A'`,
   ].join("\n");
 }
 
@@ -438,6 +456,8 @@ function dnsSection(): string {
     `cat /etc/resolv.conf 2>/dev/null || echo 'N/A'`,
     `which stubby dnscrypt-proxy 2>/dev/null || echo 'NONE'`,
     `lsattr /etc/resolv.conf 2>/dev/null || echo 'N/A'`,
+    // NEW: nameserver count in resolv.conf
+    `grep -c 'nameserver' /etc/resolv.conf 2>/dev/null || echo '0'`,
   ].join("\n");
 }
 

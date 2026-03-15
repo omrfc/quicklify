@@ -157,6 +157,59 @@ const RLIMIT_CHECKS: ResourceLimitsCheckDef[] = [
     explain:
       "Setting maxlogins in /etc/security/limits.conf limits concurrent login sessions per user. This prevents a single compromised account from holding many simultaneous sessions for parallel attack operations.",
   },
+  {
+    id: "RLIMIT-LIMITS-CONF-CONFIGURED",
+    name: "/etc/security/limits.conf Has Active Entries",
+    severity: "info",
+    check: (output) => {
+      // cat /etc/security/limits.conf filtered for non-comment, non-empty lines
+      // Returns actual content lines or "NONE"
+      const isNone = output.trim() === "NONE" || output.trim() === "";
+      if (isNone) {
+        return { passed: false, currentValue: "No active entries in /etc/security/limits.conf" };
+      }
+      // Count non-empty, non-comment lines
+      const activeLines = output.split("\n").filter((l) => {
+        const t = l.trim();
+        return t.length > 0 && !t.startsWith("#");
+      });
+      const passed = activeLines.length > 0;
+      return {
+        passed,
+        currentValue: passed
+          ? `${activeLines.length} active limit entries configured`
+          : "No active entries in /etc/security/limits.conf",
+      };
+    },
+    expectedValue: "At least one active limit entry in /etc/security/limits.conf",
+    fixCommand: "echo '* soft nproc 4096\n* hard nproc 8192' >> /etc/security/limits.conf",
+    explain:
+      "Configured resource limits in limits.conf prevent individual users from exhausting system resources in denial-of-service scenarios.",
+  },
+  {
+    id: "RLIMIT-NPROC-LIMITED",
+    name: "nproc Limit Set to Prevent Fork Bombs",
+    severity: "warning",
+    check: (output) => {
+      // grep output for nproc entries in limits.conf
+      const nprocMatch = output.match(/\bnproc\b.*?\b(\d+)\b/);
+      if (!nprocMatch) {
+        return { passed: false, currentValue: "No nproc limit found in /etc/security/limits.conf" };
+      }
+      const value = parseInt(nprocMatch[1], 10);
+      const passed = value < 10000;
+      return {
+        passed,
+        currentValue: passed
+          ? `nproc limit: ${value} (within safe range)`
+          : `nproc limit: ${value} (excessively high — fork bomb risk)`,
+      };
+    },
+    expectedValue: "nproc limit set and < 10000",
+    fixCommand: "echo '* hard nproc 4096' >> /etc/security/limits.conf",
+    explain:
+      "Without nproc limits, a single user can exhaust all process slots via fork bombs, causing system-wide denial of service.",
+  },
 ];
 
 export const parseResourceLimitsChecks: CheckParser = (
