@@ -93,17 +93,23 @@ Built-in Model Context Protocol server for AI-powered server management. Works w
 
 **Binary**: `kastell-mcp` (stdio transport)
 
-### Available Tools (7)
+### Available Tools (13)
 
 | Tool | Actions | Description |
 |------|---------|-------------|
 | `server_info` | list, status, health, sizes | Query server info, check status, list available sizes |
 | `server_logs` | logs, monitor | Fetch logs and system metrics via SSH |
 | `server_manage` | add, remove, destroy | Register, unregister, or destroy servers |
-| `server_maintain` | update, restart, maintain | Update Coolify, restart, full maintenance |
+| `server_maintain` | update, restart, maintain | Update platform, restart, full maintenance |
 | `server_secure` | secure-setup, secure-audit, firewall-*, domain-* | Security, firewall, domain management (10 actions) |
 | `server_backup` | backup-*, snapshot-* | Backup/restore + VPS snapshots (6 actions) |
-| `server_provision` | create | Provision new servers (Coolify or bare mode) |
+| `server_provision` | create | Provision new servers (Coolify, Dokploy, or bare mode) |
+| `server_audit` | audit | Security audit with summary/json/score output |
+| `server_evidence` | collect | Forensic evidence package with SHA256 checksums |
+| `server_guard` | start, stop, status | Autonomous security monitoring daemon |
+| `server_doctor` | diagnose | Proactive health analysis with remediation |
+| `server_lock` | harden | Production hardening in one step |
+| `server_fleet` | overview | Fleet-wide health and security posture |
 
 ### SAFE_MODE (default: enabled)
 
@@ -138,7 +144,7 @@ Destructive operations blocked by default: `destroy`, `restore`, `snapshot-delet
 - **Config**: YAML (js-yaml) + JSON
 - **MCP**: @modelcontextprotocol/sdk + Zod (input validation)
 - **Config Storage**: `~/.kastell/` (servers.json, config.json, backups/)
-- **Testing**: Jest (2,191 tests, 84 suites, ~95% coverage)
+- **Testing**: Jest (3,333 tests, 149 suites, ~95% coverage)
 - **Linting**: ESLint 10 + typescript-eslint + Prettier
 
 ## Security Model

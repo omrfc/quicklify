@@ -237,7 +237,7 @@ kastell init --template production --provider hetzner
 
 ## Security
 
-Kastell is built with security as a priority -- **2,266 tests** across 86 suites, including dedicated security test suites.
+Kastell is built with security as a priority -- **3,333 tests** across 149 suites, including dedicated security test suites.
 
 - API tokens are never stored on disk -- prompted at runtime or via environment variables
 - SSH keys are auto-generated if needed (Ed25519)
@@ -311,6 +311,11 @@ Available tools:
 | `server_backup` | backup, snapshot | Backup/restore databases and create/manage VPS snapshots |
 | `server_provision` | create | Provision new servers on cloud providers |
 | `server_audit` | audit | Run security audit with summary/json/score output formats |
+| `server_evidence` | collect | Collect forensic evidence package with checksums |
+| `server_guard` | start, stop, status | Manage autonomous security monitoring daemon |
+| `server_doctor` | diagnose | Proactive health analysis with remediation commands |
+| `server_lock` | harden | Harden server to production standard in one step |
+| `server_fleet` | overview | Fleet-wide health and security posture dashboard |
 
 > All destructive operations (destroy, restore, snapshot-delete, provision, restart, maintain, snapshot-create) require `SAFE_MODE=false` to execute.
 
@@ -342,9 +347,9 @@ The `--threshold` flag causes a non-zero exit code when the score falls below th
 
 ## What's Next
 
-- kastell.dev website
-- Guard daemon and fleet management
+- Audit Pro: 400+ security checks across 20+ categories
 - Plugin ecosystem for AI IDEs
+- Dashboard and managed service
 
 ## Philosophy
 

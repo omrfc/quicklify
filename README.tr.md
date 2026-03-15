@@ -237,7 +237,7 @@ kastell init --template production --provider hetzner
 
 ## Güvenlik
 
-Kastell güvenlik öncelikli olarak geliştirilmektedir -- 86 test suite'inde **2.266 test**, özel güvenlik test suite'leri dahil.
+Kastell güvenlik öncelikli olarak geliştirilmektedir -- 149 test suite'inde **3.333 test**, özel güvenlik test suite'leri dahil.
 
 - API token'ları asla diske kaydedilmez -- çalışma zamanında sorulur veya ortam değişkenlerinden alınır
 - SSH anahtarları gerekirse otomatik oluşturulur (Ed25519)
@@ -311,6 +311,11 @@ Mevcut araçlar:
 | `server_backup` | backup, snapshot | Veritabanı yedekle/geri yükle ve VPS snapshot oluştur/yönet |
 | `server_provision` | create | Bulut sağlayıcılarda yeni sunucu oluştur |
 | `server_audit` | audit | Güvenlik denetimi çalıştır (summary/json/score çıktı formatları) |
+| `server_evidence` | collect | Adli kanıt paketi topla (SHA256 checksum ile) |
+| `server_guard` | start, stop, status | Otonom güvenlik izleme daemon'u yönet |
+| `server_doctor` | diagnose | Proaktif sağlık analizi ve iyileştirme komutları |
+| `server_lock` | harden | Sunucuyu tek adımda production standardına sıkılaştır |
+| `server_fleet` | overview | Tüm filo için sağlık ve güvenlik duruşu panosu |
 
 > Tüm yıkıcı işlemler (destroy, restore, snapshot-delete, provision, restart, maintain, snapshot-create) çalıştırılmak için `SAFE_MODE=false` gerektirir.
 
@@ -335,9 +340,9 @@ jobs:
 
 ## Gelecek Planlar
 
-- kastell.dev web sitesi
-- Guard daemon ve fleet yönetimi
+- Audit Pro: 20+ kategoride 400+ güvenlik kontrolü
 - AI IDE'ler için plugin ekosistemi
+- Dashboard ve yönetilen hizmet
 
 ## Felsefe
 
