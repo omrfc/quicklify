@@ -30,6 +30,7 @@ const mockAuditResult = {
   serverIp: "1.2.3.4",
   platform: "bare" as const,
   timestamp: "2026-03-11T00:00:00.000Z",
+  auditVersion: "1.0.0",
   categories: [],
   overallScore: 85,
   quickWins: [],

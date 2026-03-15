@@ -20,6 +20,7 @@ const makeAuditResult = (score: number) => ({
     serverIp: "1.2.3.4",
     platform: "bare" as const,
     timestamp: new Date().toISOString(),
+    auditVersion: "1.0.0",
     categories: [],
     overallScore: score,
     quickWins: [],

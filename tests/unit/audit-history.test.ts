@@ -18,6 +18,7 @@ function makeResult(overrides: Partial<AuditResult> = {}): AuditResult {
     serverIp: "1.2.3.4",
     platform: "bare",
     timestamp: "2026-03-08T10:00:00Z",
+    auditVersion: "1.0.0",
     categories: [
       { name: "SSH", checks: [], score: 80, maxScore: 100 },
       { name: "Firewall", checks: [], score: 60, maxScore: 100 },
