@@ -6,7 +6,6 @@ import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
 import * as serverSelect from "../../src/utils/serverSelect";
 import {
-  backupCommand,
   formatTimestamp,
   getBackupDir,
   buildPgDumpCommand,
@@ -17,7 +16,8 @@ import {
   listBackups,
   listOrphanBackups,
   cleanupServerBackups,
-} from "../../src/commands/backup";
+} from "../../src/core/backup";
+import { backupCommand } from "../../src/commands/backup";
 
 jest.mock("fs", () => ({
   mkdirSync: jest.fn(),

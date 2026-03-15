@@ -1,37 +1,20 @@
 import { resolveServer } from "../utils/serverSelect.js";
-import { checkSshAvailable, sshExec } from "../utils/ssh.js";
+import { checkSshAvailable } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
-import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 import { requireManagedMode } from "../utils/modeGuard.js";
 import { updateServer } from "../utils/config.js";
 import { resolvePlatform } from "../adapters/factory.js";
 import {
   isValidDomain,
   sanitizeDomain,
-  escapePsqlString,
   buildSetFqdnCommand,
-  buildGetFqdnCommand,
-  buildCoolifyCheckCommand,
-  buildDnsCheckCommand,
-  parseDnsResult,
-  parseFqdn,
-  buildPlatformCheckCommand,
   platformDefaults,
+  setDomain,
+  removeDomain,
+  getDomain,
+  checkDns,
 } from "../core/domain.js";
 import type { Platform } from "../types/index.js";
-export {
-  isValidDomain,
-  sanitizeDomain,
-  escapePsqlString,
-  buildSetFqdnCommand,
-  buildGetFqdnCommand,
-  buildCoolifyCheckCommand,
-  buildPlatformCheckCommand,
-  buildDnsCheckCommand,
-  parseDnsResult,
-  parseFqdn,
-  platformDefaults,
-};
 
 export async function domainCommand(
   subcommand?: string,
@@ -101,10 +84,10 @@ async function domainAdd(
   }
 
   const ssl = options?.ssl !== false; // default true
-  const command = buildSetFqdnCommand(domain, ssl, platform);
-  const { dbContainer, label: platformLabel } = platformDefaults(platform);
+  const { label: platformLabel } = platformDefaults(platform);
 
   if (dryRun) {
+    const command = buildSetFqdnCommand(domain, ssl, platform);
     logger.title("Dry Run - Add Domain");
     logger.info(`Server: ${name} (${ip})`);
     logger.info(`Platform: ${platformLabel}`);
@@ -123,40 +106,27 @@ async function domainAdd(
   const spinner = createSpinner(`Setting domain to ${domain}...`);
   spinner.start();
 
-  try {
-    const checkResult = await sshExec(ip, buildPlatformCheckCommand(platform));
-    if (!checkResult.stdout.includes(dbContainer)) {
-      spinner.fail(`${platformLabel} database container not found`);
-      logger.error(`Is ${platformLabel} installed and running on this server?`);
-      logger.info("Run: kastell status <server> to check");
-      return;
-    }
+  const result = await setDomain(ip, domain, ssl, platform);
 
-    const result = await sshExec(ip, command);
-    if (result.code !== 0) {
-      spinner.fail("Failed to set domain");
-      if (result.stderr) logger.error(result.stderr);
-      return;
-    }
-
-    spinner.succeed(`Domain set to ${domain} on ${name}`);
-    await updateServer(name, { domain });
-    const protocol = ssl ? "https" : "http";
-    logger.success(`${platformLabel} is now accessible at ${protocol}://${domain}`);
-    logger.info("Make sure your DNS A record points to " + ip);
-  } catch (error: unknown) {
+  if (!result.success) {
     spinner.fail("Failed to set domain");
-    logger.error(getErrorMessage(error));
-    const hint = mapSshError(error, ip);
-    if (hint) logger.info(hint);
+    logger.error(result.error ?? "Unknown error");
+    if (result.hint) logger.info(result.hint);
+    return;
   }
+
+  spinner.succeed(`Domain set to ${domain} on ${name}`);
+  await updateServer(name, { domain });
+  const protocol = ssl ? "https" : "http";
+  logger.success(`${platformLabel} is now accessible at ${protocol}://${domain}`);
+  logger.info("Make sure your DNS A record points to " + ip);
 }
 
 async function domainRemove(ip: string, name: string, platform: Platform, dryRun: boolean): Promise<void> {
   const { port: defaultPort, label: platformLabel } = platformDefaults(platform);
-  const command = buildSetFqdnCommand(`${ip}:${defaultPort}`, false, platform);
 
   if (dryRun) {
+    const command = buildSetFqdnCommand(`${ip}:${defaultPort}`, false, platform);
     logger.title("Dry Run - Remove Domain");
     logger.info(`Server: ${name} (${ip})`);
     logger.info(`Will reset to: http://${ip}:${defaultPort}`);
@@ -173,23 +143,18 @@ async function domainRemove(ip: string, name: string, platform: Platform, dryRun
   const spinner = createSpinner("Removing domain...");
   spinner.start();
 
-  try {
-    const result = await sshExec(ip, command);
-    if (result.code !== 0) {
-      spinner.fail("Failed to remove domain");
-      if (result.stderr) logger.error(result.stderr);
-      return;
-    }
+  const result = await removeDomain(ip, platform);
 
-    spinner.succeed(`Domain removed from ${name}`);
-    await updateServer(name, { domain: undefined });
-    logger.success(`${platformLabel} is now accessible at http://${ip}:${defaultPort}`);
-  } catch (error: unknown) {
+  if (!result.success) {
     spinner.fail("Failed to remove domain");
-    logger.error(getErrorMessage(error));
-    const hint = mapSshError(error, ip);
-    if (hint) logger.info(hint);
+    logger.error(result.error ?? "Unknown error");
+    if (result.hint) logger.info(result.hint);
+    return;
   }
+
+  spinner.succeed(`Domain removed from ${name}`);
+  await updateServer(name, { domain: undefined });
+  logger.success(`${platformLabel} is now accessible at http://${ip}:${defaultPort}`);
 }
 
 async function domainCheck(ip: string, options?: { domain?: string }): Promise<void> {
@@ -207,104 +172,77 @@ async function domainCheck(ip: string, options?: { domain?: string }): Promise<v
   const spinner = createSpinner(`Checking DNS for ${domain}...`);
   spinner.start();
 
-  try {
-    const result = await sshExec(ip, buildDnsCheckCommand(domain));
-    const resolvedIp = parseDnsResult(result.stdout);
+  const result = await checkDns(ip, domain);
 
-    if (!resolvedIp) {
-      spinner.fail(`No A record found for ${domain}`);
-      logger.info("Add an A record pointing to " + ip);
-      return;
-    }
-
-    if (resolvedIp === ip) {
-      spinner.succeed(`DNS OK: ${domain} → ${resolvedIp}`);
-    } else {
-      spinner.warn(`DNS mismatch: ${domain} → ${resolvedIp} (expected ${ip})`);
-      logger.info("Update your A record to point to " + ip);
-    }
-  } catch (error: unknown) {
+  if (result.error) {
     spinner.fail("Failed to check DNS");
-    logger.error(getErrorMessage(error));
-    const hint = mapSshError(error, ip);
-    if (hint) logger.info(hint);
+    logger.error(result.error);
+    if (result.hint) logger.info(result.hint);
+    return;
+  }
+
+  if (!result.resolvedIp) {
+    spinner.fail(`No A record found for ${domain}`);
+    logger.info("Add an A record pointing to " + ip);
+    return;
+  }
+
+  if (result.match) {
+    spinner.succeed(`DNS OK: ${domain} → ${result.resolvedIp}`);
+  } else {
+    spinner.warn(`DNS mismatch: ${domain} → ${result.resolvedIp} (expected ${ip})`);
+    logger.info("Update your A record to point to " + ip);
   }
 }
 
 async function domainList(ip: string, name: string, platform: Platform): Promise<void> {
   const spinner = createSpinner(`Fetching domain from ${name}...`);
   spinner.start();
-  const { port: defaultPort, dbContainer, label: platformLabel } = platformDefaults(platform);
+  const { port: defaultPort } = platformDefaults(platform);
 
-  try {
-    const checkResult = await sshExec(ip, buildPlatformCheckCommand(platform));
-    if (!checkResult.stdout.includes(dbContainer)) {
-      spinner.fail(`${platformLabel} database container not found`);
-      logger.error(`Is ${platformLabel} installed and running on this server?`);
-      return;
-    }
+  const result = await getDomain(ip, platform);
 
-    const result = await sshExec(ip, buildGetFqdnCommand(platform));
-    if (result.code !== 0) {
-      spinner.fail("Failed to fetch domain");
-      if (result.stderr) logger.error(result.stderr);
-      return;
-    }
-
-    const fqdn = parseFqdn(result.stdout);
-    if (fqdn) {
-      spinner.succeed(`Current domain for ${name}`);
-      logger.info(`FQDN: ${fqdn}`);
-    } else {
-      spinner.succeed(`No custom domain set for ${name}`);
-      logger.info(`Default: http://${ip}:${defaultPort}`);
-    }
-  } catch (error: unknown) {
+  if (result.error) {
     spinner.fail("Failed to fetch domain");
-    logger.error(getErrorMessage(error));
-    const hint = mapSshError(error, ip);
-    if (hint) logger.info(hint);
+    logger.error(result.error);
+    if (result.hint) logger.info(result.hint);
+    return;
+  }
+
+  if (result.fqdn) {
+    spinner.succeed(`Current domain for ${name}`);
+    logger.info(`FQDN: ${result.fqdn}`);
+  } else {
+    spinner.succeed(`No custom domain set for ${name}`);
+    logger.info(`Default: http://${ip}:${defaultPort}`);
   }
 }
 
 async function domainInfo(ip: string, name: string, platform: Platform): Promise<void> {
   const spinner = createSpinner(`Fetching domain info for ${name}...`);
   spinner.start();
-  const { port: defaultPort, dbContainer, label: platformLabel } = platformDefaults(platform);
+  const { port: defaultPort, label: platformLabel } = platformDefaults(platform);
 
-  try {
-    const checkResult = await sshExec(ip, buildPlatformCheckCommand(platform));
-    if (!checkResult.stdout.includes(dbContainer)) {
-      spinner.fail(`${platformLabel} database container not found`);
-      logger.error(`Is ${platformLabel} installed and running on this server?`);
-      return;
-    }
+  const result = await getDomain(ip, platform);
 
-    const result = await sshExec(ip, buildGetFqdnCommand(platform));
-    if (result.code !== 0) {
-      spinner.fail("Failed to fetch domain info");
-      if (result.stderr) logger.error(result.stderr);
-      return;
-    }
-
-    const fqdn = parseFqdn(result.stdout);
-    spinner.succeed(`Domain info for ${name}`);
-    console.log();
-    logger.info(`Server: ${name} (${ip})`);
-    logger.info(`Platform: ${platformLabel}`);
-    if (fqdn) {
-      logger.info(`FQDN: ${fqdn}`);
-      const isHttps = fqdn.startsWith("https://");
-      logger.info(`SSL: ${isHttps ? "enabled" : "disabled"}`);
-      logger.info(`URL: ${fqdn}`);
-    } else {
-      logger.info(`FQDN: not set (using IP)`);
-      logger.info(`URL: http://${ip}:${defaultPort}`);
-    }
-  } catch (error: unknown) {
+  if (result.error) {
     spinner.fail("Failed to fetch domain info");
-    logger.error(getErrorMessage(error));
-    const hint = mapSshError(error, ip);
-    if (hint) logger.info(hint);
+    logger.error(result.error);
+    if (result.hint) logger.info(result.hint);
+    return;
+  }
+
+  spinner.succeed(`Domain info for ${name}`);
+  console.log();
+  logger.info(`Server: ${name} (${ip})`);
+  logger.info(`Platform: ${platformLabel}`);
+  if (result.fqdn) {
+    logger.info(`FQDN: ${result.fqdn}`);
+    const isHttps = result.fqdn.startsWith("https://");
+    logger.info(`SSL: ${isHttps ? "enabled" : "disabled"}`);
+    logger.info(`URL: ${result.fqdn}`);
+  } else {
+    logger.info(`FQDN: not set (using IP)`);
+    logger.info(`URL: http://${ip}:${defaultPort}`);
   }
 }

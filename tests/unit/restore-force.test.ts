@@ -21,9 +21,12 @@ jest.mock("os", () => ({
 
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");
-jest.mock("../../src/commands/backup", () => ({
+jest.mock("../../src/core/backup", () => ({
+  ...jest.requireActual("../../src/core/backup"),
   listBackups: jest.fn(),
   getBackupDir: jest.fn().mockReturnValue("/home/test/.kastell/backups/my-server"),
+  loadManifest: jest.fn(),
+  restoreBareBackup: jest.fn(),
 }));
 jest.mock("../../src/adapters/factory", () => ({
   getAdapter: jest.fn(),
@@ -34,12 +37,12 @@ import { existsSync, readFileSync } from "fs";
 import inquirer from "inquirer";
 import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
-import * as backupModule from "../../src/commands/backup";
+import * as coreBackup from "../../src/core/backup";
 import { restoreCommand } from "../../src/commands/restore";
 
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
-const mockedBackup = backupModule as jest.Mocked<typeof backupModule>;
+const mockedBackup = coreBackup as jest.Mocked<typeof coreBackup>;
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;
 const mockedInquirerPrompt = inquirer.prompt as jest.MockedFunction<typeof inquirer.prompt>;

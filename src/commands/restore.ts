@@ -4,12 +4,13 @@ import inquirer from "inquirer";
 import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable } from "../utils/ssh.js";
 import { isBareServer } from "../utils/modeGuard.js";
-import { listBackups, getBackupDir } from "./backup.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 import { isSafeMode } from "../core/manage.js";
 import { getAdapter } from "../adapters/factory.js";
 import {
+  listBackups,
+  getBackupDir,
   buildStopCoolifyCommand,
   buildStartCoolifyCommand,
   buildStartDbCommand,
@@ -17,23 +18,8 @@ import {
   buildRestoreConfigCommand,
   buildCleanupCommand,
   loadManifest,
-  scpUpload,
-  tryRestartCoolify,
   restoreBareBackup,
 } from "../core/backup.js";
-
-// Re-export pure functions from core/backup.ts for backward compatibility
-export {
-  buildStopCoolifyCommand,
-  buildStartCoolifyCommand,
-  buildStartDbCommand,
-  buildRestoreDbCommand,
-  buildRestoreConfigCommand,
-  buildCleanupCommand,
-  loadManifest,
-  scpUpload,
-  tryRestartCoolify,
-};
 
 // Command
 

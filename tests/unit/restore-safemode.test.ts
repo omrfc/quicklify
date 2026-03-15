@@ -14,9 +14,12 @@ import { restoreCommand } from "../../src/commands/restore";
 jest.mock("../../src/core/manage");
 jest.mock("../../src/utils/ssh");
 jest.mock("../../src/utils/config");
-jest.mock("../../src/commands/backup", () => ({
+jest.mock("../../src/core/backup", () => ({
+  ...jest.requireActual("../../src/core/backup"),
   listBackups: jest.fn().mockReturnValue([]),
   getBackupDir: jest.fn().mockReturnValue("/home/user/.kastell/backups/test"),
+  loadManifest: jest.fn(),
+  restoreBareBackup: jest.fn(),
 }));
 
 const mockedManage = manageModule as jest.Mocked<typeof manageModule>;

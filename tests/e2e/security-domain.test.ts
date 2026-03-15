@@ -1,12 +1,12 @@
 import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
 import {
-  domainCommand,
   isValidDomain,
   sanitizeDomain,
   buildSetFqdnCommand,
   buildDnsCheckCommand,
-} from "../../src/commands/domain";
+} from "../../src/core/domain";
+import { domainCommand } from "../../src/commands/domain";
 
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");

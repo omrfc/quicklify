@@ -48,7 +48,8 @@ import { checkSshAvailable } from "../../src/utils/ssh";
 import { resolveServer } from "../../src/utils/serverSelect";
 import { runServerDoctor } from "../../src/core/doctor";
 import { runDoctorFix } from "../../src/core/doctor-fix";
-import { runDoctorChecks, doctorCommand, checkProviderTokens } from "../../src/commands/doctor";
+import { runDoctorChecks, checkProviderTokens } from "../../src/core/doctor-local";
+import { doctorCommand } from "../../src/commands/doctor";
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedSpawnSync = spawnSync as jest.MockedFunction<typeof spawnSync>;

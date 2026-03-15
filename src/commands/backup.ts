@@ -11,12 +11,7 @@ import type { ServerRecord } from "../types/index.js";
 import {
   formatTimestamp,
   getBackupDir,
-  buildPgDumpCommand,
-  buildConfigTarCommand,
-  buildCleanupCommand,
-  buildCoolifyVersionCommand,
   listBackups,
-  scpDownload,
   createBareBackup,
   listOrphanBackups,
   cleanupServerBackups,
@@ -28,19 +23,6 @@ import {
   validateCronExpr,
 } from "../core/backupSchedule.js";
 
-// Re-export pure functions from core/backup.ts for backward compatibility
-export {
-  formatTimestamp,
-  getBackupDir,
-  buildPgDumpCommand,
-  buildConfigTarCommand,
-  buildCleanupCommand,
-  buildCoolifyVersionCommand,
-  listBackups,
-  scpDownload,
-  listOrphanBackups,
-  cleanupServerBackups,
-};
 
 // Single server backup (extracted for reuse)
 

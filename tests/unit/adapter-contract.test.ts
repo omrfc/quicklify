@@ -18,18 +18,15 @@ jest.mock("../../src/utils/ssh", () => ({
   sshExec: jest.fn(),
 }));
 
-jest.mock("../../src/core/backup", () => ({
+jest.mock("../../src/utils/backupPath", () => ({
   formatTimestamp: jest.fn(),
   getBackupDir: jest.fn(),
+}));
+
+jest.mock("../../src/utils/scp", () => ({
   scpDownload: jest.fn(),
-  scpUpload: jest.fn(), // Required for DokployAdapter.restoreBackup and CoolifyAdapter.restoreBackup
-  buildStopCoolifyCommand: jest.fn(() => "stop"),
-  buildStartCoolifyCommand: jest.fn(() => "start"),
-  buildStartDbCommand: jest.fn(() => "startdb"),
-  buildRestoreDbCommand: jest.fn(() => "restoredb"),
-  buildRestoreConfigCommand: jest.fn(() => "restoreconfig"),
-  buildCleanupCommand: jest.fn(() => "cleanup"),
-  tryRestartCoolify: jest.fn(),
+  scpUpload: jest.fn(),
+  assertSafePath: jest.fn(),
 }));
 
 jest.mock("../../src/utils/errorMapper", () => ({

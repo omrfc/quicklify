@@ -7,10 +7,15 @@ jest.mock("../../src/utils/ssh", () => ({
   sshExec: jest.fn(),
 }));
 
-jest.mock("../../src/core/backup", () => ({
+jest.mock("../../src/utils/backupPath", () => ({
   formatTimestamp: jest.fn(() => "2026-01-01_00-00-00"),
   getBackupDir: jest.fn((name: string) => `/tmp/backups/${name}`),
+}));
+
+jest.mock("../../src/utils/scp", () => ({
   scpDownload: jest.fn(),
+  scpUpload: jest.fn(),
+  assertSafePath: jest.fn(),
 }));
 
 jest.mock("../../src/utils/errorMapper", () => ({
@@ -25,7 +30,7 @@ jest.mock("fs", () => ({
 }));
 
 import { assertValidIp, sshExec } from "../../src/utils/ssh";
-import { scpDownload } from "../../src/core/backup";
+import { scpDownload } from "../../src/utils/scp";
 import { mapSshError } from "../../src/utils/errorMapper";
 import axios from "axios";
 

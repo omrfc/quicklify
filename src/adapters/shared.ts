@@ -2,7 +2,8 @@ import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import axios from "axios";
 import { assertValidIp, sshExec } from "../utils/ssh.js";
-import { formatTimestamp, getBackupDir, scpDownload, scpUpload } from "../core/backup.js";
+import { formatTimestamp, getBackupDir } from "../utils/backupPath.js";
+import { scpDownload, scpUpload } from "../utils/scp.js";
 import { getErrorMessage, mapSshError, sanitizeStderr } from "../utils/errorMapper.js";
 import type { BackupManifest, Platform } from "../types/index.js";
 import type {

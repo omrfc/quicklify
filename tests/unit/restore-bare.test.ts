@@ -7,7 +7,6 @@ import { existsSync, readFileSync } from "fs";
 import inquirer from "inquirer";
 import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
-import * as backupModule from "../../src/commands/backup";
 import * as coreBackup from "../../src/core/backup";
 import { restoreCommand } from "../../src/commands/restore";
 
@@ -25,15 +24,10 @@ jest.mock("child_process", () => ({
 }));
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");
-jest.mock("../../src/commands/backup", () => ({
-  listBackups: jest.fn(),
-  getBackupDir: jest.fn().mockReturnValue("/home/user/.kastell/backups/bare-test"),
-}));
 jest.mock("../../src/core/backup");
 
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
-const mockedBackup = backupModule as jest.Mocked<typeof backupModule>;
 const mockedCoreBackup = coreBackup as jest.Mocked<typeof coreBackup>;
 const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
@@ -88,7 +82,7 @@ describe("restoreCommand — bare mode routing", () => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
     jest.clearAllMocks();
     delete process.env.SAFE_MODE;
-    mockedBackup.getBackupDir.mockReturnValue("/home/user/.kastell/backups/bare-test");
+    mockedCoreBackup.getBackupDir.mockReturnValue("/home/user/.kastell/backups/bare-test");
     // Default: manifest exists
     mockedExistsSync.mockReturnValue(true);
     mockedReadFileSync.mockReturnValue(JSON.stringify(bareManifest));
@@ -134,7 +128,7 @@ describe("restoreCommand — bare mode routing", () => {
         { name: "Restore config", status: "success" },
       ],
     });
-    mockedBackup.listBackups.mockReturnValue(["2026-02-28_08-00-00-000"]);
+    mockedCoreBackup.listBackups.mockReturnValue(["2026-02-28_08-00-00-000"]);
 
     // inquirer: select backup, confirm, confirm name
     mockedInquirer.prompt = jest
@@ -210,7 +204,7 @@ describe("restoreCommand — bare mode routing", () => {
         { name: "Restore config", status: "success" },
       ],
     });
-    mockedBackup.listBackups.mockReturnValue(["2026-02-28_08-00-00-000"]);
+    mockedCoreBackup.listBackups.mockReturnValue(["2026-02-28_08-00-00-000"]);
 
     mockedInquirer.prompt = jest
       .fn()
@@ -232,7 +226,7 @@ describe("restoreCommand — bare mode routing", () => {
       steps: [{ name: "Upload config", status: "failure", error: "scp error" }],
       error: "Upload failed",
     });
-    mockedBackup.listBackups.mockReturnValue(["2026-02-28_08-00-00-000"]);
+    mockedCoreBackup.listBackups.mockReturnValue(["2026-02-28_08-00-00-000"]);
 
     mockedInquirer.prompt = jest
       .fn()

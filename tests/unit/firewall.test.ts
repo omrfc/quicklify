@@ -2,7 +2,6 @@ import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
 import inquirer from "inquirer";
 import {
-  firewallCommand,
   isValidPort,
   isProtectedPort,
   buildUfwRuleCommand,
@@ -13,7 +12,8 @@ import {
   PROTECTED_PORTS,
   COOLIFY_PORTS,
   BARE_PORTS,
-} from "../../src/commands/firewall";
+} from "../../src/core/firewall";
+import { firewallCommand } from "../../src/commands/firewall";
 
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");

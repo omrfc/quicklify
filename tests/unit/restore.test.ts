@@ -4,10 +4,9 @@ import { EventEmitter } from "events";
 import inquirer from "inquirer";
 import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
-import * as backupModule from "../../src/commands/backup";
+import * as coreBackup from "../../src/core/backup";
 import * as adapterFactory from "../../src/adapters/factory";
 import {
-  restoreCommand,
   tryRestartCoolify,
   buildStopCoolifyCommand,
   buildStartCoolifyCommand,
@@ -17,7 +16,8 @@ import {
   buildCleanupCommand,
   loadManifest,
   scpUpload,
-} from "../../src/commands/restore";
+} from "../../src/core/backup";
+import { restoreCommand } from "../../src/commands/restore";
 
 jest.mock("fs", () => ({
   readFileSync: jest.fn(),
@@ -32,10 +32,14 @@ jest.mock("child_process", () => ({
 }));
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");
-jest.mock("../../src/commands/backup", () => ({
-  listBackups: jest.fn(),
-  getBackupDir: jest.fn().mockReturnValue("/home/user/.kastell/backups/coolify-test"),
-}));
+jest.mock("../../src/core/backup", () => {
+  const actual = jest.requireActual("../../src/core/backup");
+  return {
+    ...actual,
+    listBackups: jest.fn(),
+    getBackupDir: jest.fn().mockReturnValue("/home/user/.kastell/backups/coolify-test"),
+  };
+});
 jest.mock("../../src/adapters/factory", () => ({
   getAdapter: jest.fn(),
   resolvePlatform: jest.fn().mockReturnValue("coolify"),
@@ -44,7 +48,7 @@ jest.mock("../../src/adapters/factory", () => ({
 
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
-const mockedBackup = backupModule as jest.Mocked<typeof backupModule>;
+const mockedBackup = coreBackup as jest.Mocked<typeof coreBackup>;
 const mockedAdapterFactory = adapterFactory as jest.Mocked<typeof adapterFactory>;
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;

@@ -1,38 +1,19 @@
 import inquirer from "inquirer";
 import { resolveServer } from "../utils/serverSelect.js";
-import { checkSshAvailable, sshExec } from "../utils/ssh.js";
+import { checkSshAvailable } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
-import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 import { isBareServer } from "../utils/modeGuard.js";
 import { resolvePlatform } from "../adapters/factory.js";
 import {
-  PROTECTED_PORTS,
   COOLIFY_PORTS,
   DOKPLOY_PORTS,
-  BARE_PORTS,
   isValidPort,
   isProtectedPort,
-  buildUfwRuleCommand,
-  buildFirewallSetupCommand,
-  buildBareFirewallSetupCommand,
-  buildUfwStatusCommand,
-  parseUfwStatus,
   firewallSetup,
+  addFirewallRule,
+  removeFirewallRule,
+  getFirewallStatus,
 } from "../core/firewall.js";
-export {
-  PROTECTED_PORTS,
-  COOLIFY_PORTS,
-  DOKPLOY_PORTS,
-  BARE_PORTS,
-  isValidPort,
-  isProtectedPort,
-  buildUfwRuleCommand,
-  buildFirewallSetupCommand,
-  buildBareFirewallSetupCommand,
-  buildUfwStatusCommand,
-  parseUfwStatus,
-  firewallSetup,
-};
 import type { FirewallProtocol } from "../types/index.js";
 
 export async function firewallCommand(
@@ -100,12 +81,10 @@ async function firewallAdd(
     return;
   }
 
-  const command = buildUfwRuleCommand("allow", port, protocol);
-
   if (dryRun) {
     logger.title("Dry Run - Add Firewall Rule");
     logger.info(`Server: ${name} (${ip})`);
-    logger.step(command);
+    logger.step(`ufw allow ${port}/${protocol}`);
     logger.warning("No changes applied. Remove --dry-run to execute.");
     return;
   }
@@ -113,20 +92,16 @@ async function firewallAdd(
   const spinner = createSpinner(`Opening port ${port}/${protocol}...`);
   spinner.start();
 
-  try {
-    const result = await sshExec(ip, command);
-    if (result.code !== 0) {
-      spinner.fail(`Failed to open port ${port}/${protocol}`);
-      if (result.stderr) logger.error(result.stderr);
-      return;
-    }
-    spinner.succeed(`Port ${port}/${protocol} opened on ${name}`);
-  } catch (error: unknown) {
+  const result = await addFirewallRule(ip, port, protocol);
+
+  if (!result.success) {
     spinner.fail(`Failed to open port ${port}/${protocol}`);
-    logger.error(getErrorMessage(error));
-    const hint = mapSshError(error, ip);
-    if (hint) logger.info(hint);
+    logger.error(result.error ?? "Unknown error");
+    if (result.hint) logger.info(result.hint);
+    return;
   }
+
+  spinner.succeed(`Port ${port}/${protocol} opened on ${name}`);
 }
 
 async function firewallRemove(
@@ -174,12 +149,10 @@ async function firewallRemove(
     }
   }
 
-  const command = buildUfwRuleCommand("delete allow", port, protocol);
-
   if (dryRun) {
     logger.title("Dry Run - Remove Firewall Rule");
     logger.info(`Server: ${name} (${ip})`);
-    logger.step(command);
+    logger.step(`ufw delete allow ${port}/${protocol}`);
     logger.warning("No changes applied. Remove --dry-run to execute.");
     return;
   }
@@ -187,56 +160,49 @@ async function firewallRemove(
   const spinner = createSpinner(`Closing port ${port}/${protocol}...`);
   spinner.start();
 
-  try {
-    const result = await sshExec(ip, command);
-    if (result.code !== 0) {
-      spinner.fail(`Failed to close port ${port}/${protocol}`);
-      if (result.stderr) logger.error(result.stderr);
-      return;
-    }
-    spinner.succeed(`Port ${port}/${protocol} closed on ${name}`);
-  } catch (error: unknown) {
+  const result = await removeFirewallRule(ip, port, protocol, platform);
+
+  if (!result.success) {
     spinner.fail(`Failed to close port ${port}/${protocol}`);
-    logger.error(getErrorMessage(error));
-    const hint = mapSshError(error, ip);
-    if (hint) logger.info(hint);
+    logger.error(result.error ?? "Unknown error");
+    if (result.hint) logger.info(result.hint);
+    return;
   }
+
+  if (result.warning) {
+    logger.warning(result.warning);
+  }
+  spinner.succeed(`Port ${port}/${protocol} closed on ${name}`);
 }
 
 async function firewallList(ip: string, name: string): Promise<void> {
   const spinner = createSpinner(`Fetching firewall rules from ${name}...`);
   spinner.start();
 
-  try {
-    const result = await sshExec(ip, buildUfwStatusCommand());
-    if (result.code !== 0) {
-      spinner.fail("Failed to fetch firewall rules");
-      if (result.stderr) logger.error(result.stderr);
-      return;
-    }
+  const result = await getFirewallStatus(ip);
 
-    const status = parseUfwStatus(result.stdout);
-    spinner.succeed(`Firewall rules for ${name} (${ip})`);
-
-    if (!status.active) {
-      logger.warning("UFW is inactive. Run 'kastell firewall setup' to enable.");
-      return;
-    }
-
-    if (status.rules.length === 0) {
-      logger.info("No rules configured.");
-      return;
-    }
-
-    console.log();
-    for (const rule of status.rules) {
-      logger.step(`${rule.port}/${rule.protocol} → ${rule.action} from ${rule.from}`);
-    }
-  } catch (error: unknown) {
+  if (result.error) {
     spinner.fail("Failed to fetch firewall rules");
-    logger.error(getErrorMessage(error));
-    const hint = mapSshError(error, ip);
-    if (hint) logger.info(hint);
+    logger.error(result.error);
+    if (result.hint) logger.info(result.hint);
+    return;
+  }
+
+  spinner.succeed(`Firewall rules for ${name} (${ip})`);
+
+  if (!result.status.active) {
+    logger.warning("UFW is inactive. Run 'kastell firewall setup' to enable.");
+    return;
+  }
+
+  if (result.status.rules.length === 0) {
+    logger.info("No rules configured.");
+    return;
+  }
+
+  console.log();
+  for (const rule of result.status.rules) {
+    logger.step(`${rule.port}/${rule.protocol} → ${rule.action} from ${rule.from}`);
   }
 }
 
@@ -244,34 +210,28 @@ async function firewallStatusCheck(ip: string, name: string): Promise<void> {
   const spinner = createSpinner(`Checking firewall status on ${name}...`);
   spinner.start();
 
-  try {
-    const result = await sshExec(ip, buildUfwStatusCommand());
-    if (result.code !== 0) {
-      spinner.fail("Failed to check firewall status");
-      if (result.stderr) logger.error(result.stderr);
-      return;
-    }
+  const result = await getFirewallStatus(ip);
 
-    const status = parseUfwStatus(result.stdout);
-    if (status.active) {
-      spinner.succeed(`UFW is active on ${name}`);
-      if (status.rules.length > 0) {
-        console.log();
-        logger.info(`Open ports (${status.rules.length} rules):`);
-        for (const rule of status.rules) {
-          logger.step(`${rule.port}/${rule.protocol} → ${rule.action} from ${rule.from}`);
-        }
-      } else {
-        logger.info("No rules configured.");
+  if (result.error) {
+    spinner.fail("Failed to check firewall status");
+    logger.error(result.error);
+    if (result.hint) logger.info(result.hint);
+    return;
+  }
+
+  if (result.status.active) {
+    spinner.succeed(`UFW is active on ${name}`);
+    if (result.status.rules.length > 0) {
+      console.log();
+      logger.info(`Open ports (${result.status.rules.length} rules):`);
+      for (const rule of result.status.rules) {
+        logger.step(`${rule.port}/${rule.protocol} → ${rule.action} from ${rule.from}`);
       }
     } else {
-      spinner.warn(`UFW is inactive on ${name}`);
-      logger.info("Run 'kastell firewall setup' to enable.");
+      logger.info("No rules configured.");
     }
-  } catch (error: unknown) {
-    spinner.fail("Failed to check firewall status");
-    logger.error(getErrorMessage(error));
-    const hint = mapSshError(error, ip);
-    if (hint) logger.info(hint);
+  } else {
+    spinner.warn(`UFW is inactive on ${name}`);
+    logger.info("Run 'kastell firewall setup' to enable.");
   }
 }
