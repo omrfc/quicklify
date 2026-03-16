@@ -442,6 +442,94 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     explain:
       "World-writable home directories allow any user to plant malicious files like .bashrc or .ssh/authorized_keys.",
   },
+  {
+    id: "ACCT-LOGIN-DEFS-UID-MAX",
+    name: "Login UID Ranges Configured",
+    severity: "info",
+    check: (output) => {
+      const uidMinMatch = output.match(/UID_MIN\s+(\d+)/);
+      const uidMaxMatch = output.match(/UID_MAX\s+(\d+)/);
+      if (!uidMinMatch || !uidMaxMatch) {
+        return { passed: false, currentValue: "UID_MIN or UID_MAX not found in login.defs" };
+      }
+      const uidMin = parseInt(uidMinMatch[1], 10);
+      const uidMax = parseInt(uidMaxMatch[1], 10);
+      const passed = uidMin >= 1000 && uidMax >= 60000;
+      return {
+        passed,
+        currentValue: passed
+          ? `UID_MIN=${uidMin}, UID_MAX=${uidMax} (standard ranges)`
+          : `UID_MIN=${uidMin}, UID_MAX=${uidMax} (non-standard ranges)`,
+      };
+    },
+    expectedValue: "UID_MIN >= 1000 and UID_MAX >= 60000 in /etc/login.defs",
+    fixCommand: "Verify UID_MIN=1000 and UID_MAX=60000 in /etc/login.defs",
+    explain:
+      "Standard UID ranges prevent accidental overlap between system and user accounts, which can lead to privilege confusion.",
+  },
+  {
+    id: "ACCT-LOGIN-SHELL-AUDIT",
+    name: "Limited Accounts with Login Shells",
+    severity: "warning",
+    check: (output) => {
+      // awk count of accounts with login shells — a standalone number
+      const lines = output.split("\n");
+      let shellCount: number | null = null;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (/^\d+$/.test(trimmed)) {
+          const val = parseInt(trimmed, 10);
+          // Shell count is typically 1-50
+          if (val >= 0 && val < 500) {
+            shellCount = val;
+          }
+        }
+      }
+      if (shellCount === null) {
+        return { passed: false, currentValue: "Login shell count not determinable" };
+      }
+      const passed = shellCount <= 10;
+      return {
+        passed,
+        currentValue: passed
+          ? `${shellCount} accounts with login shells (acceptable)`
+          : `${shellCount} accounts with login shells (review recommended)`,
+      };
+    },
+    expectedValue: "10 or fewer accounts with interactive login shells",
+    fixCommand: "Review accounts with login shells: awk -F: '($7 != \"/usr/sbin/nologin\" && $7 != \"/bin/false\") {print $1, $7}' /etc/passwd",
+    explain:
+      "Excessive accounts with login shells increase the attack surface for brute-force and credential stuffing attacks.",
+  },
+  {
+    id: "ACCT-GID-CONSISTENCY",
+    name: "No Duplicate Group IDs",
+    severity: "info",
+    check: (output) => {
+      // awk duplicate GID output: standalone numbers or "NONE"
+      const isNone = /^NONE$/m.test(output);
+      if (isNone) {
+        return { passed: true, currentValue: "No duplicate GIDs found" };
+      }
+      // Lines with duplicate GIDs are standalone numbers from uniq -d
+      const dupGidLines = output.split("\n").filter((l) => {
+        const trimmed = l.trim();
+        // Duplicate GIDs are standalone numbers
+        return /^\d+$/.test(trimmed);
+      });
+      const passed = dupGidLines.length === 0;
+      return {
+        passed,
+        currentValue: passed
+          ? "No duplicate GIDs found"
+          : `Duplicate GIDs found: ${dupGidLines.slice(0, 5).join(", ")}`,
+      };
+    },
+    expectedValue: "No duplicate GIDs in /etc/group",
+    fixCommand: "awk -F: '{print $3}' /etc/group | sort | uniq -d -- resolve duplicate GIDs",
+    explain:
+      "Duplicate GIDs can cause files to be accessible by unintended groups, breaking the principle of least privilege.",
+  },
 ];
 
 export const parseAccountsChecks: CheckParser = (

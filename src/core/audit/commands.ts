@@ -53,6 +53,10 @@ function firewallSection(): string {
     `iptables -L FORWARD -n 2>/dev/null | head -1 || echo 'N/A'`,
     // NEW: IPv6 firewall rule count
     `ip6tables -L INPUT -n 2>/dev/null | wc -l || echo '0'`,
+    // NEW: conntrack max
+    `cat /proc/sys/net/netfilter/nf_conntrack_max 2>/dev/null || echo 'N/A'`,
+    // NEW: LOG rule count for dropped packets
+    `iptables -L -n 2>/dev/null | grep -c 'LOG' || echo '0'`,
   ].join("\n");
 }
 
@@ -213,6 +217,10 @@ function loggingSection(): string {
     `grep -E '^\\s*@@?' /etc/rsyslog.conf /etc/rsyslog.d/*.conf 2>/dev/null | head -5 || echo 'NONE'`,
     // NEW: logrotate timer or cron
     `systemctl is-active logrotate.timer 2>/dev/null || ls /etc/cron.daily/logrotate 2>/dev/null || echo 'inactive'`,
+    // NEW: file watch rule count
+    `auditctl -l 2>/dev/null | grep -c 'watch' || echo '0'`,
+    // NEW: auditd retention config
+    `grep -rE '^max_log_file_action|^space_left_action' /etc/audit/auditd.conf 2>/dev/null | head -3 || echo 'N/A'`,
   ].join("\n");
 }
 
@@ -248,6 +256,12 @@ function accountsSection(): string {
     `lastlog -b 90 2>/dev/null | tail +2 | head -20 || echo 'N/A'`,
     // NEW: total account count
     `grep -c '^' /etc/passwd 2>/dev/null || echo 'N/A'`,
+    // NEW: UID/GID ranges from login.defs
+    `grep -E 'UID_MAX|UID_MIN|GID_MAX|GID_MIN' /etc/login.defs 2>/dev/null | head -4 || echo 'N/A'`,
+    // NEW: duplicate GIDs
+    `awk -F: '{print $3}' /etc/group 2>/dev/null | sort | uniq -d | head -5 || echo 'NONE'`,
+    // NEW: accounts with login shells count
+    `awk -F: '($7 != "/usr/sbin/nologin" && $7 != "/bin/false" && $7 != "/sbin/nologin") {print $1}' /etc/passwd 2>/dev/null | wc -l || echo '0'`,
   ].join("\n");
 }
 
@@ -284,6 +298,8 @@ function bootSection(): string {
     `sysctl kernel.modules_disabled 2>/dev/null || echo 'N/A'`,
     // NEW: UEFI vs BIOS detection
     `[ -d /sys/firmware/efi ] && echo 'UEFI' || echo 'BIOS'`,
+    // NEW: GRUB superuser/password authentication
+    `grep -rE 'set superusers|password_pbkdf2' /boot/grub/grub.cfg /etc/grub.d/ 2>/dev/null | head -3 || echo 'NONE'`,
   ].join("\n");
 }
 
@@ -351,6 +367,8 @@ function malwareSection(): string {
     `find /tmp /dev/shm -name ".*" -type f 2>/dev/null | head -10 || echo 'NONE'`,
     // NEW: high CPU processes
     `ps aux 2>/dev/null | awk '{if($3>50)print $0}' | head -5 || echo 'NONE'`,
+    // NEW: hidden files in /tmp and /var/tmp
+    `find /tmp /var/tmp -name '.*' -type f 2>/dev/null | wc -l || echo '0'`,
   ].join("\n");
 }
 
@@ -383,6 +401,8 @@ function memorySection(): string {
     `cat /proc/sys/vm/swappiness 2>/dev/null || echo 'N/A'`,
     // NEW: swap info
     `swapon --show=NAME,TYPE 2>/dev/null | tail +2 | head -5 || echo 'NO_SWAP'`,
+    // NEW: max_map_count
+    `cat /proc/sys/vm/max_map_count 2>/dev/null || echo 'N/A'`,
   ].join("\n");
 }
 
@@ -400,6 +420,14 @@ function cryptoSection(): string {
     `stat -c '%a %n' /etc/ssh/ssh_host_*_key 2>/dev/null || echo 'N/A'`,
     // NEW: weak cipher count in OpenSSL
     `openssl ciphers -v 'ALL:eNULL' 2>/dev/null | grep -ci 'NULL\\|RC4\\|DES\\|MD5' || echo '0'`,
+    // NEW: certificate count in /etc/ssl/certs/
+    `find /etc/ssl/certs/ -name '*.pem' 2>/dev/null | wc -l || echo '0'`,
+    // NEW: DH param validation
+    `openssl dhparam -check -in /etc/ssl/dhparams.pem 2>/dev/null | head -3 || echo 'NO_DH_PARAMS'`,
+    // NEW: world-readable private keys
+    `find /etc/ssl/ /etc/pki/ -name '*.key' -perm -o+r 2>/dev/null | head -5 || echo 'NONE'`,
+    // NEW: nginx TLS config
+    `grep -rE 'ssl_protocols|ssl_ciphers' /etc/nginx/ 2>/dev/null | head -5 || echo 'NO_NGINX'`,
   ].join("\n");
 }
 
@@ -420,6 +448,10 @@ function filesystemSection(): string {
     `find /home -maxdepth 1 -mindepth 1 -type d -exec stat -c '%a %n' {} \\; 2>/dev/null | head -20 || echo 'N/A'`,
     // NEW: /var/tmp permissions
     `stat -c '%a %U %G' /var/tmp 2>/dev/null || echo 'N/A'`,
+    // NEW: /var mount options
+    `findmnt -o TARGET,OPTIONS /var 2>/dev/null || echo 'N/A'`,
+    // NEW: system-wide SUID count
+    `find / -xdev -type f -perm -4000 2>/dev/null | wc -l || echo '0'`,
   ].join("\n");
 }
 
@@ -430,11 +462,19 @@ function secretsSection(): string {
     `find /root /home /etc -maxdepth 3 -name "*.env" -perm -o+r 2>/dev/null | head -10 || echo 'NONE'`,
     `stat -c '%a %n' /root/.ssh/id_rsa /root/.ssh/id_ed25519 /root/.ssh/id_ecdsa 2>/dev/null || echo 'NO_KEYS'`,
     `git config --global --get-regexp 'url.*token' 2>/dev/null | head -5 || echo 'NO_GIT_TOKENS'`,
-    `grep -rEl '(password|secret|token|api_key|apikey|passwd)\s*=' /etc 2>/dev/null | grep -v '\.bak' | head -10 || echo 'NONE'`,
+    `grep -rEl '(password|secret|token|api_key|apikey|passwd)\\s*=' /etc 2>/dev/null | grep -v '\\.bak' | head -10 || echo 'NONE'`,
     // NEW: world-readable bash history
     `find /home -maxdepth 3 -name ".bash_history" -perm -o+r 2>/dev/null | head -5 || echo 'NONE'`,
     // NEW: SSH agent forwarding
     `sshd -T 2>/dev/null | grep -i 'allowagentforwarding' || echo 'N/A'`,
+    // NEW: AWS credential dirs
+    `find /root /home -maxdepth 3 -name '.aws' -type d 2>/dev/null | head -3 || echo 'NONE'`,
+    // NEW: AWS creds permissions
+    `find /root /home -maxdepth 3 -name 'credentials' -path '*/.aws/*' -exec stat -c '%a' {} \\; 2>/dev/null | head -3 || echo 'NONE'`,
+    // NEW: kubeconfig dirs
+    `find /root /home -maxdepth 3 -name '.kube' -type d 2>/dev/null | head -3 || echo 'NONE'`,
+    // NEW: shell RC secrets
+    `grep -rE 'export\\s+(API_KEY|SECRET_KEY|TOKEN|PASSWORD|AWS_ACCESS_KEY)=' /root/.bashrc /root/.profile /home/*/.bashrc /home/*/.profile 2>/dev/null | head -5 || echo 'NONE'`,
   ].join("\n");
 }
 

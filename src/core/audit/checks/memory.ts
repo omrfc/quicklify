@@ -280,6 +280,41 @@ const MEMORY_CHECKS: MemoryCheckDef[] = [
     explain:
       "Transparent hugepages set to 'always' can cause memory fragmentation and latency spikes; 'madvise' gives application control.",
   },
+  {
+    id: "MEM-MAX-MAP-COUNT",
+    name: "vm.max_map_count Meets Minimum",
+    severity: "info",
+    check: (output) => {
+      // cat /proc/sys/vm/max_map_count — standalone number
+      const lines = output.split("\n");
+      let maxMapCount: number | null = null;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (/^\d+$/.test(trimmed)) {
+          const val = parseInt(trimmed, 10);
+          // max_map_count is typically 65530-2097152
+          if (val >= 1000 && val <= 100_000_000) {
+            maxMapCount = val;
+            break;
+          }
+        }
+      }
+      if (maxMapCount === null) {
+        return { passed: false, currentValue: "vm.max_map_count not determinable" };
+      }
+      const passed = maxMapCount >= 65530;
+      return {
+        passed,
+        currentValue: passed
+          ? `vm.max_map_count = ${maxMapCount} (acceptable)`
+          : `vm.max_map_count = ${maxMapCount} (below minimum 65530)`,
+      };
+    },
+    expectedValue: "vm.max_map_count >= 65530 (default minimum)",
+    fixCommand: "sysctl -w vm.max_map_count=65530",
+    explain:
+      "A max_map_count below the default minimum indicates misconfiguration that can cause application crashes.",
+  },
 ];
 
 export const parseMemoryChecks: CheckParser = (

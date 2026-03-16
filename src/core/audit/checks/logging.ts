@@ -320,5 +320,60 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
       "Without logrotate, log files grow unbounded causing disk exhaustion and potential denial of service.",
   };
 
-  return [log01, log02, log03, log04, log05, log06, log07, log08, log09, log10, log11, log12, log13, log14, log15];
+  // LOG-AUDIT-WATCH-COUNT: auditctl watch rule count
+  // auditctl -l | grep -c 'watch' — standalone number
+  let watchRuleCount: number | null = null;
+  for (const line of worldReadableLogLines) {
+    const trimmed = line.trim();
+    if (/^\d+$/.test(trimmed)) {
+      const val = parseInt(trimmed, 10);
+      // Watch rule count is typically 0-50
+      if (val >= 0 && val < 500) {
+        watchRuleCount = val;
+      }
+    }
+  }
+  const log16: AuditCheck = {
+    id: "LOG-AUDIT-WATCH-COUNT",
+    category: "Logging",
+    name: "Audit File Watch Rules Configured",
+    severity: "info",
+    passed: isNA ? false : watchRuleCount !== null ? watchRuleCount >= 5 : false,
+    currentValue: isNA
+      ? "Unable to determine"
+      : watchRuleCount !== null
+        ? `${watchRuleCount} file watch audit rule(s) configured`
+        : "Watch rule count not determinable",
+    expectedValue: "At least 5 auditctl file watch rules configured",
+    fixCommand: "auditctl -w /etc/passwd -p wa -k identity && auditctl -w /etc/shadow -p wa -k identity",
+    explain: "Audit file watches detect unauthorized modifications to critical system files, providing tamper evidence.",
+  };
+
+  // LOG-AUDITD-SPACE-ACTION: auditd space and file rotation actions
+  // grep for space_left_action and max_log_file_action in auditd.conf
+  const hasSpaceAction = /space_left_action\s*=\s*(email|exec|halt|syslog)/i.test(output);
+  const hasFileAction = /max_log_file_action\s*=\s*(keep_logs|rotate)/i.test(output);
+  const spaceIgnored = /space_left_action\s*=\s*ignore/i.test(output);
+  const fileIgnored = /max_log_file_action\s*=\s*ignore/i.test(output);
+  const auditdActionPass = (hasSpaceAction || !spaceIgnored) && (hasFileAction || !fileIgnored)
+    && !(/N\/A/.test(output) && !hasSpaceAction && !hasFileAction);
+  const log17: AuditCheck = {
+    id: "LOG-AUDITD-SPACE-ACTION",
+    category: "Logging",
+    name: "Auditd Space and Rotation Actions Configured",
+    severity: "warning",
+    passed: isNA ? false : hasSpaceAction && hasFileAction,
+    currentValue: isNA
+      ? "Unable to determine"
+      : hasSpaceAction && hasFileAction
+        ? "auditd space_left_action and max_log_file_action are configured"
+        : spaceIgnored || fileIgnored
+          ? "auditd action(s) set to ignore — logs may be silently discarded"
+          : "auditd space or file rotation actions not configured",
+    expectedValue: "space_left_action and max_log_file_action set to non-ignore values",
+    fixCommand: "sed -i 's/^space_left_action.*/space_left_action = syslog/' /etc/audit/auditd.conf",
+    explain: "Configuring auditd space and rotation actions ensures audit logs are not silently discarded when disk fills, preventing evidence destruction.",
+  };
+
+  return [log01, log02, log03, log04, log05, log06, log07, log08, log09, log10, log11, log12, log13, log14, log15, log16, log17];
 };

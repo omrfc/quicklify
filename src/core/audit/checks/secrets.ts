@@ -294,6 +294,82 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     explain:
       "SSH agent forwarding exposes the user's authentication agent to the remote server, enabling key hijacking.",
   },
+  {
+    id: "SEC-NO-AWS-CREDS-PLAINTEXT",
+    name: "AWS Credential Files Not Exposed",
+    severity: "warning",
+    check: (output) => {
+      // find returns .aws dirs (NONE if absent), then AWS creds permissions
+      // If .aws dirs found, check permissions; if NONE, pass
+      const awsDirLine = output.split("\n").find((l) => l.trim().includes("/.aws"));
+      if (!awsDirLine) {
+        // No .aws dirs found
+        return { passed: true, currentValue: "No AWS credential directories found" };
+      }
+      // Check permissions — stat returns mode like "600" or "644"
+      const permMatches = output.match(/^(\d{3,4})$/gm) ?? [];
+      const badPerms = permMatches.filter((p) => {
+        const perm = parseInt(p.trim(), 10);
+        // Only 600 or stricter (400, 000) is acceptable
+        const others = perm % 10;
+        const group = Math.floor(perm / 10) % 10;
+        return others > 0 || group > 4;
+      });
+      const passed = badPerms.length === 0;
+      return {
+        passed,
+        currentValue: passed
+          ? "AWS credential files have acceptable permissions"
+          : `AWS credential files found with permissive permissions: ${badPerms.join(", ")}`,
+      };
+    },
+    expectedValue: "AWS credential files have mode 600 or stricter",
+    fixCommand: "chmod 600 ~/.aws/credentials",
+    explain:
+      "AWS credential files with excessive permissions allow local users to steal cloud access keys for lateral movement.",
+  },
+  {
+    id: "SEC-NO-KUBECONFIG-EXPOSED",
+    name: "Kubeconfig Not Exposed",
+    severity: "warning",
+    check: (output) => {
+      // find returns .kube dirs or "NONE"
+      const isNone = output.split("\n").some((l) => l.trim() === "NONE");
+      const hasKubeDir = output.split("\n").some((l) => l.trim().includes("/.kube"));
+      if (!hasKubeDir || isNone) {
+        return { passed: true, currentValue: "No kubeconfig directories found" };
+      }
+      // Kubeconfig found but we can't check permissions from dir listing alone
+      return {
+        passed: false,
+        currentValue: "Kubeconfig directory found — verify permissions with: chmod 600 ~/.kube/config",
+      };
+    },
+    expectedValue: "No exposed .kube directories or kubeconfig has mode 600",
+    fixCommand: "chmod 600 ~/.kube/config",
+    explain:
+      "Exposed kubeconfig files contain cluster credentials that allow full Kubernetes cluster compromise.",
+  },
+  {
+    id: "SEC-NO-SHELL-RC-SECRETS",
+    name: "No Secrets Exported in Shell RC Files",
+    severity: "warning",
+    check: (output) => {
+      // grep returns matching lines or "NONE"
+      const isNone = /^NONE$/m.test(output);
+      const hasExportedSecrets = !isNone && /export\s+(API_KEY|SECRET_KEY|TOKEN|PASSWORD|AWS_ACCESS_KEY)/i.test(output);
+      return {
+        passed: !hasExportedSecrets,
+        currentValue: hasExportedSecrets
+          ? "Credential exports found in shell RC files"
+          : "No credential exports found in shell RC files",
+      };
+    },
+    expectedValue: "No API_KEY/SECRET_KEY/TOKEN/PASSWORD exports in .bashrc or .profile",
+    fixCommand: "Remove credential exports from shell RC files; use a secrets manager or .env files with proper permissions",
+    explain:
+      "Credentials hardcoded in shell RC files are exposed to any process running as that user and persist in shell history.",
+  },
 ];
 
 export const parseSecretsChecks: CheckParser = (

@@ -256,5 +256,66 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
       "A wildcard ACCEPT rule in the INPUT chain bypasses all other security rules, effectively disabling the firewall.",
   };
 
-  return [fw01, fw02, fw03, fw04, fw05, fw06, fw07, fw08, fw09, fw10, fw11, fw12, fw13, fw14, fw15];
+  // FW-16: conntrack max value
+  // cat /proc/sys/net/netfilter/nf_conntrack_max — standalone number or N/A
+  const conntrackLines = output.split("\n");
+  let conntrackMax: number | null = null;
+  for (const line of conntrackLines) {
+    const trimmed = line.trim();
+    if (/^\d+$/.test(trimmed)) {
+      const val = parseInt(trimmed, 10);
+      // conntrack_max is typically 65536-1048576
+      if (val >= 1000 && val <= 10_000_000) {
+        conntrackMax = val;
+        break;
+      }
+    }
+  }
+  const fw16: AuditCheck = {
+    id: "FW-CONNTRACK-MAX",
+    category: "Firewall",
+    name: "Connection Tracking Limit Adequate",
+    severity: "info",
+    passed: isNA ? false : conntrackMax !== null ? conntrackMax >= 65536 : false,
+    currentValue: isNA
+      ? "Unable to determine"
+      : conntrackMax !== null
+        ? `nf_conntrack_max = ${conntrackMax}`
+        : "Connection tracking not available",
+    expectedValue: "nf_conntrack_max >= 65536",
+    fixCommand: "echo 262144 > /proc/sys/net/netfilter/nf_conntrack_max && echo 'net.netfilter.nf_conntrack_max = 262144' >> /etc/sysctl.d/99-kastell.conf",
+    explain: "Low connection tracking limits cause packet drops under load, which can be exploited for denial-of-service.",
+  };
+
+  // FW-17: LOG rule count for dropped packets
+  // iptables -L -n | grep -c 'LOG' — standalone number
+  let logRuleCount: number | null = null;
+  for (const line of conntrackLines) {
+    const trimmed = line.trim();
+    if (/^\d+$/.test(trimmed)) {
+      const val = parseInt(trimmed, 10);
+      // LOG rule count is typically 0-20
+      if (val >= 0 && val < 100 && logRuleCount === null) {
+        // Only pick small numbers for LOG count (comes after conntrack)
+        logRuleCount = val;
+      }
+    }
+  }
+  const fw17: AuditCheck = {
+    id: "FW-LOG-DROPPED",
+    category: "Firewall",
+    name: "Dropped Packets Logged",
+    severity: "info",
+    passed: isNA ? false : logRuleCount !== null ? logRuleCount > 0 : false,
+    currentValue: isNA
+      ? "Unable to determine"
+      : logRuleCount !== null
+        ? logRuleCount > 0 ? `${logRuleCount} LOG rule(s) in iptables` : "No LOG rules found in iptables"
+        : "LOG rule count not determinable",
+    expectedValue: "At least 1 LOG rule in iptables for forensic evidence",
+    fixCommand: "iptables -A INPUT -j LOG --log-prefix \"iptables-dropped: \" --log-level 4",
+    explain: "Logging dropped firewall packets provides forensic evidence of attack attempts and helps identify malicious traffic patterns.",
+  };
+
+  return [fw01, fw02, fw03, fw04, fw05, fw06, fw07, fw08, fw09, fw10, fw11, fw12, fw13, fw14, fw15, fw16, fw17];
 };

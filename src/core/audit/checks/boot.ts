@@ -209,6 +209,29 @@ const BOOT_CHECKS: BootCheckDef[] = [
     explain:
       "Without authentication on rescue mode, physical or console access grants immediate root shell.",
   },
+  {
+    id: "BOOT-GRUB-UNRESTRICTED",
+    name: "GRUB Bootloader Has Password Authentication",
+    severity: "info",
+    check: (output) => {
+      // grep for 'set superusers' or 'password_pbkdf2' in grub config
+      // Returns matching lines or "NONE"
+      const isNone = /^NONE$/m.test(output);
+      const hasSuperusers = /set superusers/i.test(output);
+      const hasPbkdf2 = /password_pbkdf2/i.test(output);
+      const passed = !isNone && (hasSuperusers || hasPbkdf2);
+      return {
+        passed,
+        currentValue: passed
+          ? "GRUB superuser authentication is configured"
+          : "GRUB has no superuser/password authentication",
+      };
+    },
+    expectedValue: "GRUB superuser and password_pbkdf2 entries configured",
+    fixCommand: "Configure GRUB superuser: grub-mkpasswd-pbkdf2 && update-grub",
+    explain:
+      "GRUB superuser authentication prevents unauthorized kernel parameter modification at boot time, blocking single-user mode attacks.",
+  },
 ];
 
 export const parseBootChecks: CheckParser = (

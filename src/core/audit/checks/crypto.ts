@@ -339,6 +339,112 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     fixCommand: "# Verify: cryptsetup luksDump /dev/sdX | grep 'Key Slot'",
     explain: "LUKS disk encryption protects data at rest; key size should be >= 256 bits for strong protection.",
   },
+  {
+    id: "CRYPTO-DH-PARAMS-SIZE",
+    name: "DH Parameters Are Adequate Size",
+    severity: "warning",
+    check: (output) => {
+      if (/NO_DH_PARAMS/.test(output)) {
+        return { passed: true, currentValue: "Using system defaults (no custom DH params file)" };
+      }
+      const sizeMatch = output.match(/DH Parameters:\s*\((\d+)\s*bit\)/i);
+      if (!sizeMatch) {
+        return { passed: true, currentValue: "DH params check inconclusive — treated as acceptable" };
+      }
+      const bits = parseInt(sizeMatch[1], 10);
+      const passed = bits >= 2048;
+      return {
+        passed,
+        currentValue: passed ? `DH parameters: ${bits} bits (acceptable)` : `DH parameters: ${bits} bits (too small)`,
+      };
+    },
+    expectedValue: "DH parameters >= 2048 bits or using system defaults",
+    fixCommand: "openssl dhparam -out /etc/ssl/dhparams.pem 4096",
+    explain: "DH parameters smaller than 2048 bits are vulnerable to Logjam attacks that allow passive TLS decryption.",
+  },
+  {
+    id: "CRYPTO-NO-WORLD-READABLE-KEYS",
+    name: "No World-Readable TLS Private Keys",
+    severity: "critical",
+    check: (output) => {
+      // find /etc/ssl/ /etc/pki/ -name '*.key' -perm -o+r returns paths or NONE
+      const lines = output.split("\n");
+      // Find lines that look like file paths from find (after NO_DH_PARAMS section)
+      const keyLines = lines.filter((l) => {
+        const trimmed = l.trim();
+        return (trimmed.startsWith("/etc/ssl/") || trimmed.startsWith("/etc/pki/")) && trimmed.endsWith(".key");
+      });
+      const isNone = lines.some((l) => l.trim() === "NONE");
+      const passed = isNone || keyLines.length === 0;
+      return {
+        passed,
+        currentValue: passed
+          ? "No world-readable keys found"
+          : `${keyLines.length} world-readable private key file(s) found`,
+      };
+    },
+    expectedValue: "No world-readable .key files in /etc/ssl/ or /etc/pki/",
+    fixCommand: "find /etc/ssl/ /etc/pki/ -name '*.key' -perm -o+r -exec chmod 600 {} \\;",
+    explain: "World-readable TLS private keys allow any local user to impersonate the server or decrypt intercepted traffic.",
+  },
+  {
+    id: "CRYPTO-CERT-COUNT",
+    name: "CA Certificate Store Populated",
+    severity: "info",
+    check: (output) => {
+      // find /etc/ssl/certs/ -name '*.pem' | wc -l — a standalone number
+      const lines = output.split("\n");
+      let certCount: number | null = null;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (/^\d+$/.test(trimmed)) {
+          const val = parseInt(trimmed, 10);
+          // Cert count is typically 100-200+ on a healthy system
+          if (val >= 0 && val < 2000) {
+            certCount = val;
+            break;
+          }
+        }
+      }
+      if (certCount === null) {
+        return { passed: false, currentValue: "Certificate count not determinable" };
+      }
+      const passed = certCount > 0;
+      return {
+        passed,
+        currentValue: passed ? `${certCount} CA certificate(s) installed` : "No CA certificates found in /etc/ssl/certs/",
+      };
+    },
+    expectedValue: "CA certificate store has at least 1 certificate",
+    fixCommand: "apt install ca-certificates && update-ca-certificates",
+    explain: "A populated CA certificate store is required for TLS verification; empty stores cause all HTTPS connections to fail or bypass validation.",
+  },
+  {
+    id: "CRYPTO-NGINX-TLS-MODERN",
+    name: "Nginx TLS Protocols Are Modern",
+    severity: "warning",
+    check: (output) => {
+      if (/NO_NGINX/.test(output)) {
+        return { passed: true, currentValue: "Nginx not installed (not applicable)" };
+      }
+      // Look for ssl_protocols line in nginx config
+      const sslProtoMatch = output.match(/ssl_protocols\s+([^;]+)/i);
+      if (!sslProtoMatch) {
+        return { passed: true, currentValue: "No ssl_protocols directive found in nginx config" };
+      }
+      const protocols = sslProtoMatch[1].toLowerCase();
+      const hasLegacy = /tls(v)?1\.0|tls(v)?1\.1/.test(protocols);
+      return {
+        passed: !hasLegacy,
+        currentValue: hasLegacy
+          ? `Nginx TLS protocols include legacy versions: ${sslProtoMatch[1].trim()}`
+          : `Nginx TLS protocols are modern: ${sslProtoMatch[1].trim()}`,
+      };
+    },
+    expectedValue: "ssl_protocols uses only TLSv1.2 and TLSv1.3",
+    fixCommand: "ssl_protocols TLSv1.2 TLSv1.3; in nginx.conf",
+    explain: "TLSv1.0 and TLSv1.1 have known vulnerabilities (POODLE, BEAST) and are deprecated by all major browsers.",
+  },
 ];
 
 export const parseCryptoChecks: CheckParser = (

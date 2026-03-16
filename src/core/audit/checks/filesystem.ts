@@ -275,5 +275,40 @@ export const parseFilesystemChecks: CheckParser = (sectionOutput: string, _platf
     "mount -o remount,nosuid /boot  # also add nosuid to /etc/fstab",
     "Mounting /boot with nosuid prevents SUID exploitation from modified boot files.");
 
-  return [fs01, fs02, fs03, fs04, fs05, fs06, fs07, fs08, fs09, fs10, fs11, fs12, fs13, fs14, fs15, fs16, fs17, fs18];
+  // FS-VAR-NOEXEC: /var mounted with noexec
+  const fs19 = makeMountCheck("FS-VAR-NOEXEC", "/var Mount noexec", "/var", "noexec", "info",
+    "mount -o remount,noexec /var  # also add noexec to /etc/fstab",
+    "Mounting /var with noexec prevents execution of scripts placed in application data directories.");
+
+  // FS-SUID-SYSTEM-COUNT: system-wide SUID file count
+  // find / -xdev -type f -perm -4000 | wc -l — a standalone number
+  let suidSystemCount: number | null = null;
+  for (const line of mountLines) {
+    const trimmed = line.trim();
+    if (/^\d+$/.test(trimmed)) {
+      const val = parseInt(trimmed, 10);
+      // System-wide SUID count is typically 10-100; distinguish from other numbers
+      if (val >= 0 && val < 10000) {
+        suidSystemCount = val;
+        // Don't break — we want the last standalone number (the wc -l from find / -xdev)
+      }
+    }
+  }
+  const fs20: AuditCheck = {
+    id: "FS-SUID-SYSTEM-COUNT",
+    category: "Filesystem",
+    name: "System-Wide SUID File Count",
+    severity: "info",
+    passed: isNA ? false : suidSystemCount !== null ? suidSystemCount <= 30 : false,
+    currentValue: isNA
+      ? "Unable to determine"
+      : suidSystemCount !== null
+        ? `${suidSystemCount} SUID files found system-wide`
+        : "SUID count not determinable",
+    expectedValue: "30 or fewer SUID files system-wide",
+    fixCommand: "find / -xdev -type f -perm -4000 -exec ls -la {} \\; -- review and remove unnecessary SUID bits",
+    explain: "Each SUID binary is a potential privilege escalation vector; keeping the count low reduces attack surface.",
+  };
+
+  return [fs01, fs02, fs03, fs04, fs05, fs06, fs07, fs08, fs09, fs10, fs11, fs12, fs13, fs14, fs15, fs16, fs17, fs18, fs19, fs20];
 };
