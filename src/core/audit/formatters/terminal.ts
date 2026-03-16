@@ -59,7 +59,7 @@ export function formatTerminal(result: AuditResult): string {
     const parts = complianceScores.map((cs) => {
       const rateColor = scoreColor(cs.passRate);
       const label = cs.framework === "CIS" ? "CIS L1" : cs.framework;
-      return `${label}: ${rateColor(`${cs.passRate}%`)}`;
+      return `${label}: ${rateColor(`${cs.passedControls}/${cs.totalControls}`)}`;
     });
     lines.push(`Compliance: ${parts.join(" | ")}`);
 
@@ -86,6 +86,14 @@ export function formatTerminal(result: AuditResult): string {
     lines.push(
       `${statusIcon} ${category.name.padEnd(14)} ${catColor(progressBar(category.score))} ${catColor(`${category.score}/${category.maxScore}`)}${failedCount > 0 ? chalk.red(` (${failedCount} failed)`) : ""}`,
     );
+  }
+
+  // Skipped categories display
+  if (result.skippedCategories && result.skippedCategories.length > 0) {
+    lines.push("");
+    for (const name of result.skippedCategories) {
+      lines.push(chalk.dim(`Skipped: ${name} (not installed)`));
+    }
   }
 
   // Failed checks detail

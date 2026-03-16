@@ -3,6 +3,8 @@
  * All audit modules build against these interfaces.
  */
 
+import type { ComplianceDetailScore } from "./compliance/types.js";
+
 export type Severity = "critical" | "warning" | "info";
 
 export type ComplianceCoverage = "full" | "partial";
@@ -46,6 +48,8 @@ export interface AuditResult {
   categories: AuditCategory[];
   overallScore: number;          // Weighted average 0-100
   quickWins: QuickWin[];
+  skippedCategories?: string[];  // Categories where all checks have "not installed" currentValue
+  complianceDetail?: ComplianceDetailScore[];  // Per-control compliance detail (optional, set when framework requested)
 }
 
 export interface QuickWin {
