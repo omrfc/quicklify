@@ -215,6 +215,50 @@ const SSH_CHECKS: SshCheckDef[] = [
     fixCommand: "sed -i 's/^#\\?KexAlgorithms.*/KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512/' /etc/ssh/sshd_config && systemctl restart sshd",
     explain: "Weak key exchange algorithms based on SHA-1 are vulnerable to collision attacks.",
   },
+  {
+    id: "SSH-MAX-STARTUPS",
+    name: "MaxStartups Limits Concurrent Unauthenticated Connections",
+    severity: "warning",
+    key: "maxstartups",
+    expectedValue: "10:30:60 or stricter (start <= 10)",
+    comparator: (found) => {
+      const parts = found.split(":");
+      const start = parseInt(parts[0], 10);
+      return !isNaN(start) && start <= 10;
+    },
+    fixCommand: "sed -i 's/^#\\?MaxStartups.*/MaxStartups 10:30:60/' /etc/ssh/sshd_config && systemctl restart sshd",
+    explain: "MaxStartups limits concurrent unauthenticated SSH connections, mitigating brute-force and resource exhaustion attacks.",
+  },
+  {
+    id: "SSH-STRICT-MODES",
+    name: "StrictModes Enabled",
+    severity: "warning",
+    key: "strictmodes",
+    expectedValue: "yes",
+    comparator: (found) => found.toLowerCase() === "yes",
+    fixCommand: "sed -i 's/^#\\?StrictModes.*/StrictModes yes/' /etc/ssh/sshd_config && systemctl restart sshd",
+    explain: "StrictModes checks file permissions on user SSH files before accepting login, preventing exploitation of misconfigured authorized_keys.",
+  },
+  {
+    id: "SSH-NO-AGENT-FORWARDING",
+    name: "SSH Agent Forwarding Disabled",
+    severity: "warning",
+    key: "allowagentforwarding",
+    expectedValue: "no",
+    comparator: (found) => found.toLowerCase() === "no",
+    fixCommand: "sed -i 's/^#\\?AllowAgentForwarding.*/AllowAgentForwarding no/' /etc/ssh/sshd_config && systemctl restart sshd",
+    explain: "SSH agent forwarding exposes the authentication agent to the remote server, enabling key theft if the server is compromised.",
+  },
+  {
+    id: "SSH-PRINT-MOTD",
+    name: "PrintMotd Handled by PAM",
+    severity: "info",
+    key: "printmotd",
+    expectedValue: "no",
+    comparator: (found) => found.toLowerCase() === "no",
+    fixCommand: "sed -i 's/^#\\?PrintMotd.*/PrintMotd no/' /etc/ssh/sshd_config && systemctl restart sshd",
+    explain: "PrintMotd should be handled by PAM, not sshd directly, to prevent information leakage from static message-of-the-day files.",
+  },
 ];
 
 function extractValue(output: string, key: string): string | null {

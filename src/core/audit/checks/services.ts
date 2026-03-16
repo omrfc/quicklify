@@ -469,6 +469,92 @@ const SERVICES_CHECKS: ServicesCheckDef[] = [
     explain:
       "Excessive running services increase attack surface; each service is a potential entry point for attackers.",
   },
+  // NEW checks (Wave 1 gap closure)
+  {
+    id: "SRV-NO-WILDCARD-LISTENERS",
+    name: "No Excessive Wildcard Listeners",
+    severity: "warning",
+    check: (output) => {
+      // ss -tlnp | grep -c '0.0.0.0:' output — count of wildcard listeners
+      const lines = output.split("\n");
+      let wildcardCount: number | null = null;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (/^\d+$/.test(trimmed)) {
+          const val = parseInt(trimmed, 10);
+          if (val >= 0 && val < 1000) {
+            wildcardCount = val;
+            break;
+          }
+        }
+      }
+      if (wildcardCount === null) {
+        return { passed: true, currentValue: "Wildcard listener count not determinable" };
+      }
+      const passed = wildcardCount <= 5;
+      return {
+        passed,
+        currentValue: passed
+          ? `${wildcardCount} service(s) listening on 0.0.0.0 (acceptable)`
+          : `${wildcardCount} service(s) listening on 0.0.0.0 (review recommended)`,
+      };
+    },
+    expectedValue: "5 or fewer services listening on 0.0.0.0",
+    fixCommand: "ss -tlnp | grep '0.0.0.0:' — bind services to specific IPs in their configuration",
+    explain:
+      "Services listening on 0.0.0.0 accept connections on all network interfaces, increasing attack surface from untrusted networks.",
+  },
+  {
+    id: "SRV-NO-XINETD-SERVICES",
+    name: "xinetd Legacy Service Disabled",
+    severity: "info",
+    check: (output) => {
+      // systemctl is-active xinetd output — should not be "active"
+      const lines = output.split("\n").map((l) => l.trim()).filter(Boolean);
+      // Look for a standalone "active" line that matches xinetd status
+      const xinetdActive = lines.some((l) => l === "active") && /xinetd/i.test(output);
+      // Also check the direct systemctl is-active output pattern
+      const directActive = /(?:^|\n)\s*active\s*(?:\n|$)/.test(output)
+        && !output.includes("inactive")
+        && !output.includes("not-found");
+      const isActive = xinetdActive || (/\bxinetd\b.*\bactive\b/i.test(output));
+      return {
+        passed: !isActive,
+        currentValue: isActive ? "xinetd is active" : "xinetd is not running",
+      };
+    },
+    expectedValue: "xinetd inactive or not installed",
+    fixCommand: "systemctl stop xinetd && systemctl disable xinetd && apt purge xinetd",
+    explain:
+      "xinetd is a legacy super-daemon with known security weaknesses; modern systems should use systemd socket activation instead.",
+  },
+  {
+    id: "SRV-NO-WORLD-READABLE-CONFIGS",
+    name: "No World-Readable Service Configs",
+    severity: "info",
+    check: (output) => {
+      // find /etc -name '*.conf' -perm -o+r -path '*/systemd/*' output
+      // NONE = no world-readable configs found
+      const lines = output.split("\n").map((l) => l.trim()).filter(Boolean);
+      const noneFound = lines.some((l) => l === "NONE");
+      if (noneFound) {
+        return { passed: true, currentValue: "None found" };
+      }
+      // Count non-empty, non-NONE lines as config files found
+      const configFiles = lines.filter((l) => l.startsWith("/") && l.includes(".conf"));
+      const passed = configFiles.length === 0;
+      return {
+        passed,
+        currentValue: passed
+          ? "None found"
+          : `${configFiles.length} world-readable service config(s) found`,
+      };
+    },
+    expectedValue: "No world-readable systemd service configuration files",
+    fixCommand: "find /etc/systemd/ -name '*.conf' -perm -o+r -exec chmod o-r {} \\;",
+    explain:
+      "World-readable service configuration files may expose internal paths, credentials, and operational details to unprivileged users.",
+  },
 ];
 
 export const parseServicesChecks: CheckParser = (

@@ -28,6 +28,8 @@ function sshSection(): string {
     `sshd -T 2>/dev/null | grep -iE 'clientaliveinterval|clientalivecountmax|logingracetime|maxsessions|allowusers|allowgroups|denyusers|denygroups' || echo 'N/A'`,
     `sshd -T 2>/dev/null | grep -iE 'hostbasedauthentication|ignorerhosts|usedns|permituserenvironment|loglevel|banner' || echo 'N/A'`,
     `sshd -T 2>/dev/null | grep -iE '^ciphers|^macs|^kexalgorithms' || echo 'N/A'`,
+    // NEW: maxstartups, strictmodes, allowagentforwarding, printmotd
+    `sshd -T 2>/dev/null | grep -iE 'maxstartups|strictmodes|allowagentforwarding|printmotd' || echo 'N/A'`,
   ].join("\n");
 }
 
@@ -100,6 +102,14 @@ function authSection(): string {
     `grep -E '^auth.*pam_wheel' /etc/pam.d/su 2>/dev/null || echo 'NONE'`,
     // NEW: gshadow permissions
     `stat -c '%a' /etc/gshadow 2>/dev/null || echo 'N/A'`,
+    // NEW: password quality PAM modules
+    `grep -rE 'pam_pwquality|pam_cracklib' /etc/pam.d/ 2>/dev/null | head -3 || echo 'NONE'`,
+    // NEW: login UMASK
+    `grep -E '^UMASK' /etc/login.defs 2>/dev/null || echo 'N/A'`,
+    // NEW: password hash algorithm
+    `grep -E '^ENCRYPT_METHOD' /etc/login.defs 2>/dev/null || echo 'N/A'`,
+    // NEW: pwquality settings
+    `cat /etc/security/pwquality.conf 2>/dev/null | grep -E 'minlen|dcredit|ucredit|lcredit|ocredit' | head -5 || echo 'NONE'`,
   ].join("\n");
 }
 
@@ -120,6 +130,20 @@ function dockerSection(platform: string): string {
     `command -v docker >/dev/null 2>&1 && docker network ls --format '{{.Name}} {{.Driver}}' 2>/dev/null | head -10 || echo 'N/A'`,
     // NEW: Docker volume listing
     `command -v docker >/dev/null 2>&1 && docker volume ls --format '{{.Name}} {{.Driver}}' 2>/dev/null | head -10 || echo 'N/A'`,
+    // NEW: docker info security options detail (seccomp/userns)
+    `docker info --format '{{.SecurityOptions}}' 2>/dev/null || echo 'N/A'`,
+    // NEW: bridge network nf-call settings
+    `docker network inspect bridge --format '{{json .Options}}' 2>/dev/null || echo 'N/A'`,
+    // NEW: authorization plugins
+    `docker info --format '{{.Plugins.Authorization}}' 2>/dev/null || echo 'N/A'`,
+    // NEW: registry TLS certs directory
+    `ls -la /etc/docker/certs.d/ 2>/dev/null || echo 'NO_CERTS_DIR'`,
+    // NEW: insecure registry CIDRs
+    `docker info --format '{{.RegistryConfig.InsecureRegistryCIDRs}}' 2>/dev/null || echo 'N/A'`,
+    // NEW: swarm state
+    `docker system info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null || echo 'N/A'`,
+    // NEW: experimental build flag
+    `docker info --format '{{.ExperimentalBuild}}' 2>/dev/null || echo 'N/A'`,
   ];
 
   if (platform === "coolify") {
@@ -153,6 +177,16 @@ function networkSection(): string {
     `ss -tlnp 2>/dev/null | grep -E ':25 |:110 |:143 ' | head -5 || echo 'NONE'`,
     // NEW: promiscuous interfaces
     `ip link show 2>/dev/null | grep -i 'PROMISC' | head -5 || echo 'NONE'`,
+    // NEW: ARP spoofing protection
+    `sysctl net.ipv4.conf.all.arp_announce net.ipv4.conf.all.arp_ignore 2>/dev/null || echo 'N/A'`,
+    // NEW: TCP wrappers allow rules content
+    `cat /etc/hosts.allow 2>/dev/null | grep -v '^#' | grep -v '^\s*$' | head -5 || echo 'EMPTY'`,
+    // NEW: bogus ICMP error responses
+    `sysctl net.ipv4.icmp_ignore_bogus_error_responses 2>/dev/null || echo 'N/A'`,
+    // NEW: total listening port count
+    `ss -tlnp 2>/dev/null | grep -c ':' || echo '0'`,
+    // NEW: TCP SYN backlog
+    `sysctl net.ipv4.tcp_max_syn_backlog 2>/dev/null || echo 'N/A'`,
   ].join("\n");
 }
 
@@ -185,9 +219,17 @@ function loggingSection(): string {
 function kernelSection(): string {
   return [
     NAMED_SEP("KERNEL"),
-    `sysctl -a 2>/dev/null | grep -E 'randomize_va_space|accept_redirects|accept_source_route|log_martians|syncookies|core_uses_pid|dmesg_restrict|kptr_restrict|ptrace_scope|perf_event_paranoid|tcp_timestamps|icmp_echo_ignore_broadcasts|rp_filter|ip_forward|modules_disabled|unprivileged_bpf_disabled|send_redirects|secure_redirects|sysrq|exec_shield|core_pattern|unprivileged_userns_clone|panic_on_oops|nmi_watchdog' || echo 'N/A'`,
+    `sysctl -a 2>/dev/null | grep -E 'randomize_va_space|accept_redirects|accept_source_route|log_martians|syncookies|core_uses_pid|dmesg_restrict|kptr_restrict|ptrace_scope|perf_event_paranoid|tcp_timestamps|icmp_echo_ignore_broadcasts|rp_filter|ip_forward|modules_disabled|unprivileged_bpf_disabled|send_redirects|secure_redirects|sysrq|exec_shield|core_pattern|unprivileged_userns_clone|panic_on_oops|nmi_watchdog|kernel\\.panic\\b' || echo 'N/A'`,
     `uname -r 2>/dev/null || echo 'N/A'`,
     `cat /sys/kernel/security/lsm 2>/dev/null || echo 'N/A'`,
+    // NEW: blacklisted filesystem modules loaded
+    `lsmod 2>/dev/null | grep -cE 'cramfs|freevxfs|jffs2|hfs|hfsplus|udf' || echo '0'`,
+    // NEW: sysctl hardening config count in /etc/sysctl.d/
+    `ls /etc/sysctl.d/*.conf 2>/dev/null | wc -l || echo '0'`,
+    // NEW: systemd coredump config
+    `cat /etc/systemd/coredump.conf 2>/dev/null | grep -E 'Storage|ProcessSizeMax' | head -3 || echo 'N/A'`,
+    // NEW: kernel lockdown mode
+    `cat /sys/kernel/security/lockdown 2>/dev/null || echo 'N/A'`,
   ].join("\n");
 }
 
@@ -218,6 +260,14 @@ function servicesSection(): string {
     `test -f /etc/xinetd.conf && cat /etc/xinetd.conf 2>/dev/null || echo 'NONE'`,
     // NEW: running service count
     `systemctl list-units --type=service --state=running --no-pager 2>/dev/null | wc -l || echo 'N/A'`,
+    // NEW: wildcard listener count
+    `ss -tlnp 2>/dev/null | grep -c '0.0.0.0:' || echo '0'`,
+    // NEW: wildcard listener details
+    `ss -tlnp 2>/dev/null | grep '0.0.0.0:' | head -10 || echo 'NONE'`,
+    // NEW: xinetd service status
+    `systemctl is-active xinetd 2>/dev/null || echo 'inactive'`,
+    // NEW: world-readable service configs
+    `find /etc -maxdepth 2 -name '*.conf' -perm -o+r -path '*/systemd/*' 2>/dev/null | head -5 || echo 'NONE'`,
   ].join("\n");
 }
 

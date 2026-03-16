@@ -41,6 +41,13 @@ function makeDockerSkippedChecks(severity: "info" | "warning"): AuditCheck[] {
     { id: "DCK-ROOTLESS-MODE", name: "Rootless Docker Mode" },
     { id: "DCK-NO-HOST-NETWORK-INSPECT", name: "No Host Network Mode (Inspect)" },
     { id: "DCK-HEALTH-CHECK", name: "Container Health Checks Configured" },
+    { id: "DCK-BRIDGE-NFCALL", name: "Bridge ICC Disabled" },
+    { id: "DCK-NO-INSECURE-REGISTRY", name: "No Insecure Registries Configured" },
+    { id: "DCK-NO-EXPERIMENTAL", name: "Experimental Features Disabled" },
+    { id: "DCK-AUTH-PLUGIN", name: "Docker Authorization Plugin Configured" },
+    { id: "DCK-REGISTRY-CERTS", name: "Registry TLS Certificates Configured" },
+    { id: "DCK-SWARM-INACTIVE", name: "Docker Swarm Mode Inactive" },
+    { id: "DCK-PID-MODE", name: "No Host PID Namespace Containers" },
   ];
 
   return ids.map((def) => ({
@@ -550,5 +557,164 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
       "Health checks enable automatic container restart on failure, improving service availability and security posture.",
   };
 
-  return [dck01, dck02, dck03, dck04, dck05, dck06, dck07, dck08, dck09, dck10, dck11, dck12, dck13, dck14, dck15, dck16, dck17, dck18, dck19, dck20, dck21, dck22, dck23, dck24, dck25];
+  // DCK-26: Bridge ICC (Inter-Container Communication on default bridge)
+  // Parse docker network inspect bridge JSON for com.docker.network.bridge.enable_icc
+  const bridgeInspectLine = allLines.find((l) => l.includes("enable_icc") || l.includes("enable_ip_masquerade"));
+  let iccEnabled = false;
+  if (bridgeInspectLine) {
+    try {
+      // Line may be JSON like {"com.docker.network.bridge.enable_icc":"true",...}
+      const parsed = JSON.parse(bridgeInspectLine.trim()) as Record<string, string>;
+      iccEnabled = parsed["com.docker.network.bridge.enable_icc"] === "true";
+    } catch {
+      iccEnabled = /enable_icc["\s:]+true/.test(bridgeInspectLine);
+    }
+  }
+  const dck26: AuditCheck = {
+    id: "DCK-BRIDGE-NFCALL",
+    category: "Docker",
+    name: "Bridge ICC Disabled",
+    severity: "warning",
+    passed: !isDockerAvailable(sectionOutput) ? true : !iccEnabled,
+    currentValue: !isDockerAvailable(sectionOutput)
+      ? "Docker not installed"
+      : iccEnabled
+        ? "ICC enabled on default bridge (containers can communicate freely)"
+        : "ICC not enabled on default bridge",
+    expectedValue: "com.docker.network.bridge.enable_icc = false",
+    fixCommand: "echo '{\"icc\": false}' > /etc/docker/daemon.json && systemctl restart docker",
+    explain: "Inter-container communication on the default bridge allows any container to communicate with any other, enabling lateral movement.",
+  };
+
+  // DCK-27: No insecure registries
+  // Parse docker info insecure registry CIDRs — only 127.0.0.0/8 is acceptable
+  const insecureRegistryLine = allLines.find((l) => /InsecureRegistryCIDRs|insecure-registry/i.test(l));
+  const insecureRegistryValue = insecureRegistryLine?.trim() ?? "";
+  const hasCustomInsecureRegistry = insecureRegistryValue.length > 0
+    && insecureRegistryValue !== "N/A"
+    && !/^\[127\.0\.0\.0\/8\]$/.test(insecureRegistryValue.replace(/\s/g, ""))
+    && !insecureRegistryValue.includes("[]");
+  const dck27: AuditCheck = {
+    id: "DCK-NO-INSECURE-REGISTRY",
+    category: "Docker",
+    name: "No Insecure Registries Configured",
+    severity: "warning",
+    passed: !isDockerAvailable(sectionOutput) ? true : !hasCustomInsecureRegistry,
+    currentValue: !isDockerAvailable(sectionOutput)
+      ? "Docker not installed"
+      : hasCustomInsecureRegistry
+        ? `Insecure registry configured: ${insecureRegistryValue}`
+        : "No custom insecure registries",
+    expectedValue: "No insecure registries beyond 127.0.0.0/8",
+    fixCommand: "Remove --insecure-registry from /etc/docker/daemon.json and restart docker",
+    explain: "Insecure registries allow image pulls over unencrypted HTTP, enabling man-in-the-middle image tampering.",
+  };
+
+  // DCK-28: No experimental build features
+  const experimentalLine = allLines.find((l) => /ExperimentalBuild|experimental/i.test(l) && !/^#/.test(l));
+  const isExperimental = experimentalLine !== undefined
+    && experimentalLine.trim() === "true";
+  const dck28: AuditCheck = {
+    id: "DCK-NO-EXPERIMENTAL",
+    category: "Docker",
+    name: "Experimental Features Disabled",
+    severity: "info",
+    passed: !isDockerAvailable(sectionOutput) ? true : !isExperimental,
+    currentValue: !isDockerAvailable(sectionOutput)
+      ? "Docker not installed"
+      : isExperimental
+        ? "Experimental features enabled"
+        : "Experimental features disabled",
+    expectedValue: "ExperimentalBuild = false",
+    fixCommand: 'Remove "experimental": true from /etc/docker/daemon.json',
+    explain: "Experimental features are not production-hardened and may contain unpatched vulnerabilities.",
+  };
+
+  // DCK-29: Authorization plugin configured
+  // Parse docker info Authorization plugins — line from `docker info --format '{{.Plugins.Authorization}}'`
+  const authPluginLine = allLines.find((l) => l.trim().startsWith("[") && allLines.indexOf(l) > allLines.findIndex((x) => /SecurityOptions|ExperimentalBuild/.test(x)));
+  const authPluginValue = authPluginLine?.trim() ?? "";
+  const hasAuthPlugin = authPluginValue.length > 0
+    && authPluginValue !== "N/A"
+    && authPluginValue !== "[]"
+    && authPluginValue !== "[ ]";
+  const dck29: AuditCheck = {
+    id: "DCK-AUTH-PLUGIN",
+    category: "Docker",
+    name: "Docker Authorization Plugin Configured",
+    severity: "info",
+    passed: !isDockerAvailable(sectionOutput) ? true : hasAuthPlugin,
+    currentValue: !isDockerAvailable(sectionOutput)
+      ? "Docker not installed"
+      : hasAuthPlugin
+        ? `Authorization plugin(s): ${authPluginValue}`
+        : "None configured",
+    expectedValue: "At least one authorization plugin active",
+    fixCommand: "Configure an authorization plugin in /etc/docker/daemon.json (e.g., open-policy-agent)",
+    explain: "Docker authorization plugins enforce fine-grained access control on API requests, preventing unauthorized container operations.",
+  };
+
+  // DCK-30: Registry TLS certificates exist
+  const hasCertsDir = !sectionOutput.includes("NO_CERTS_DIR")
+    && sectionOutput.includes("/etc/docker/certs.d/")
+    && !sectionOutput.includes("total 0");
+  const dck30: AuditCheck = {
+    id: "DCK-REGISTRY-CERTS",
+    category: "Docker",
+    name: "Registry TLS Certificates Configured",
+    severity: "info",
+    passed: !isDockerAvailable(sectionOutput) ? true : hasCertsDir,
+    currentValue: !isDockerAvailable(sectionOutput)
+      ? "Docker not installed"
+      : hasCertsDir
+        ? "/etc/docker/certs.d/ exists with registry cert subdirectories"
+        : "No registry TLS certificates configured",
+    expectedValue: "/etc/docker/certs.d/ exists with registry cert subdirectories",
+    fixCommand: "mkdir -p /etc/docker/certs.d/registry.example.com && cp ca.crt /etc/docker/certs.d/registry.example.com/",
+    explain: "Registry TLS certificates enable verification of private registry identity, preventing image pulls from impersonated registries.",
+  };
+
+  // DCK-31: Swarm mode inactive (unless intentionally used)
+  // Parse `docker system info --format '{{.Swarm.LocalNodeState}}'` — should not be "active"
+  const swarmStateLine = allLines.find((l) => /^(active|inactive|pending|error|locked)$/.test(l.trim()));
+  const swarmState = swarmStateLine?.trim() ?? "inactive";
+  const swarmActive = swarmState === "active";
+  const dck31: AuditCheck = {
+    id: "DCK-SWARM-INACTIVE",
+    category: "Docker",
+    name: "Docker Swarm Mode Inactive",
+    severity: "info",
+    passed: !isDockerAvailable(sectionOutput) ? true : !swarmActive,
+    currentValue: !isDockerAvailable(sectionOutput)
+      ? "Docker not installed"
+      : swarmActive
+        ? "Swarm mode active"
+        : `Swarm state: ${swarmState}`,
+    expectedValue: "Swarm mode inactive (if not intentionally used)",
+    fixCommand: "docker swarm leave --force (if swarm not intentionally used)",
+    explain: "Docker Swarm mode opens additional network ports and management APIs; disable if not actively used.",
+  };
+
+  // DCK-32: No containers using host PID namespace
+  const hasHostPid = /"PidMode":\s*"host"/i.test(sectionOutput)
+    || /PidMode=host/.test(sectionOutput);
+  const dck32: AuditCheck = {
+    id: "DCK-PID-MODE",
+    category: "Docker",
+    name: "No Host PID Namespace Containers",
+    severity: "warning",
+    passed: !isDockerAvailable(sectionOutput) ? true : !hasRunningContainers || !hasHostPid,
+    currentValue: !isDockerAvailable(sectionOutput)
+      ? "Docker not installed"
+      : !hasRunningContainers
+        ? "No running containers"
+        : hasHostPid
+          ? "Container(s) using host PID namespace detected"
+          : "No containers using host PID namespace",
+    expectedValue: "No containers with PidMode=host",
+    fixCommand: "docker run --pid=private ... (do not use --pid=host)",
+    explain: "Sharing the host PID namespace gives containers visibility into all host processes, enabling process injection and credential theft.",
+  };
+
+  return [dck01, dck02, dck03, dck04, dck05, dck06, dck07, dck08, dck09, dck10, dck11, dck12, dck13, dck14, dck15, dck16, dck17, dck18, dck19, dck20, dck21, dck22, dck23, dck24, dck25, dck26, dck27, dck28, dck29, dck30, dck31, dck32];
 };

@@ -365,5 +365,113 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
     explain: "Promiscuous mode interfaces capture all network traffic, potentially indicating network sniffing malware.",
   };
 
-  return [net01, net02, net03, net04, net05, net06, net07, net08, net09, net10, net11, net12, net13, net14, net15, net16, net17, net18];
+  // NET-19: ARP announce protection (net.ipv4.conf.all.arp_announce = 2)
+  const arpAnnounce = extractSysctlValue(output, "net.ipv4.conf.all.arp_announce");
+  const net19: AuditCheck = {
+    id: "NET-ARP-ANNOUNCE",
+    category: "Network",
+    name: "ARP Announce Protection Enabled",
+    severity: "warning",
+    passed: isNA ? false : arpAnnounce === "2",
+    currentValue: isNA
+      ? "Unable to determine"
+      : arpAnnounce !== null
+        ? `net.ipv4.conf.all.arp_announce = ${arpAnnounce}`
+        : "Unable to determine",
+    expectedValue: "net.ipv4.conf.all.arp_announce = 2",
+    fixCommand: "sysctl -w net.ipv4.conf.all.arp_announce=2 && echo 'net.ipv4.conf.all.arp_announce = 2' >> /etc/sysctl.d/99-kastell.conf",
+    explain: "Setting arp_announce=2 prevents ARP spoofing by ensuring source addresses in ARP replies match the interface address.",
+  };
+
+  // NET-20: ARP ignore protection (net.ipv4.conf.all.arp_ignore >= 1)
+  const arpIgnore = extractSysctlValue(output, "net.ipv4.conf.all.arp_ignore");
+  const arpIgnoreVal = arpIgnore !== null ? parseInt(arpIgnore, 10) : null;
+  const net20: AuditCheck = {
+    id: "NET-ARP-IGNORE",
+    category: "Network",
+    name: "ARP Ignore Protection Enabled",
+    severity: "warning",
+    passed: isNA ? false : arpIgnoreVal !== null && arpIgnoreVal >= 1,
+    currentValue: isNA
+      ? "Unable to determine"
+      : arpIgnore !== null
+        ? `net.ipv4.conf.all.arp_ignore = ${arpIgnore}`
+        : "Unable to determine",
+    expectedValue: "net.ipv4.conf.all.arp_ignore >= 1",
+    fixCommand: "sysctl -w net.ipv4.conf.all.arp_ignore=1 && echo 'net.ipv4.conf.all.arp_ignore = 1' >> /etc/sysctl.d/99-kastell.conf",
+    explain: "Setting arp_ignore=1 prevents ARP cache poisoning by only responding to requests targeting the receiving interface's address.",
+  };
+
+  // NET-21: Ignore bogus ICMP error responses (net.ipv4.icmp_ignore_bogus_error_responses = 1)
+  const bogusIcmp = extractSysctlValue(output, "net.ipv4.icmp_ignore_bogus_error_responses");
+  const net21: AuditCheck = {
+    id: "NET-BOGUS-ICMP-IGNORE",
+    category: "Network",
+    name: "Bogus ICMP Error Responses Ignored",
+    severity: "info",
+    passed: isNA ? false : bogusIcmp === "1",
+    currentValue: isNA
+      ? "Unable to determine"
+      : bogusIcmp !== null
+        ? `net.ipv4.icmp_ignore_bogus_error_responses = ${bogusIcmp}`
+        : "Unable to determine",
+    expectedValue: "net.ipv4.icmp_ignore_bogus_error_responses = 1",
+    fixCommand: "sysctl -w net.ipv4.icmp_ignore_bogus_error_responses=1",
+    explain: "Ignoring bogus ICMP error responses prevents denial-of-service from malformed ICMP packets.",
+  };
+
+  // NET-22: TCP wrappers have active rules in hosts.allow
+  // cat /etc/hosts.allow | grep non-comment/non-empty lines output — "EMPTY" if no rules
+  const tcpWrappersOutput = output.split("\n").find((l) => l.trim() === "EMPTY" || (l.includes(":") && !l.startsWith("#")));
+  const hasTcpWrapperRules = tcpWrappersOutput !== undefined
+    && tcpWrappersOutput.trim() !== "EMPTY"
+    && tcpWrappersOutput.trim() !== "";
+  const net22: AuditCheck = {
+    id: "NET-TCP-WRAPPERS-CONFIGURED",
+    category: "Network",
+    name: "TCP Wrappers Active Rules Present",
+    severity: "info",
+    passed: isNA ? false : hasTcpWrapperRules,
+    currentValue: isNA
+      ? "Unable to determine"
+      : hasTcpWrapperRules
+        ? "Active rules found in /etc/hosts.allow"
+        : "No active rules in /etc/hosts.allow",
+    expectedValue: "At least one active access control rule in /etc/hosts.allow",
+    fixCommand: "echo 'sshd: 10.0.0.0/8' >> /etc/hosts.allow && echo 'ALL: ALL' >> /etc/hosts.deny",
+    explain: "TCP wrappers provide an additional layer of access control for network services beyond firewall rules.",
+  };
+
+  // NET-23: Total listening port count reasonable
+  // ss -tlnp | grep -c ':' output — total listening port count
+  const portCountLines = output.split("\n");
+  let totalListeningCount: number | null = null;
+  for (const line of portCountLines) {
+    const trimmed = line.trim();
+    if (/^\d+$/.test(trimmed)) {
+      const val = parseInt(trimmed, 10);
+      // Plausible total ss port count (1-200)
+      if (val >= 0 && val < 200) {
+        totalListeningCount = val;
+        break;
+      }
+    }
+  }
+  const net23: AuditCheck = {
+    id: "NET-LISTENING-PORT-COUNT",
+    category: "Network",
+    name: "Listening Port Count Reasonable",
+    severity: "info",
+    passed: isNA ? false : totalListeningCount === null || totalListeningCount <= 20,
+    currentValue: isNA
+      ? "Unable to determine"
+      : totalListeningCount !== null
+        ? `${totalListeningCount} listening TCP ports`
+        : "Port count not determinable",
+    expectedValue: "20 or fewer listening TCP ports",
+    fixCommand: "ss -tlnp — review and close unnecessary listening ports",
+    explain: "Excessive listening ports indicate unnecessary services, each representing a potential attack vector.",
+  };
+
+  return [net01, net02, net03, net04, net05, net06, net07, net08, net09, net10, net11, net12, net13, net14, net15, net16, net17, net18, net19, net20, net21, net22, net23];
 };

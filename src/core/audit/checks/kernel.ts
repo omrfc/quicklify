@@ -491,5 +491,131 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
       "Exec-shield provides executable space protection; on modern kernels, hardware NX bit provides equivalent protection.",
   };
 
-  return [krn01, krn02, krn03, krn04, krn05, krn06, krn07, krn08, krn09, krn10, krn11, krn12, krn13, krn14, krn15, krn16, krn17, krn18, krn19, krn20, krn21, krn22, krn23, krn24, krn25];
+  // KRN-26: No blacklisted filesystem modules loaded
+  // lsmod | grep -cE 'cramfs|freevxfs|jffs2|hfs|hfsplus|udf' output — count of loaded blacklisted modules
+  const blacklistLines = output.split("\n");
+  let blacklistCount: number | null = null;
+  for (const line of blacklistLines) {
+    const trimmed = line.trim();
+    // Look for a standalone digit (count output from grep -c)
+    if (/^\d+$/.test(trimmed)) {
+      const val = parseInt(trimmed, 10);
+      // Plausible count 0-20
+      if (val >= 0 && val < 20) {
+        blacklistCount = val;
+        break;
+      }
+    }
+  }
+  const krn26: AuditCheck = {
+    id: "KRN-MODULE-BLACKLIST",
+    category: "Kernel",
+    name: "Blacklisted Filesystem Modules Not Loaded",
+    severity: "info",
+    passed: isNA ? false : blacklistCount === 0,
+    currentValue: isNA
+      ? "Unable to determine"
+      : blacklistCount !== null
+        ? `${blacklistCount} blacklisted module(s) loaded`
+        : "Unable to determine module state",
+    expectedValue: "0 blacklisted filesystem modules (cramfs, hfs, udf, etc.) loaded",
+    fixCommand: "echo 'install cramfs /bin/true' >> /etc/modprobe.d/blacklist.conf && echo 'install hfs /bin/true' >> /etc/modprobe.d/blacklist.conf",
+    explain: "Obsolete filesystem kernel modules (cramfs, hfs, udf) can be exploited to mount crafted filesystem images for privilege escalation.",
+  };
+
+  // KRN-27: kernel.panic auto-reboot (>0)
+  const kernelPanic = extractSysctlValue(output, "kernel.panic");
+  const kernelPanicVal = kernelPanic !== null ? parseInt(kernelPanic, 10) : null;
+  const krn27: AuditCheck = {
+    id: "KRN-PANIC-REBOOT",
+    category: "Kernel",
+    name: "Kernel Panic Auto-Reboot Configured",
+    severity: "info",
+    passed: isNA ? false : kernelPanicVal !== null && kernelPanicVal > 0,
+    currentValue: isNA
+      ? "Unable to determine"
+      : kernelPanic !== null
+        ? `kernel.panic = ${kernelPanic}`
+        : "Unable to determine",
+    expectedValue: "kernel.panic > 0 (auto-reboot on panic)",
+    fixCommand: "sysctl -w kernel.panic=60 && echo 'kernel.panic = 60' >> /etc/sysctl.d/99-kastell.conf",
+    explain: "Setting kernel.panic > 0 ensures automatic reboot after a kernel panic, preventing indefinite downtime on headless servers.",
+  };
+
+  // KRN-28: sysctl hardening configs in /etc/sysctl.d/
+  // ls /etc/sysctl.d/*.conf | wc -l output
+  let sysctlDirCount: number | null = null;
+  for (const line of blacklistLines) {
+    const trimmed = line.trim();
+    if (/^\d+$/.test(trimmed)) {
+      const val = parseInt(trimmed, 10);
+      // sysctl.d config count is typically 0-20; distinct from blacklist count (already parsed)
+      // We need to find the second standalone digit that follows the first
+      if (val >= 0 && val <= 50 && sysctlDirCount === null && blacklistCount !== null) {
+        // Skip the first digit (blacklistCount) — look for subsequent one
+        if (blacklistLines.indexOf(line) > blacklistLines.findIndex((l) => l.trim() === String(blacklistCount))) {
+          sysctlDirCount = val;
+          break;
+        }
+      }
+    }
+  }
+  const krn28: AuditCheck = {
+    id: "KRN-SYSCTL-HARDENED",
+    category: "Kernel",
+    name: "Sysctl Hardening Configs Present",
+    severity: "info",
+    passed: isNA ? false : sysctlDirCount !== null && sysctlDirCount > 0,
+    currentValue: isNA
+      ? "Unable to determine"
+      : sysctlDirCount !== null
+        ? `${sysctlDirCount} sysctl.d config file(s) found`
+        : "Unable to determine sysctl.d config count",
+    expectedValue: "At least 1 hardening config in /etc/sysctl.d/",
+    fixCommand: "Create /etc/sysctl.d/99-kastell.conf with hardening settings",
+    explain: "Persistent sysctl configuration files in /etc/sysctl.d/ ensure kernel hardening survives reboots.",
+  };
+
+  // KRN-29: Systemd coredump disabled (Storage=none or ProcessSizeMax=0)
+  const coredumpSection = output.match(/Storage[=\s]+(\S+)/i);
+  const coredumpStorage = coredumpSection ? coredumpSection[1].toLowerCase() : null;
+  const processSizeMatch = output.match(/ProcessSizeMax[=\s]+(\S+)/i);
+  const processSizeMax = processSizeMatch ? processSizeMatch[1] : null;
+  const coredumpDisabled = coredumpStorage === "none"
+    || processSizeMax === "0";
+  const krn29: AuditCheck = {
+    id: "KRN-COREDUMP-SYSTEMD",
+    category: "Kernel",
+    name: "Systemd Coredumps Disabled",
+    severity: "info",
+    passed: isNA ? false : coredumpDisabled,
+    currentValue: isNA
+      ? "Unable to determine"
+      : coredumpStorage !== null
+        ? `Storage=${coredumpStorage}${processSizeMax !== null ? `, ProcessSizeMax=${processSizeMax}` : ""}`
+        : "Coredump config not found",
+    expectedValue: "Storage=none or ProcessSizeMax=0 in /etc/systemd/coredump.conf",
+    fixCommand: "echo -e '[Coredump]\\nStorage=none\\nProcessSizeMax=0' > /etc/systemd/coredump.conf.d/kastell.conf",
+    explain: "Disabling systemd core dumps prevents sensitive memory contents from being written to disk after crashes.",
+  };
+
+  // KRN-30: Kernel lockdown mode enabled
+  const lockdownValue = output.match(/\[(integrity|confidentiality)\]/i);
+  const lockdownEnabled = lockdownValue !== null;
+  const lockdownLine = output.split("\n").find((l) => /\[none\]|\[integrity\]|\[confidentiality\]/i.test(l));
+  const krn30: AuditCheck = {
+    id: "KRN-LOCKDOWN-MODE",
+    category: "Kernel",
+    name: "Kernel Lockdown Mode Enabled",
+    severity: "info",
+    passed: isNA ? false : lockdownEnabled,
+    currentValue: isNA
+      ? "Unable to determine"
+      : lockdownLine?.trim() ?? "Lockdown mode not available",
+    expectedValue: "[integrity] or [confidentiality] in /sys/kernel/security/lockdown",
+    fixCommand: "Add lockdown=integrity to kernel boot parameters in GRUB",
+    explain: "Kernel lockdown mode prevents even root from modifying the running kernel, blocking rootkit installation.",
+  };
+
+  return [krn01, krn02, krn03, krn04, krn05, krn06, krn07, krn08, krn09, krn10, krn11, krn12, krn13, krn14, krn15, krn16, krn17, krn18, krn19, krn20, krn21, krn22, krn23, krn24, krn25, krn26, krn27, krn28, krn29, krn30];
 };

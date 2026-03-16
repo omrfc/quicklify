@@ -382,5 +382,84 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
     explain: "World-readable /etc/gshadow exposes group password hashes to local attackers.",
   };
 
-  return [auth01, auth02, auth03, auth04, auth05, auth06, auth07, auth08, auth09, auth10, auth11, auth12, auth13, auth14, auth15, auth16, auth17, auth18];
+  // AUTH-PWQUALITY-CONFIGURED: pam_pwquality or pam_cracklib in PAM config files
+  // grep -rE 'pam_pwquality|pam_cracklib' /etc/pam.d/ output
+  const hasPwqualityConfig = /pam_pwquality|pam_cracklib/i.test(output);
+  const auth19: AuditCheck = {
+    id: "AUTH-PWQUALITY-CONFIGURED",
+    category: "Auth",
+    name: "PAM Password Quality Module Configured",
+    severity: "warning",
+    passed: isNA ? false : hasPwqualityConfig,
+    currentValue: isNA
+      ? "Unable to determine"
+      : hasPwqualityConfig
+        ? "pam_pwquality or pam_cracklib configured in /etc/pam.d/"
+        : "No password quality module in /etc/pam.d/",
+    expectedValue: "pam_pwquality or pam_cracklib in /etc/pam.d/",
+    fixCommand: "apt install libpam-pwquality && echo 'password requisite pam_pwquality.so retry=3 minlen=12' >> /etc/pam.d/common-password",
+    explain: "PAM password quality modules enforce minimum complexity requirements, preventing trivially guessable passwords.",
+  };
+
+  // AUTH-UMASK-LOGIN-DEFS: UMASK in /etc/login.defs is 027 or 022
+  const umaskMatch = output.match(/^UMASK\s+(\d+)/m);
+  const umaskValue = umaskMatch ? umaskMatch[1] : null;
+  const umaskSecure = umaskValue !== null && (umaskValue === "027" || umaskValue === "022");
+  const auth20: AuditCheck = {
+    id: "AUTH-UMASK-LOGIN-DEFS",
+    category: "Auth",
+    name: "Default UMASK Configured Securely",
+    severity: "info",
+    passed: isNA ? false : umaskSecure,
+    currentValue: isNA
+      ? "Unable to determine"
+      : umaskValue !== null
+        ? `UMASK = ${umaskValue}`
+        : "UMASK not set in /etc/login.defs",
+    expectedValue: "UMASK 027 or 022 in /etc/login.defs",
+    fixCommand: "sed -i 's/^UMASK.*/UMASK 027/' /etc/login.defs",
+    explain: "Default UMASK in login.defs controls file permissions for newly created user files, preventing world-readable defaults.",
+  };
+
+  // AUTH-SHA512-HASH: ENCRYPT_METHOD is SHA512 or YESCRYPT
+  const encryptMethodMatch = output.match(/^ENCRYPT_METHOD\s+(\S+)/m);
+  const encryptMethod = encryptMethodMatch ? encryptMethodMatch[1].toUpperCase() : null;
+  const encryptSecure = encryptMethod === "SHA512" || encryptMethod === "YESCRYPT";
+  const auth21: AuditCheck = {
+    id: "AUTH-SHA512-HASH",
+    category: "Auth",
+    name: "Strong Password Hash Algorithm",
+    severity: "warning",
+    passed: isNA ? false : encryptSecure,
+    currentValue: isNA
+      ? "Unable to determine"
+      : encryptMethod !== null
+        ? `ENCRYPT_METHOD = ${encryptMethod}`
+        : "ENCRYPT_METHOD not configured",
+    expectedValue: "ENCRYPT_METHOD SHA512 or YESCRYPT",
+    fixCommand: "sed -i 's/^ENCRYPT_METHOD.*/ENCRYPT_METHOD SHA512/' /etc/login.defs",
+    explain: "SHA512 or yescrypt password hashing is computationally expensive, making offline brute-force attacks significantly harder.",
+  };
+
+  // AUTH-PWQUALITY-MINLEN: minlen >= 12 in /etc/security/pwquality.conf
+  const pwqualityMinlenMatch = output.match(/\bminlen\s*=\s*(\d+)/i);
+  const pwqualityMinlen = pwqualityMinlenMatch ? parseInt(pwqualityMinlenMatch[1], 10) : null;
+  const minlenSecure = pwqualityMinlen !== null && pwqualityMinlen >= 12;
+  const auth22: AuditCheck = {
+    id: "AUTH-PWQUALITY-MINLEN",
+    category: "Auth",
+    name: "Password Minimum Length Configured",
+    severity: "warning",
+    passed: isNA ? false : minlenSecure,
+    currentValue: isNA
+      ? "Unable to determine"
+      : pwqualityMinlen !== null
+        ? `minlen = ${pwqualityMinlen}`
+        : "minlen not configured in pwquality.conf",
+    expectedValue: "minlen >= 12 in /etc/security/pwquality.conf",
+    fixCommand: "echo 'minlen = 14' >> /etc/security/pwquality.conf",
+    explain: "Minimum password length of 12+ characters exponentially increases brute-force difficulty.",
+  };
+
+  return [auth01, auth02, auth03, auth04, auth05, auth06, auth07, auth08, auth09, auth10, auth11, auth12, auth13, auth14, auth15, auth16, auth17, auth18, auth19, auth20, auth21, auth22];
 };
