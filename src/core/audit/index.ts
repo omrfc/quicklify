@@ -4,7 +4,7 @@
  */
 
 import type { KastellResult } from "../../types/index.js";
-import type { AuditResult } from "./types.js";
+import type { AuditCategory, AuditResult } from "./types.js";
 import { buildAuditBatchCommands, BATCH_TIMEOUTS } from "./commands.js";
 import { calculateOverallScore } from "./scoring.js";
 import { parseAllChecks, mergeComplianceRefs } from "./checks/index.js";
@@ -12,6 +12,23 @@ import { COMPLIANCE_MAP } from "./compliance/mapper.js";
 import { sshExec } from "../../utils/ssh.js";
 import { calculateQuickWins } from "./quickwin.js";
 import { AUDIT_VERSION } from "../../constants.js";
+
+/**
+ * Detect categories where all checks have "not installed" or "N/A" currentValue.
+ * Empty categories (0 checks) are not considered skipped.
+ * Used to show informative "Skipped: X (not installed)" lines without affecting scores.
+ */
+export function detectSkippedCategories(categories: AuditCategory[]): string[] {
+  const skipped: string[] = [];
+  for (const cat of categories) {
+    if (cat.checks.length === 0) continue;  // Empty categories are not "skipped"
+    const allSkipped = cat.checks.every(
+      (c) => c.currentValue.includes("not installed") || c.currentValue === "N/A",
+    );
+    if (allSkipped) skipped.push(cat.name);
+  }
+  return skipped;
+}
 
 /**
  * Run a full server security audit.
@@ -48,6 +65,7 @@ export async function runAudit(
     const rawCategories = parseAllChecks(batchOutputs, platform);
     const categories = mergeComplianceRefs(rawCategories, COMPLIANCE_MAP);
     const overallScore = calculateOverallScore(categories);
+    const skippedCategories = detectSkippedCategories(categories);
 
     const auditResult: AuditResult = {
       serverName,
@@ -58,6 +76,7 @@ export async function runAudit(
       categories,
       overallScore,
       quickWins: [],
+      ...(skippedCategories.length > 0 ? { skippedCategories } : {}),
     };
 
     auditResult.quickWins = calculateQuickWins(auditResult);

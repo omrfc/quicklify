@@ -17,6 +17,10 @@ import { watchAudit } from "../core/audit/watch.js";
 import { diffAudits, resolveSnapshotRef, formatDiffTerminal, formatDiffJson } from "../core/audit/diff.js";
 import { getServers } from "../utils/config.js";
 import { listAllChecks, formatListChecksTerminal, formatListChecksJson } from "../core/audit/listChecks.js";
+import { filterByProfile, calculateComplianceDetail } from "../core/audit/compliance/scoring.js";
+import { formatComplianceReport } from "../core/audit/formatters/compliance.js";
+import type { ProfileName } from "../core/audit/compliance/types.js";
+import type { FrameworkKey } from "../core/audit/compliance/mapper.js";
 import type { AuditCliOptions } from "../core/audit/formatters/index.js";
 import type { AuditDiffResult } from "../core/audit/types.js";
 
@@ -42,6 +46,8 @@ export interface AuditCommandOptions extends AuditCliOptions {
   trend?: boolean;
   days?: string;
   listChecks?: boolean;
+  profile?: string;
+  compliance?: string;
 }
 
 /**
@@ -215,6 +221,56 @@ export async function auditCommand(
     logger.warning("Score methodology updated. New baseline established.");
   } else if (trend !== "first audit") {
     logger.info(`Trend: ${trend}`);
+  }
+
+  // --compliance: detailed Framework>Control>Check grouped report
+  if (options.compliance) {
+    const frameworkAliasMap: Record<string, FrameworkKey> = {
+      cis: "CIS",
+      "pci-dss": "PCI-DSS",
+      hipaa: "HIPAA",
+    };
+    const frameworks = options.compliance
+      .split(",")
+      .map((f) => frameworkAliasMap[f.trim().toLowerCase()])
+      .filter((f): f is FrameworkKey => !!f);
+    if (frameworks.length === 0) {
+      logger.error("Invalid framework. Use: cis, pci-dss, hipaa");
+      return;
+    }
+    if (options.json) {
+      const detail = calculateComplianceDetail(auditResult.categories);
+      const filtered = detail.filter((d) => frameworks.includes(d.framework));
+      console.log(JSON.stringify({ overallScore: auditResult.overallScore, compliance: filtered }, null, 2));
+    } else {
+      console.log(formatComplianceReport(auditResult, frameworks));
+    }
+    return;
+  }
+
+  // --profile: filtered audit view by compliance framework
+  if (options.profile) {
+    const validProfiles = ["cis-level1", "cis-level2", "pci-dss", "hipaa"];
+    if (!validProfiles.includes(options.profile)) {
+      logger.error(`Invalid profile. Use: ${validProfiles.join(", ")}`);
+      return;
+    }
+    const profileName = options.profile as ProfileName;
+    const filteredResult = filterByProfile(auditResult, profileName);
+    filteredResult.complianceDetail = calculateComplianceDetail(filteredResult.categories);
+    const formatter = await selectFormatter(options);
+    const output = formatter(filteredResult);
+    console.log(output);
+    const profileFramework =
+      profileName.startsWith("cis") ? "CIS" : profileName === "pci-dss" ? "PCI-DSS" : "HIPAA";
+    const detail = calculateComplianceDetail(auditResult.categories);
+    const profileScore = detail.find((d) => d.framework === profileFramework);
+    if (profileScore) {
+      logger.info(
+        `Profile ${options.profile}: ${profileScore.passedControls}/${profileScore.totalControls} controls (${profileScore.passRate}%)`,
+      );
+    }
+    return;
   }
 
   // --snapshot: save point-in-time snapshot
