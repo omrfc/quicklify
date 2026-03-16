@@ -1,10 +1,11 @@
 /**
  * Terminal formatter for audit results.
- * Default output format with colored category scores, emoji severity, and quick wins.
+ * Default output format with grouped category output, VPS banner, and quick wins.
+ * Failing categories are expanded with inline failed checks; passing categories are collapsed.
  */
 
 import chalk from "chalk";
-import type { AuditResult, AuditCheck, Severity } from "../types.js";
+import type { AuditResult, Severity } from "../types.js";
 import { calculateComplianceScores } from "../compliance/scoring.js";
 
 /** Severity emoji indicators */
@@ -34,7 +35,8 @@ function progressBar(score: number, width: number = 10): string {
 
 /**
  * Format audit result for terminal display.
- * Shows: header -> category table -> failed checks -> quick wins
+ * Shows: header -> overall score -> compliance -> stats header -> VPS banner ->
+ *        failing categories (expanded) -> passing categories (collapsed) -> quick wins
  */
 export function formatTerminal(result: AuditResult): string {
   const lines: string[] = [];
@@ -74,18 +76,70 @@ export function formatTerminal(result: AuditResult): string {
     lines.push("");
   }
 
-  // Category table
-  lines.push(chalk.bold("Categories"));
-  lines.push(chalk.gray("\u2500".repeat(50)));
+  // Stats header: total / passed / failed counts, VPS-adjusted count when applicable
+  const allChecks = result.categories.flatMap((c) => c.checks);
+  const totalChecks = allChecks.length;
+  const passedChecks = allChecks.filter((c) => c.passed).length;
+  const failedChecks = totalChecks - passedChecks;
+  const adjusted = result.vpsAdjustedCount ?? 0;
 
-  for (const category of result.categories) {
-    const catColor = scoreColor(category.score);
-    const failedCount = category.checks.filter((c) => !c.passed).length;
-    const statusIcon = failedCount === 0 ? PASS_ICON : FAIL_ICON;
+  let statsLine = `Checks: ${totalChecks} total | ${passedChecks} passed | ${failedChecks} failed`;
+  if (adjusted > 0) statsLine += ` | ${adjusted} VPS-adjusted`;
+  lines.push(chalk.gray(statsLine));
 
-    lines.push(
-      `${statusIcon} ${category.name.padEnd(14)} ${catColor(progressBar(category.score))} ${catColor(`${category.score}/${category.maxScore}`)}${failedCount > 0 ? chalk.red(` (${failedCount} failed)`) : ""}`,
-    );
+  // VPS banner (only when VPS detected and checks were adjusted)
+  if (result.vpsType && adjusted > 0) {
+    lines.push(chalk.dim(`VPS detected (${result.vpsType}) — ${adjusted} checks adjusted to info`));
+  }
+  lines.push("");
+
+  // Separate categories into failing and passing
+  const failingCats = result.categories.filter((c) => c.checks.some((ch) => !ch.passed));
+  const passingCats = result.categories.filter((c) => c.checks.every((ch) => ch.passed));
+
+  // Severity sort order for failed checks within a category
+  const severityOrder: Record<Severity, number> = { critical: 0, warning: 1, info: 2 };
+
+  // Failing categories expanded with inline failed checks
+  if (failingCats.length > 0) {
+    lines.push(chalk.bold("Categories"));
+    lines.push(chalk.gray("\u2500".repeat(50)));
+
+    for (const category of failingCats) {
+      const catFailed = category.checks.filter((ch) => !ch.passed);
+      const catPassed = category.checks.filter((ch) => ch.passed).length;
+      const catTotal = category.checks.length;
+      const catColor = scoreColor(category.score);
+
+      lines.push(
+        `${FAIL_ICON} ${category.name} ${catPassed}/${catTotal} (${catColor(`${category.score}%`)})`,
+      );
+
+      // Sort failed checks by severity: critical > warning > info
+      const sortedFailed = [...catFailed].sort(
+        (a, b) => severityOrder[a.severity] - severityOrder[b.severity],
+      );
+
+      for (const check of sortedFailed) {
+        const emoji = SEVERITY_EMOJI[check.severity];
+        lines.push(
+          `  ${emoji} ${chalk.bold(check.id)} ${check.name} [${check.severity}]`,
+        );
+        if (check.fixCommand) {
+          lines.push(chalk.gray(`     Fix: ${check.fixCommand}`));
+        }
+      }
+    }
+  }
+
+  // Passing categories collapsed (one line each at 100%)
+  if (passingCats.length > 0) {
+    lines.push("");
+    for (const category of passingCats) {
+      lines.push(
+        `${PASS_ICON} ${category.name} ${category.checks.length}/${category.checks.length} (100%)`,
+      );
+    }
   }
 
   // Skipped categories display
@@ -93,35 +147,6 @@ export function formatTerminal(result: AuditResult): string {
     lines.push("");
     for (const name of result.skippedCategories) {
       lines.push(chalk.dim(`Skipped: ${name} (not installed)`));
-    }
-  }
-
-  // Failed checks detail
-  const failedChecks: AuditCheck[] = [];
-  for (const category of result.categories) {
-    for (const check of category.checks) {
-      if (!check.passed) {
-        failedChecks.push(check);
-      }
-    }
-  }
-
-  if (failedChecks.length > 0) {
-    lines.push("");
-    lines.push(chalk.bold("Failed Checks"));
-    lines.push(chalk.gray("\u2500".repeat(50)));
-
-    for (const check of failedChecks) {
-      const emoji = SEVERITY_EMOJI[check.severity];
-      lines.push(
-        `${emoji} ${chalk.bold(check.id)} ${check.name} [${check.severity}]`,
-      );
-      lines.push(
-        chalk.gray(`   Current: ${check.currentValue} | Expected: ${check.expectedValue}`),
-      );
-      if (check.fixCommand) {
-        lines.push(chalk.gray(`   Fix: ${check.fixCommand}`));
-      }
     }
   }
 
