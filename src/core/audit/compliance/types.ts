@@ -14,6 +14,15 @@ export const PROFILE_MAP: Record<ProfileName, { framework: FrameworkKey; level?:
   "hipaa": { framework: "HIPAA" },
 };
 
+/** Map profile/alias strings to FrameworkKey — shared by CLI and MCP */
+export const FRAMEWORK_KEY_MAP: Record<string, FrameworkKey> = {
+  cis: "CIS",
+  "cis-level1": "CIS",
+  "cis-level2": "CIS",
+  "pci-dss": "PCI-DSS",
+  hipaa: "HIPAA",
+};
+
 export interface ComplianceControlDetail {
   controlId: string;
   description: string;

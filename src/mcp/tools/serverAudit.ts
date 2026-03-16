@@ -9,6 +9,7 @@ import {
 } from "../utils.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
 import { calculateComplianceDetail } from "../../core/audit/compliance/scoring.js";
+import { FRAMEWORK_KEY_MAP } from "../../core/audit/compliance/types.js";
 import type { FrameworkKey } from "../../core/audit/compliance/mapper.js";
 
 export const serverAuditSchema = {
@@ -17,13 +18,6 @@ export const serverAuditSchema = {
     .describe("Output format: summary (default), json (full result), score (number only)"),
   framework: z.enum(["cis-level1", "cis-level2", "pci-dss", "hipaa"]).optional()
     .describe("Compliance framework filter. Returns per-control pass/fail summary alongside audit results."),
-};
-
-const FRAMEWORK_KEY_MAP: Record<string, FrameworkKey> = {
-  "cis-level1": "CIS",
-  "cis-level2": "CIS",
-  "pci-dss": "PCI-DSS",
-  "hipaa": "HIPAA",
 };
 
 export async function handleServerAudit(params: {

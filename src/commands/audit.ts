@@ -19,7 +19,7 @@ import { getServers } from "../utils/config.js";
 import { listAllChecks, formatListChecksTerminal, formatListChecksJson } from "../core/audit/listChecks.js";
 import { filterByProfile, calculateComplianceDetail } from "../core/audit/compliance/scoring.js";
 import { formatComplianceReport } from "../core/audit/formatters/compliance.js";
-import type { ProfileName } from "../core/audit/compliance/types.js";
+import { FRAMEWORK_KEY_MAP, type ProfileName } from "../core/audit/compliance/types.js";
 import type { FrameworkKey } from "../core/audit/compliance/mapper.js";
 import type { AuditCliOptions } from "../core/audit/formatters/index.js";
 import type { AuditDiffResult } from "../core/audit/types.js";
@@ -100,7 +100,8 @@ export async function auditCommand(
   // --trend mode: display score timeline without running SSH audit
   if (options.trend) {
     const history = loadAuditHistory(ip);
-    const days = options.days ? parseInt(options.days, 10) : undefined;
+    const rawDays = options.days ? parseInt(options.days, 10) : undefined;
+    const days = rawDays !== undefined && isNaN(rawDays) ? undefined : rawDays;
     const trendResult = computeTrend(history, { days });
     if (options.json) {
       console.log(formatTrendJson(trendResult));
@@ -225,14 +226,9 @@ export async function auditCommand(
 
   // --compliance: detailed Framework>Control>Check grouped report
   if (options.compliance) {
-    const frameworkAliasMap: Record<string, FrameworkKey> = {
-      cis: "CIS",
-      "pci-dss": "PCI-DSS",
-      hipaa: "HIPAA",
-    };
     const frameworks = options.compliance
       .split(",")
-      .map((f) => frameworkAliasMap[f.trim().toLowerCase()])
+      .map((f) => FRAMEWORK_KEY_MAP[f.trim().toLowerCase()])
       .filter((f): f is FrameworkKey => !!f);
     if (frameworks.length === 0) {
       logger.error("Invalid framework. Use: cis, pci-dss, hipaa");
@@ -250,7 +246,7 @@ export async function auditCommand(
 
   // --profile: filtered audit view by compliance framework
   if (options.profile) {
-    const validProfiles = ["cis-level1", "cis-level2", "pci-dss", "hipaa"];
+    const validProfiles: readonly string[] = ["cis-level1", "cis-level2", "pci-dss", "hipaa"] satisfies ProfileName[];
     if (!validProfiles.includes(options.profile)) {
       logger.error(`Invalid profile. Use: ${validProfiles.join(", ")}`);
       return;
@@ -315,6 +311,10 @@ export async function auditCommand(
 
     if (options.threshold) {
       const threshold = parseInt(options.threshold, 10);
+      if (isNaN(threshold)) {
+        logger.error("--threshold must be a number");
+        return;
+      }
       if (auditResult.overallScore < threshold) {
         process.exit(1);
       }
@@ -338,6 +338,10 @@ export async function auditCommand(
   // Threshold check
   if (options.threshold) {
     const threshold = parseInt(options.threshold, 10);
+    if (isNaN(threshold)) {
+      logger.error("--threshold must be a number");
+      return;
+    }
     if (auditResult.overallScore < threshold) {
       logger.error(`Score ${auditResult.overallScore} is below threshold ${threshold}`);
       process.exit(1);

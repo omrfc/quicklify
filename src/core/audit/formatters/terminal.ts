@@ -58,7 +58,7 @@ export function formatTerminal(result: AuditResult): string {
   if (complianceScores.length > 0) {
     const parts = complianceScores.map((cs) => {
       const rateColor = scoreColor(cs.passRate);
-      const label = cs.framework === "CIS" ? "CIS L1" : cs.framework;
+      const label = cs.framework;
       return `${label}: ${rateColor(`${cs.passedControls}/${cs.totalControls}`)}`;
     });
     lines.push(`Compliance: ${parts.join(" | ")}`);

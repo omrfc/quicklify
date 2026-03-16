@@ -42,8 +42,8 @@ export function listAllChecks(filter?: ListChecksFilter): CheckCatalogEntry[] {
   let result = entries;
 
   if (filter?.category !== undefined) {
-    const cat = filter.category.toLowerCase();
-    result = result.filter((e) => e.category.toLowerCase() === cat);
+    const cats = filter.category.split(",").map((c) => c.trim().toLowerCase());
+    result = result.filter((e) => cats.includes(e.category.toLowerCase()));
   }
 
   if (filter?.severity !== undefined) {
