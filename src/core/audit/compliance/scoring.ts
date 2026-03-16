@@ -15,6 +15,7 @@ export interface ComplianceScore {
   passRate: number;
   totalControls: number;
   passedControls: number;
+  partiallyPassed: number;
   partialCount: number;
 }
 
@@ -60,19 +61,22 @@ export function calculateComplianceScores(categories: AuditCategory[]): Complian
   for (const [framework, controls] of controlMap) {
     const version = FRAMEWORK_VERSIONS[framework as FrameworkKey] ?? framework;
     let passed = 0;
+    let partiallyPassed = 0;
     let partialCount = 0;
 
     for (const ctrl of controls.values()) {
-      if (ctrl.allPassed) passed++;
+      if (ctrl.allPassed && !ctrl.hasPartial) passed++;
+      else if (ctrl.allPassed && ctrl.hasPartial) partiallyPassed++;
       if (ctrl.hasPartial) partialCount++;
     }
 
     scores.push({
       framework: framework as FrameworkKey,
       version,
-      passRate: controls.size > 0 ? Math.round((passed / controls.size) * 100) : 0,
+      passRate: controls.size > 0 ? Math.round(((passed + partiallyPassed * 0.5) / controls.size) * 100) : 0,
       totalControls: controls.size,
       passedControls: passed,
+      partiallyPassed,
       partialCount,
     });
   }
@@ -125,11 +129,13 @@ export function calculateComplianceDetail(categories: AuditCategory[]): Complian
   for (const [framework, controls] of controlMap) {
     const version = FRAMEWORK_VERSIONS[framework as FrameworkKey] ?? framework;
     let passed = 0;
+    let partiallyPassed = 0;
     let partialCount = 0;
     const controlDetails: ComplianceControlDetail[] = [];
 
     for (const [controlId, ctrl] of controls) {
-      if (ctrl.allPassed) passed++;
+      if (ctrl.allPassed && !ctrl.hasPartial) passed++;
+      else if (ctrl.allPassed && ctrl.hasPartial) partiallyPassed++;
       if (ctrl.hasPartial) partialCount++;
       controlDetails.push({
         controlId,
@@ -143,9 +149,10 @@ export function calculateComplianceDetail(categories: AuditCategory[]): Complian
     scores.push({
       framework: framework as FrameworkKey,
       version,
-      passRate: controls.size > 0 ? Math.round((passed / controls.size) * 100) : 0,
+      passRate: controls.size > 0 ? Math.round(((passed + partiallyPassed * 0.5) / controls.size) * 100) : 0,
       totalControls: controls.size,
       passedControls: passed,
+      partiallyPassed,
       partialCount,
       controls: controlDetails,
     });

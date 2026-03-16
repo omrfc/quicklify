@@ -7,6 +7,7 @@
 import chalk from "chalk";
 import type { AuditResult, Severity } from "../types.js";
 import { calculateComplianceScores } from "../compliance/scoring.js";
+import { scoreColor, progressBar } from "./shared.js";
 
 /** Severity emoji indicators */
 const SEVERITY_EMOJI: Record<Severity, string> = {
@@ -18,20 +19,6 @@ const SEVERITY_EMOJI: Record<Severity, string> = {
 /** Status indicators */
 const PASS_ICON = "\u2705";  // Green check
 const FAIL_ICON = "\u274C";  // Red X
-
-/** Score color based on value */
-function scoreColor(score: number): (text: string) => string {
-  if (score >= 80) return chalk.green;
-  if (score >= 60) return chalk.yellow;
-  return chalk.red;
-}
-
-/** Build a simple progress bar */
-function progressBar(score: number, width: number = 10): string {
-  const filled = Math.round((score / 100) * width);
-  const empty = width - filled;
-  return "\u2588".repeat(filled) + "\u2591".repeat(empty);
-}
 
 /**
  * Format audit result for terminal display.

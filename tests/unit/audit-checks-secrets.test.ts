@@ -15,11 +15,11 @@ describe("parseSecretsChecks", () => {
     "NO_NPMRC_TOKEN",
     "NONE",
     "allowagentforwarding no",
-    // AWS creds dir check (SEC-NO-AWS-CREDS-PLAINTEXT) — no dir found
+    // AWS creds dir check (SECRETS-NO-AWS-CREDS-PLAINTEXT) — no dir found
     "NO_AWS_DIR",
-    // Kubeconfig check (SEC-NO-KUBECONFIG-EXPOSED) — no .kube dir found
+    // Kubeconfig check (SECRETS-NO-KUBECONFIG-EXPOSED) — no .kube dir found
     "NO_KUBE_DIR",
-    // Shell RC secrets (SEC-NO-SHELL-RC-SECRETS) — none found
+    // Shell RC secrets (SECRETS-NO-SHELL-RC-SECRETS) — none found
     "NONE",
   ].join("\n");
 
@@ -59,9 +59,9 @@ describe("parseSecretsChecks", () => {
       expect(checks.length).toBeGreaterThanOrEqual(15);
     });
 
-    it("all check IDs start with SECRETS- or SEC-", () => {
+    it("all check IDs start with SECRETS-", () => {
       const checks = parseSecretsChecks("", "bare");
-      checks.forEach((c) => expect(c.id).toMatch(/^(SECRETS|SEC)-/));
+      checks.forEach((c) => expect(c.id).toMatch(/^SECRETS-/));
     });
 
     it("all checks have explain.length > 20", () => {
@@ -152,10 +152,10 @@ describe("parseSecretsChecks", () => {
     });
   });
 
-  describe("SEC-NO-READABLE-HISTORY", () => {
+  describe("SECRETS-NO-READABLE-HISTORY", () => {
     it("passes when no world-readable .bash_history files found", () => {
       const checks = parseSecretsChecks(validOutput, "bare");
-      const check = checks.find((c) => c.id === "SEC-NO-READABLE-HISTORY");
+      const check = checks.find((c) => c.id === "SECRETS-NO-READABLE-HISTORY");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(true);
     });
@@ -163,16 +163,16 @@ describe("parseSecretsChecks", () => {
     it("fails when world-readable .bash_history files found", () => {
       const output = validOutput + "\n/home/alice/.bash_history";
       const checks = parseSecretsChecks(output, "bare");
-      const check = checks.find((c) => c.id === "SEC-NO-READABLE-HISTORY");
+      const check = checks.find((c) => c.id === "SECRETS-NO-READABLE-HISTORY");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
     });
   });
 
-  describe("SEC-NO-SSH-AGENT-FORWARDING", () => {
+  describe("SECRETS-NO-SSH-AGENT-FORWARDING", () => {
     it("passes when allowagentforwarding no", () => {
       const checks = parseSecretsChecks(validOutput, "bare");
-      const check = checks.find((c) => c.id === "SEC-NO-SSH-AGENT-FORWARDING");
+      const check = checks.find((c) => c.id === "SECRETS-NO-SSH-AGENT-FORWARDING");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(true);
     });
@@ -180,16 +180,16 @@ describe("parseSecretsChecks", () => {
     it("fails when allowagentforwarding yes", () => {
       const output = validOutput.replace("allowagentforwarding no", "allowagentforwarding yes");
       const checks = parseSecretsChecks(output, "bare");
-      const check = checks.find((c) => c.id === "SEC-NO-SSH-AGENT-FORWARDING");
+      const check = checks.find((c) => c.id === "SECRETS-NO-SSH-AGENT-FORWARDING");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
     });
   });
 
-  describe("SEC-NO-AWS-CREDS-PLAINTEXT", () => {
+  describe("SECRETS-NO-AWS-CREDS-PLAINTEXT", () => {
     it("passes when NO_AWS_DIR (no .aws directory found)", () => {
       const checks = parseSecretsChecks(validOutput, "bare");
-      const check = checks.find((c) => c.id === "SEC-NO-AWS-CREDS-PLAINTEXT");
+      const check = checks.find((c) => c.id === "SECRETS-NO-AWS-CREDS-PLAINTEXT");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(true);
     });
@@ -198,15 +198,15 @@ describe("parseSecretsChecks", () => {
       // Format: path on one line, perms as standalone line
       const output = validOutput.replace("NO_AWS_DIR", "/root/.aws/credentials\n644");
       const checks = parseSecretsChecks(output, "bare");
-      const check = checks.find((c) => c.id === "SEC-NO-AWS-CREDS-PLAINTEXT");
+      const check = checks.find((c) => c.id === "SECRETS-NO-AWS-CREDS-PLAINTEXT");
       expect(check!.passed).toBe(false);
     });
   });
 
-  describe("SEC-NO-KUBECONFIG-EXPOSED", () => {
+  describe("SECRETS-NO-KUBECONFIG-EXPOSED", () => {
     it("passes when NO_KUBE_DIR (no .kube directory found)", () => {
       const checks = parseSecretsChecks(validOutput, "bare");
-      const check = checks.find((c) => c.id === "SEC-NO-KUBECONFIG-EXPOSED");
+      const check = checks.find((c) => c.id === "SECRETS-NO-KUBECONFIG-EXPOSED");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(true);
     });
@@ -214,15 +214,15 @@ describe("parseSecretsChecks", () => {
     it("fails when .kube/config found", () => {
       const output = validOutput.replace("NO_KUBE_DIR", "/root/.kube/config\n/home/user/.kube/config");
       const checks = parseSecretsChecks(output, "bare");
-      const check = checks.find((c) => c.id === "SEC-NO-KUBECONFIG-EXPOSED");
+      const check = checks.find((c) => c.id === "SECRETS-NO-KUBECONFIG-EXPOSED");
       expect(check!.passed).toBe(false);
     });
   });
 
-  describe("SEC-NO-SHELL-RC-SECRETS", () => {
+  describe("SECRETS-NO-SHELL-RC-SECRETS", () => {
     it("passes when no secret exports found in RC files (NONE)", () => {
       const checks = parseSecretsChecks(validOutput, "bare");
-      const check = checks.find((c) => c.id === "SEC-NO-SHELL-RC-SECRETS");
+      const check = checks.find((c) => c.id === "SECRETS-NO-SHELL-RC-SECRETS");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(true);
     });
@@ -230,7 +230,7 @@ describe("parseSecretsChecks", () => {
     it("fails when export API_KEY found in RC files", () => {
       const output = validOutput.replace(/NONE\s*$/, "export API_KEY=secret123");
       const checks = parseSecretsChecks(output, "bare");
-      const check = checks.find((c) => c.id === "SEC-NO-SHELL-RC-SECRETS");
+      const check = checks.find((c) => c.id === "SECRETS-NO-SHELL-RC-SECRETS");
       expect(check!.passed).toBe(false);
     });
   });

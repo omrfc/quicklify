@@ -112,12 +112,7 @@ export const parseUpdatesChecks: CheckParser = (sectionOutput: string, _platform
   // [9]: cat /etc/apt/apt.conf.d/20auto-upgrades -> auto-upgrades config
 
   // UPD-05: Last dpkg activity within 30 days
-  const dpkgTimestampStr = lines.find((l) => /^\d{10,}$/.test(l) && parseInt(l, 10) > 1700000000) ?? "N/A";
-  const dpkgTimestamp = parseInt(dpkgTimestampStr, 10);
   const thirtyDays = 30 * 24 * 60 * 60;
-  const isDpkgRecent = !isNaN(dpkgTimestamp) && dpkgTimestamp !== aptTimestamp &&
-    (Math.floor(Date.now() / 1000) - dpkgTimestamp) < thirtyDays;
-  // If we can't distinguish from apt timestamp, use a broader heuristic
   const allTimestamps = lines.filter((l) => /^\d{10,}$/.test(l)).map((l) => parseInt(l, 10));
   const latestTimestamp = allTimestamps.length > 0 ? allTimestamps.reduce((a, b) => (b > a ? b : a)) : NaN;
   const isUpgradeRecent = !isNaN(latestTimestamp) && (Math.floor(Date.now() / 1000) - latestTimestamp) < thirtyDays;

@@ -26,9 +26,14 @@ export interface ListChecksFilter {
  * Enumerate all checks from CHECK_REGISTRY using "bare" platform mode.
  * Optionally filter by category (case-insensitive) and/or severity.
  */
+/** Synthetic input for Cloud Metadata parser so it returns all checks in catalog mode */
+const CLOUDMETA_CATALOG_INPUT = "VPS_TYPE:catalog METADATA_BLOCKED CLOUDINIT_CLEAN CLOUDINIT_NO_SENSITIVE_ENV IMDSV2_AVAILABLE METADATA_FIREWALL_OK";
+
 export function listAllChecks(filter?: ListChecksFilter): CheckCatalogEntry[] {
   const entries: CheckCatalogEntry[] = CHECK_REGISTRY.flatMap((entry) => {
-    const checks = entry.parser("", "bare");
+    // Cloud Metadata returns empty on bare/empty input — use synthetic VPS input for catalog
+    const input = entry.sectionName === "CLOUDMETA" ? CLOUDMETA_CATALOG_INPUT : "";
+    const checks = entry.parser(input, "bare");
     return checks.map((c) => ({
       id: c.id,
       category: entry.name,

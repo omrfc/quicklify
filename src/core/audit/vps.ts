@@ -15,17 +15,10 @@ import type { AuditCategory, Severity } from "./types.js";
  * @returns VPS type string (e.g. "kvm", "xen") or null for bare metal
  */
 export function extractVpsType(batchOutputs: string[]): string | null {
-  const combined = batchOutputs.join("\n");
-
-  const vpsMatch = combined.match(/VPS_TYPE:(\S+)/);
-  if (vpsMatch) {
-    return vpsMatch[1];
+  for (const output of batchOutputs) {
+    const match = output.match(/VPS_TYPE:(\S+)/);
+    if (match) return match[1];
   }
-
-  if (/BARE_METAL/.test(combined)) {
-    return null;
-  }
-
   return null;
 }
 
@@ -47,17 +40,23 @@ export function applyVpsAdjustments(
   }
 
   let adjustedCount = 0;
+  const infoSeverity: Severity = "info";
 
-  const adjustedCategories = categories.map((cat) => ({
-    ...cat,
-    checks: cat.checks.map((check) => {
-      if (check.vpsIrrelevant === true && check.severity !== ("info" as Severity)) {
-        adjustedCount++;
-        return { ...check, severity: "info" as Severity };
-      }
-      return check;
-    }),
-  }));
+  const adjustedCategories = categories.map((cat) => {
+    const hasRelevant = cat.checks.some((c) => c.vpsIrrelevant === true && c.severity !== infoSeverity);
+    if (!hasRelevant) return cat;
+
+    return {
+      ...cat,
+      checks: cat.checks.map((check) => {
+        if (check.vpsIrrelevant === true && check.severity !== infoSeverity) {
+          adjustedCount++;
+          return { ...check, severity: infoSeverity };
+        }
+        return check;
+      }),
+    };
+  });
 
   return { categories: adjustedCategories, adjustedCount };
 }

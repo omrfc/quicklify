@@ -37,25 +37,29 @@ function firewallSection(): string {
   return [
     NAMED_SEP("FIREWALL"),
     `command -v ufw >/dev/null 2>&1 && ufw status verbose 2>/dev/null || echo 'N/A'`,
+    `echo '---IPTABLES_COUNT---'`,
     `command -v iptables >/dev/null 2>&1 && iptables -L -n 2>/dev/null | wc -l || echo 'N/A'`,
     `command -v fail2ban-client >/dev/null 2>&1 && fail2ban-client status 2>/dev/null || echo 'N/A'`,
-    // NEW: nftables detection
+    // nftables detection
     `command -v nft >/dev/null 2>&1 && nft list ruleset 2>/dev/null | head -20 || echo 'N/A'`,
-    // NEW: iptables INPUT chain details
+    // iptables INPUT chain details
     `iptables -L INPUT -n --line-numbers 2>/dev/null | head -20 || echo 'N/A'`,
-    // NEW: iptables INPUT default policy
+    // iptables INPUT default policy
     `iptables -L INPUT -n 2>/dev/null | head -1 || echo 'N/A'`,
-    // NEW: outbound rules
+    // outbound rules
     `iptables -L OUTPUT -n 2>/dev/null | head -1 || echo 'N/A'`,
-    // NEW: rate limiting presence
+    // rate limiting presence
     `iptables -L -n 2>/dev/null | grep -i 'limit' | head -5 || echo 'NONE'`,
-    // NEW: FORWARD chain policy
+    // FORWARD chain policy
     `iptables -L FORWARD -n 2>/dev/null | head -1 || echo 'N/A'`,
-    // NEW: IPv6 firewall rule count
+    `echo '---IPV6_RULE_COUNT---'`,
+    // IPv6 firewall rule count
     `ip6tables -L INPUT -n 2>/dev/null | wc -l || echo '0'`,
-    // NEW: conntrack max
+    `echo '---CONNTRACK_MAX---'`,
+    // conntrack max
     `cat /proc/sys/net/netfilter/nf_conntrack_max 2>/dev/null || echo 'N/A'`,
-    // NEW: LOG rule count for dropped packets
+    `echo '---LOG_RULE_COUNT---'`,
+    // LOG rule count for dropped packets
     `iptables -L -n 2>/dev/null | grep -c 'LOG' || echo '0'`,
   ].join("\n");
 }
@@ -123,7 +127,9 @@ function dockerSection(platform: string): string {
   const base = [
     NAMED_SEP("DOCKER"),
     `command -v docker >/dev/null 2>&1 && docker info --format '{{json .}}' 2>/dev/null || echo 'N/A'`,
-    `cat /etc/docker/daemon.json 2>/dev/null || echo 'N/A'`,
+    `echo '---DAEMON_JSON---'`,
+    `cat /etc/docker/daemon.json 2>/dev/null || echo '{}'`,
+    `echo '---END_DAEMON_JSON---'`,
     `command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}} {{.Image}} {{.Status}}' 2>/dev/null || echo 'N/A'`,
     `ls -la /var/run/docker.sock 2>/dev/null || echo 'N/A'`,
     // NEW: container security inspection (top 5 running containers)
@@ -186,7 +192,7 @@ function networkSection(): string {
     // NEW: ARP spoofing protection
     `sysctl net.ipv4.conf.all.arp_announce net.ipv4.conf.all.arp_ignore 2>/dev/null || echo 'N/A'`,
     // NEW: TCP wrappers allow rules content
-    `cat /etc/hosts.allow 2>/dev/null | grep -v '^#' | grep -v '^\s*$' | head -5 || echo 'EMPTY'`,
+    `cat /etc/hosts.allow 2>/dev/null | grep -v '^#' | grep -v '^\\s*$' | head -5 || echo 'EMPTY'`,
     // NEW: bogus ICMP error responses
     `sysctl net.ipv4.icmp_ignore_bogus_error_responses 2>/dev/null || echo 'N/A'`,
     // NEW: total listening port count
@@ -466,22 +472,31 @@ function filesystemSection(): string {
 function secretsSection(): string {
   return [
     NAMED_SEP("SECRETS"),
-    `find /root /home /etc -maxdepth 3 -name ".env" -perm -o+r 2>/dev/null | head -10 || echo 'NONE'`,
-    `find /root /home /etc -maxdepth 3 -name "*.env" -perm -o+r 2>/dev/null | head -10 || echo 'NONE'`,
+    // World-readable .env files — sentinel-producing
+    `ENVWR=$(find /root /home /etc -maxdepth 3 \\( -name ".env" -o -name "*.env" \\) -perm -o+r 2>/dev/null | head -10); if [ -n "$ENVWR" ]; then echo "$ENVWR"; echo 'WORLD_READABLE_ENV'; else echo 'NO_WORLD_READABLE_ENV'; fi`,
+    // SSH private key permissions
     `stat -c '%a %n' /root/.ssh/id_rsa /root/.ssh/id_ed25519 /root/.ssh/id_ecdsa 2>/dev/null || echo 'NO_KEYS'`,
+    // Git config tokens
     `git config --global --get-regexp 'url.*token' 2>/dev/null | head -5 || echo 'NO_GIT_TOKENS'`,
+    // Plaintext credentials in /etc
     `grep -rEl '(password|secret|token|api_key|apikey|passwd)\\s*=' /etc 2>/dev/null | grep -v '\\.bak' | head -10 || echo 'NONE'`,
-    // NEW: world-readable bash history
+    // Home directory .env files — sentinel-producing
+    `HOMEENV=$(find /home -maxdepth 3 -name '.env' -perm -o+r 2>/dev/null | head -5); if [ -n "$HOMEENV" ]; then echo "$HOMEENV"; echo 'ENV_IN_HOME'; else echo 'NO_ENV_IN_HOME'; fi`,
+    // Docker compose .env files — sentinel-producing
+    `DOCKENV=$(find /home /opt /srv /var/www -maxdepth 4 \\( -name 'docker.env' -o -name '.env' \\) -perm -o+r 2>/dev/null | head -5); if [ -n "$DOCKENV" ]; then echo 'DOCKER_ENV_FOUND'; else echo 'NO_DOCKER_ENV'; fi`,
+    // npm auth tokens in .npmrc — sentinel-producing
+    `NPMRC=$(find /home /root -maxdepth 3 -name '.npmrc' -exec grep -l '_authToken' {} \\; 2>/dev/null | head -3); if [ -n "$NPMRC" ]; then echo 'NPMRC_TOKEN_FOUND'; else echo 'NO_NPMRC_TOKEN'; fi`,
+    // World-readable private key files — sentinel-producing
+    `WRKEYS=$(find /home /root /etc /opt -maxdepth 4 \\( -name '*.pem' -o -name '*.key' -o -name 'id_rsa' -o -name 'id_ed25519' -o -name 'id_ecdsa' \\) -perm -o+r 2>/dev/null | head -5); if [ -n "$WRKEYS" ]; then echo "$WRKEYS"; echo 'WORLD_READABLE_KEY'; else echo 'NO_WORLD_READABLE_KEYS'; fi`,
+    // AWS credential file permissions — sentinel-producing
+    `AWSDIR=$(find /root /home -maxdepth 3 -name '.aws' -type d 2>/dev/null | head -3); if [ -n "$AWSDIR" ]; then BADPERM=$(find /root /home -maxdepth 4 -name 'credentials' -path '*/.aws/*' -exec stat -c '%a' {} \\; 2>/dev/null | grep -vE '^(600|400)$' | head -1); if [ -n "$BADPERM" ]; then echo 'AWS_CREDS_FOUND'; else echo 'NO_AWS_CREDS'; fi; else echo 'NO_AWS_CREDS'; fi`,
+    // Kubeconfig directories + permission check (M1 fix)
+    `KUBEDIR=$(find /root /home -maxdepth 3 -name '.kube' -type d 2>/dev/null | head -1); if [ -n "$KUBEDIR" ]; then echo "$KUBEDIR"; KUBEPERM=$(stat -c '%a' "$KUBEDIR/config" 2>/dev/null); if [ -n "$KUBEPERM" ]; then echo "KUBECONFIG_PERM:$KUBEPERM"; else echo 'NO_KUBECONFIG'; fi; else echo 'NO_KUBE_DIR'; fi`,
+    // World-readable bash history
     `find /home -maxdepth 3 -name ".bash_history" -perm -o+r 2>/dev/null | head -5 || echo 'NONE'`,
-    // NEW: SSH agent forwarding
+    // SSH agent forwarding
     `sshd -T 2>/dev/null | grep -i 'allowagentforwarding' || echo 'N/A'`,
-    // NEW: AWS credential dirs
-    `find /root /home -maxdepth 3 -name '.aws' -type d 2>/dev/null | head -3 || echo 'NONE'`,
-    // NEW: AWS creds permissions
-    `find /root /home -maxdepth 3 -name 'credentials' -path '*/.aws/*' -exec stat -c '%a' {} \\; 2>/dev/null | head -3 || echo 'NONE'`,
-    // NEW: kubeconfig dirs
-    `find /root /home -maxdepth 3 -name '.kube' -type d 2>/dev/null | head -3 || echo 'NONE'`,
-    // NEW: shell RC secrets
+    // Shell RC secrets
     `grep -rE 'export\\s+(API_KEY|SECRET_KEY|TOKEN|PASSWORD|AWS_ACCESS_KEY)=' /root/.bashrc /root/.profile /home/*/.bashrc /home/*/.profile 2>/dev/null | head -5 || echo 'NONE'`,
   ].join("\n");
 }
@@ -490,7 +505,7 @@ function cloudMetaSection(): string {
   return [
     NAMED_SEP("CLOUDMETA"),
     `VPS=$(systemd-detect-virt 2>/dev/null || dmidecode -s system-product-name 2>/dev/null | head -1 || echo 'none'); if [ "$VPS" = "none" ]; then echo 'BARE_METAL'; else echo "VPS_TYPE:$VPS"; curl -sf --connect-timeout 2 http://169.254.169.254/latest/meta-data/ 2>/dev/null && echo 'METADATA_ACCESSIBLE' || { curl -sf --connect-timeout 2 http://metadata.google.internal/computeMetadata/v1/ -H "Metadata-Flavor: Google" 2>/dev/null && echo 'METADATA_ACCESSIBLE' || echo 'METADATA_BLOCKED'; }; iptables -S OUTPUT 2>/dev/null | grep -q '169.254.169.254' && echo 'METADATA_FIREWALL_OK' || echo 'METADATA_FIREWALL_MISSING'; fi`,
-    `grep -i 'password\|secret\|token\|key' /var/log/cloud-init.log 2>/dev/null | head -5 || echo 'CLOUDINIT_CLEAN'`,
+    `grep -iE 'password|secret|token|key' /var/log/cloud-init.log 2>/dev/null | head -5 || echo 'CLOUDINIT_CLEAN'`,
     `grep -iE '(DB_PASSWORD|API_KEY|SECRET_KEY|AWS_SECRET|PRIVATE_KEY)' /var/lib/cloud/instances/*/user-data.txt 2>/dev/null && echo 'SENSITIVE_ENV_IN_CLOUDINIT' || echo 'CLOUDINIT_NO_SENSITIVE_ENV'`,
     `curl -sf --connect-timeout 2 -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" 2>/dev/null && echo 'IMDSV2_AVAILABLE' || echo 'IMDSV2_UNAVAILABLE'`,
   ].join("\n");
@@ -499,7 +514,7 @@ function cloudMetaSection(): string {
 function supplyChainSection(): string {
   return [
     NAMED_SEP("SUPPLYCHAIN"),
-    `apt-cache policy 2>/dev/null | grep -E '^\s+[0-9]' | grep 'http://' | head -10 || echo 'NO_HTTP_REPOS'`,
+    `apt-cache policy 2>/dev/null | grep -E '^\\s+[0-9]' | grep 'http://' | head -10 || echo 'NO_HTTP_REPOS'`,
     `ls /etc/apt/trusted.gpg.d/ 2>/dev/null || echo 'NONE'`,
     `dpkg --audit 2>/dev/null | head -10 || echo 'NONE'`,
     `apt-key list 2>&1 | head -20 || echo 'NONE'`,

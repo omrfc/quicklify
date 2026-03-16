@@ -130,7 +130,7 @@ const CLOUDMETA_CHECKS: CloudMetaCheckDef[] = [
       "Even with IMDSv2 enabled, restricting metadata endpoint access by process UID using iptables provides defense-in-depth. This prevents compromised non-root services from enumerating instance metadata or acquiring temporary credentials.",
   },
   {
-    id: "CLOUD-IMDSV1-DISABLED",
+    id: "CLOUDMETA-IMDSV1-DISABLED",
     name: "IMDSv1 Not Accessible (Only IMDSv2 Works)",
     severity: "info",
     check: (output) => {

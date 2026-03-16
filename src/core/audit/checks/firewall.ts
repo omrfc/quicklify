@@ -8,6 +8,15 @@ import type { AuditCheck, CheckParser } from "../types.js";
 /** Dangerous ports that should not be exposed to 0.0.0.0/0 (except SSH 22, HTTP 80, HTTPS 443) */
 const SAFE_PUBLIC_PORTS = new Set(["22", "80", "443"]);
 
+/** Extract the number immediately following a sentinel line */
+function extractSentinelValue(output: string, sentinel: string): number | null {
+  const idx = output.indexOf(sentinel);
+  if (idx === -1) return null;
+  const afterSentinel = output.slice(idx + sentinel.length);
+  const match = afterSentinel.match(/^\s*(\d+)/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
 export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platform: string): AuditCheck[] => {
   const isNA = !sectionOutput || sectionOutput.trim() === "N/A" || sectionOutput.trim() === "";
   const output = isNA ? "" : sectionOutput;
@@ -123,9 +132,8 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
   };
 
   // FW-08: iptables has rules beyond defaults (wc line > 8)
-  const iptablesCountStr = output.split("\n").find((l) => /^\d+$/.test(l.trim())) ?? "0";
-  const iptablesCount = parseInt(iptablesCountStr, 10);
-  const hasIptablesRules = !isNaN(iptablesCount) && iptablesCount > 8;
+  const iptablesCount = extractSentinelValue(output, "---IPTABLES_COUNT---") ?? 0;
+  const hasIptablesRules = iptablesCount > 8;
   const fw08: AuditCheck = {
     id: "FW-IPTABLES-BASELINE",
     category: "Firewall",
@@ -154,7 +162,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
   };
 
   // FW-10: REJECT preferred over DROP (informational)
-  const hasRejectRules = /REJECT/.test(output);
+  const hasRejectRules = /REJECT/.test(output);
   const fw10: AuditCheck = {
     id: "FW-REJECT-NOT-DROP",
     category: "Firewall",
@@ -215,9 +223,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
   };
 
   // FW-14: IPv6 traffic filtered or disabled
-  // ip6tables -L INPUT -n | wc -l output — a number
-  const ipv6RuleCountStr = output.split("\n").filter((l) => /^\d+$/.test(l.trim())).pop() ?? "0";
-  const ipv6RuleCount = parseInt(ipv6RuleCountStr, 10);
+  const ipv6RuleCount = extractSentinelValue(output, "---IPV6_RULE_COUNT---") ?? 0;
   // IPv6 disabled sysctl
   const ipv6SysctlDisabled = /disable_ipv6\s*=\s*1/.test(output);
   const fw14: AuditCheck = {
@@ -257,20 +263,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
   };
 
   // FW-16: conntrack max value
-  // cat /proc/sys/net/netfilter/nf_conntrack_max — standalone number or N/A
-  const conntrackLines = output.split("\n");
-  let conntrackMax: number | null = null;
-  for (const line of conntrackLines) {
-    const trimmed = line.trim();
-    if (/^\d+$/.test(trimmed)) {
-      const val = parseInt(trimmed, 10);
-      // conntrack_max is typically 65536-1048576
-      if (val >= 1000 && val <= 10_000_000) {
-        conntrackMax = val;
-        break;
-      }
-    }
-  }
+  const conntrackMax = extractSentinelValue(output, "---CONNTRACK_MAX---");
   const fw16: AuditCheck = {
     id: "FW-CONNTRACK-MAX",
     category: "Firewall",
@@ -288,19 +281,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
   };
 
   // FW-17: LOG rule count for dropped packets
-  // iptables -L -n | grep -c 'LOG' — standalone number
-  let logRuleCount: number | null = null;
-  for (const line of conntrackLines) {
-    const trimmed = line.trim();
-    if (/^\d+$/.test(trimmed)) {
-      const val = parseInt(trimmed, 10);
-      // LOG rule count is typically 0-20
-      if (val >= 0 && val < 100 && logRuleCount === null) {
-        // Only pick small numbers for LOG count (comes after conntrack)
-        logRuleCount = val;
-      }
-    }
-  }
+  const logRuleCount = extractSentinelValue(output, "---LOG_RULE_COUNT---");
   const fw17: AuditCheck = {
     id: "FW-LOG-DROPPED",
     category: "Firewall",

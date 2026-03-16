@@ -2,6 +2,7 @@
  * CI gate: enforces minimum total check count across all categories.
  * Phase 49-08 result: 406 bare-metal checks (412 on VPS with Cloud Metadata 6 checks).
  * Phase 49 gap closure complete: +57 checks across 20 categories (Waves 1-3).
+ * Simplify: removed 3 duplicate SRV- checks (rpcbind/avahi/cups already in SVC-), net 403.
  * Note: Cloud Metadata returns [] on bare-metal/empty input (intentional — Phase 48-01 decision).
  * VPS environments will yield additional Cloud Metadata checks at runtime.
  */
@@ -9,11 +10,11 @@
 import { CHECK_REGISTRY } from "../../src/core/audit/checks/index.js";
 
 describe("Total check count CI gate", () => {
-  it("should have at least 406 checks across all categories", () => {
+  it("should have at least 403 checks across all categories", () => {
     const allChecks = CHECK_REGISTRY.flatMap((entry) =>
       entry.parser("", "bare"),
     );
-    expect(allChecks.length).toBeGreaterThanOrEqual(406);
+    expect(allChecks.length).toBeGreaterThanOrEqual(403);
   });
 
   it("each category should produce at least 1 check", () => {

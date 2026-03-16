@@ -15,20 +15,7 @@ interface ServicesCheckDef {
   explain: string;
 }
 
-/**
- * Helper: check if a systemctl service is active.
- * Only "active" is a failure — "inactive", "not-found", "failed", absence = pass.
- */
-function isServiceActive(output: string, serviceName: string): boolean {
-  // systemctl is-active outputs one line per service in order
-  // We look for the service name in context or just check for "active" lines
-  const regex = new RegExp(`(?:^|\\n)${serviceName}[^\\n]*active`, "i");
-  if (regex.test(output)) return true;
 
-  // For batch systemctl output: services listed in order, each returning active/inactive
-  // We need a more precise approach for batch output
-  return false;
-}
 
 /**
  * Check if a specific service status line shows "active".
@@ -387,55 +374,7 @@ const SERVICES_CHECKS: ServicesCheckDef[] = [
       "The echo network service can be paired with chargen to create infinite traffic loops between hosts.",
   },
   {
-    id: "SRV-NO-RPCBIND",
-    name: "rpcbind Not Running",
-    severity: "warning",
-    check: (output) => {
-      const active = /\brpcbind\b.*\bactive\b/i.test(output) || isServiceActive(output, "rpcbind");
-      return {
-        passed: !active,
-        currentValue: active ? "rpcbind is running" : "rpcbind is not running",
-      };
-    },
-    expectedValue: "rpcbind inactive unless NFS is required",
-    fixCommand: "systemctl stop rpcbind && systemctl disable rpcbind",
-    explain:
-      "rpcbind exposes RPC services to the network; rarely needed on modern VPS servers.",
-  },
-  {
-    id: "SRV-NO-AVAHI",
-    name: "Avahi mDNS Service Disabled",
-    severity: "info",
-    check: (output) => {
-      const active = /\bavahi-daemon\b.*\bactive\b/i.test(output) || isServiceActive(output, "avahi-daemon");
-      return {
-        passed: !active,
-        currentValue: active ? "avahi-daemon is running" : "avahi-daemon is not running",
-      };
-    },
-    expectedValue: "avahi-daemon inactive on production servers",
-    fixCommand: "systemctl stop avahi-daemon && systemctl disable avahi-daemon",
-    explain:
-      "Avahi provides mDNS/DNS-SD which is unnecessary on production servers and increases network attack surface.",
-  },
-  {
-    id: "SRV-NO-CUPS",
-    name: "CUPS Print Service Disabled",
-    severity: "info",
-    check: (output) => {
-      const active = /\bcups\b.*\bactive\b/i.test(output) || isServiceActive(output, "cups");
-      return {
-        passed: !active,
-        currentValue: active ? "CUPS is running" : "CUPS is not running",
-      };
-    },
-    expectedValue: "CUPS inactive unless print server needed",
-    fixCommand: "systemctl stop cups && systemctl disable cups",
-    explain:
-      "CUPS printing service is unnecessary on servers and has a history of security vulnerabilities.",
-  },
-  {
-    id: "SRV-RUNNING-COUNT-REASONABLE",
+    id: "SVC-RUNNING-COUNT-REASONABLE",
     name: "Running Service Count Reasonable",
     severity: "info",
     check: (output) => {
@@ -471,7 +410,7 @@ const SERVICES_CHECKS: ServicesCheckDef[] = [
   },
   // NEW checks (Wave 1 gap closure)
   {
-    id: "SRV-NO-WILDCARD-LISTENERS",
+    id: "SVC-NO-WILDCARD-LISTENERS",
     name: "No Excessive Wildcard Listeners",
     severity: "warning",
     check: (output) => {
@@ -510,7 +449,7 @@ const SERVICES_CHECKS: ServicesCheckDef[] = [
       "Services listening on 0.0.0.0 accept connections on all network interfaces, increasing attack surface from untrusted networks.",
   },
   {
-    id: "SRV-NO-XINETD-SERVICES",
+    id: "SVC-NO-XINETD-SERVICES",
     name: "xinetd Legacy Service Disabled",
     severity: "info",
     check: (output) => {
@@ -518,10 +457,6 @@ const SERVICES_CHECKS: ServicesCheckDef[] = [
       const lines = output.split("\n").map((l) => l.trim()).filter(Boolean);
       // Look for a standalone "active" line that matches xinetd status
       const xinetdActive = lines.some((l) => l === "active") && /xinetd/i.test(output);
-      // Also check the direct systemctl is-active output pattern
-      const directActive = /(?:^|\n)\s*active\s*(?:\n|$)/.test(output)
-        && !output.includes("inactive")
-        && !output.includes("not-found");
       const isActive = xinetdActive || (/\bxinetd\b.*\bactive\b/i.test(output));
       return {
         passed: !isActive,
@@ -534,7 +469,7 @@ const SERVICES_CHECKS: ServicesCheckDef[] = [
       "xinetd is a legacy super-daemon with known security weaknesses; modern systems should use systemd socket activation instead.",
   },
   {
-    id: "SRV-NO-WORLD-READABLE-CONFIGS",
+    id: "SVC-NO-WORLD-READABLE-CONFIGS",
     name: "No World-Readable Service Configs",
     severity: "info",
     check: (output) => {

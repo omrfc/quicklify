@@ -10,7 +10,7 @@ import {
 import { getErrorMessage } from "../../utils/errorMapper.js";
 import { calculateComplianceDetail } from "../../core/audit/compliance/scoring.js";
 import { FRAMEWORK_KEY_MAP } from "../../core/audit/compliance/types.js";
-import type { FrameworkKey } from "../../core/audit/compliance/mapper.js";
+
 
 export const serverAuditSchema = {
   server: z.string().optional().describe("Server name or IP. Auto-selected if only one server exists."),

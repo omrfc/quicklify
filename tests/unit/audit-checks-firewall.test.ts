@@ -23,7 +23,8 @@ describe("parseFirewallChecks", () => {
     "1    ACCEPT     all  --  0.0.0.0/0            0.0.0.0/0            state RELATED,ESTABLISHED",
     "2    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:22",
     "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)",
-    // iptables rule count line
+    // iptables rule count (sentinel-keyed)
+    "---IPTABLES_COUNT---",
     "15",
     // fail2ban status
     "Status",
@@ -34,11 +35,14 @@ describe("parseFirewallChecks", () => {
     "ACCEPT     tcp  --  0.0.0.0/0  0.0.0.0/0  limit: avg 3/min burst 3",
     // FORWARD chain policy (FW-FORWARD-CHAIN-DENY)
     "Chain FORWARD (policy DROP 0 packets, 0 bytes)",
-    // ip6tables INPUT line count (FW-IPV6-DISABLED-OR-FILTERED) — number > 3
+    // ip6tables INPUT line count (sentinel-keyed)
+    "---IPV6_RULE_COUNT---",
     "5",
-    // conntrack max (FW-CONNTRACK-MAX) — a number in 1000-10M range >= 65536
+    // conntrack max (sentinel-keyed)
+    "---CONNTRACK_MAX---",
     "131072",
-    // LOG rule count (FW-LOG-DROPPED) — a small number 0-100 > 0
+    // LOG rule count (sentinel-keyed)
+    "---LOG_RULE_COUNT---",
     "3",
   ].join("\n");
 
@@ -153,7 +157,7 @@ describe("parseFirewallChecks", () => {
   });
 
   it("FW-CONNTRACK-MAX fails when conntrack max is below 65536", () => {
-    const output = activeSecureOutput.replace("\n131072\n", "\n1024\n");
+    const output = activeSecureOutput.replace("---CONNTRACK_MAX---\n131072", "---CONNTRACK_MAX---\n1024");
     const checks = parseFirewallChecks(output, "bare");
     const check = checks.find((c) => c.id === "FW-CONNTRACK-MAX");
     expect(check!.passed).toBe(false);
@@ -168,8 +172,8 @@ describe("parseFirewallChecks", () => {
   });
 
   it("FW-LOG-DROPPED fails when only 0 LOG rules", () => {
-    // Use output with ONLY conntrack_max and 0 LOG rules (no other small numbers)
-    const output = "Status: active\nDefault: deny (incoming), allow (outgoing), disabled (routed)\nChain INPUT (policy DROP 0 packets, 0 bytes)\n131072\n0";
+    // Use output with sentinel-keyed values
+    const output = "Status: active\nDefault: deny (incoming), allow (outgoing), disabled (routed)\nChain INPUT (policy DROP 0 packets, 0 bytes)\n---CONNTRACK_MAX---\n131072\n---LOG_RULE_COUNT---\n0";
     const checks = parseFirewallChecks(output, "bare");
     const check = checks.find((c) => c.id === "FW-LOG-DROPPED");
     expect(check!.passed).toBe(false);

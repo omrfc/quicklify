@@ -7,7 +7,12 @@ describe("Compliance mapper CI guards", () => {
 
   beforeAll(() => {
     liveCheckIds = new Set(
-      CHECK_REGISTRY.flatMap((e) => e.parser("", "bare").map((c) => c.id)),
+      CHECK_REGISTRY.flatMap((e) => {
+        // Cloud Metadata returns [] on bare-metal/empty input (Phase 48-01 decision).
+        // Use VPS sentinel to generate check IDs for compliance mapping validation.
+        const input = e.name === "Cloud Metadata" ? "IS_VPS\nMETADATA_BLOCKED\nCLOUDINIT_CLEAN\nIMDSV2_AVAILABLE\nCLOUDINIT_NO_SENSITIVE_ENV" : "";
+        return e.parser(input, "bare").map((c) => c.id);
+      }),
     );
   });
 

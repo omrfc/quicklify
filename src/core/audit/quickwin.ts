@@ -3,62 +3,17 @@
  * Identifies the highest-impact fixes to motivate "3 commands to go from 45 to 85".
  */
 
-import type { AuditResult, AuditCheck, QuickWin, Severity } from "./types.js";
-
-/** Severity weights matching scoring.ts */
-const SEVERITY_WEIGHTS: Record<Severity, number> = {
-  critical: 3,
-  warning: 2,
-  info: 1,
-};
+import type { AuditResult, AuditCheck, QuickWin } from "./types.js";
+import { SEVERITY_WEIGHTS, CATEGORY_WEIGHTS, DEFAULT_CATEGORY_WEIGHT, buildImpactContext } from "./scoring.js";
 
 /** Compliance-blocking checks get 1.5x sort boost (calibration starting point, tune 1.3x-2.0x) */
 const COMPLIANCE_BOOST = 1.5;
 
 /**
- * Calculate the unboosted score impact of fixing a single check.
- * Impact = how much the overall score would increase if this check passed.
- */
-function calculateBaseImpact(
-  check: AuditCheck,
-  result: AuditResult,
-): number {
-  const numCategories = result.categories.length || 1;
-
-  // Find the category this check belongs to
-  const category = result.categories.find((c) => c.name === check.category);
-  if (!category) return 0;
-
-  const totalCategoryWeight = category.checks.reduce(
-    (sum, c) => sum + SEVERITY_WEIGHTS[c.severity],
-    0,
-  );
-  if (totalCategoryWeight === 0) return 0;
-
-  const checkWeight = SEVERITY_WEIGHTS[check.severity];
-  // This check's contribution to category score (0-100 range)
-  const categoryScoreGain = (checkWeight / totalCategoryWeight) * 100;
-  // Category's contribution to overall score (equal weight per category)
-  return categoryScoreGain / numCategories;
-}
-
-/**
- * Calculate the effective (boosted) score impact for sorting purposes.
- * Compliance-ref checks get a 1.5x boost so they sort higher.
- */
-function calculateCheckImpact(
-  check: AuditCheck,
-  result: AuditResult,
-): number {
-  const baseImpact = calculateBaseImpact(check, result);
-  const hasComplianceRef = (check.complianceRefs?.length ?? 0) > 0;
-  return hasComplianceRef ? baseImpact * COMPLIANCE_BOOST : baseImpact;
-}
-
-/**
  * Calculate top quick wins from audit results.
  *
- * For each failed check with a fixCommand, calculates the potential score impact.
+ * For each failed check with a fixCommand, calculates the potential score impact
+ * using the same CATEGORY_WEIGHTS as the scoring engine for accurate projections.
  * Compliance-ref checks are sorted higher via COMPLIANCE_BOOST.
  * Projected scores use baseImpact (not boosted) to avoid inflated projections.
  * Returns top N wins sorted by effectiveImpact (highest first), with projected scores.
@@ -70,7 +25,11 @@ export function calculateQuickWins(
   result: AuditResult,
   maxWins: number = 7,
 ): QuickWin[] {
-  // Collect all fixable failed checks with their impact
+  // Use shared impact context (matches scoring.ts logic)
+  const { totalOverallWeight } = buildImpactContext(result.categories);
+  if (totalOverallWeight === 0) return [];
+
+  // Collect all fixable failed checks with their impact in a single pass
   const candidates: Array<{
     check: AuditCheck;
     effectiveImpact: number;
@@ -78,10 +37,24 @@ export function calculateQuickWins(
   }> = [];
 
   for (const category of result.categories) {
+    // Pre-compute category severity weight sum once per category
+    const totalCategoryWeight = category.checks.reduce(
+      (sum, c) => sum + SEVERITY_WEIGHTS[c.severity],
+      0,
+    );
+    if (totalCategoryWeight === 0) continue;
+
+    const catWeight = CATEGORY_WEIGHTS[category.name] ?? DEFAULT_CATEGORY_WEIGHT;
+
     for (const check of category.checks) {
       if (!check.passed && check.fixCommand) {
-        const baseImpact = calculateBaseImpact(check, result);
-        const effectiveImpact = calculateCheckImpact(check, result);
+        const checkWeight = SEVERITY_WEIGHTS[check.severity];
+        // This check's contribution to category score (0-100 range)
+        const categoryScoreGain = (checkWeight / totalCategoryWeight) * 100;
+        // Category's weighted contribution to overall score
+        const baseImpact = (categoryScoreGain * catWeight) / totalOverallWeight;
+        const hasComplianceRef = (check.complianceRefs?.length ?? 0) > 0;
+        const effectiveImpact = hasComplianceRef ? baseImpact * COMPLIANCE_BOOST : baseImpact;
         candidates.push({ check, effectiveImpact, baseImpact });
       }
     }

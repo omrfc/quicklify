@@ -251,7 +251,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
       "Group or world-writable authorized_keys files can be modified by unprivileged users to insert their own public key, granting them passwordless SSH access to the account. SSH enforces strict permission checks on this file.",
   },
   {
-    id: "SEC-NO-READABLE-HISTORY",
+    id: "SECRETS-NO-READABLE-HISTORY",
     name: "No World-Readable Bash History Files",
     severity: "warning",
     check: (output) => {
@@ -270,7 +270,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
       "World-readable bash history files expose previously typed commands including passwords and API tokens.",
   },
   {
-    id: "SEC-NO-SSH-AGENT-FORWARDING",
+    id: "SECRETS-NO-SSH-AGENT-FORWARDING",
     name: "SSH Agent Forwarding Not Globally Enabled",
     severity: "info",
     check: (output) => {
@@ -295,7 +295,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
       "SSH agent forwarding exposes the user's authentication agent to the remote server, enabling key hijacking.",
   },
   {
-    id: "SEC-NO-AWS-CREDS-PLAINTEXT",
+    id: "SECRETS-NO-AWS-CREDS-PLAINTEXT",
     name: "AWS Credential Files Not Exposed",
     severity: "warning",
     check: (output) => {
@@ -329,7 +329,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
       "AWS credential files with excessive permissions allow local users to steal cloud access keys for lateral movement.",
   },
   {
-    id: "SEC-NO-KUBECONFIG-EXPOSED",
+    id: "SECRETS-NO-KUBECONFIG-EXPOSED",
     name: "Kubeconfig Not Exposed",
     severity: "warning",
     check: (output) => {
@@ -338,10 +338,25 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
       if (!hasKubeDir) {
         return { passed: true, currentValue: "No kubeconfig directories found" };
       }
-      // Kubeconfig found but we can't check permissions from dir listing alone
+      // Check kubeconfig permission from KUBECONFIG_PERM:NNN sentinel
+      const permMatch = output.match(/KUBECONFIG_PERM:(\d+)/);
+      if (permMatch) {
+        const perm = parseInt(permMatch[1], 10);
+        const passed = perm === 600 || perm === 400;
+        return {
+          passed,
+          currentValue: passed
+            ? `kubeconfig has mode ${perm} (secure)`
+            : `kubeconfig has mode ${perm} (too permissive)`,
+        };
+      }
+      // NO_KUBECONFIG = .kube dir exists but no config file
+      if (output.includes("NO_KUBECONFIG")) {
+        return { passed: true, currentValue: "No kubeconfig file found in .kube directory" };
+      }
       return {
         passed: false,
-        currentValue: "Kubeconfig directory found — verify permissions with: chmod 600 ~/.kube/config",
+        currentValue: "Kubeconfig directory found — unable to verify permissions",
       };
     },
     expectedValue: "No exposed .kube directories or kubeconfig has mode 600",
@@ -350,7 +365,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
       "Exposed kubeconfig files contain cluster credentials that allow full Kubernetes cluster compromise.",
   },
   {
-    id: "SEC-NO-SHELL-RC-SECRETS",
+    id: "SECRETS-NO-SHELL-RC-SECRETS",
     name: "No Secrets Exported in Shell RC Files",
     severity: "warning",
     check: (output) => {

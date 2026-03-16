@@ -37,6 +37,7 @@ export interface ComplianceDetailScore {
   passRate: number;
   totalControls: number;
   passedControls: number;
+  partiallyPassed: number;
   partialCount: number;
   controls: ComplianceControlDetail[];
 }

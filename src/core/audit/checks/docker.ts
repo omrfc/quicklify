@@ -186,16 +186,14 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
   // Split lines once for all subsequent checks
   const allLines = sectionOutput.split("\n");
 
-  // Parse daemon.json if present in output
+  // Parse daemon.json between sentinels
   let daemonJson: Record<string, unknown> = {};
-  try {
-    for (const line of allLines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith("{") && trimmed.includes(":") && trimmed !== "{}") {
-        try { daemonJson = JSON.parse(trimmed); if (Object.keys(daemonJson).length > 0) break; } catch { /* skip */ }
-      }
-    }
-  } catch { /* skip */ }
+  const djStart = sectionOutput.indexOf("---DAEMON_JSON---");
+  const djEnd = sectionOutput.indexOf("---END_DAEMON_JSON---");
+  if (djStart !== -1 && djEnd !== -1) {
+    const djContent = sectionOutput.slice(djStart + "---DAEMON_JSON---".length, djEnd).trim();
+    try { daemonJson = JSON.parse(djContent); } catch { /* skip */ }
+  }
 
   // Check for running containers (from docker inspect output in sectionOutput)
   const hasRunningContainers = sectionOutput.includes("SecurityOpt=") && !(/SecurityOpt=N\/A/.test(sectionOutput));

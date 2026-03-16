@@ -4,9 +4,36 @@
  */
 
 import type { AuditResult, AuditCheck, Severity } from "./types.js";
+import { SEVERITY_WEIGHTS, CATEGORY_WEIGHTS, DEFAULT_CATEGORY_WEIGHT, buildImpactContext } from "./scoring.js";
+import type { ImpactContext } from "./scoring.js";
 import { sshExec } from "../../utils/ssh.js";
 import { raw } from "../../utils/sshCommand.js";
 import inquirer from "inquirer";
+
+/** Whitelist of known safe fix command prefixes from audit check definitions */
+const KNOWN_AUDIT_FIX_PREFIXES = [
+  // System administration
+  "chmod", "chown", "sed ", "systemctl", "apt ", "apt-get", "dpkg",
+  "sysctl", "passwd", "useradd", "gpasswd", "visudo", "reboot",
+  // Firewall & networking
+  "ufw ", "iptables", "ip6tables", "ip ", "ss ",
+  // File operations
+  "echo ", "find ", "touch", "mkdir", "rm ", "ls ", "grep ",
+  "jq ", "awk ", "openssl", "export ",
+  // Security tools
+  "aide", "aideinit", "rkhunter", "aa-enforce", "aa-genprof",
+  "auditctl", "mokutil", "setenforce", "cryptsetup", "ssh-keygen",
+  // Services & time
+  "docker", "logrotate", "chronyc", "hwclock", "timedatectl",
+  // Boot & kernel
+  "grub2-mkpasswd-pbkdf2", "uname", "df ",
+  // TLS & certs
+  "certbot", "ssl_protocols",
+  // Kastell & instructional
+  "kastell", "Add ", "Remove ", "Edit ", "Create ", "Configure ",
+  "Ensure ", "Review ", "Verify ", "See ", "Update ", "Use ", "# ",
+  "DEBIAN_FRONTEND", "curl",
+];
 
 /** A check with pre-condition info for safe fixing */
 export interface FixCheck {
@@ -40,13 +67,6 @@ export interface FixResult {
 
 /** Severity ordering for display (critical first) */
 const SEVERITY_ORDER: Severity[] = ["critical", "warning", "info"];
-
-/** Severity weights matching scoring.ts */
-const SEVERITY_WEIGHTS: Record<Severity, number> = {
-  critical: 3,
-  warning: 2,
-  info: 1,
-};
 
 /**
  * Determine pre-condition check for dangerous fixes.
@@ -97,13 +117,14 @@ export function previewFixes(result: AuditResult): FixPlan {
   }
 
   // Group by severity
+  const ctx = buildImpactContext(result.categories);
   const groups: FixGroup[] = [];
 
   for (const severity of SEVERITY_ORDER) {
     const checks = fixableChecks.filter((c) => c.severity === severity);
     if (checks.length === 0) continue;
 
-    const estimatedImpact = calculateGroupImpact(checks, result);
+    const estimatedImpact = calculateGroupImpact(checks, ctx);
     groups.push({ severity, checks, estimatedImpact });
   }
 
@@ -112,29 +133,24 @@ export function previewFixes(result: AuditResult): FixPlan {
 
 /**
  * Calculate estimated score impact if all checks in a group are fixed.
- * Uses the same severity weighting as the scoring engine.
+ * Uses the same severity and category weighting as the scoring engine.
  */
 function calculateGroupImpact(
   checks: FixCheck[],
-  result: AuditResult,
+  ctx: ImpactContext,
 ): number {
-  const numCategories = result.categories.length || 1;
+  if (ctx.totalOverallWeight === 0) return 0;
+
   let totalImpact = 0;
 
   for (const check of checks) {
-    // Find which category this check belongs to
-    const category = result.categories.find((c) => c.name === check.category);
-    if (!category) continue;
-
-    const totalCategoryWeight = category.checks.reduce(
-      (sum, c) => sum + SEVERITY_WEIGHTS[c.severity],
-      0,
-    );
+    const totalCategoryWeight = ctx.catWeightMap.get(check.category) ?? 0;
     if (totalCategoryWeight === 0) continue;
 
     const checkWeight = SEVERITY_WEIGHTS[check.severity];
     const categoryImpact = (checkWeight / totalCategoryWeight) * 100;
-    totalImpact += categoryImpact / numCategories;
+    const catWeight = CATEGORY_WEIGHTS[check.category] ?? DEFAULT_CATEGORY_WEIGHT;
+    totalImpact += (categoryImpact * catWeight) / ctx.totalOverallWeight;
   }
 
   return Math.round(totalImpact);
@@ -194,7 +210,12 @@ export async function runFix(
             continue;
           }
         }
-        // fixCommand is a hardcoded string from audit check definitions
+        // Validate fixCommand against known safe prefixes
+        const isKnown = KNOWN_AUDIT_FIX_PREFIXES.some((p) => check.fixCommand.startsWith(p));
+        if (!isKnown) {
+          errors.push(`${check.id}: fix command not in whitelist — ${check.fixCommand.slice(0, 60)}`);
+          continue;
+        }
         const fixResult = await sshExec(ip, raw(check.fixCommand));
         if (fixResult.code !== 0) {
           errors.push(`${check.id}: command failed (exit ${fixResult.code})${fixResult.stderr ? ` — ${fixResult.stderr}` : ""}`);

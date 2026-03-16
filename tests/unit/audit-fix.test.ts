@@ -54,9 +54,9 @@ describe("previewFixes", () => {
   it("should return grouped fixes by severity (critical first)", () => {
     const result = makeResult([
       makeCategory("SSH", [
-        makeCheck({ id: "SSH-PASSWORD-AUTH", category: "SSH", severity: "critical", passed: false, fixCommand: "fix-critical" }),
-        makeCheck({ id: "SSH-ROOT-LOGIN", category: "SSH", severity: "info", passed: false, fixCommand: "fix-info" }),
-        makeCheck({ id: "SSH-EMPTY-PASSWORDS", category: "SSH", severity: "warning", passed: false, fixCommand: "fix-warning" }),
+        makeCheck({ id: "SSH-PASSWORD-AUTH", category: "SSH", severity: "critical", passed: false, fixCommand: "sed -i 's/yes/no/' /etc/ssh/sshd_config" }),
+        makeCheck({ id: "SSH-ROOT-LOGIN", category: "SSH", severity: "info", passed: false, fixCommand: "sed -i 's/a/b/' /etc/test" }),
+        makeCheck({ id: "SSH-EMPTY-PASSWORDS", category: "SSH", severity: "warning", passed: false, fixCommand: "systemctl restart sshd" }),
       ]),
     ]);
 
@@ -70,7 +70,7 @@ describe("previewFixes", () => {
   it("should exclude checks without fixCommand", () => {
     const result = makeResult([
       makeCategory("SSH", [
-        makeCheck({ id: "SSH-PASSWORD-AUTH", severity: "critical", passed: false, fixCommand: "fix-it" }),
+        makeCheck({ id: "SSH-PASSWORD-AUTH", severity: "critical", passed: false, fixCommand: "chmod 600 /etc/ssh/sshd_config" }),
         makeCheck({ id: "SSH-ROOT-LOGIN", severity: "warning", passed: false }), // no fixCommand
       ]),
     ]);
@@ -104,11 +104,11 @@ describe("previewFixes", () => {
   it("should batch fixes by category for efficiency", () => {
     const result = makeResult([
       makeCategory("SSH", [
-        makeCheck({ id: "SSH-PASSWORD-AUTH", category: "SSH", severity: "critical", passed: false, fixCommand: "fix-1" }),
-        makeCheck({ id: "SSH-ROOT-LOGIN", category: "SSH", severity: "critical", passed: false, fixCommand: "fix-2" }),
+        makeCheck({ id: "SSH-PASSWORD-AUTH", category: "SSH", severity: "critical", passed: false, fixCommand: "sed -i 's/x/y/' /etc/a" }),
+        makeCheck({ id: "SSH-ROOT-LOGIN", category: "SSH", severity: "critical", passed: false, fixCommand: "sed -i 's/p/q/' /etc/b" }),
       ]),
       makeCategory("Firewall", [
-        makeCheck({ id: "FW-UFW-ACTIVE", category: "Firewall", severity: "critical", passed: false, fixCommand: "fix-3" }),
+        makeCheck({ id: "FW-UFW-ACTIVE", category: "Firewall", severity: "critical", passed: false, fixCommand: "ufw enable" }),
       ]),
     ]);
 
@@ -122,7 +122,7 @@ describe("previewFixes", () => {
   it("should calculate estimatedImpact for each group", () => {
     const result = makeResult([
       makeCategory("SSH", [
-        makeCheck({ id: "SSH-PASSWORD-AUTH", category: "SSH", severity: "critical", passed: false, fixCommand: "fix-it" }),
+        makeCheck({ id: "SSH-PASSWORD-AUTH", category: "SSH", severity: "critical", passed: false, fixCommand: "chmod 600 /etc/ssh/sshd_config" }),
         makeCheck({ id: "SSH-ROOT-LOGIN", category: "SSH", severity: "info", passed: true }),
       ]),
     ]);
@@ -140,7 +140,7 @@ describe("runFix", () => {
   it("should call sshExec with fix commands for confirmed checks", async () => {
     const result = makeResult([
       makeCategory("SSH", [
-        makeCheck({ id: "SSH-PASSWORD-AUTH", category: "SSH", severity: "critical", passed: false, fixCommand: "fix-ssh" }),
+        makeCheck({ id: "SSH-PASSWORD-AUTH", category: "SSH", severity: "critical", passed: false, fixCommand: "sed -i 's/PermitRootLogin yes/no/' /etc/ssh/sshd_config" }),
       ]),
     ]);
 
@@ -148,14 +148,14 @@ describe("runFix", () => {
     mockedSshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
 
     const fixResult = await runFix("1.2.3.4", result, { dryRun: false });
-    expect(mockedSshExec).toHaveBeenCalledWith("1.2.3.4", expect.stringContaining("fix-ssh"));
+    expect(mockedSshExec).toHaveBeenCalledWith("1.2.3.4", expect.stringContaining("PermitRootLogin"));
     expect(fixResult.applied).toContain("SSH-PASSWORD-AUTH");
   });
 
   it("should skip checks the user declined", async () => {
     const result = makeResult([
       makeCategory("SSH", [
-        makeCheck({ id: "SSH-PASSWORD-AUTH", category: "SSH", severity: "critical", passed: false, fixCommand: "fix-ssh" }),
+        makeCheck({ id: "SSH-PASSWORD-AUTH", category: "SSH", severity: "critical", passed: false, fixCommand: "sed -i 's/PermitRootLogin yes/no/' /etc/ssh/sshd_config" }),
       ]),
     ]);
 
@@ -169,7 +169,7 @@ describe("runFix", () => {
   it("should not execute commands in dry-run mode", async () => {
     const result = makeResult([
       makeCategory("SSH", [
-        makeCheck({ id: "SSH-PASSWORD-AUTH", category: "SSH", severity: "critical", passed: false, fixCommand: "fix-ssh" }),
+        makeCheck({ id: "SSH-PASSWORD-AUTH", category: "SSH", severity: "critical", passed: false, fixCommand: "sed -i 's/PermitRootLogin yes/no/' /etc/ssh/sshd_config" }),
       ]),
     ]);
 
@@ -182,7 +182,7 @@ describe("runFix", () => {
   it("should record errors when sshExec fails", async () => {
     const result = makeResult([
       makeCategory("SSH", [
-        makeCheck({ id: "SSH-PASSWORD-AUTH", category: "SSH", severity: "critical", passed: false, fixCommand: "fix-ssh" }),
+        makeCheck({ id: "SSH-PASSWORD-AUTH", category: "SSH", severity: "critical", passed: false, fixCommand: "sed -i 's/PermitRootLogin yes/no/' /etc/ssh/sshd_config" }),
       ]),
     ]);
 

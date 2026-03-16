@@ -6,9 +6,9 @@
 import { listAllChecks, formatListChecksTerminal, formatListChecksJson } from "../../src/core/audit/listChecks.js";
 
 describe("listAllChecks", () => {
-  it("returns at least 406 entries total", () => {
+  it("returns at least 403 entries total", () => {
     const checks = listAllChecks();
-    expect(checks.length).toBeGreaterThanOrEqual(406);
+    expect(checks.length).toBeGreaterThanOrEqual(403);
   });
 
   it("filters to only SSH checks when category='SSH'", () => {

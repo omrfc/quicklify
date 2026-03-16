@@ -38,6 +38,7 @@ export interface AuditCategory {
   checks: AuditCheck[];
   score: number;                 // 0-100 for this category
   maxScore: number;
+  connectionError?: boolean;     // true if SSH batch for this category failed
 }
 
 export interface AuditResult {
@@ -53,6 +54,7 @@ export interface AuditResult {
   complianceDetail?: ComplianceDetailScore[];  // Per-control compliance detail (optional, set when framework requested)
   vpsType?: string;              // e.g. "kvm", "xen", "vmware"; undefined on bare metal
   vpsAdjustedCount?: number;     // number of checks downgraded to info on VPS
+  warnings?: string[];           // Connectivity or batch failure warnings
 }
 
 export interface QuickWin {

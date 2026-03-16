@@ -207,11 +207,11 @@ export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   "KRN-NMI-WATCHDOG-DISABLED": [cis("1.5.4", "Ensure NMI watchdog is configured", "partial")],
   "KRN-UNPRIVILEGED-USERNS": [cis("1.5.4", "Ensure unprivileged user namespaces are disabled", "full")],
   "KRN-EXEC-SHIELD": [cis("1.5.1", "Ensure exec-shield is enabled", "partial")],
-  "KRN-MODULE-BLACKLIST": [cis("1.2.1", "Ensure package manager repositories are configured", "partial")],
+  "KRN-MODULE-BLACKLIST": [cis("1.1.1.1", "Ensure mounting of filesystem modules is disabled", "partial")],
   "KRN-PANIC-REBOOT": [cis("1.5.4", "Ensure kernel panic reboot timeout is configured", "partial")],
   "KRN-SYSCTL-HARDENED": [cis("3.3.1", "Ensure sysctl kernel parameters are hardened", "partial")],
   "KRN-COREDUMP-SYSTEMD": [cis("1.5.2", "Ensure core dumps are restricted via systemd", "full")],
-  "KRN-LOCKDOWN-MODE": [cis("1.6.1", "Ensure AppArmor is installed", "partial")],
+  "KRN-LOCKDOWN-MODE": [cis("1.6.4", "Ensure kernel lockdown is enabled", "partial")],
 
   // ─── Network (CIS 3.1-3.3) ────────────────────────────────────────────────
   "NET-NO-DANGEROUS-PORTS": [cis("3.5.1.1", "Ensure ufw is installed", "partial")],
@@ -219,8 +219,8 @@ export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   "NET-TIME-SYNC": [cis("2.1.1.1", "Ensure a single time synchronization daemon is in use", "partial")],
   "NET-IP-FORWARDING": [cis("3.3.1", "Ensure IP forwarding is disabled", "full")],
   "NET-SYN-COOKIES": [cis("3.3.8", "Ensure TCP SYN Cookies is enabled", "full")],
-  "NET-HOSTS-ACCESS": [cis("3.4.1", "Ensure DCCP is disabled", "partial")],
-  "NET-HOSTS-DENY": [cis("3.4.2", "Ensure SCTP is disabled", "partial")],
+  "NET-HOSTS-ACCESS": [cis("3.4.4", "Ensure TCP wrappers are configured", "partial")],
+  "NET-HOSTS-DENY": [cis("3.4.4", "Ensure TCP wrappers are configured", "partial")],
   "NET-IPV6-DISABLED": [cis("3.1.1", "Disable IPv6", "full")],
   "NET-ICMP-REDIRECT-SEND": [cis("3.3.2", "Ensure packet redirect sending is disabled", "full")],
   "NET-ICMP-SECURE-REDIRECT": [cis("3.3.3", "Ensure secure ICMP redirects are not accepted", "full")],
@@ -445,13 +445,10 @@ export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   "SVC-NO-DAYTIME": [cis("2.1.4", "Ensure daytime services are not in use", "full")],
   "SVC-NO-DISCARD": [cis("2.1.5", "Ensure discard services are not in use", "full")],
   "SVC-NO-ECHO-SVC": [cis("2.1.2", "Ensure echo services are not in use", "full")],
-  "SRV-NO-RPCBIND": [cis("2.2.8", "Ensure rpcbind is not in use", "full")],
-  "SRV-NO-AVAHI": [cis("2.2.3", "Ensure avahi daemon services are not in use", "full")],
-  "SRV-NO-CUPS": [cis("2.2.4", "Ensure a print server is not in use", "full")],
-  "SRV-RUNNING-COUNT-REASONABLE": [cis("2.4", "Ensure nonessential services are removed or masked", "partial")],
-  "SRV-NO-WILDCARD-LISTENERS": [cis("2.4", "Ensure nonessential services are removed or masked", "partial")],
-  "SRV-NO-XINETD-SERVICES": [cis("2.1.1", "Ensure xinetd is not installed", "full")],
-  "SRV-NO-WORLD-READABLE-CONFIGS": [cis("6.1.11", "Ensure no world writable files exist", "partial")],
+  "SVC-RUNNING-COUNT-REASONABLE": [cis("2.4", "Ensure nonessential services are removed or masked", "partial")],
+  "SVC-NO-WILDCARD-LISTENERS": [cis("2.4", "Ensure nonessential services are removed or masked", "partial")],
+  "SVC-NO-XINETD-SERVICES": [cis("2.1.1", "Ensure xinetd is not installed", "full")],
+  "SVC-NO-WORLD-READABLE-CONFIGS": [cis("6.1.11", "Ensure no world writable files exist", "partial")],
 
   // ─── Boot (CIS 1.4.x) ─────────────────────────────────────────────────────
   "BOOT-GRUB-PERMS": [
@@ -511,7 +508,7 @@ export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   "CRYPTO-SSH-WEAK-MACS": [cis("5.2.15", "Ensure only approved MAC algorithms are used", "full")],
   "CRYPTO-SSH-WEAK-KEX": [cis("5.2.15", "Ensure only strong Key Exchange algorithms are used", "full")],
   "CRYPTO-SSH-ED25519-KEY": [cis("5.2.6", "Ensure SSH public key authentication is in use", "partial")],
-  "CRYPTO-LUKS-DISK": [cis("1.1.2.1", "Ensure /tmp is a separate partition", "partial")],
+  "CRYPTO-LUKS-DISK": [cis("1.4.1", "Ensure disk encryption is configured", "partial")],
   "CRYPTO-TLS-MIN-PROTOCOL": [
     cis("5.2.15", "Ensure only strong ciphers are used", "partial"),
     pci("4.2.1", "Strong cryptography for data in transit", "full"),
@@ -633,6 +630,62 @@ export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   ],
   "SECRETS-WORLD-READABLE-KEYS": [pci("8.3.7", "Authentication factors unreadable", "partial")],
   "SECRETS-SSH-AUTHORIZED-KEYS-PERMS": [pci("8.3.7", "Authentication factors unreadable", "partial")],
+  "SECRETS-NO-READABLE-HISTORY": [
+    pci("8.3.7", "Authentication factors unreadable", "partial"),
+  ],
+  "SECRETS-NO-SSH-AGENT-FORWARDING": [
+    cis("5.2.20", "Ensure SSH AllowAgentForwarding is disabled", "full"),
+  ],
+  "SECRETS-NO-AWS-CREDS-PLAINTEXT": [
+    pci("8.3.7", "Authentication factors unreadable", "partial"),
+    hipaa("§164.312(a)(2)(iv)", "Encryption and decryption", "partial"),
+  ],
+  "SECRETS-NO-KUBECONFIG-EXPOSED": [
+    pci("8.3.7", "Authentication factors unreadable", "partial"),
+  ],
+  "SECRETS-NO-SHELL-RC-SECRETS": [
+    pci("8.3.7", "Authentication factors unreadable", "partial"),
+    hipaa("§164.312(a)(2)(iv)", "Encryption and decryption", "partial"),
+  ],
+  "SECRETS-GIT-CONFIG-TOKEN": [
+    pci("8.3.7", "Authentication factors unreadable", "partial"),
+  ],
+  "SECRETS-ENV-IN-HOME": [
+    pci("8.3.7", "Authentication factors unreadable", "partial"),
+  ],
+  "SECRETS-AWS-CREDS-PERMS": [
+    pci("8.3.7", "Authentication factors unreadable", "partial"),
+  ],
+  "SECRETS-DOCKER-ENV-PERMS": [
+    pci("8.3.7", "Authentication factors unreadable", "partial"),
+  ],
+  "SECRETS-NPMRC-TOKEN": [
+    pci("8.3.7", "Authentication factors unreadable", "partial"),
+  ],
+
+  // ─── Cloud Metadata (CIS + PCI-DSS) ──────────────────────────────────────
+  "CLOUDMETA-ENDPOINT-BLOCKED": [
+    cis("5.4.5", "Ensure default deny firewall policy", "partial"),
+    pci("1.3.1", "Restrict inbound traffic", "partial"),
+  ],
+  "CLOUDMETA-INIT-LOG-CLEAN": [
+    pci("8.3.7", "Authentication factors unreadable", "partial"),
+  ],
+  "CLOUDMETA-IMDSV2-ENFORCED": [
+    cis("5.4.5", "Ensure default deny firewall policy", "partial"),
+    pci("1.3.1", "Restrict inbound traffic", "partial"),
+  ],
+  "CLOUDMETA-SENSITIVE-ENV-NOT-IN-CLOUDINIT": [
+    pci("8.3.7", "Authentication factors unreadable", "partial"),
+    hipaa("§164.312(a)(2)(iv)", "Encryption and decryption", "partial"),
+  ],
+  "CLOUDMETA-VPC-METADATA-FIREWALL": [
+    cis("5.4.5", "Ensure default deny firewall policy", "partial"),
+    pci("1.3.1", "Restrict inbound traffic", "partial"),
+  ],
+  "CLOUDMETA-IMDSV1-DISABLED": [
+    cis("5.4.5", "Ensure default deny firewall policy", "partial"),
+  ],
 
   // ─── Supply Chain (PCI-DSS 6.x) ──────────────────────────────────────────
   "SUPPLY-APT-HTTPS-REPOS": [pci("6.3.3", "Software protected from vulnerabilities", "partial")],

@@ -255,21 +255,9 @@ export const parseBootChecks: CheckParser = (
   const output = isNA ? "" : sectionOutput;
 
   return BOOT_CHECKS.map((def) => {
-    if (isNA) {
-      return {
-        id: def.id,
-        category: "Boot",
-        name: def.name,
-        severity: def.severity,
-        passed: false,
-        currentValue: "Unable to determine",
-        expectedValue: def.expectedValue,
-        fixCommand: def.fixCommand,
-        explain: def.explain,
-        ...(def.vpsIrrelevant !== undefined && { vpsIrrelevant: def.vpsIrrelevant }),
-      };
-    }
-    const { passed, currentValue } = def.check(output);
+    const { passed, currentValue } = isNA
+      ? { passed: false, currentValue: "Unable to determine" }
+      : def.check(output);
     return {
       id: def.id,
       category: "Boot",

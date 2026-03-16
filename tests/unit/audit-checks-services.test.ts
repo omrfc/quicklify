@@ -28,13 +28,13 @@ describe("parseServicesChecks", () => {
     "NONE",
     // Running service count (standalone number 1-200)
     "18",
-    // SRV-NO-WILDCARD-LISTENERS: 3 wildcard listeners (<=5 = pass)
+    // SVC-NO-WILDCARD-LISTENERS: 3 wildcard listeners (<=5 = pass)
     "3",
-    // SRV-NO-WILDCARD-LISTENERS details
+    // SVC-NO-WILDCARD-LISTENERS details
     "NONE",
-    // SRV-NO-XINETD-SERVICES: xinetd inactive
+    // SVC-NO-XINETD-SERVICES: xinetd inactive
     "inactive",
-    // SRV-NO-WORLD-READABLE-CONFIGS: no world-readable configs
+    // SVC-NO-WORLD-READABLE-CONFIGS: no world-readable configs
     "NONE",
   ].join("\n");
 
@@ -66,15 +66,15 @@ describe("parseServicesChecks", () => {
     "echo stream tcp nowait root internal",
   ].join("\n");
 
-  it("should return 28 checks for the Services category", () => {
+  it("should return 25 checks for the Services category", () => {
     const checks = parseServicesChecks(secureOutput, "bare");
-    expect(checks).toHaveLength(28);
+    expect(checks).toHaveLength(25);
     checks.forEach((c) => expect(c.category).toBe("Services"));
   });
 
-  it("all check IDs should start with SVC- or SRV-", () => {
+  it("all check IDs should start with SVC-", () => {
     const checks = parseServicesChecks(secureOutput, "bare");
-    checks.forEach((c) => expect(c.id).toMatch(/^S[RV][CV]-/));
+    checks.forEach((c) => expect(c.id).toMatch(/^SVC-/));
   });
 
   it("all checks should have explain > 20 chars and fixCommand defined", () => {
@@ -131,7 +131,7 @@ describe("parseServicesChecks", () => {
 
   it("should handle N/A output gracefully", () => {
     const checks = parseServicesChecks("N/A", "bare");
-    expect(checks).toHaveLength(28);
+    expect(checks).toHaveLength(25);
     checks.forEach((c) => {
       expect(c.passed).toBe(false);
       expect(c.currentValue).toBe("Unable to determine");
@@ -140,20 +140,13 @@ describe("parseServicesChecks", () => {
 
   it("should handle empty string output gracefully", () => {
     const checks = parseServicesChecks("", "bare");
-    expect(checks).toHaveLength(28);
+    expect(checks).toHaveLength(25);
     checks.forEach((c) => expect(c.passed).toBe(false));
   });
 
-  it("SRV-RUNNING-COUNT-REASONABLE passes when running count is 18", () => {
+  it("SVC-RUNNING-COUNT-REASONABLE passes when running count is 18", () => {
     const checks = parseServicesChecks(secureOutput, "bare");
-    const check = checks.find((c) => c.id === "SRV-RUNNING-COUNT-REASONABLE");
-    expect(check).toBeDefined();
-    expect(check!.passed).toBe(true);
-  });
-
-  it("SRV-NO-RPCBIND passes when rpcbind is not active", () => {
-    const checks = parseServicesChecks(secureOutput, "bare");
-    const check = checks.find((c) => c.id === "SRV-NO-RPCBIND");
+    const check = checks.find((c) => c.id === "SVC-RUNNING-COUNT-REASONABLE");
     expect(check).toBeDefined();
     expect(check!.passed).toBe(true);
   });
@@ -165,61 +158,61 @@ describe("parseServicesChecks", () => {
     expect(ratio).toBeLessThanOrEqual(0.4);
   });
 
-  it("SRV-NO-WILDCARD-LISTENERS passes when <= 5 wildcard listeners", () => {
+  it("SVC-NO-WILDCARD-LISTENERS passes when <= 5 wildcard listeners", () => {
     const checks = parseServicesChecks(secureOutput, "bare");
-    const check = checks.find((c) => c.id === "SRV-NO-WILDCARD-LISTENERS");
+    const check = checks.find((c) => c.id === "SVC-NO-WILDCARD-LISTENERS");
     expect(check).toBeDefined();
     expect(check!.passed).toBe(true);
     expect(check!.severity).toBe("warning");
     expect(check!.currentValue).toContain("3");
   });
 
-  it("SRV-NO-WILDCARD-LISTENERS fails when > 5 wildcard listeners", () => {
+  it("SVC-NO-WILDCARD-LISTENERS fails when > 5 wildcard listeners", () => {
     const output = ["inactive","inactive","inactive","inactive","inactive","inactive",
       "inactive","inactive","inactive","inactive","inactive","inactive","inactive",
       "inactive","inactive","inactive","inactive","inactive","NONE","NONE","5","10",
       "NONE","inactive","NONE"].join("\n");
     const checks = parseServicesChecks(output, "bare");
-    const check = checks.find((c) => c.id === "SRV-NO-WILDCARD-LISTENERS");
+    const check = checks.find((c) => c.id === "SVC-NO-WILDCARD-LISTENERS");
     expect(check).toBeDefined();
     expect(check!.passed).toBe(false);
     expect(check!.currentValue).toContain("10");
   });
 
-  it("SRV-NO-XINETD-SERVICES passes when xinetd is not active", () => {
+  it("SVC-NO-XINETD-SERVICES passes when xinetd is not active", () => {
     const checks = parseServicesChecks(secureOutput, "bare");
-    const check = checks.find((c) => c.id === "SRV-NO-XINETD-SERVICES");
+    const check = checks.find((c) => c.id === "SVC-NO-XINETD-SERVICES");
     expect(check).toBeDefined();
     expect(check!.passed).toBe(true);
     expect(check!.severity).toBe("info");
     expect(check!.currentValue).toContain("not running");
   });
 
-  it("SRV-NO-XINETD-SERVICES fails when xinetd is active", () => {
+  it("SVC-NO-XINETD-SERVICES fails when xinetd is active", () => {
     const activeOutput = "inactive\ninactive\ninactive\ninactive\ninactive\ninactive\n"
       + "inactive\ninactive\ninactive\ninactive\ninactive\ninactive\ninactive\n"
       + "inactive\ninactive\nxinetd active\ninactive\ninactive\nNONE\nNONE\n18\n3\nNONE\nactive\nNONE";
     const checks = parseServicesChecks(activeOutput, "bare");
-    const check = checks.find((c) => c.id === "SRV-NO-XINETD-SERVICES");
+    const check = checks.find((c) => c.id === "SVC-NO-XINETD-SERVICES");
     expect(check).toBeDefined();
     expect(check!.passed).toBe(false);
   });
 
-  it("SRV-NO-WORLD-READABLE-CONFIGS passes when no world-readable configs", () => {
+  it("SVC-NO-WORLD-READABLE-CONFIGS passes when no world-readable configs", () => {
     const checks = parseServicesChecks(secureOutput, "bare");
-    const check = checks.find((c) => c.id === "SRV-NO-WORLD-READABLE-CONFIGS");
+    const check = checks.find((c) => c.id === "SVC-NO-WORLD-READABLE-CONFIGS");
     expect(check).toBeDefined();
     expect(check!.passed).toBe(true);
     expect(check!.severity).toBe("info");
   });
 
-  it("SRV-NO-WORLD-READABLE-CONFIGS fails when world-readable configs found", () => {
+  it("SVC-NO-WORLD-READABLE-CONFIGS fails when world-readable configs found", () => {
     const worldReadableOutput = "inactive\ninactive\ninactive\ninactive\ninactive\ninactive\n"
       + "inactive\ninactive\ninactive\ninactive\ninactive\ninactive\ninactive\n"
       + "inactive\ninactive\ninactive\ninactive\ninactive\nNONE\nNONE\n18\n3\nNONE\ninactive\n"
       + "/etc/systemd/system/myservice.conf";
     const checks = parseServicesChecks(worldReadableOutput, "bare");
-    const check = checks.find((c) => c.id === "SRV-NO-WORLD-READABLE-CONFIGS");
+    const check = checks.find((c) => c.id === "SVC-NO-WORLD-READABLE-CONFIGS");
     expect(check).toBeDefined();
     expect(check!.passed).toBe(false);
     expect(check!.currentValue).toContain("1");

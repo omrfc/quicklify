@@ -5,13 +5,7 @@
 
 import chalk from "chalk";
 import type { TrendResult } from "../types.js";
-
-/** Score color based on value — matches existing audit formatter convention */
-function scoreColor(score: number): (text: string) => string {
-  if (score >= 80) return chalk.green;
-  if (score >= 50) return chalk.yellow;
-  return chalk.red;
-}
+import { scoreColor } from "./shared.js";
 
 /**
  * Format TrendResult for terminal display.

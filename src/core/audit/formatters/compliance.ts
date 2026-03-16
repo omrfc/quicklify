@@ -7,13 +7,7 @@ import chalk from "chalk";
 import type { AuditResult } from "../types.js";
 import { calculateComplianceDetail } from "../compliance/scoring.js";
 import type { FrameworkKey } from "../compliance/mapper.js";
-
-/** Score color based on pass rate value */
-function rateColor(rate: number): (text: string) => string {
-  if (rate >= 80) return chalk.green;
-  if (rate >= 60) return chalk.yellow;
-  return chalk.red;
-}
+import { scoreColor } from "./shared.js";
 
 /**
  * Format a detailed compliance report grouped by Framework > Control > Check.
@@ -38,7 +32,7 @@ export function formatComplianceReport(
   lines.push("");
 
   for (const score of filtered) {
-    const colorFn = rateColor(score.passRate);
+    const colorFn = scoreColor(score.passRate);
     lines.push(chalk.bold(score.version));
     lines.push(
       `  Pass Rate: ${colorFn(`${score.passedControls}/${score.totalControls}`)} (${score.passRate}%)`,

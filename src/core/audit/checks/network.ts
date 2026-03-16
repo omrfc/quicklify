@@ -306,8 +306,6 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
 
   // NET-16: No unnecessary mail ports open
   // ss -tlnp | grep -E ':25 |:110 |:143 ' output
-  const hasMailPorts = /:(25|110|143)\s/.test(output) && !/^NONE$/m.test(output.split("\n").filter((l) => /:(25|110|143)\s/.test(l) || l.trim() === "NONE").join("\n"));
-  // More precise: look for NONE in the mail ports section
   const mailPortsNone = output.split("\n").some((l) => l.trim() === "NONE");
   const mailPortsFound = !mailPortsNone && /:(25|110|143)\s/.test(output);
   const net16: AuditCheck = {
@@ -345,8 +343,6 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
 
   // NET-18: No promiscuous network interfaces
   // ip link show | grep -i 'PROMISC' output
-  const hasPromiscuous = !/^NONE$/m.test(output.split("\n").filter((l) => /PROMISC/i.test(l) || l.trim() === "NONE").join("\n"))
-    && /PROMISC/i.test(output);
   const promiscNone = output.split("\n").some((l) => l.trim() === "NONE");
   const hasPromiscuousIface = !promiscNone && /PROMISC/i.test(output);
   const net18: AuditCheck = {

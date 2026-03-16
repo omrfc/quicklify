@@ -48,6 +48,7 @@ export async function runAudit(
   try {
     const batches = buildAuditBatchCommands(platform);
     const batchOutputs: string[] = [];
+    const batchErrors: Array<{ tier: string; error: string }> = [];
 
     // Execute each batch with its tier-specific timeout
     for (const batch of batches) {
@@ -56,8 +57,10 @@ export async function runAudit(
           timeoutMs: BATCH_TIMEOUTS[batch.tier],
         });
         batchOutputs.push(result.stdout);
-      } catch {
-        // If a batch fails, push empty string so name-keyed routing stays safe
+      } catch (batchErr) {
+        // Track which batch failed and why
+        const msg = batchErr instanceof Error ? batchErr.message : String(batchErr);
+        batchErrors.push({ tier: batch.tier, error: msg });
         batchOutputs.push("");
       }
     }
@@ -70,14 +73,35 @@ export async function runAudit(
     const vpsType = extractVpsType(batchOutputs);
     const { categories: adjustedCategories, adjustedCount } = applyVpsAdjustments(categories, vpsType);
 
+    // Mark categories from failed batches as connectionError
+    if (batchErrors.length > 0) {
+      for (const cat of adjustedCategories) {
+        const allUndetermined = cat.checks.length > 0 && cat.checks.every(
+          (c) => !c.passed && (c.currentValue === "Unable to determine" || c.currentValue === ""),
+        );
+        if (allUndetermined) {
+          (cat as AuditCategory).connectionError = true;
+        }
+      }
+    }
+
     // Recalculate scores after VPS adjustment (severity changes affect weights)
     const finalCategories = adjustedCategories.map((cat) => {
+      // Exclude connection-error categories from scoring
+      if (cat.connectionError) {
+        return { ...cat, score: 0, maxScore: 0 };
+      }
       const { score, maxScore } = calculateCategoryScore(cat.checks);
       return { ...cat, score, maxScore };
     });
 
     const overallScore = calculateOverallScore(finalCategories);
     const skippedCategories = detectSkippedCategories(finalCategories);
+
+    // Build warnings from batch errors
+    const warnings: string[] = batchErrors.map(
+      (e) => `SSH ${e.tier} batch failed: ${e.error}`,
+    );
 
     const auditResult: AuditResult = {
       serverName,
@@ -90,6 +114,7 @@ export async function runAudit(
       quickWins: [],
       ...(skippedCategories.length > 0 ? { skippedCategories } : {}),
       ...(vpsType ? { vpsType, vpsAdjustedCount: adjustedCount } : {}),
+      ...(warnings.length > 0 ? { warnings } : {}),
     };
 
     auditResult.quickWins = calculateQuickWins(auditResult);

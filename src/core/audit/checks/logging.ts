@@ -356,8 +356,6 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
   const hasFileAction = /max_log_file_action\s*=\s*(keep_logs|rotate)/i.test(output);
   const spaceIgnored = /space_left_action\s*=\s*ignore/i.test(output);
   const fileIgnored = /max_log_file_action\s*=\s*ignore/i.test(output);
-  const auditdActionPass = (hasSpaceAction || !spaceIgnored) && (hasFileAction || !fileIgnored)
-    && !(/N\/A/.test(output) && !hasSpaceAction && !hasFileAction);
   const log17: AuditCheck = {
     id: "LOG-AUDITD-SPACE-ACTION",
     category: "Logging",

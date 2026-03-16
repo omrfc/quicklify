@@ -6,20 +6,7 @@
 import chalk from "chalk";
 import type { AuditResult } from "../types.js";
 import { calculateComplianceScores } from "../compliance/scoring.js";
-
-/** Score color */
-function scoreColor(score: number): (text: string) => string {
-  if (score >= 80) return chalk.green;
-  if (score >= 60) return chalk.yellow;
-  return chalk.red;
-}
-
-/** Build a progress bar */
-function progressBar(score: number, width: number = 10): string {
-  const filled = Math.round((score / 100) * width);
-  const empty = width - filled;
-  return "\u2588".repeat(filled) + "\u2591".repeat(empty);
-}
+import { scoreColor, progressBar } from "./shared.js";
 
 /**
  * Format audit result as compact dashboard summary.

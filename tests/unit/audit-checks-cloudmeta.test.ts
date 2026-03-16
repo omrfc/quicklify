@@ -40,9 +40,9 @@ describe("parseCloudMetaChecks", () => {
       expect(checks.length).toBeGreaterThanOrEqual(6);
     });
 
-    it("all check IDs start with CLOUDMETA- or CLOUD-", () => {
+    it("all check IDs start with CLOUDMETA-", () => {
       const checks = parseCloudMetaChecks(vpsOutput, "coolify");
-      checks.forEach((c) => expect(c.id).toMatch(/^(CLOUDMETA|CLOUD)-/));
+      checks.forEach((c) => expect(c.id).toMatch(/^CLOUDMETA-/));
     });
 
     it("all checks have explain.length > 20", () => {
@@ -117,10 +117,10 @@ describe("parseCloudMetaChecks", () => {
     });
   });
 
-  describe("CLOUD-IMDSV1-DISABLED", () => {
+  describe("CLOUDMETA-IMDSV1-DISABLED", () => {
     it("passes when METADATA_BLOCKED sentinel present", () => {
       const checks = parseCloudMetaChecks(vpsOutput, "coolify");
-      const check = checks.find((c) => c.id === "CLOUD-IMDSV1-DISABLED");
+      const check = checks.find((c) => c.id === "CLOUDMETA-IMDSV1-DISABLED");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(true);
     });
@@ -128,14 +128,14 @@ describe("parseCloudMetaChecks", () => {
     it("passes when IMDSV2_AVAILABLE sentinel present", () => {
       const output = "IS_VPS\nIMDSV2_AVAILABLE\nCLOUDINIT_CLEAN";
       const checks = parseCloudMetaChecks(output, "coolify");
-      const check = checks.find((c) => c.id === "CLOUD-IMDSV1-DISABLED");
+      const check = checks.find((c) => c.id === "CLOUDMETA-IMDSV1-DISABLED");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(true);
     });
 
     it("fails when neither METADATA_BLOCKED nor IMDSV2_AVAILABLE present", () => {
       const checks = parseCloudMetaChecks(vpsFailOutput, "coolify");
-      const check = checks.find((c) => c.id === "CLOUD-IMDSV1-DISABLED");
+      const check = checks.find((c) => c.id === "CLOUDMETA-IMDSV1-DISABLED");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
     });

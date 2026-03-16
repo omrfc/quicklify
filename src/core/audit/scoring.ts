@@ -6,7 +6,7 @@
 import type { AuditCheck, AuditCategory, Severity } from "./types.js";
 
 /** Severity weights: critical checks matter more than info checks */
-const SEVERITY_WEIGHTS: Record<Severity, number> = {
+export const SEVERITY_WEIGHTS: Record<Severity, number> = {
   critical: 3,
   warning: 2,
   info: 1,
@@ -62,7 +62,7 @@ export const CATEGORY_WEIGHTS: Record<string, number> = {
   "DNS Security": 2,
 };
 
-const DEFAULT_CATEGORY_WEIGHT = 1;
+export const DEFAULT_CATEGORY_WEIGHT = 1;
 
 /**
  * Calculate overall audit score from category scores.
@@ -82,4 +82,28 @@ export function calculateOverallScore(categories: AuditCategory[]): number {
   }
 
   return Math.round(weightedSum / totalWeight);
+}
+
+/** Pre-computed weight context for impact calculations (shared by quickwin + fix) */
+export interface ImpactContext {
+  totalOverallWeight: number;
+  catWeightMap: Map<string, number>;
+}
+
+/** Build impact context from audit categories (compute once, reuse in quickwin + fix) */
+export function buildImpactContext(categories: AuditCategory[]): ImpactContext {
+  let totalOverallWeight = 0;
+  const catWeightMap = new Map<string, number>();
+
+  for (const cat of categories) {
+    if (cat.maxScore > 0) {
+      totalOverallWeight += CATEGORY_WEIGHTS[cat.name] ?? DEFAULT_CATEGORY_WEIGHT;
+    }
+    catWeightMap.set(
+      cat.name,
+      cat.checks.reduce((sum, c) => sum + SEVERITY_WEIGHTS[c.severity], 0),
+    );
+  }
+
+  return { totalOverallWeight, catWeightMap };
 }
