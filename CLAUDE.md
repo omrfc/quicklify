@@ -74,6 +74,16 @@ Kurallar:
 - Session/feature branch'leri ASLA push edilmez
 - İş bitince main'e merge et, branch'i sil, sadece main push edilir
 
+## Session Sonu Protokolü
+
+Kullanıcı session'ı kapatacağını belirttiğinde (`gidiyorum`, `kapatıyorum`, `bu kadar`, vb.) aşağıdaki review'ı yap:
+
+1. **Yapılanlar** — O session'da tamamlanan işlerin 2-3 satırlık özeti
+2. **Gözlem** — Tekrar eden pattern, süreç kalitesi, iyi/kötü giden şeyler
+3. **Sonraki session önerisi** — Kaldığı yerden devam için somut ilk adım
+4. **Hata/uyarı** — Session'da yapılan hata, tutarsızlık veya risk (varsa dürüstçe söyle, yoksa atlayabilirsin)
+5. **Hafıza** — Session'dan kalıcı bilgi varsa hafızaya yaz (MEMORY.md veya lessons)
+
 ## Lessons
 
 -> `LESSONS.md` (tek kaynak — tum proje dersleri burada konsolide)
