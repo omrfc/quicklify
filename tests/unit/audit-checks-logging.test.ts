@@ -1,7 +1,7 @@
 import { parseLoggingChecks } from "../../src/core/audit/checks/logging.js";
 
 describe("parseLoggingChecks", () => {
-  // Secure output includes data from all 9 loggingSection() commands:
+  // Secure output includes data from all 11 loggingSection() commands:
   // 1. rsyslog status
   // 2. journald status
   // 3. logrotate config
@@ -11,6 +11,8 @@ describe("parseLoggingChecks", () => {
   // 7. /var/log stat
   // 8. journald.conf Storage
   // 9. which output for centralized tools
+  // 10. file watch rule count (LOG-AUDIT-WATCH-COUNT)
+  // 11. auditd retention config (LOG-AUDITD-SPACE-ACTION)
   const secureOutput = [
     // rsyslog status
     "active",
@@ -36,6 +38,11 @@ describe("parseLoggingChecks", () => {
     "@@logserver.example.com:514",
     // logrotate cron job active (LOG-LOGROTATE-ACTIVE)
     "/etc/cron.daily/logrotate",
+    // file watch rule count (LOG-AUDIT-WATCH-COUNT) — a standalone number >= 5
+    "7",
+    // auditd space/file action (LOG-AUDITD-SPACE-ACTION)
+    "space_left_action = email",
+    "max_log_file_action = keep_logs",
   ].join("\n");
 
   const insecureOutput = [
@@ -59,9 +66,9 @@ describe("parseLoggingChecks", () => {
     "NONE",
   ].join("\n");
 
-  it("should return 15 checks", () => {
+  it("should return 17 checks", () => {
     const checks = parseLoggingChecks(secureOutput, "bare");
-    expect(checks).toHaveLength(15);
+    expect(checks).toHaveLength(17);
     checks.forEach((check) => {
       expect(check.category).toBe("Logging");
       expect(check.id).toMatch(/^LOG-[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)+$/);
@@ -151,6 +158,35 @@ describe("parseLoggingChecks", () => {
 
   it("should handle N/A output gracefully", () => {
     const checks = parseLoggingChecks("N/A", "bare");
-    expect(checks).toHaveLength(15);
+    expect(checks).toHaveLength(17);
+  });
+
+  it("LOG-AUDIT-WATCH-COUNT passes when file watch count >= 5", () => {
+    const checks = parseLoggingChecks(secureOutput, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "LOG-AUDIT-WATCH-COUNT");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toMatch(/7 file watch audit rule/);
+  });
+
+  it("LOG-AUDIT-WATCH-COUNT fails when file watch count < 5", () => {
+    const output = secureOutput.replace("\n7\n", "\n2\n");
+    const checks = parseLoggingChecks(output, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "LOG-AUDIT-WATCH-COUNT");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("LOG-AUDITD-SPACE-ACTION passes when space_left_action=email and max_log_file_action=keep_logs", () => {
+    const checks = parseLoggingChecks(secureOutput, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "LOG-AUDITD-SPACE-ACTION");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("LOG-AUDITD-SPACE-ACTION fails when space_left_action=ignore", () => {
+    const output = secureOutput.replace("space_left_action = email", "space_left_action = ignore");
+    const checks = parseLoggingChecks(output, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "LOG-AUDITD-SPACE-ACTION");
+    expect(check!.passed).toBe(false);
   });
 });

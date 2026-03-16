@@ -33,6 +33,15 @@ describe("parseAccountsChecks", () => {
     "N/A",
     // Home directory permissions (not world-writable)
     "750 /home/admin",
+    // login.defs UID/GID range (ACCT-LOGIN-DEFS-UID-MAX)
+    "UID_MIN 1000",
+    "UID_MAX 60000",
+    "GID_MIN 1000",
+    "GID_MAX 60000",
+    // Login shell count (ACCT-LOGIN-SHELL-AUDIT) — standalone number <= 10
+    "3",
+    // Duplicate GIDs (ACCT-GID-CONSISTENCY) — NONE means clean
+    "NONE",
   ].join("\n");
 
   const insecureOutput = [
@@ -62,9 +71,9 @@ describe("parseAccountsChecks", () => {
     "dup2:1000",
   ].join("\n");
 
-  it("should return 19 checks for the Accounts category", () => {
+  it("should return 22 checks for the Accounts category", () => {
     const checks = parseAccountsChecks(validOutput, "bare");
-    expect(checks).toHaveLength(19);
+    expect(checks).toHaveLength(22);
     checks.forEach((c) => expect(c.category).toBe("Accounts"));
   });
 
@@ -133,7 +142,7 @@ describe("parseAccountsChecks", () => {
 
   it("should handle N/A output gracefully", () => {
     const checks = parseAccountsChecks("N/A", "bare");
-    expect(checks).toHaveLength(19);
+    expect(checks).toHaveLength(22);
     checks.forEach((c) => {
       expect(c.passed).toBe(false);
       expect(c.currentValue).toBe("Unable to determine");
@@ -142,7 +151,7 @@ describe("parseAccountsChecks", () => {
 
   it("should handle empty string output gracefully", () => {
     const checks = parseAccountsChecks("", "bare");
-    expect(checks).toHaveLength(19);
+    expect(checks).toHaveLength(22);
     checks.forEach((c) => expect(c.passed).toBe(false));
   });
 
@@ -165,5 +174,50 @@ describe("parseAccountsChecks", () => {
     const criticalCount = checks.filter((c) => c.severity === "critical").length;
     const ratio = criticalCount / checks.length;
     expect(ratio).toBeLessThanOrEqual(0.4);
+  });
+
+  it("ACCT-LOGIN-DEFS-UID-MAX passes when UID_MIN >= 1000 and UID_MAX >= 60000", () => {
+    const checks = parseAccountsChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "ACCT-LOGIN-DEFS-UID-MAX");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toMatch(/UID_MIN=1000/);
+  });
+
+  it("ACCT-LOGIN-DEFS-UID-MAX fails when UID_MIN < 1000", () => {
+    const output = validOutput.replace("UID_MIN 1000", "UID_MIN 500");
+    const checks = parseAccountsChecks(output, "bare");
+    const check = checks.find((c) => c.id === "ACCT-LOGIN-DEFS-UID-MAX");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("ACCT-LOGIN-SHELL-AUDIT passes when login shell count <= 10", () => {
+    const checks = parseAccountsChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "ACCT-LOGIN-SHELL-AUDIT");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toMatch(/3 accounts/);
+  });
+
+  it("ACCT-LOGIN-SHELL-AUDIT fails when login shell count > 10", () => {
+    const output = validOutput.replace("\n3\n", "\n15\n");
+    const checks = parseAccountsChecks(output, "bare");
+    const check = checks.find((c) => c.id === "ACCT-LOGIN-SHELL-AUDIT");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("ACCT-GID-CONSISTENCY passes when duplicate GID check returns NONE", () => {
+    const checks = parseAccountsChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "ACCT-GID-CONSISTENCY");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("ACCT-GID-CONSISTENCY fails when duplicate GIDs found", () => {
+    // Use a minimal output without any NONE sentinel but with duplicate GID numbers
+    const output = "root:0:/bin/bash\nadmin:1000:/bin/bash\nroot:$6$abc::\n/home/admin admin\n25\n700\nPASS_MAX_DAYS 90\nPASS_MIN_DAYS 1\n1000\n1001";
+    const checks = parseAccountsChecks(output, "bare");
+    const check = checks.find((c) => c.id === "ACCT-GID-CONSISTENCY");
+    expect(check!.passed).toBe(false);
   });
 });

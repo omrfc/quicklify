@@ -251,16 +251,17 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
 
   // LOG-NO-WORLD-READABLE-LOGS: No excessive world-readable log files
   // find /var/log -maxdepth 1 -perm -o+r -type f | wc -l — a standalone number
+  // This command appears BEFORE the watch rule count command in loggingSection(),
+  // so we use the FIRST standalone small number (0-200) found in output.
   const worldReadableLogLines = output.split("\n");
   let worldReadableCount: number | null = null;
   for (const line of worldReadableLogLines) {
     const trimmed = line.trim();
-    // Look for a standalone number that could be the count (0-200)
     if (/^\d+$/.test(trimmed)) {
       const val = parseInt(trimmed, 10);
       if (val >= 0 && val < 200) {
-        // Skip if it's "0" from inactive (ambiguous) — use the last occurrence
         worldReadableCount = val;
+        break;
       }
     }
   }

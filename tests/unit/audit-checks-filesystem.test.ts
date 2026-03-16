@@ -1,7 +1,7 @@
 import { parseFilesystemChecks } from "../../src/core/audit/checks/filesystem.js";
 
 describe("parseFilesystemChecks", () => {
-  // Secure output includes data from all 9 filesystemSection() commands:
+  // Secure output includes data from all 11 filesystemSection() commands:
   // 1. World-writable files in /etc /usr (none)
   // 2. SUID binaries (typical safe set)
   // 3. /tmp permissions (sticky bit)
@@ -11,6 +11,8 @@ describe("parseFilesystemChecks", () => {
   // 7. umask
   // 8. home dir permissions (find output)
   // 9. /var/tmp stat
+  // 10. /var mount options (FS-VAR-NOEXEC)
+  // 11. system-wide SUID count (FS-SUID-SYSTEM-COUNT)
   const secureOutput = [
     // World-writable files (none)
     "N/A",
@@ -21,7 +23,7 @@ describe("parseFilesystemChecks", () => {
     // Disk usage
     "Filesystem      Size  Used Avail Use% Mounted on\n/dev/sda1        50G   20G   28G  42% /",
     // findmnt output with noexec/nosuid on relevant mounts (includes /var/log as separate mount)
-    "/home rw,nosuid,noexec,relatime\n/var/tmp rw,nosuid,noexec,relatime\n/dev/shm rw,nosuid,noexec\n/tmp rw,nosuid,noexec,relatime\n/var/log rw,nosuid,noexec,relatime\n/media rw,nodev,relatime\n/boot rw,nosuid,noexec,relatime",
+    "/home rw,nosuid,noexec,relatime\n/var/tmp rw,nosuid,noexec,relatime\n/dev/shm rw,nosuid,noexec\n/tmp rw,nosuid,noexec,relatime\n/var/log rw,nosuid,noexec,relatime\n/media rw,nodev,relatime\n/boot rw,nosuid,noexec,relatime\n/var rw,nosuid,noexec,relatime",
     // /dev/shm stat
     "1777 root root",
     // umask
@@ -30,6 +32,8 @@ describe("parseFilesystemChecks", () => {
     "750 /home/user1\n750 /home/user2",
     // /var/tmp stat
     "1777 root root",
+    // system-wide SUID binary count (FS-SUID-SYSTEM-COUNT) — a small number <= 30
+    "22",
   ].join("\n");
 
   const insecureOutput = [
@@ -53,9 +57,9 @@ describe("parseFilesystemChecks", () => {
     "1777 root root",
   ].join("\n");
 
-  it("should return 18 checks", () => {
+  it("should return 20 checks", () => {
     const checks = parseFilesystemChecks(secureOutput, "bare");
-    expect(checks).toHaveLength(18);
+    expect(checks).toHaveLength(20);
     checks.forEach((check) => {
       expect(check.category).toBe("Filesystem");
       expect(check.id).toMatch(/^FS-[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)+$/);
@@ -157,6 +161,37 @@ describe("parseFilesystemChecks", () => {
 
   it("should handle N/A output gracefully", () => {
     const checks = parseFilesystemChecks("N/A", "bare");
-    expect(checks).toHaveLength(18);
+    expect(checks).toHaveLength(20);
+  });
+
+  it("FS-VAR-NOEXEC passes when /var mount has noexec", () => {
+    const checks = parseFilesystemChecks(secureOutput, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "FS-VAR-NOEXEC");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("FS-VAR-NOEXEC fails when /var mount lacks noexec", () => {
+    const output = secureOutput.replace("/var rw,nosuid,noexec,relatime", "/var rw,relatime");
+    const checks = parseFilesystemChecks(output, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "FS-VAR-NOEXEC");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("FS-SUID-SYSTEM-COUNT passes when SUID count <= 30", () => {
+    const checks = parseFilesystemChecks(secureOutput, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "FS-SUID-SYSTEM-COUNT");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toMatch(/22 SUID files/);
+  });
+
+  it("FS-SUID-SYSTEM-COUNT fails when SUID count > 30", () => {
+    // Replace trailing 22 with 45 (22 is the last element in the joined array)
+    const output = secureOutput.replace(/\b22$/, "45");
+    const checks = parseFilesystemChecks(output, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "FS-SUID-SYSTEM-COUNT");
+    expect(check!.passed).toBe(false);
+    expect(check!.currentValue).toMatch(/45 SUID files/);
   });
 });

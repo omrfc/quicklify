@@ -36,13 +36,17 @@ describe("parseFirewallChecks", () => {
     "Chain FORWARD (policy DROP 0 packets, 0 bytes)",
     // ip6tables INPUT line count (FW-IPV6-DISABLED-OR-FILTERED) — number > 3
     "5",
+    // conntrack max (FW-CONNTRACK-MAX) — a number in 1000-10M range >= 65536
+    "131072",
+    // LOG rule count (FW-LOG-DROPPED) — a small number 0-100 > 0
+    "3",
   ].join("\n");
 
   const inactiveOutput = "Status: inactive";
 
-  it("should return 15 checks for active firewall with deny default", () => {
+  it("should return 17 checks for active firewall with deny default", () => {
     const checks = parseFirewallChecks(activeSecureOutput, "bare");
-    expect(checks).toHaveLength(15);
+    expect(checks).toHaveLength(17);
     checks.forEach((check) => {
       expect(check.category).toBe("Firewall");
       expect(check.id).toMatch(/^FW-[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)+$/);
@@ -135,8 +139,39 @@ describe("parseFirewallChecks", () => {
 
   it("should handle N/A output gracefully", () => {
     const checks = parseFirewallChecks("N/A", "bare");
-    expect(checks).toHaveLength(15);
+    expect(checks).toHaveLength(17);
     const fw01 = checks.find((c) => c.id === "FW-UFW-ACTIVE");
     expect(fw01!.passed).toBe(false);
+  });
+
+  it("FW-CONNTRACK-MAX passes when conntrack max is >= 65536", () => {
+    const checks = parseFirewallChecks(activeSecureOutput, "bare");
+    const check = checks.find((c) => c.id === "FW-CONNTRACK-MAX");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toMatch(/131072/);
+  });
+
+  it("FW-CONNTRACK-MAX fails when conntrack max is below 65536", () => {
+    const output = activeSecureOutput.replace("\n131072\n", "\n1024\n");
+    const checks = parseFirewallChecks(output, "bare");
+    const check = checks.find((c) => c.id === "FW-CONNTRACK-MAX");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("FW-LOG-DROPPED passes when LOG rule count > 0", () => {
+    const checks = parseFirewallChecks(activeSecureOutput, "bare");
+    const check = checks.find((c) => c.id === "FW-LOG-DROPPED");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toMatch(/LOG rule/);
+  });
+
+  it("FW-LOG-DROPPED fails when only 0 LOG rules", () => {
+    // Use output with ONLY conntrack_max and 0 LOG rules (no other small numbers)
+    const output = "Status: active\nDefault: deny (incoming), allow (outgoing), disabled (routed)\nChain INPUT (policy DROP 0 packets, 0 bytes)\n131072\n0";
+    const checks = parseFirewallChecks(output, "bare");
+    const check = checks.find((c) => c.id === "FW-LOG-DROPPED");
+    expect(check!.passed).toBe(false);
   });
 });

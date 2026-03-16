@@ -393,6 +393,8 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     severity: "info",
     check: (output) => {
       // find /etc/ssl/certs/ -name '*.pem' | wc -l — a standalone number
+      // This command appears AFTER the weak cipher count command in cryptoSection(),
+      // so use the LAST standalone number (0-2000) found in output.
       const lines = output.split("\n");
       let certCount: number | null = null;
       for (const line of lines) {
@@ -402,7 +404,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
           // Cert count is typically 100-200+ on a healthy system
           if (val >= 0 && val < 2000) {
             certCount = val;
-            break;
+            // Do not break — cert count appears after weak cipher count in output
           }
         }
       }

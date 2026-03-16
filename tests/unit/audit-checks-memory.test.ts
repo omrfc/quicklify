@@ -14,6 +14,8 @@ describe("parseMemoryChecks", () => {
     "10",
     // swapon --show output (MEM-SWAP-ENCRYPTED) — no swap
     "NO_SWAP",
+    // vm.max_map_count (MEM-MAX-MAP-COUNT) — a number >= 65530
+    "65536",
   ].join("\n");
 
   const badOutput = [
@@ -45,9 +47,9 @@ describe("parseMemoryChecks", () => {
   });
 
   describe("check count and shape", () => {
-    it("returns 10 checks", () => {
+    it("returns 11 checks", () => {
       const checks = parseMemoryChecks(validOutput, "bare");
-      expect(checks).toHaveLength(10);
+      expect(checks).toHaveLength(11);
     });
 
     it("all check IDs start with MEM-", () => {
@@ -187,8 +189,9 @@ describe("parseMemoryChecks", () => {
       expect(check!.passed).toBe(true);
     });
 
-    it("fails when pid_max is not parseable", () => {
-      const output = validOutput.replace("\n32768\n", "\nN/A\n");
+    it("fails when pid_max is below 4096", () => {
+      // Replace 32768 with 1024 (< 4096 threshold)
+      const output = validOutput.replace("\n32768\n", "\n1024\n");
       const checks = parseMemoryChecks(output, "bare");
       const check = checks.find((c) => c.id === "MEM-PID-MAX-REASONABLE");
       expect(check).toBeDefined();
@@ -229,6 +232,25 @@ describe("parseMemoryChecks", () => {
       const check = checks.find((c) => c.id === "MEM-HUGEPAGES-NOT-EXCESSIVE");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(true);
+    });
+  });
+
+  describe("MEM-MAX-MAP-COUNT", () => {
+    it("passes when vm.max_map_count >= 65530", () => {
+      const checks = parseMemoryChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "MEM-MAX-MAP-COUNT");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+      expect(check!.currentValue).toMatch(/65536.*acceptable/);
+    });
+
+    it("fails when vm.max_map_count < 65530", () => {
+      // 65536 is the last element in validOutput (no trailing newline)
+      const output = validOutput.replace(/\b65536$/, "32768");
+      const checks = parseMemoryChecks(output, "bare");
+      const check = checks.find((c) => c.id === "MEM-MAX-MAP-COUNT");
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toMatch(/below minimum/);
     });
   });
 });

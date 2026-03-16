@@ -27,6 +27,14 @@ describe("parseCryptoChecks", () => {
     "600 /etc/ssh/ssh_host_ed25519_key",
     // Weak OpenSSL cipher count (openssl ciphers | grep -ci 'NULL|RC4|DES|MD5') — low count
     "2",
+    // DH params (CRYPTO-DH-PARAMS-SIZE) — no custom DH file
+    "NO_DH_PARAMS",
+    // World-readable keys (CRYPTO-NO-WORLD-READABLE-KEYS) — none found
+    "NONE",
+    // CA cert count (CRYPTO-CERT-COUNT) — a standalone number
+    "128",
+    // Nginx TLS (CRYPTO-NGINX-TLS-MODERN) — nginx not installed
+    "NO_NGINX",
   ].join("\n");
 
   const insecureOutput = [
@@ -48,9 +56,9 @@ describe("parseCryptoChecks", () => {
     "N/A",
   ].join("\n");
 
-  it("should return 15 checks for the Crypto category", () => {
+  it("should return 19 checks for the Crypto category", () => {
     const checks = parseCryptoChecks(validOutput, "bare");
-    expect(checks).toHaveLength(15);
+    expect(checks).toHaveLength(19);
     checks.forEach((c) => expect(c.category).toBe("Crypto"));
   });
 
@@ -68,15 +76,15 @@ describe("parseCryptoChecks", () => {
     });
   });
 
-  it("severity budget: <= 1 critical check (CRYPTO-HOST-KEY-PERMS)", () => {
+  it("severity budget: 2 critical checks (CRYPTO-HOST-KEY-PERMS and CRYPTO-NO-WORLD-READABLE-KEYS)", () => {
     const checks = parseCryptoChecks("", "bare");
     const criticalCount = checks.filter((c) => c.severity === "critical").length;
-    expect(criticalCount).toBe(1);
+    expect(criticalCount).toBe(2);
   });
 
   it("should handle N/A output gracefully", () => {
     const checks = parseCryptoChecks("N/A", "bare");
-    expect(checks).toHaveLength(15);
+    expect(checks).toHaveLength(19);
     checks.forEach((c) => {
       expect(c.passed).toBe(false);
       expect(c.currentValue).toBe("Unable to determine");
@@ -85,7 +93,7 @@ describe("parseCryptoChecks", () => {
 
   it("should handle empty string output gracefully", () => {
     const checks = parseCryptoChecks("", "bare");
-    expect(checks).toHaveLength(15);
+    expect(checks).toHaveLength(19);
     checks.forEach((c) => expect(c.passed).toBe(false));
   });
 
@@ -225,5 +233,82 @@ describe("parseCryptoChecks", () => {
     const check = checks.find((c) => c.id === "CRYPTO-NO-WEAK-OPENSSL-CIPHERS");
     expect(check).toBeDefined();
     expect(check!.passed).toBe(true);
+  });
+
+  it("CRYPTO-DH-PARAMS-SIZE passes when NO_DH_PARAMS (system defaults)", () => {
+    const checks = parseCryptoChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "CRYPTO-DH-PARAMS-SIZE");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toMatch(/system defaults/i);
+  });
+
+  it("CRYPTO-DH-PARAMS-SIZE passes when DH params are 4096 bits", () => {
+    const output = validOutput.replace("NO_DH_PARAMS", "DH Parameters: (4096 bit)");
+    const checks = parseCryptoChecks(output, "bare");
+    const check = checks.find((c) => c.id === "CRYPTO-DH-PARAMS-SIZE");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("CRYPTO-DH-PARAMS-SIZE fails when DH params are 1024 bits", () => {
+    const output = validOutput.replace("NO_DH_PARAMS", "DH Parameters: (1024 bit)");
+    const checks = parseCryptoChecks(output, "bare");
+    const check = checks.find((c) => c.id === "CRYPTO-DH-PARAMS-SIZE");
+    expect(check!.passed).toBe(false);
+    expect(check!.currentValue).toMatch(/1024 bits \(too small\)/);
+  });
+
+  it("CRYPTO-NO-WORLD-READABLE-KEYS passes when NONE sentinel present", () => {
+    const checks = parseCryptoChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "CRYPTO-NO-WORLD-READABLE-KEYS");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+    expect(check!.severity).toBe("critical");
+  });
+
+  it("CRYPTO-NO-WORLD-READABLE-KEYS fails when .key file paths found", () => {
+    const output = validOutput.replace("NONE\n128", "/etc/ssl/private/server.key\n128");
+    const checks = parseCryptoChecks(output, "bare");
+    const check = checks.find((c) => c.id === "CRYPTO-NO-WORLD-READABLE-KEYS");
+    expect(check!.passed).toBe(false);
+    expect(check!.currentValue).toMatch(/world-readable/i);
+  });
+
+  it("CRYPTO-CERT-COUNT passes when CA cert count > 0", () => {
+    const checks = parseCryptoChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "CRYPTO-CERT-COUNT");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toMatch(/128 CA certificate/);
+  });
+
+  it("CRYPTO-CERT-COUNT fails when count is 0", () => {
+    const output = validOutput.replace("\n128\n", "\n0\n");
+    const checks = parseCryptoChecks(output, "bare");
+    const check = checks.find((c) => c.id === "CRYPTO-CERT-COUNT");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("CRYPTO-NGINX-TLS-MODERN passes when NO_NGINX", () => {
+    const checks = parseCryptoChecks(validOutput, "bare");
+    const check = checks.find((c) => c.id === "CRYPTO-NGINX-TLS-MODERN");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toMatch(/not installed/i);
+  });
+
+  it("CRYPTO-NGINX-TLS-MODERN passes when ssl_protocols has TLSv1.2 only", () => {
+    const output = validOutput.replace("NO_NGINX", "ssl_protocols TLSv1.2 TLSv1.3;");
+    const checks = parseCryptoChecks(output, "bare");
+    const check = checks.find((c) => c.id === "CRYPTO-NGINX-TLS-MODERN");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("CRYPTO-NGINX-TLS-MODERN fails when ssl_protocols includes TLSv1.0", () => {
+    const output = validOutput.replace("NO_NGINX", "ssl_protocols TLSv1 TLSv1.1 TLSv1.2;");
+    const checks = parseCryptoChecks(output, "bare");
+    const check = checks.find((c) => c.id === "CRYPTO-NGINX-TLS-MODERN");
+    expect(check!.passed).toBe(false);
+    expect(check!.currentValue).toMatch(/legacy/i);
   });
 });

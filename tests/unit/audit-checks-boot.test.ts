@@ -11,6 +11,9 @@ describe("parseBootChecks", () => {
     "/usr/lib/systemd/system/rescue.service:ExecStart=-/usr/lib/systemd/systemd-sulogin-shell rescue",
     "kernel.modules_disabled = 1",
     "UEFI",
+    // GRUB superuser/pbkdf2 auth (BOOT-GRUB-UNRESTRICTED)
+    "set superusers=\"admin\"",
+    "password_pbkdf2 admin grub.pbkdf2.sha512.10000.xyz",
   ].join("\n");
 
   const insecureOutput = [
@@ -25,9 +28,9 @@ describe("parseBootChecks", () => {
     "BIOS",
   ].join("\n");
 
-  it("should return 10 checks for the Boot category", () => {
+  it("should return 11 checks for the Boot category", () => {
     const checks = parseBootChecks(secureOutput, "bare");
-    expect(checks).toHaveLength(10);
+    expect(checks).toHaveLength(11);
     checks.forEach((c) => expect(c.category).toBe("Boot"));
   });
 
@@ -104,10 +107,26 @@ describe("parseBootChecks", () => {
 
   it("should handle N/A output gracefully", () => {
     const checks = parseBootChecks("N/A", "bare");
-    expect(checks).toHaveLength(10);
+    expect(checks).toHaveLength(11);
     checks.forEach((c) => {
       expect(c.passed).toBe(false);
       expect(c.currentValue).toBe("Unable to determine");
     });
+  });
+
+  it("BOOT-GRUB-UNRESTRICTED passes when set superusers and password_pbkdf2 present", () => {
+    const checks = parseBootChecks(secureOutput, "bare");
+    const check = checks.find((c) => c.id === "BOOT-GRUB-UNRESTRICTED");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toMatch(/superuser authentication/i);
+  });
+
+  it("BOOT-GRUB-UNRESTRICTED fails when NONE sentinel (no superuser config)", () => {
+    const output = insecureOutput + "\nNONE";
+    const checks = parseBootChecks(output, "bare");
+    const check = checks.find((c) => c.id === "BOOT-GRUB-UNRESTRICTED");
+    expect(check!.passed).toBe(false);
+    expect(check!.currentValue).toMatch(/no superuser/i);
   });
 });

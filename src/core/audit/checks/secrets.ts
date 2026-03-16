@@ -333,10 +333,9 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     name: "Kubeconfig Not Exposed",
     severity: "warning",
     check: (output) => {
-      // find returns .kube dirs or "NONE"
-      const isNone = output.split("\n").some((l) => l.trim() === "NONE");
+      // find returns .kube dirs or "NO_KUBE_DIR"
       const hasKubeDir = output.split("\n").some((l) => l.trim().includes("/.kube"));
-      if (!hasKubeDir || isNone) {
+      if (!hasKubeDir) {
         return { passed: true, currentValue: "No kubeconfig directories found" };
       }
       // Kubeconfig found but we can't check permissions from dir listing alone
@@ -355,9 +354,8 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     name: "No Secrets Exported in Shell RC Files",
     severity: "warning",
     check: (output) => {
-      // grep returns matching lines or "NONE"
-      const isNone = /^NONE$/m.test(output);
-      const hasExportedSecrets = !isNone && /export\s+(API_KEY|SECRET_KEY|TOKEN|PASSWORD|AWS_ACCESS_KEY)/i.test(output);
+      // grep returns matching export lines; pass if no credential exports found
+      const hasExportedSecrets = /export\s+(API_KEY|SECRET_KEY|TOKEN|PASSWORD|AWS_ACCESS_KEY)/i.test(output);
       return {
         passed: !hasExportedSecrets,
         currentValue: hasExportedSecrets

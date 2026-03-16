@@ -15,6 +15,12 @@ describe("parseSecretsChecks", () => {
     "NO_NPMRC_TOKEN",
     "NONE",
     "allowagentforwarding no",
+    // AWS creds dir check (SEC-NO-AWS-CREDS-PLAINTEXT) — no dir found
+    "NO_AWS_DIR",
+    // Kubeconfig check (SEC-NO-KUBECONFIG-EXPOSED) — no .kube dir found
+    "NO_KUBE_DIR",
+    // Shell RC secrets (SEC-NO-SHELL-RC-SECRETS) — none found
+    "NONE",
   ].join("\n");
 
   const badOutput = [
@@ -48,9 +54,9 @@ describe("parseSecretsChecks", () => {
   });
 
   describe("check count and shape", () => {
-    it("returns at least 12 checks", () => {
+    it("returns at least 15 checks", () => {
       const checks = parseSecretsChecks(validOutput, "bare");
-      expect(checks.length).toBeGreaterThanOrEqual(12);
+      expect(checks.length).toBeGreaterThanOrEqual(15);
     });
 
     it("all check IDs start with SECRETS- or SEC-", () => {
@@ -176,6 +182,55 @@ describe("parseSecretsChecks", () => {
       const checks = parseSecretsChecks(output, "bare");
       const check = checks.find((c) => c.id === "SEC-NO-SSH-AGENT-FORWARDING");
       expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("SEC-NO-AWS-CREDS-PLAINTEXT", () => {
+    it("passes when NO_AWS_DIR (no .aws directory found)", () => {
+      const checks = parseSecretsChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "SEC-NO-AWS-CREDS-PLAINTEXT");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when .aws dir found with world-readable permissions", () => {
+      // Format: path on one line, perms as standalone line
+      const output = validOutput.replace("NO_AWS_DIR", "/root/.aws/credentials\n644");
+      const checks = parseSecretsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SEC-NO-AWS-CREDS-PLAINTEXT");
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("SEC-NO-KUBECONFIG-EXPOSED", () => {
+    it("passes when NO_KUBE_DIR (no .kube directory found)", () => {
+      const checks = parseSecretsChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "SEC-NO-KUBECONFIG-EXPOSED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when .kube/config found", () => {
+      const output = validOutput.replace("NO_KUBE_DIR", "/root/.kube/config\n/home/user/.kube/config");
+      const checks = parseSecretsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SEC-NO-KUBECONFIG-EXPOSED");
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("SEC-NO-SHELL-RC-SECRETS", () => {
+    it("passes when no secret exports found in RC files (NONE)", () => {
+      const checks = parseSecretsChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "SEC-NO-SHELL-RC-SECRETS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when export API_KEY found in RC files", () => {
+      const output = validOutput.replace(/NONE\s*$/, "export API_KEY=secret123");
+      const checks = parseSecretsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SEC-NO-SHELL-RC-SECRETS");
       expect(check!.passed).toBe(false);
     });
   });

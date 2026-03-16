@@ -286,6 +286,8 @@ const MEMORY_CHECKS: MemoryCheckDef[] = [
     severity: "info",
     check: (output) => {
       // cat /proc/sys/vm/max_map_count — standalone number
+      // This command appears AFTER pid_max in memorySection(), so use the LAST
+      // standalone number in the valid range (1000-100M).
       const lines = output.split("\n");
       let maxMapCount: number | null = null;
       for (const line of lines) {
@@ -295,7 +297,7 @@ const MEMORY_CHECKS: MemoryCheckDef[] = [
           // max_map_count is typically 65530-2097152
           if (val >= 1000 && val <= 100_000_000) {
             maxMapCount = val;
-            break;
+            // Do not break — max_map_count appears after pid_max in output
           }
         }
       }
