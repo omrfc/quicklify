@@ -59,6 +59,34 @@ describe("Compliance mapper CI guards", () => {
     expect(FRAMEWORK_VERSIONS.HIPAA).toBe("HIPAA §164.312");
   });
 
+  it("PCI-DSS mapping covers 80+ refs", () => {
+    const pciCount = Object.values(COMPLIANCE_MAP)
+      .flat()
+      .filter((r) => r.framework === "PCI-DSS").length;
+    expect(pciCount).toBeGreaterThanOrEqual(80);
+  });
+
+  it("HIPAA mapping covers 40+ refs", () => {
+    const hipaaCount = Object.values(COMPLIANCE_MAP)
+      .flat()
+      .filter((r) => r.framework === "HIPAA").length;
+    expect(hipaaCount).toBeGreaterThanOrEqual(40);
+  });
+
+  it("partial coverage entries exist in mapper", () => {
+    const partials = Object.values(COMPLIANCE_MAP)
+      .flat()
+      .filter((r) => r.coverage === "partial");
+    expect(partials.length).toBeGreaterThan(0);
+  });
+
+  it("full coverage entries exist in mapper", () => {
+    const fulls = Object.values(COMPLIANCE_MAP)
+      .flat()
+      .filter((r) => r.coverage === "full");
+    expect(fulls.length).toBeGreaterThan(0);
+  });
+
   describe("mergeComplianceRefs", () => {
     it("injects compliance refs without mutating originals", () => {
       const mockCheck: AuditCheck = {

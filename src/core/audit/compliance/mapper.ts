@@ -68,14 +68,30 @@ export { cis, pci, hipaa };
 // PCI-DSS and HIPAA mappings added in Plan 02.
 export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   // ─── SSH (CIS 5.2.x) ────────────────────────────────────────────────────
-  "SSH-PASSWORD-AUTH": [cis("5.2.8", "Ensure SSH PasswordAuthentication is disabled", "full")],
-  "SSH-ROOT-LOGIN": [cis("5.2.10", "Ensure SSH root login is disabled", "full")],
+  "SSH-PASSWORD-AUTH": [
+    cis("5.2.8", "Ensure SSH PasswordAuthentication is disabled", "full"),
+    pci("2.2.7", "All non-console administrative access is encrypted", "partial"),
+    hipaa("§164.312(d)", "Person or entity authentication", "partial"),
+  ],
+  "SSH-ROOT-LOGIN": [
+    cis("5.2.10", "Ensure SSH root login is disabled", "full"),
+    pci("2.2.7", "Restrict administrative access", "partial"),
+  ],
   "SSH-EMPTY-PASSWORDS": [cis("5.2.11", "Ensure SSH PermitEmptyPasswords is disabled", "full")],
-  "SSH-PUBKEY-AUTH": [cis("5.2.6", "Ensure SSH public key authentication is in use", "full")],
+  "SSH-PUBKEY-AUTH": [
+    cis("5.2.6", "Ensure SSH public key authentication is in use", "full"),
+    hipaa("§164.312(d)", "Person or entity authentication", "partial"),
+  ],
   "SSH-MAX-AUTH-TRIES": [cis("5.2.7", "Ensure SSH MaxAuthTries is set to 4 or less", "full")],
   "SSH-X11-FORWARDING": [cis("5.2.5", "Ensure SSH X11 forwarding is disabled", "full")],
-  "SSH-CLIENT-ALIVE-INTERVAL": [cis("5.2.16", "Ensure SSH Idle Timeout Interval is configured", "full")],
-  "SSH-CLIENT-ALIVE-COUNT": [cis("5.2.16", "Ensure SSH ClientAliveCountMax is configured", "full")],
+  "SSH-CLIENT-ALIVE-INTERVAL": [
+    cis("5.2.16", "Ensure SSH Idle Timeout Interval is configured", "full"),
+    hipaa("§164.312(a)(2)(iii)", "Automatic logoff", "partial"),
+  ],
+  "SSH-CLIENT-ALIVE-COUNT": [
+    cis("5.2.16", "Ensure SSH ClientAliveCountMax is configured", "full"),
+    hipaa("§164.312(a)(2)(iii)", "Automatic logoff", "partial"),
+  ],
   "SSH-LOGIN-GRACE-TIME": [cis("5.2.17", "Ensure SSH LoginGraceTime is set to one minute or less", "full")],
   "SSH-IGNORE-RHOSTS": [cis("5.2.9", "Ensure SSH IgnoreRhosts is enabled", "full")],
   "SSH-HOSTBASED-AUTH": [cis("5.2.12", "Ensure SSH HostbasedAuthentication is disabled", "full")],
@@ -83,36 +99,86 @@ export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   "SSH-USE-DNS": [cis("5.2.20", "Ensure SSH AllowTcpForwarding is disabled", "partial")],
   "SSH-PERMIT-USER-ENV": [cis("5.2.13", "Ensure SSH PermitUserEnvironment is disabled", "full")],
   "SSH-LOG-LEVEL": [cis("5.2.4", "Ensure SSH LogLevel is appropriate", "full")],
-  "SSH-STRONG-CIPHERS": [cis("5.2.15", "Ensure only strong ciphers are used", "full")],
-  "SSH-STRONG-MACS": [cis("5.2.15", "Ensure only approved MAC algorithms are used", "full")],
-  "SSH-STRONG-KEX": [cis("5.2.15", "Ensure only strong Key Exchange algorithms are used", "full")],
+  "SSH-STRONG-CIPHERS": [
+    cis("5.2.15", "Ensure only strong ciphers are used", "full"),
+    pci("4.2.1", "Strong cryptography for data in transit", "full"),
+    hipaa("§164.312(e)(2)(ii)", "Encryption in transmission", "partial"),
+  ],
+  "SSH-STRONG-MACS": [
+    cis("5.2.15", "Ensure only approved MAC algorithms are used", "full"),
+    pci("4.2.1", "Strong cryptography for data in transit", "full"),
+    hipaa("§164.312(e)(2)(ii)", "Encryption in transmission", "partial"),
+  ],
+  "SSH-STRONG-KEX": [
+    cis("5.2.15", "Ensure only strong Key Exchange algorithms are used", "full"),
+    pci("4.2.1", "Strong cryptography for data in transit", "full"),
+  ],
   "SSH-MAX-STARTUPS": [cis("5.2.18", "Ensure SSH MaxStartups is configured", "full")],
   "SSH-STRICT-MODES": [cis("5.2.3", "Ensure SSH StrictModes is enabled", "full")],
   "SSH-NO-AGENT-FORWARDING": [cis("5.2.14", "Ensure SSH AllowAgentForwarding is disabled", "full")],
   "SSH-PRINT-MOTD": [cis("5.2.21", "Ensure SSH warning banner is configured", "partial")],
 
   // ─── Auth (CIS 5.3-5.5, 6.1-6.2) ────────────────────────────────────────
-  "AUTH-NO-NOPASSWD-ALL": [cis("5.3.7", "Ensure sudo commands use pty and require authentication", "full")],
-  "AUTH-PASSWORD-AGING": [cis("5.5.1.1", "Ensure password expiration is 365 days or less", "full")],
-  "AUTH-NO-EMPTY-PASSWORDS": [cis("6.2.1", "Ensure accounts in /etc/passwd use shadowed passwords", "partial")],
+  "AUTH-NO-NOPASSWD-ALL": [
+    cis("5.3.7", "Ensure sudo commands use pty and require authentication", "full"),
+    pci("7.2.1", "Least privilege access", "partial"),
+  ],
+  "AUTH-PASSWORD-AGING": [
+    cis("5.5.1.1", "Ensure password expiration is 365 days or less", "full"),
+    pci("8.3.9", "Password change interval", "partial"),
+  ],
+  "AUTH-NO-EMPTY-PASSWORDS": [
+    cis("6.2.1", "Ensure accounts in /etc/passwd use shadowed passwords", "partial"),
+    pci("8.3.1", "All user passwords set", "full"),
+  ],
   "AUTH-ROOT-LOGIN-RESTRICTED": [cis("5.4.3", "Ensure default group for the root account is GID 0", "partial")],
   "AUTH-PWD-QUALITY": [cis("5.3.2", "Ensure password creation requirements are configured", "full")],
-  "AUTH-FAILLOCK-CONFIGURED": [cis("5.3.1", "Ensure lockout for failed password attempts is configured", "full")],
-  "AUTH-SHADOW-PERMISSIONS": [cis("6.1.3", "Ensure permissions on /etc/shadow are configured", "full")],
+  "AUTH-FAILLOCK-CONFIGURED": [
+    cis("5.3.1", "Ensure lockout for failed password attempts is configured", "full"),
+    pci("8.3.4", "Account lockout after failures", "partial"),
+    hipaa("§164.312(a)(2)(i)", "Access control protection", "partial"),
+    hipaa("§164.312(a)(1)", "Access control", "partial"),
+  ],
+  "AUTH-SHADOW-PERMISSIONS": [
+    cis("6.1.3", "Ensure permissions on /etc/shadow are configured", "full"),
+    pci("8.3.7", "Render passwords unreadable", "partial"),
+    hipaa("§164.312(a)(2)(iv)", "Encryption and decryption", "partial"),
+  ],
   "AUTH-SUDO-LOG": [cis("5.3.5", "Ensure sudo logging is enabled", "full")],
   "AUTH-SUDO-REQUIRETTY": [cis("5.3.6", "Ensure sudo authentication timeout is configured correctly", "partial")],
-  "AUTH-NO-UID0-DUPS": [cis("6.2.4", "Ensure no duplicate UIDs exist", "full")],
+  "AUTH-NO-UID0-DUPS": [
+    cis("6.2.4", "Ensure no duplicate UIDs exist", "full"),
+    hipaa("§164.312(a)(2)(i)", "Unique user identification", "partial"),
+    hipaa("§164.312(a)(2)(ii)", "Emergency access procedure", "partial"),
+  ],
   "AUTH-PASS-MIN-DAYS": [cis("5.5.1.2", "Ensure minimum days between password changes is 1 or more", "full")],
   "AUTH-PASS-WARN-AGE": [cis("5.5.1.3", "Ensure password expiration warning days is 7 or more", "full")],
   "AUTH-INACTIVE-LOCK": [cis("5.5.1.4", "Ensure inactive password lock is 30 days or less", "full")],
-  "AUTH-SUDO-WHEEL-ONLY": [cis("5.3.8", "Ensure access to the su command is restricted", "partial")],
-  "AUTH-MFA-PRESENT": [cis("5.3.4", "Ensure multi-factor authentication is enabled for all administrative access", "partial")],
-  "AUTH-SU-RESTRICTED": [cis("5.3.8", "Ensure access to the su command is restricted", "full")],
+  "AUTH-SUDO-WHEEL-ONLY": [
+    cis("5.3.8", "Ensure access to the su command is restricted", "partial"),
+    pci("7.2.1", "Restrict access by need-to-know", "partial"),
+  ],
+  "AUTH-MFA-PRESENT": [
+    cis("5.3.4", "Ensure multi-factor authentication is enabled for all administrative access", "partial"),
+    pci("8.4.2", "MFA for all access into CDE", "partial"),
+    hipaa("§164.312(d)", "Person or entity authentication", "partial"),
+  ],
+  "AUTH-SU-RESTRICTED": [
+    cis("5.3.8", "Ensure access to the su command is restricted", "full"),
+    pci("7.2.1", "Restrict su access", "partial"),
+  ],
   "AUTH-PASS-MAX-DAYS-SET": [cis("5.5.1.1", "Ensure password expiration is 365 days or less", "full")],
   "AUTH-GSHADOW-PERMISSIONS": [cis("6.1.5", "Ensure permissions on /etc/gshadow are configured", "full")],
-  "AUTH-PWQUALITY-CONFIGURED": [cis("5.3.2", "Ensure password creation requirements are configured", "full")],
+  "AUTH-PWQUALITY-CONFIGURED": [
+    cis("5.3.2", "Ensure password creation requirements are configured", "full"),
+    pci("8.3.6", "Minimum password complexity", "partial"),
+  ],
   "AUTH-UMASK-LOGIN-DEFS": [cis("5.5.5", "Ensure default user shell timeout is 900 seconds or less", "partial")],
-  "AUTH-SHA512-HASH": [cis("5.3.3", "Ensure password hashing algorithm is SHA-512 or yescrypt", "full")],
+  "AUTH-SHA512-HASH": [
+    cis("5.3.3", "Ensure password hashing algorithm is SHA-512 or yescrypt", "full"),
+    pci("8.3.7", "Passwords stored with strong cryptography", "partial"),
+    hipaa("§164.312(d)", "Authentication with strong cryptography", "partial"),
+  ],
   "AUTH-PWQUALITY-MINLEN": [cis("5.3.2", "Ensure password creation requirements are configured", "full")],
 
   // ─── Kernel (CIS 1.5.x, 3.3.x) ──────────────────────────────────────────
@@ -173,21 +239,39 @@ export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   "NET-LISTENING-PORT-COUNT": [cis("2.4", "Ensure nonessential services are removed or masked", "partial")],
 
   // ─── Firewall (CIS 3.5.x) ────────────────────────────────────────────────
-  "FW-UFW-ACTIVE": [cis("3.5.1.1", "Ensure ufw is installed", "full")],
-  "FW-DEFAULT-DENY": [cis("3.5.1.4", "Ensure ufw default deny firewall policy", "full")],
+  "FW-UFW-ACTIVE": [
+    cis("3.5.1.1", "Ensure ufw is installed", "full"),
+    pci("1.3.1", "Network access controls", "partial"),
+  ],
+  "FW-DEFAULT-DENY": [
+    cis("3.5.1.4", "Ensure ufw default deny firewall policy", "full"),
+    pci("1.3.2", "Network access controls default deny", "partial"),
+  ],
   "FW-SSH-ALLOWED": [cis("3.5.1.3", "Ensure ufw service is enabled", "partial")],
-  "FW-NO-WIDE-OPEN": [cis("3.5.1.4", "Ensure ufw default deny firewall policy", "partial")],
+  "FW-NO-WIDE-OPEN": [
+    cis("3.5.1.4", "Ensure ufw default deny firewall policy", "partial"),
+    pci("1.3.3", "Restrict inbound and outbound traffic", "partial"),
+  ],
   "FW-IPV6-RULES": [cis("3.5.1.2", "Ensure ufw loopback traffic is configured", "partial")],
   "FW-NFTABLES-PRESENT": [cis("3.5.2.1", "Ensure nftables is installed", "full")],
   "FW-FAIL2BAN-ACTIVE": [cis("3.5.1.1", "Ensure ufw is installed", "partial")],
   "FW-IPTABLES-BASELINE": [cis("3.5.3.1", "Ensure iptables packages are installed", "full")],
-  "FW-INPUT-CHAIN-DENY": [cis("3.5.3.3", "Ensure iptables default deny firewall policy", "full")],
+  "FW-INPUT-CHAIN-DENY": [
+    cis("3.5.3.3", "Ensure iptables default deny firewall policy", "full"),
+    pci("1.3.2", "Network access controls", "partial"),
+  ],
   "FW-REJECT-NOT-DROP": [cis("3.5.1.4", "Ensure ufw default deny firewall policy", "partial")],
   "FW-OUTBOUND-RESTRICTED": [cis("3.5.3.3", "Ensure iptables outbound connections are configured", "partial")],
   "FW-RATE-LIMIT": [cis("3.5.1.5", "Ensure ufw outbound connections are configured", "partial")],
-  "FW-FORWARD-CHAIN-DENY": [cis("3.5.3.3", "Ensure iptables default deny firewall policy", "full")],
+  "FW-FORWARD-CHAIN-DENY": [
+    cis("3.5.3.3", "Ensure iptables default deny firewall policy", "full"),
+    pci("1.3.4", "Prohibit direct public access to cardholder data environment", "partial"),
+  ],
   "FW-IPV6-DISABLED-OR-FILTERED": [cis("3.1.1", "Disable IPv6", "partial")],
-  "FW-NO-WILDCARD-ACCEPT": [cis("3.5.1.4", "Ensure ufw default deny firewall policy", "full")],
+  "FW-NO-WILDCARD-ACCEPT": [
+    cis("3.5.1.4", "Ensure ufw default deny firewall policy", "full"),
+    pci("1.3.3", "Restrict inbound traffic to IP addresses within the CDE", "partial"),
+  ],
   "FW-CONNTRACK-MAX": [cis("3.3.8", "Ensure TCP SYN Cookies is enabled", "partial")],
   "FW-LOG-DROPPED": [cis("3.5.1.6", "Ensure ufw firewall rules exist for all open ports", "partial")],
 
@@ -214,20 +298,55 @@ export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   "FS-SUID-SYSTEM-COUNT": [cis("6.1.13", "Ensure SUID and SGID files are reviewed", "partial")],
 
   // ─── Logging (CIS 4.1-4.2) ────────────────────────────────────────────────
-  "LOG-SYSLOG-ACTIVE": [cis("4.2.1.1", "Ensure rsyslog is installed", "full")],
-  "LOG-AUTH-LOG-PRESENT": [cis("4.2.1.5", "Ensure rsyslog is configured to send logs to a remote log host", "partial")],
+  "LOG-SYSLOG-ACTIVE": [
+    cis("4.2.1.1", "Ensure rsyslog is installed", "full"),
+    pci("10.2.1", "Implement audit logs", "partial"),
+    hipaa("§164.312(b)", "Audit controls", "partial"),
+  ],
+  "LOG-AUTH-LOG-PRESENT": [
+    cis("4.2.1.5", "Ensure rsyslog is configured to send logs to a remote log host", "partial"),
+    pci("10.2.1", "Implement audit logs", "partial"),
+  ],
   "LOG-ROTATION-CONFIGURED": [cis("4.2.3", "Ensure logrotate is configured", "full")],
-  "LOG-REMOTE-LOGGING": [cis("4.2.1.5", "Ensure rsyslog is configured to send logs to a remote log host", "full")],
-  "LOG-AUDIT-DAEMON": [cis("4.1.1.1", "Ensure auditd is installed", "full")],
-  "LOG-AUDITD-ACTIVE": [cis("4.1.1.2", "Ensure auditd service is enabled", "full")],
-  "LOG-AUDIT-LOGIN-RULES": [cis("4.1.3.1", "Ensure changes to system administration scope (sudoers) is collected", "full", "L2")],
-  "LOG-AUDIT-SUDO-RULES": [cis("4.1.3.2", "Ensure actions as another user are always logged", "full", "L2")],
-  "LOG-AUDIT-FILE-RULES": [cis("4.1.3.5", "Ensure events that modify the system's network environment are collected", "full", "L2")],
+  "LOG-REMOTE-LOGGING": [
+    cis("4.2.1.5", "Ensure rsyslog is configured to send logs to a remote log host", "full"),
+    pci("10.3.3", "Protect audit logs from modification", "partial"),
+    hipaa("§164.312(b)", "Audit controls - offsite preservation", "partial"),
+  ],
+  "LOG-AUDIT-DAEMON": [
+    cis("4.1.1.1", "Ensure auditd is installed", "full"),
+    pci("10.2.1", "Implement audit logs", "partial"),
+    hipaa("§164.312(b)", "Audit controls", "partial"),
+  ],
+  "LOG-AUDITD-ACTIVE": [
+    cis("4.1.1.2", "Ensure auditd service is enabled", "full"),
+    pci("10.2.1", "Implement audit logs", "partial"),
+    hipaa("§164.312(b)", "Audit controls", "partial"),
+  ],
+  "LOG-AUDIT-LOGIN-RULES": [
+    cis("4.1.3.1", "Ensure changes to system administration scope (sudoers) is collected", "full", "L2"),
+    hipaa("§164.312(b)", "Audit controls", "partial"),
+  ],
+  "LOG-AUDIT-SUDO-RULES": [
+    cis("4.1.3.2", "Ensure actions as another user are always logged", "full", "L2"),
+    hipaa("§164.312(b)", "Audit controls", "partial"),
+  ],
+  "LOG-AUDIT-FILE-RULES": [
+    cis("4.1.3.5", "Ensure events that modify the system's network environment are collected", "full", "L2"),
+    hipaa("§164.312(b)", "Audit controls", "partial"),
+  ],
   "LOG-VARLOG-PERMISSIONS": [cis("4.2.2.1", "Ensure journald is configured to send logs to rsyslog", "partial")],
-  "LOG-CENTRAL-LOGGING": [cis("4.2.1.5", "Ensure rsyslog is configured to send logs to a remote log host", "partial")],
+  "LOG-CENTRAL-LOGGING": [
+    cis("4.2.1.5", "Ensure rsyslog is configured to send logs to a remote log host", "partial"),
+    pci("10.3.3", "Protect audit logs from modification", "partial"),
+  ],
   "LOG-SECURE-JOURNAL": [cis("4.2.2.2", "Ensure journald is configured to compress large log files", "partial")],
   "LOG-NO-WORLD-READABLE-LOGS": [cis("4.2.2.3", "Ensure journald is configured to write logfiles to persistent disk", "partial")],
-  "LOG-SYSLOG-REMOTE": [cis("4.2.1.5", "Ensure rsyslog is configured to send logs to a remote log host", "full")],
+  "LOG-SYSLOG-REMOTE": [
+    cis("4.2.1.5", "Ensure rsyslog is configured to send logs to a remote log host", "full"),
+    pci("10.3.3", "Protect audit logs from modification", "partial"),
+    hipaa("§164.312(b)", "Audit controls - offsite preservation", "partial"),
+  ],
   "LOG-LOGROTATE-ACTIVE": [cis("4.2.3", "Ensure logrotate is configured", "full")],
   "LOG-AUDIT-WATCH-COUNT": [cis("4.1.3.7", "Ensure file deletion events by users are collected", "full", "L2")],
   "LOG-AUDITD-SPACE-ACTION": [cis("4.1.1.3", "Ensure auditing for processes that start prior to auditd is enabled", "partial")],
@@ -257,23 +376,71 @@ export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   "ACCT-GID-CONSISTENCY": [cis("6.2.5", "Ensure no duplicate GIDs exist", "full")],
 
   // ─── Services (CIS 2.1-2.6) ───────────────────────────────────────────────
-  "SVC-NO-TELNET": [cis("2.3.2", "Ensure telnet client is not installed", "full")],
-  "SVC-NO-RSH": [cis("2.3.1", "Ensure NIS client is not installed", "partial")],
-  "SVC-NO-RLOGIN": [cis("2.3.1", "Ensure rsh client is not installed", "full")],
-  "SVC-NO-FTP": [cis("2.2.11", "Ensure VSFTPD server is not in use", "full")],
-  "SVC-NO-TFTP": [cis("2.2.12", "Ensure TFTP server is not in use", "full")],
-  "SVC-NFS-RESTRICTED": [cis("2.2.6", "Ensure NFS is not in use", "full")],
-  "SVC-NO-RPCBIND": [cis("2.2.8", "Ensure rpcbind is not in use", "full")],
-  "SVC-SAMBA-RESTRICTED": [cis("2.2.7", "Ensure Samba is not in use", "full")],
-  "SVC-NO-AVAHI": [cis("2.2.3", "Ensure avahi daemon services are not in use", "full")],
-  "SVC-NO-CUPS": [cis("2.2.4", "Ensure a print server is not in use", "full")],
-  "SVC-NO-DHCP-SERVER": [cis("2.2.5", "Ensure DHCP server is not in use", "full")],
+  "SVC-NO-TELNET": [
+    cis("2.3.2", "Ensure telnet client is not installed", "full"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
+  "SVC-NO-RSH": [
+    cis("2.3.1", "Ensure NIS client is not installed", "partial"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
+  "SVC-NO-RLOGIN": [
+    cis("2.3.1", "Ensure rsh client is not installed", "full"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
+  "SVC-NO-FTP": [
+    cis("2.2.11", "Ensure VSFTPD server is not in use", "full"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
+  "SVC-NO-TFTP": [
+    cis("2.2.12", "Ensure TFTP server is not in use", "full"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
+  "SVC-NFS-RESTRICTED": [
+    cis("2.2.6", "Ensure NFS is not in use", "full"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
+  "SVC-NO-RPCBIND": [
+    cis("2.2.8", "Ensure rpcbind is not in use", "full"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
+  "SVC-SAMBA-RESTRICTED": [
+    cis("2.2.7", "Ensure Samba is not in use", "full"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
+  "SVC-NO-AVAHI": [
+    cis("2.2.3", "Ensure avahi daemon services are not in use", "full"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
+  "SVC-NO-CUPS": [
+    cis("2.2.4", "Ensure a print server is not in use", "full"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
+  "SVC-NO-DHCP-SERVER": [
+    cis("2.2.5", "Ensure DHCP server is not in use", "full"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
   "SVC-NO-DNS-SERVER": [cis("2.2.1", "Ensure xinetd is not installed", "partial")],
-  "SVC-NO-SNMP": [cis("2.2.15", "Ensure net-snmp is not installed", "full")],
-  "SVC-NO-SQUID": [cis("2.2.14", "Ensure HTTP Proxy server is not in use", "full")],
-  "SVC-NO-XINETD": [cis("2.1.1", "Ensure xinetd is not installed", "full")],
-  "SVC-NO-YPSERV": [cis("2.2.16", "Ensure NIS server is not in use", "full")],
-  "SVC-NO-INETD": [cis("2.1.1", "Ensure xinetd is not installed", "partial")],
+  "SVC-NO-SNMP": [
+    cis("2.2.15", "Ensure net-snmp is not installed", "full"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
+  "SVC-NO-SQUID": [
+    cis("2.2.14", "Ensure HTTP Proxy server is not in use", "full"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
+  "SVC-NO-XINETD": [
+    cis("2.1.1", "Ensure xinetd is not installed", "full"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
+  "SVC-NO-YPSERV": [
+    cis("2.2.16", "Ensure NIS server is not in use", "full"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
+  "SVC-NO-INETD": [
+    cis("2.1.1", "Ensure xinetd is not installed", "partial"),
+    pci("2.2.5", "Remove unnecessary services", "partial"),
+  ],
   "SVC-NO-CHARGEN": [cis("2.1.3", "Ensure chargen services are not in use", "full")],
   "SVC-NO-DAYTIME": [cis("2.1.4", "Ensure daytime services are not in use", "full")],
   "SVC-NO-DISCARD": [cis("2.1.5", "Ensure discard services are not in use", "full")],
@@ -287,8 +454,14 @@ export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   "SRV-NO-WORLD-READABLE-CONFIGS": [cis("6.1.11", "Ensure no world writable files exist", "partial")],
 
   // ─── Boot (CIS 1.4.x) ─────────────────────────────────────────────────────
-  "BOOT-GRUB-PERMS": [cis("1.4.1", "Ensure permissions on bootloader config are configured", "full")],
-  "BOOT-GRUB-PASSWORD": [cis("1.4.2", "Ensure bootloader password is set", "full")],
+  "BOOT-GRUB-PERMS": [
+    cis("1.4.1", "Ensure permissions on bootloader config are configured", "full"),
+    pci("2.2.1", "System configuration standards", "partial"),
+  ],
+  "BOOT-GRUB-PASSWORD": [
+    cis("1.4.2", "Ensure bootloader password is set", "full"),
+    pci("2.2.1", "System configuration standards", "partial"),
+  ],
   "BOOT-SECURE-BOOT": [cis("1.4.2", "Ensure bootloader password is set", "partial")],
   "BOOT-CMDLINE-SECURITY": [cis("1.5.1", "Ensure address space layout randomization is enabled", "partial")],
   "BOOT-GRUB-DIR-PERMS": [cis("1.4.1", "Ensure permissions on bootloader config are configured", "full")],
@@ -339,13 +512,24 @@ export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   "CRYPTO-SSH-WEAK-KEX": [cis("5.2.15", "Ensure only strong Key Exchange algorithms are used", "full")],
   "CRYPTO-SSH-ED25519-KEY": [cis("5.2.6", "Ensure SSH public key authentication is in use", "partial")],
   "CRYPTO-LUKS-DISK": [cis("1.1.2.1", "Ensure /tmp is a separate partition", "partial")],
-  "CRYPTO-TLS-MIN-PROTOCOL": [cis("5.2.15", "Ensure only strong ciphers are used", "partial")],
+  "CRYPTO-TLS-MIN-PROTOCOL": [
+    cis("5.2.15", "Ensure only strong ciphers are used", "partial"),
+    pci("4.2.1", "Strong cryptography for data in transit", "full"),
+    hipaa("§164.312(e)(2)(ii)", "Encryption in transmission", "partial"),
+  ],
   "CRYPTO-CERT-NOT-EXPIRED": [cis("5.2.15", "Ensure only strong ciphers are used", "partial")],
-  "CRYPTO-NO-SSLV3": [cis("5.2.15", "Ensure only strong ciphers are used", "full")],
+  "CRYPTO-NO-SSLV3": [
+    cis("5.2.15", "Ensure only strong ciphers are used", "full"),
+    pci("4.2.1", "No SSLv3", "full"),
+    hipaa("§164.312(e)(2)(ii)", "No weak encryption protocols", "full"),
+  ],
   "CRYPTO-OPENSSL-MODERN": [cis("1.9", "Ensure updates, patches, and additional security software are installed", "partial")],
   "CRYPTO-WEAK-SSH-KEYS": [cis("5.2.6", "Ensure SSH public key authentication is in use", "partial")],
   "CRYPTO-HOST-KEY-PERMS": [cis("5.2.3", "Ensure SSH StrictModes is enabled", "partial")],
-  "CRYPTO-NO-WEAK-OPENSSL-CIPHERS": [cis("5.2.15", "Ensure only strong ciphers are used", "full")],
+  "CRYPTO-NO-WEAK-OPENSSL-CIPHERS": [
+    cis("5.2.15", "Ensure only strong ciphers are used", "full"),
+    pci("4.2.1", "Strong cryptography", "full"),
+  ],
   "CRYPTO-MIN-PROTOCOL": [cis("5.2.15", "Ensure only strong ciphers are used", "full")],
   "CRYPTO-LUKS-KEY-SIZE": [cis("1.1.2.1", "Ensure /tmp is a separate partition", "partial")],
   "CRYPTO-DH-PARAMS-SIZE": [cis("5.2.15", "Ensure only strong Key Exchange algorithms are used", "partial")],
@@ -354,16 +538,46 @@ export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   "CRYPTO-NGINX-TLS-MODERN": [cis("5.2.15", "Ensure only strong ciphers are used", "partial")],
 
   // ─── File Integrity (CIS 4.1.4 — L2) ────────────────────────────────────
-  "FINT-AIDE-INSTALLED": [cis("4.1.4.1", "Ensure AIDE is installed", "full", "L2")],
+  "FINT-AIDE-INSTALLED": [
+    cis("4.1.4.1", "Ensure AIDE is installed", "full", "L2"),
+    pci("11.5.2", "File integrity monitoring deployed", "partial"),
+    hipaa("§164.312(c)(1)", "Protect ePHI integrity", "partial"),
+  ],
   "FINT-TRIPWIRE-INSTALLED": [cis("4.1.4.1", "Ensure AIDE is installed", "partial", "L2")],
   "FINT-AIDE-DB-EXISTS": [cis("4.1.4.1", "Ensure AIDE is installed", "partial", "L2")],
-  "FINT-AIDE-CRON": [cis("4.1.4.2", "Ensure filesystem integrity is regularly checked", "full", "L2")],
-  "FINT-AUDITD-INSTALLED": [cis("4.1.1.1", "Ensure auditd is installed", "full")],
-  "FINT-AUDITD-RUNNING": [cis("4.1.1.2", "Ensure auditd service is enabled", "full")],
-  "FINT-AUDIT-PASSWD-RULE": [cis("4.1.3.1", "Ensure changes to system administration scope (sudoers) is collected", "partial", "L2")],
-  "FINT-AUDIT-SHADOW-RULE": [cis("4.1.3.1", "Ensure changes to system administration scope (sudoers) is collected", "partial", "L2")],
-  "FINT-AIDE-DB-RECENT": [cis("4.1.4.2", "Ensure filesystem integrity is regularly checked", "partial", "L2")],
-  "FINT-CRITICAL-FILE-MONITORING": [cis("4.1.3.5", "Ensure events that modify the system's network environment are collected", "partial", "L2")],
+  "FINT-AIDE-CRON": [
+    cis("4.1.4.2", "Ensure filesystem integrity is regularly checked", "full", "L2"),
+    pci("11.5.2", "File integrity monitoring", "partial"),
+    hipaa("§164.312(c)(1)", "Integrity controls", "partial"),
+    hipaa("§164.312(c)(2)", "Mechanism to authenticate ePHI", "partial"),
+  ],
+  "FINT-AUDITD-INSTALLED": [
+    cis("4.1.1.1", "Ensure auditd is installed", "full"),
+    hipaa("§164.312(b)", "Audit controls", "partial"),
+  ],
+  "FINT-AUDITD-RUNNING": [
+    cis("4.1.1.2", "Ensure auditd service is enabled", "full"),
+    pci("10.2.1", "Implement audit logs", "partial"),
+    hipaa("§164.312(b)", "Audit controls", "partial"),
+  ],
+  "FINT-AUDIT-PASSWD-RULE": [
+    cis("4.1.3.1", "Ensure changes to system administration scope (sudoers) is collected", "partial", "L2"),
+    hipaa("§164.312(b)", "Audit controls", "partial"),
+  ],
+  "FINT-AUDIT-SHADOW-RULE": [
+    cis("4.1.3.1", "Ensure changes to system administration scope (sudoers) is collected", "partial", "L2"),
+    hipaa("§164.312(b)", "Audit controls", "partial"),
+  ],
+  "FINT-AIDE-DB-RECENT": [
+    cis("4.1.4.2", "Ensure filesystem integrity is regularly checked", "partial", "L2"),
+    hipaa("§164.312(c)(1)", "Protect ePHI integrity", "partial"),
+    hipaa("§164.312(c)(2)", "Mechanism to authenticate ePHI", "partial"),
+  ],
+  "FINT-CRITICAL-FILE-MONITORING": [
+    cis("4.1.3.5", "Ensure events that modify the system's network environment are collected", "partial", "L2"),
+    pci("11.5.2", "File integrity monitoring", "partial"),
+    hipaa("§164.312(c)(1)", "Integrity controls", "partial"),
+  ],
 
   // ─── MAC (CIS 1.6.x) ──────────────────────────────────────────────────────
   "MAC-LSM-ACTIVE": [cis("1.6.1", "Ensure AppArmor is installed", "partial")],
@@ -378,15 +592,85 @@ export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   "MAC-SECCOMP-STRICT": [cis("1.6.1", "Ensure AppArmor is installed", "partial")],
 
   // ─── Updates (CIS 1.9) ────────────────────────────────────────────────────
-  "UPD-SECURITY-PATCHES": [cis("1.9", "Ensure updates, patches, and additional security software are installed", "full")],
+  "UPD-SECURITY-PATCHES": [
+    cis("1.9", "Ensure updates, patches, and additional security software are installed", "full"),
+    pci("6.3.3", "Security patches installed", "partial"),
+  ],
   "UPD-AUTO-UPDATES": [cis("1.9", "Ensure updates, patches, and additional security software are installed", "full")],
   "UPD-CACHE-FRESH": [cis("1.9", "Ensure updates, patches, and additional security software are installed", "partial")],
   "UPD-REBOOT-REQUIRED": [cis("1.9", "Ensure updates, patches, and additional security software are installed", "partial")],
   "UPD-LAST-UPGRADE-RECENT": [cis("1.9", "Ensure updates, patches, and additional security software are installed", "full")],
-  "UPD-CVE-SCANNER-PRESENT": [cis("1.9", "Ensure updates, patches, and additional security software are installed", "partial")],
+  "UPD-CVE-SCANNER-PRESENT": [
+    cis("1.9", "Ensure updates, patches, and additional security software are installed", "partial"),
+    pci("6.3.2", "Software vulnerability identification", "partial"),
+  ],
   "UPD-DPKG-NO-PARTIAL": [cis("1.9", "Ensure updates, patches, and additional security software are installed", "full")],
   "UPD-KERNEL-CURRENT": [cis("1.9", "Ensure updates, patches, and additional security software are installed", "full")],
   "UPD-UNATTENDED-ENABLED": [cis("1.9", "Ensure updates, patches, and additional security software are installed", "full")],
   "UPD-APT-HTTPS": [cis("1.2.1", "Ensure package manager repositories are configured", "partial")],
   "UPD-SECURITY-REPO-PRIORITY": [cis("1.2.1", "Ensure package manager repositories are configured", "full")],
+
+  // ─── Malware (PCI-DSS 5.x) ────────────────────────────────────────────────
+  "MALWARE-CHKROOTKIT-INSTALLED": [pci("5.2.1", "Anti-malware deployed", "partial")],
+  "MALWARE-RKHUNTER-INSTALLED": [pci("5.2.1", "Anti-malware deployed", "partial")],
+  "MALWARE-NO-SUID-IN-TMP": [pci("5.2.1", "Anti-malware deployed", "partial")],
+  "MALWARE-NO-SUID-IN-DEV": [pci("5.2.1", "Anti-malware deployed", "partial")],
+  "MALWARE-RKHUNTER-RECENT-SCAN": [pci("5.2.1", "Anti-malware deployed", "partial")],
+  "MALWARE-NO-ROOT-WRITABLE": [pci("5.2.1", "Anti-malware deployed", "partial")],
+
+  // ─── Secrets (PCI-DSS 8.x + HIPAA 164.312(a)) ────────────────────────────
+  "SECRETS-SSH-KEY-PERMS": [
+    pci("8.3.7", "Authentication factors unreadable", "partial"),
+    hipaa("§164.312(a)(2)(iv)", "Encryption and decryption", "partial"),
+  ],
+  "SECRETS-ENV-WORLD-READABLE": [
+    pci("8.3.7", "Authentication factors unreadable", "partial"),
+    hipaa("§164.312(a)(2)(iv)", "Encryption and decryption", "partial"),
+  ],
+  "SECRETS-ETC-PLAINTEXT-CRED": [
+    pci("8.3.7", "Authentication factors unreadable", "partial"),
+    hipaa("§164.312(a)(2)(iv)", "Encryption and decryption", "partial"),
+  ],
+  "SECRETS-WORLD-READABLE-KEYS": [pci("8.3.7", "Authentication factors unreadable", "partial")],
+  "SECRETS-SSH-AUTHORIZED-KEYS-PERMS": [pci("8.3.7", "Authentication factors unreadable", "partial")],
+
+  // ─── Supply Chain (PCI-DSS 6.x) ──────────────────────────────────────────
+  "SUPPLY-APT-HTTPS-REPOS": [pci("6.3.3", "Software protected from vulnerabilities", "partial")],
+  "SUPPLY-GPG-KEYS-PRESENT": [pci("6.3.3", "Software authenticated", "partial")],
+  "SUPPLY-NO-UNSIGNED-PACKAGES": [pci("6.3.3", "Supply chain integrity", "partial")],
+  "SUPPLY-REPOS-SIGNED": [pci("6.3.3", "Supply chain integrity", "partial")],
+  "SUPPLY-NO-UNAUTH-SOURCES": [pci("6.3.3", "Supply chain integrity", "partial")],
+  "SUPPLY-DPKG-AUDIT-CLEAN": [pci("6.3.3", "Supply chain integrity", "partial")],
+  "SUPPLY-NO-INSECURE-REPOS": [pci("6.3.3", "Supply chain integrity", "partial")],
+  "SUPPLY-GPG-KEYS-TRUSTED": [pci("6.3.3", "Supply chain integrity", "partial")],
+
+  // ─── Docker (PCI-DSS 2.x) ────────────────────────────────────────────────
+  "DCK-ROOTLESS-MODE": [pci("2.2.5", "Container security configuration", "partial")],
+  "DCK-NO-PRIVILEGED": [pci("2.2.5", "Container security configuration", "partial")],
+  "DCK-APPARMOR-PROFILE": [pci("2.2.5", "Container security configuration", "partial")],
+  "DCK-NO-HOST-NETWORK": [pci("2.2.5", "Container security configuration", "partial")],
+  "DCK-PID-MODE": [pci("2.2.5", "Container security configuration", "partial")],
+  "DCK-SECCOMP-ENABLED": [pci("2.2.5", "Container security configuration", "partial")],
+  "DCK-READ-ONLY-ROOTFS": [pci("2.2.5", "Container security configuration", "partial")],
+  "DCK-NO-HOST-NETWORK-INSPECT": [pci("2.2.5", "Container security configuration", "partial")],
+
+  // ─── Incident Readiness (PCI-DSS 10.x + HIPAA 164.312(b)) ───────────────
+  "INCIDENT-AUDITD-RUNNING": [
+    pci("10.2.1", "Implement audit logs", "partial"),
+    hipaa("§164.312(b)", "Audit controls", "partial"),
+  ],
+  "INCIDENT-LOG-FORWARDING": [
+    pci("10.3.3", "Protect audit logs from modification", "partial"),
+    hipaa("§164.312(b)", "Audit controls", "partial"),
+  ],
+  "INCIDENT-AUDITD-PASSWD-RULE": [
+    pci("10.2.1", "Implement audit logs", "partial"),
+    hipaa("§164.312(b)", "Audit controls", "partial"),
+  ],
+  "INCIDENT-AUDITD-SUDO-RULE": [
+    pci("10.2.1", "Implement audit logs", "partial"),
+    hipaa("§164.312(b)", "Audit controls", "partial"),
+  ],
+  "INCID-FORENSIC-TOOLS": [pci("10.2.1", "Implement audit logs", "partial")],
+  "INCID-LOG-ARCHIVE-EXISTS": [pci("10.3.3", "Protect audit logs from modification", "partial")],
 };
