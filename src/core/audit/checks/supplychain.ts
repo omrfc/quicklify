@@ -255,10 +255,12 @@ const SUPPLY_CHECKS: SupplyChainCheckDef[] = [
     name: "dpkg Package File Integrity Verified",
     severity: "warning",
     check: (output) => {
-      // dpkg --verify | wc -l output — count of modified package files
-      const match = output.match(/\b(\d+)\b/);
-      if (!match) return { passed: false, currentValue: "Unable to determine modified package file count" };
-      const count = parseInt(match[1], 10);
+      // dpkg --verify | wc -l output — last standalone integer line (wc -l output)
+      const standaloneNumbers = output.split("\n").filter((l) => /^\s*\d+\s*$/.test(l));
+      if (standaloneNumbers.length === 0) {
+        return { passed: false, currentValue: "Unable to determine modified package file count" };
+      }
+      const count = parseInt(standaloneNumbers[standaloneNumbers.length - 1].trim(), 10);
       return {
         passed: count <= 5,
         currentValue: `${count} modified package file(s) detected by dpkg --verify`,

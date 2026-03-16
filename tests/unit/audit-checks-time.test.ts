@@ -13,6 +13,8 @@ describe("parseTimeChecks", () => {
     "System time     : 0.000123456 seconds slow of NTP time",
     "UTC",
     "2026-03-15 12:00:00.000000+00:00",
+    "NTPSynchronized=yes",
+    "Timezone=UTC",
   ].join("\n");
 
   const unsyncedOutput = [
@@ -25,9 +27,9 @@ describe("parseTimeChecks", () => {
     "N/A",
   ].join("\n");
 
-  it("should return 8 checks for the Time category", () => {
+  it("should return 9 checks for the Time category", () => {
     const checks = parseTimeChecks(syncedOutput, "bare");
-    expect(checks.length).toBeGreaterThanOrEqual(8);
+    expect(checks.length).toBeGreaterThanOrEqual(9);
     checks.forEach((c) => expect(c.category).toBe("Time"));
   });
 
@@ -103,9 +105,23 @@ describe("parseTimeChecks", () => {
     expect(check!.passed).toBe(false);
   });
 
+  it("TIME-NTP-SYNCHRONIZED passes when NTPSynchronized=yes in output", () => {
+    const checks = parseTimeChecks(syncedOutput, "bare");
+    const check = checks.find((c) => c.id === "TIME-NTP-SYNCHRONIZED");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("TIME-NTP-SYNCHRONIZED fails when NTPSynchronized=yes absent", () => {
+    const checks = parseTimeChecks(unsyncedOutput, "bare");
+    const check = checks.find((c) => c.id === "TIME-NTP-SYNCHRONIZED");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(false);
+  });
+
   it("should handle N/A output gracefully", () => {
     const checks = parseTimeChecks("N/A", "bare");
-    expect(checks.length).toBeGreaterThanOrEqual(8);
+    expect(checks.length).toBeGreaterThanOrEqual(9);
     checks.forEach((c) => {
       expect(c.passed).toBe(false);
       expect(c.currentValue).toBe("Unable to determine");

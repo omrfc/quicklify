@@ -209,10 +209,13 @@ const SCHEDULING_CHECKS: SchedulingCheckDef[] = [
     name: "cron.d File Count Reasonable",
     severity: "info",
     check: (output) => {
-      // find /etc/cron.d/ -type f | wc -l output — a number
-      const match = output.match(/\b(\d+)\b/);
-      if (!match) return { passed: false, currentValue: "Unable to determine cron.d file count" };
-      const count = parseInt(match[1], 10);
+      // find /etc/cron.d/ -type f | wc -l — last standalone integer line
+      const standaloneNumbers = output.split("\n").filter((l) => /^\s*\d+\s*$/.test(l));
+      if (standaloneNumbers.length === 0) {
+        return { passed: false, currentValue: "Unable to determine cron.d file count" };
+      }
+      // Use the first standalone number (should be the wc -l count)
+      const count = parseInt(standaloneNumbers[0].trim(), 10);
       return {
         passed: count <= 15,
         currentValue: `${count} file(s) in /etc/cron.d/`,
@@ -229,7 +232,9 @@ const SCHEDULING_CHECKS: SchedulingCheckDef[] = [
     severity: "warning",
     check: (output) => {
       // find /var/spool/cron/crontabs/ -type f -perm -o+r output — paths or NONE
-      const hasWorldReadable = !output.includes("NONE") && /\/var\/spool\/cron\/crontabs/i.test(output);
+      // Check specifically for lines containing the crontabs path (not just NONE sentinel)
+      const crontabPathLines = output.split("\n").filter((l) => /\/var\/spool\/cron\/crontabs\//i.test(l));
+      const hasWorldReadable = crontabPathLines.length > 0;
       return {
         passed: !hasWorldReadable,
         currentValue: hasWorldReadable

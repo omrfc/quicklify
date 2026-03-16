@@ -12,6 +12,8 @@ describe("parseSupplyChainChecks", () => {
     "NO_UNAUTH_SOURCES",
     "NONE",
     "debian-archive-keyring.gpg ubuntu-keyring-2018-archive.gpg",
+    "3",
+    "/usr/bin/debsums",
   ].join("\n");
 
   const badOutput = [
@@ -43,9 +45,9 @@ describe("parseSupplyChainChecks", () => {
   });
 
   describe("check count and shape", () => {
-    it("returns at least 10 checks", () => {
+    it("returns at least 12 checks", () => {
       const checks = parseSupplyChainChecks(validOutput, "bare");
-      expect(checks.length).toBeGreaterThanOrEqual(10);
+      expect(checks.length).toBeGreaterThanOrEqual(12);
     });
 
     it("all check IDs start with SUPPLY-", () => {
@@ -171,6 +173,40 @@ describe("parseSupplyChainChecks", () => {
       const output = validOutput.replace("debian-archive-keyring.gpg ubuntu-keyring-2018-archive.gpg", "NONE_FOUND");
       const checks = parseSupplyChainChecks(output, "bare");
       const check = checks.find((c) => c.id === "SUPPLY-GPG-KEYS-PRESENT");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("SUPPLY-PACKAGE-VERIFY-CLEAN", () => {
+    it("passes when modified package file count <= 5", () => {
+      const checks = parseSupplyChainChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "SUPPLY-PACKAGE-VERIFY-CLEAN");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when modified package file count > 5", () => {
+      const highCountOutput = validOutput + "\n20";
+      const checks = parseSupplyChainChecks(highCountOutput, "bare");
+      const check = checks.find((c) => c.id === "SUPPLY-PACKAGE-VERIFY-CLEAN");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("SUPPLY-DEBSUMS-INSTALLED", () => {
+    it("passes when debsums path is in output", () => {
+      const checks = parseSupplyChainChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "SUPPLY-DEBSUMS-INSTALLED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when NOT_INSTALLED sentinel is present", () => {
+      const noDebsumsOutput = validOutput.replace("/usr/bin/debsums", "NOT_INSTALLED");
+      const checks = parseSupplyChainChecks(noDebsumsOutput, "bare");
+      const check = checks.find((c) => c.id === "SUPPLY-DEBSUMS-INSTALLED");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
     });

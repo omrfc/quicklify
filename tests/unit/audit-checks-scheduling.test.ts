@@ -13,6 +13,8 @@ describe("parseSchedulingChecks", () => {
     "700 root root /etc/cron.hourly",
     "600 root root /etc/crontab",
     "NONE",
+    "3",
+    "NONE",
   ].join("\n");
 
   const insecureOutput = [
@@ -26,9 +28,9 @@ describe("parseSchedulingChecks", () => {
     "/etc/cron.d/somefile",
   ].join("\n");
 
-  it("should return 10 checks for the Scheduling category", () => {
+  it("should return 12 checks for the Scheduling category", () => {
     const checks = parseSchedulingChecks(secureOutput, "bare");
-    expect(checks.length).toBeGreaterThanOrEqual(10);
+    expect(checks.length).toBeGreaterThanOrEqual(12);
     checks.forEach((c) => expect(c.category).toBe("Scheduling"));
   });
 
@@ -103,9 +105,40 @@ describe("parseSchedulingChecks", () => {
     expect(check!.passed).toBe(false);
   });
 
+  it("SCHED-CRON-D-FILE-COUNT passes when count <= 15", () => {
+    const checks = parseSchedulingChecks(secureOutput, "bare");
+    const check = checks.find((c) => c.id === "SCHED-CRON-D-FILE-COUNT");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("SCHED-CRON-D-FILE-COUNT fails when count > 15", () => {
+    // Replace the "3" count with "20" to simulate too many cron.d files
+    const highCountOutput = secureOutput.replace("\n3\n", "\n20\n");
+    const checks = parseSchedulingChecks(highCountOutput, "bare");
+    const check = checks.find((c) => c.id === "SCHED-CRON-D-FILE-COUNT");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(false);
+  });
+
+  it("SCHED-NO-WORLD-READABLE-CRONTABS passes when NONE sentinel present", () => {
+    const checks = parseSchedulingChecks(secureOutput, "bare");
+    const check = checks.find((c) => c.id === "SCHED-NO-WORLD-READABLE-CRONTABS");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("SCHED-NO-WORLD-READABLE-CRONTABS fails when world-readable crontab path found", () => {
+    const worldReadableOutput = secureOutput + "\n/var/spool/cron/crontabs/alice";
+    const checks = parseSchedulingChecks(worldReadableOutput, "bare");
+    const check = checks.find((c) => c.id === "SCHED-NO-WORLD-READABLE-CRONTABS");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(false);
+  });
+
   it("should handle N/A output gracefully", () => {
     const checks = parseSchedulingChecks("N/A", "bare");
-    expect(checks.length).toBeGreaterThanOrEqual(10);
+    expect(checks.length).toBeGreaterThanOrEqual(12);
     checks.forEach((c) => {
       expect(c.passed).toBe(false);
       expect(c.currentValue).toBe("Unable to determine");

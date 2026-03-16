@@ -12,6 +12,8 @@ describe("parseIncidentReadyChecks", () => {
     "WTMP_ROTATION_CONFIGURED",
     "-rw-rw-r-- 1 root utmp 12345 Mar 15 10:00 /var/log/wtmp",
     "-rw-r----- 1 root utmp  6789 Mar 15 10:00 /var/log/btmp",
+    "/usr/bin/dc3dd",
+    "5",
   ].join("\n");
 
   const badOutput = [
@@ -42,9 +44,9 @@ describe("parseIncidentReadyChecks", () => {
   });
 
   describe("check count and shape", () => {
-    it("returns at least 10 checks", () => {
+    it("returns at least 12 checks", () => {
       const checks = parseIncidentReadyChecks(validOutput, "bare");
-      expect(checks.length).toBeGreaterThanOrEqual(10);
+      expect(checks.length).toBeGreaterThanOrEqual(12);
     });
 
     it("all check IDs start with INCIDENT- or INCID-", () => {
@@ -240,6 +242,40 @@ describe("parseIncidentReadyChecks", () => {
     it("fails when /var/log/btmp not present in output", () => {
       const checks = parseIncidentReadyChecks(badOutput, "bare");
       const check = checks.find((c) => c.id === "INCID-BTMP-EXISTS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("INCID-FORENSIC-TOOLS", () => {
+    it("passes when a forensic tool path is in output", () => {
+      const checks = parseIncidentReadyChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "INCID-FORENSIC-TOOLS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+      expect(check!.currentValue).toContain("dc3dd");
+    });
+
+    it("fails when NONE sentinel is present", () => {
+      const checks = parseIncidentReadyChecks(badOutput, "bare");
+      const check = checks.find((c) => c.id === "INCID-FORENSIC-TOOLS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("INCID-LOG-ARCHIVE-EXISTS", () => {
+    it("passes when archived log count > 0", () => {
+      const checks = parseIncidentReadyChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "INCID-LOG-ARCHIVE-EXISTS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when archived log count is 0", () => {
+      const noArchiveOutput = badOutput + "\n0";
+      const checks = parseIncidentReadyChecks(noArchiveOutput, "bare");
+      const check = checks.find((c) => c.id === "INCID-LOG-ARCHIVE-EXISTS");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
     });

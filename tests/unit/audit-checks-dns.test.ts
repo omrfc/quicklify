@@ -8,6 +8,8 @@ describe("parseDnsChecks", () => {
     "NAMESERVER_CONFIGURED:8.8.8.8",
     "2",
     "nameserver 8.8.8.8\nnameserver 8.8.4.4",
+    "active",
+    "search example.com",
   ].join("\n");
 
   const badOutput = [
@@ -35,9 +37,9 @@ describe("parseDnsChecks", () => {
   });
 
   describe("check count and shape", () => {
-    it("returns at least 6 checks", () => {
+    it("returns at least 8 checks", () => {
       const checks = parseDnsChecks(validOutput, "bare");
-      expect(checks.length).toBeGreaterThanOrEqual(6);
+      expect(checks.length).toBeGreaterThanOrEqual(8);
     });
 
     it("all check IDs start with DNS-", () => {
@@ -179,6 +181,39 @@ describe("parseDnsChecks", () => {
       const check = checks.find((c) => c.id === "DNS-RESOLV-NOT-LOCALHOST-ONLY");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(true);
+    });
+  });
+
+  describe("DNS-LOCAL-RESOLVER-ACTIVE", () => {
+    it("passes when systemd-resolved is active", () => {
+      const checks = parseDnsChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "DNS-LOCAL-RESOLVER-ACTIVE");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when systemd-resolved is inactive", () => {
+      const inactiveOutput = validOutput.replace("active", "inactive");
+      const checks = parseDnsChecks(inactiveOutput, "bare");
+      const check = checks.find((c) => c.id === "DNS-LOCAL-RESOLVER-ACTIVE");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("DNS-SEARCH-DOMAIN-SET", () => {
+    it("passes when search domain is configured", () => {
+      const checks = parseDnsChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "DNS-SEARCH-DOMAIN-SET");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when NONE sentinel is present", () => {
+      const checks = parseDnsChecks(badOutput, "bare");
+      const check = checks.find((c) => c.id === "DNS-SEARCH-DOMAIN-SET");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
     });
   });
 });

@@ -247,10 +247,13 @@ const INCIDENT_CHECKS: IncidentReadyCheckDef[] = [
     name: "Recent Archived Log Files Present",
     severity: "info",
     check: (output) => {
-      // find /var/log -name '*.gz' -mtime -30 | wc -l output — a number
-      const match = output.match(/\b(\d+)\b/);
-      if (!match) return { passed: false, currentValue: "Unable to determine archived log count" };
-      const count = parseInt(match[1], 10);
+      // find /var/log -name '*.gz' -mtime -30 | wc -l — last standalone integer line
+      const standaloneNumbers = output.split("\n").filter((l) => /^\s*\d+\s*$/.test(l));
+      if (standaloneNumbers.length === 0) {
+        return { passed: false, currentValue: "Unable to determine archived log count" };
+      }
+      // Use the last standalone number (wc -l is last command in incidentReadySection)
+      const count = parseInt(standaloneNumbers[standaloneNumbers.length - 1].trim(), 10);
       return {
         passed: count > 0,
         currentValue: count > 0 ? `${count} recent archived log file(s) found` : "0 archived log files found",

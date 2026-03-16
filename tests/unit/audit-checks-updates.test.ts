@@ -16,6 +16,7 @@ describe("parseUpdatesChecks", () => {
     "5.15.0-91-generic",                           // uname -r kernel version
     "5.15.0-91.101",                               // installed kernel version
     'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";', // auto-upgrades enabled
+    "deb https://security.ubuntu.com/ubuntu focal-security main",  // security repo
   ].join("\n");
 
   const insecureOutput = [
@@ -29,11 +30,12 @@ describe("parseUpdatesChecks", () => {
     "N/A",                                         // kernel unknown
     "N/A",                                         // installed kernel unknown
     "N/A",                                         // no auto-upgrades config
+    "NONE",                                        // no security repo
   ].join("\n");
 
-  it("should return 10 checks", () => {
+  it("should return 11 checks", () => {
     const checks = parseUpdatesChecks(secureOutput, "bare");
-    expect(checks).toHaveLength(10);
+    expect(checks).toHaveLength(11);
     checks.forEach((check) => {
       expect(check.category).toBe("Updates");
       expect(check.id).toMatch(/^UPD-[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)+$/);
@@ -115,9 +117,23 @@ describe("parseUpdatesChecks", () => {
     expect(upd09!.passed).toBe(false);
   });
 
+  it("should return UPD-SECURITY-REPO-PRIORITY passed when security repo found", () => {
+    const checks = parseUpdatesChecks(secureOutput, "bare");
+    const check = checks.find((c) => c.id === "UPD-SECURITY-REPO-PRIORITY");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("should return UPD-SECURITY-REPO-PRIORITY failed when no security repo found", () => {
+    const checks = parseUpdatesChecks(insecureOutput, "bare");
+    const check = checks.find((c) => c.id === "UPD-SECURITY-REPO-PRIORITY");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(false);
+  });
+
   it("should handle N/A output gracefully", () => {
     const checks = parseUpdatesChecks("N/A", "bare");
-    expect(checks).toHaveLength(10);
+    expect(checks).toHaveLength(11);
     checks.forEach((check) => {
       expect(check.passed).toBe(false);
     });
