@@ -8,16 +8,28 @@ import {
   type McpResponse,
 } from "../utils.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
+import { calculateComplianceDetail } from "../../core/audit/compliance/scoring.js";
+import type { FrameworkKey } from "../../core/audit/compliance/mapper.js";
 
 export const serverAuditSchema = {
   server: z.string().optional().describe("Server name or IP. Auto-selected if only one server exists."),
   format: z.enum(["summary", "json", "score"]).default("summary")
     .describe("Output format: summary (default), json (full result), score (number only)"),
+  framework: z.enum(["cis-level1", "cis-level2", "pci-dss", "hipaa"]).optional()
+    .describe("Compliance framework filter. Returns per-control pass/fail summary alongside audit results."),
+};
+
+const FRAMEWORK_KEY_MAP: Record<string, FrameworkKey> = {
+  "cis-level1": "CIS",
+  "cis-level2": "CIS",
+  "pci-dss": "PCI-DSS",
+  "hipaa": "HIPAA",
 };
 
 export async function handleServerAudit(params: {
   server?: string;
   format?: "summary" | "json" | "score";
+  framework?: "cis-level1" | "cis-level2" | "pci-dss" | "hipaa";
 }): Promise<McpResponse> {
   try {
     const servers = getServers();
@@ -55,8 +67,14 @@ export async function handleServerAudit(params: {
     const format = params.format ?? "summary";
 
     if (format === "json") {
+      const jsonResult: Record<string, unknown> = { ...auditResult };
+      if (params.framework) {
+        const fw = FRAMEWORK_KEY_MAP[params.framework];
+        const detail = calculateComplianceDetail(auditResult.categories);
+        jsonResult.complianceDetail = detail.filter((d) => d.framework === fw);
+      }
       return {
-        content: [{ type: "text", text: JSON.stringify(auditResult) }],
+        content: [{ type: "text", text: JSON.stringify(jsonResult) }],
       };
     }
 
@@ -86,18 +104,39 @@ export async function handleServerAudit(params: {
       summaryParts.push("", "Top Quick Wins:", ...quickWinLines);
     }
 
+    // Add compliance summary when framework param provided
+    if (params.framework) {
+      const fw = FRAMEWORK_KEY_MAP[params.framework];
+      const detail = calculateComplianceDetail(auditResult.categories);
+      const fwScore = detail.find((d) => d.framework === fw);
+      if (fwScore) {
+        summaryParts.push(
+          "",
+          `Compliance (${fwScore.version}):`,
+          `  Pass Rate: ${fwScore.passedControls}/${fwScore.totalControls} (${fwScore.passRate}%)`,
+          `  Failing: ${fwScore.controls.filter((c) => !c.passed).length} controls`,
+        );
+      }
+    }
+
     summaryParts.push(
       "",
       `Timestamp: ${auditResult.timestamp}`,
     );
 
-    return mcpSuccess({
+    const responseData: Record<string, unknown> = {
       summary: summaryParts.join("\n"),
       overallScore: auditResult.overallScore,
       suggested_actions: [
         { command: `server_audit { server: '${server.name}', format: 'json' }`, reason: "Get full audit details" },
       ],
-    });
+    };
+
+    if (auditResult.skippedCategories && auditResult.skippedCategories.length > 0) {
+      responseData.skippedCategories = auditResult.skippedCategories;
+    }
+
+    return mcpSuccess(responseData);
   } catch (error: unknown) {
     return mcpError(getErrorMessage(error));
   }
