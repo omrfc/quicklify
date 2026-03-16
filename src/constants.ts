@@ -52,9 +52,14 @@ export const COOLIFY_MIN_WAIT: Record<string, number> = {
   hetzner: 60000, digitalocean: 120000, vultr: 180000, linode: 120000,
 };
 
-// Server boot polling
-export const BOOT_MAX_ATTEMPTS = 30;
-export const BOOT_INTERVAL = 1000;
+// Provider-specific boot polling (boot time varies significantly by provider)
+export const BOOT_WAIT: Record<string, { attempts: number; interval: number }> = {
+  hetzner:      { attempts: 15, interval: 2000 },   // 30s
+  digitalocean: { attempts: 30, interval: 2000 },   // 60s
+  vultr:        { attempts: 45, interval: 3000 },   // 135s
+  linode:       { attempts: 40, interval: 3000 },   // 120s
+};
+export const BOOT_WAIT_DEFAULT = { attempts: 30, interval: 2000 }; // 60s fallback
 
 // SCP file transfer timeout — prevents CLI hang on network failures (MCP + interactive mode)
 export const SCP_TIMEOUT_MS = 300_000; // 5 minutes

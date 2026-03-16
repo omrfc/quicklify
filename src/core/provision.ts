@@ -10,7 +10,7 @@ import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { assertValidIp } from "../utils/ssh.js";
 import type { CloudProvider } from "../providers/base.js";
 import type { ServerRecord, Platform } from "../types/index.js";
-import { IP_WAIT, BOOT_MAX_ATTEMPTS, BOOT_INTERVAL, invalidProviderError } from "../constants.js";
+import { IP_WAIT, BOOT_WAIT, BOOT_WAIT_DEFAULT, invalidProviderError } from "../constants.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -155,22 +155,24 @@ export async function provisionServer(config: ProvisionConfig): Promise<Provisio
     };
   }
 
-  // 10. Wait for running status
-  for (let i = 0; i < BOOT_MAX_ATTEMPTS; i++) {
+  // 10. Wait for running status (provider-specific timing)
+  const bootConfig = BOOT_WAIT[config.provider] || BOOT_WAIT_DEFAULT;
+  for (let i = 0; i < bootConfig.attempts; i++) {
     try {
       const status = await provider.getServerStatus(serverId);
       if (status === "running") break;
     } catch {
       // Ignore polling errors, retry
     }
-    if (i === BOOT_MAX_ATTEMPTS - 1) {
+    if (i === bootConfig.attempts - 1) {
+      const totalSec = Math.round((bootConfig.attempts * bootConfig.interval) / 1000);
       return {
         success: false,
-        error: `Server did not reach running state within ${BOOT_MAX_ATTEMPTS}s`,
+        error: `Server did not reach running state within ${totalSec}s`,
         hint: "The server may still be booting. Check status manually.",
       };
     }
-    await sleep(BOOT_INTERVAL);
+    await sleep(bootConfig.interval);
   }
 
   // 11. Wait for IP assignment (provider-specific timing)
