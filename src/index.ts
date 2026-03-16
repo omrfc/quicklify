@@ -337,6 +337,8 @@ program
   .option("--days <n>", "Limit trend to last N days")
   .option("--list-checks", "List all audit checks without running audit")
   .option("--severity <level>", "Filter by severity (critical, warning, info)")
+  .option("--profile <name>", "Compliance profile filter (cis-level1, cis-level2, pci-dss, hipaa)")
+  .option("--compliance <frameworks>", "Compliance report by framework (cis, pci-dss, hipaa — comma-separated)")
   .action((serverName?: string, options?: Record<string, unknown>) =>
     auditCommand(serverName, options),
   );
