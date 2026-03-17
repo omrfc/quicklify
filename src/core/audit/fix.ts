@@ -8,6 +8,7 @@ import { SEVERITY_WEIGHTS, CATEGORY_WEIGHTS, DEFAULT_CATEGORY_WEIGHT, buildImpac
 import type { ImpactContext } from "./scoring.js";
 import { sshExec } from "../../utils/ssh.js";
 import { raw } from "../../utils/sshCommand.js";
+import { logger } from "../../utils/logger.js";
 import inquirer from "inquirer";
 import { buildAuditBatchCommands, BATCH_TIMEOUTS } from "./commands.js";
 import { parseAllChecks } from "./checks/index.js";
@@ -212,10 +213,11 @@ export async function runFix(
             continue;
           }
         }
-        // Validate fixCommand against known safe prefixes
+        // Validate fixCommand against known safe prefixes + reject shell metacharacters
+        const SHELL_METACHAR = /[;&|`$()><]/;
         const isKnown = KNOWN_AUDIT_FIX_PREFIXES.some((p) => check.fixCommand.startsWith(p));
-        if (!isKnown) {
-          errors.push(`${check.id}: fix command not in whitelist — ${check.fixCommand.slice(0, 60)}`);
+        if (!isKnown || SHELL_METACHAR.test(check.fixCommand)) {
+          errors.push(`${check.id}: fix command rejected — ${check.fixCommand.slice(0, 60)}`);
           continue;
         }
         const fixResult = await sshExec(ip, raw(check.fixCommand));
@@ -271,7 +273,8 @@ export async function runScoreCheck(
     });
 
     return calculateOverallScore(mergedCategories);
-  } catch {
+  } catch (err) {
+    logger.warning(`Score re-audit failed: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }

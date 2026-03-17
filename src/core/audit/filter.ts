@@ -4,11 +4,20 @@
  * Filters affect what is displayed; history/snapshot always store unfiltered data.
  */
 
-import type { AuditResult } from "./types.js";
+import type { AuditResult, Severity } from "./types.js";
+
+const VALID_SEVERITIES: ReadonlySet<string> = new Set(["critical", "warning", "info"]);
 
 export interface AuditFilter {
   category?: string; // comma-separated, case-insensitive
-  severity?: string; // single value: "critical" | "warning" | "info"
+  severity?: Severity; // single value: "critical" | "warning" | "info"
+}
+
+/** Validate and normalise a raw severity string. Returns undefined if invalid. */
+export function parseSeverity(raw?: string): Severity | undefined {
+  if (!raw) return undefined;
+  const normalised = raw.toLowerCase().trim();
+  return VALID_SEVERITIES.has(normalised) ? (normalised as Severity) : undefined;
 }
 
 /**

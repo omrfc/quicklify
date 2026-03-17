@@ -23,7 +23,7 @@ import { FRAMEWORK_KEY_MAP, type ProfileName } from "../core/audit/compliance/ty
 import type { FrameworkKey } from "../core/audit/compliance/mapper.js";
 import type { AuditCliOptions } from "../core/audit/formatters/index.js";
 import type { AuditDiffResult } from "../core/audit/types.js";
-import { filterAuditResult, buildFilterAnnotation } from "../core/audit/filter.js";
+import { filterAuditResult, buildFilterAnnotation, parseSeverity } from "../core/audit/filter.js";
 import type { AuditFilter } from "../core/audit/filter.js";
 
 function printDiff(diff: AuditDiffResult, json?: boolean): void {
@@ -280,9 +280,13 @@ export async function auditCommand(
 
   // Apply display-only filter (AUX-01, AUX-02, AUX-03)
   // MUST be after saveAuditHistory + saveSnapshot to preserve unfiltered data (AUX-04)
+  const parsedSeverity = parseSeverity(options.severity);
+  if (options.severity && !parsedSeverity) {
+    logger.warning(`Invalid severity "${options.severity}" — expected: critical, warning, info. Showing all.`);
+  }
   const auditFilter: AuditFilter = {
     category: options.category,
-    severity: options.severity,
+    severity: parsedSeverity,
   };
   const displayResult = filterAuditResult(auditResult, auditFilter);
   const filterAnnotation = buildFilterAnnotation(auditFilter);

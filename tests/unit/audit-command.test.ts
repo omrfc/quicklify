@@ -127,6 +127,7 @@ describe("auditCommand", () => {
     // Default filter mocks — pass-through (no filtering)
     mockedFilter.filterAuditResult.mockImplementation((result) => result);
     mockedFilter.buildFilterAnnotation.mockReturnValue("");
+    mockedFilter.parseSeverity.mockImplementation((raw) => raw as ReturnType<typeof auditFilter.parseSeverity>);
 
     // Default fix mocks
     mockedFix.runFix.mockResolvedValue({ applied: [], skipped: [], errors: [] });
