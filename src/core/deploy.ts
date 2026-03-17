@@ -283,7 +283,6 @@ async function barePostSetup(
 
   // Full setup: firewall + secure (BUG-1)
   if (fullSetup && hasValidIp) {
-    removeStaleHostKey(serverIp);
     logger.title("Running full setup (firewall + security)...");
     try {
       await firewallSetup(serverIp, serverName, false, true);

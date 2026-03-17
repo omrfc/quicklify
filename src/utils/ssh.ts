@@ -321,7 +321,7 @@ function sshExecInner(
             retryResult.stderr += `\nHint: Run "ssh-keygen -R ${ip}" to remove the stale host key, then retry.`;
           }
           resolve(retryResult);
-        });
+        }).catch((err: Error) => resolve({ code: 1, stdout: "", stderr: err.message }));
       } else {
         finish({ code: exitCode, stdout, stderr });
       }
