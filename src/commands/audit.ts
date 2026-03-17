@@ -23,6 +23,8 @@ import { FRAMEWORK_KEY_MAP, type ProfileName } from "../core/audit/compliance/ty
 import type { FrameworkKey } from "../core/audit/compliance/mapper.js";
 import type { AuditCliOptions } from "../core/audit/formatters/index.js";
 import type { AuditDiffResult } from "../core/audit/types.js";
+import { filterAuditResult, buildFilterAnnotation } from "../core/audit/filter.js";
+import type { AuditFilter } from "../core/audit/filter.js";
 
 function printDiff(diff: AuditDiffResult, json?: boolean): void {
   console.log(json ? formatDiffJson(diff) : formatDiffTerminal(diff));
@@ -276,6 +278,15 @@ export async function auditCommand(
     logger.success(`Snapshot saved for ${name}`);
   }
 
+  // Apply display-only filter (AUX-01, AUX-02, AUX-03)
+  // MUST be after saveAuditHistory + saveSnapshot to preserve unfiltered data (AUX-04)
+  const auditFilter: AuditFilter = {
+    category: options.category,
+    severity: options.severity,
+  };
+  const displayResult = filterAuditResult(auditResult, auditFilter);
+  const filterAnnotation = buildFilterAnnotation(auditFilter);
+
   // --fix mode: run fix engine
   if (options.fix) {
     const fixResult = await runFix(ip, auditResult, {
@@ -307,7 +318,7 @@ export async function auditCommand(
 
   // --score-only: just print score and exit
   if (options.scoreOnly) {
-    console.log(`${auditResult.overallScore}/100`);
+    console.log(`${auditResult.overallScore}/100${filterAnnotation}`);
 
     if (options.threshold) {
       const threshold = parseInt(options.threshold, 10);
@@ -322,10 +333,15 @@ export async function auditCommand(
     return;
   }
 
-  // Select and run formatter
+  // Select and run formatter (uses displayResult for filtered output)
   const formatter = await selectFormatter(options);
-  const output = formatter(auditResult);
+  const output = formatter(displayResult);
   console.log(output);
+
+  // Show filter annotation when active
+  if (filterAnnotation) {
+    logger.info(`Score: ${auditResult.overallScore}/100${filterAnnotation}`);
+  }
 
   // Show quick wins in terminal output
   if (auditResult.quickWins.length > 0 && !options.json && !options.badge && !options.report) {

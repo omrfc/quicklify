@@ -4,6 +4,7 @@ import * as ssh from "../../src/utils/ssh";
 import * as formatters from "../../src/core/audit/formatters/index";
 import * as auditHistory from "../../src/core/audit/history";
 import * as trendFormatters from "../../src/core/audit/formatters/trend";
+import * as auditFilter from "../../src/core/audit/filter";
 
 jest.mock("../../src/core/audit/index");
 jest.mock("../../src/utils/serverSelect");
@@ -13,6 +14,7 @@ jest.mock("../../src/core/audit/history");
 jest.mock("../../src/core/audit/fix");
 jest.mock("../../src/core/audit/watch");
 jest.mock("../../src/core/audit/formatters/trend");
+jest.mock("../../src/core/audit/filter");
 
 const mockedAuditCore = auditCore as jest.Mocked<typeof auditCore>;
 const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
@@ -20,6 +22,7 @@ const mockedHistory = auditHistory as jest.Mocked<typeof auditHistory>;
 const mockedSsh = ssh as jest.Mocked<typeof ssh>;
 const mockedFormatters = formatters as jest.Mocked<typeof formatters>;
 const mockedTrendFormatters = trendFormatters as jest.Mocked<typeof trendFormatters>;
+const mockedFilter = auditFilter as jest.Mocked<typeof auditFilter>;
 
 // Mock AuditResult for testing
 const mockAuditResult = {
@@ -118,6 +121,10 @@ describe("auditCommand", () => {
     mockedFormatters.selectFormatter.mockResolvedValue(
       (result) => `formatted: ${result.overallScore}/100`,
     );
+
+    // Default filter mocks — pass-through (no filtering)
+    mockedFilter.filterAuditResult.mockImplementation((result) => result);
+    mockedFilter.buildFilterAnnotation.mockReturnValue("");
   });
 
   afterEach(() => {
@@ -229,6 +236,55 @@ describe("auditCommand", () => {
     await auditCommand(undefined, { scoreOnly: true, threshold: "80" });
 
     expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it("should pass --category and --severity to filterAuditResult after saveAuditHistory", async () => {
+    const callOrder: string[] = [];
+    mockedHistory.saveAuditHistory.mockImplementation(() => {
+      callOrder.push("saveAuditHistory");
+      return Promise.resolve();
+    });
+    mockedFilter.filterAuditResult.mockImplementation((result) => {
+      callOrder.push("filterAuditResult");
+      return result;
+    });
+
+    const { auditCommand } = await import("../../src/commands/audit");
+    await auditCommand(undefined, { category: "ssh", severity: "critical" });
+
+    expect(mockedFilter.filterAuditResult).toHaveBeenCalledWith(
+      mockAuditResult,
+      { category: "ssh", severity: "critical" },
+    );
+    expect(callOrder.indexOf("saveAuditHistory")).toBeLessThan(
+      callOrder.indexOf("filterAuditResult"),
+    );
+  });
+
+  it("should display filter annotation when --category is provided", async () => {
+    mockedFilter.buildFilterAnnotation.mockReturnValue(" (showing category: ssh)");
+
+    const { auditCommand } = await import("../../src/commands/audit");
+    await auditCommand(undefined, { category: "ssh" });
+
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("(showing category: ssh)");
+  });
+
+  it("should pass unfiltered auditResult to saveAuditHistory when --category is active", async () => {
+    const filteredResult = {
+      ...mockAuditResult,
+      categories: [mockAuditResult.categories[0]],
+    };
+    mockedFilter.filterAuditResult.mockReturnValue(filteredResult);
+
+    const { auditCommand } = await import("../../src/commands/audit");
+    await auditCommand(undefined, { category: "ssh" });
+
+    // saveAuditHistory must receive the full unfiltered result
+    expect(mockedHistory.saveAuditHistory).toHaveBeenCalledWith(mockAuditResult);
+    // formatter receives the filtered result
+    expect(mockedFormatters.selectFormatter).toHaveBeenCalled();
   });
 });
 
