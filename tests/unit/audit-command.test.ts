@@ -5,6 +5,7 @@ import * as formatters from "../../src/core/audit/formatters/index";
 import * as auditHistory from "../../src/core/audit/history";
 import * as trendFormatters from "../../src/core/audit/formatters/trend";
 import * as auditFilter from "../../src/core/audit/filter";
+import * as auditFix from "../../src/core/audit/fix";
 
 jest.mock("../../src/core/audit/index");
 jest.mock("../../src/utils/serverSelect");
@@ -23,6 +24,7 @@ const mockedSsh = ssh as jest.Mocked<typeof ssh>;
 const mockedFormatters = formatters as jest.Mocked<typeof formatters>;
 const mockedTrendFormatters = trendFormatters as jest.Mocked<typeof trendFormatters>;
 const mockedFilter = auditFilter as jest.Mocked<typeof auditFilter>;
+const mockedFix = auditFix as jest.Mocked<typeof auditFix>;
 
 // Mock AuditResult for testing
 const mockAuditResult = {
@@ -125,6 +127,10 @@ describe("auditCommand", () => {
     // Default filter mocks — pass-through (no filtering)
     mockedFilter.filterAuditResult.mockImplementation((result) => result);
     mockedFilter.buildFilterAnnotation.mockReturnValue("");
+
+    // Default fix mocks
+    mockedFix.runFix.mockResolvedValue({ applied: [], skipped: [], errors: [] });
+    mockedFix.runScoreCheck.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -285,6 +291,62 @@ describe("auditCommand", () => {
     expect(mockedHistory.saveAuditHistory).toHaveBeenCalledWith(mockAuditResult);
     // formatter receives the filtered result
     expect(mockedFormatters.selectFormatter).toHaveBeenCalled();
+  });
+
+  it("shows score delta after successful fix", async () => {
+    const loggerSpy = jest.spyOn(console, "log");
+    mockedFix.runFix.mockResolvedValue({
+      applied: ["SSH-ROOT-LOGIN"],
+      skipped: [],
+      errors: [],
+    });
+    mockedFix.runScoreCheck.mockResolvedValue(85);
+
+    const { auditCommand } = await import("../../src/commands/audit");
+    await auditCommand(undefined, { fix: true });
+
+    const output = loggerSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("\u2192 85");
+  });
+
+  it("does not call runScoreCheck on dry-run", async () => {
+    mockedFix.runFix.mockResolvedValue({
+      applied: [],
+      skipped: [],
+      errors: [],
+      preview: { groups: [] },
+    });
+
+    const { auditCommand } = await import("../../src/commands/audit");
+    await auditCommand(undefined, { fix: true, dryRun: true });
+
+    expect(mockedFix.runScoreCheck).not.toHaveBeenCalled();
+  });
+
+  it("does not call runScoreCheck when zero fixes applied", async () => {
+    mockedFix.runFix.mockResolvedValue({
+      applied: [],
+      skipped: ["SSH-ROOT-LOGIN"],
+      errors: [],
+    });
+
+    const { auditCommand } = await import("../../src/commands/audit");
+    await auditCommand(undefined, { fix: true });
+
+    expect(mockedFix.runScoreCheck).not.toHaveBeenCalled();
+  });
+
+  it("handles runScoreCheck returning null gracefully", async () => {
+    mockedFix.runFix.mockResolvedValue({
+      applied: ["SSH-ROOT-LOGIN"],
+      skipped: [],
+      errors: [],
+    });
+    mockedFix.runScoreCheck.mockResolvedValue(null);
+
+    const { auditCommand } = await import("../../src/commands/audit");
+    // Should not throw
+    await expect(auditCommand(undefined, { fix: true })).resolves.not.toThrow();
   });
 });
 

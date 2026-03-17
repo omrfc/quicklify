@@ -12,7 +12,7 @@ import { selectFormatter } from "../core/audit/formatters/index.js";
 import { saveAuditHistory, loadAuditHistory, detectTrend, computeTrend } from "../core/audit/history.js";
 import { formatTrendTerminal, formatTrendJson } from "../core/audit/formatters/trend.js";
 import { saveSnapshot, listSnapshots } from "../core/audit/snapshot.js";
-import { runFix } from "../core/audit/fix.js";
+import { runFix, runScoreCheck } from "../core/audit/fix.js";
 import { watchAudit } from "../core/audit/watch.js";
 import { diffAudits, resolveSnapshotRef, formatDiffTerminal, formatDiffJson } from "../core/audit/diff.js";
 import { getServers } from "../utils/config.js";
@@ -311,6 +311,30 @@ export async function auditCommand(
       }
       if (fixResult.errors.length > 0) {
         logger.error(`Errors: ${fixResult.errors.join(", ")}`);
+      }
+
+      // Score delta after fix (AUX-05, AUX-06, AUX-07)
+      // Guard: only run when fixes were actually applied (not dry-run, not zero-fix)
+      if (fixResult.applied.length > 0) {
+        const affectedCats = [
+          ...new Set(
+            fixResult.applied
+              .map((checkId) => {
+                for (const cat of auditResult.categories) {
+                  if (cat.checks.some((ch) => ch.id === checkId)) return cat.name;
+                }
+                return undefined;
+              })
+              .filter((name): name is string => name !== undefined),
+          ),
+        ];
+
+        const newScore = await runScoreCheck(ip, platform, auditResult, affectedCats);
+        if (newScore !== null) {
+          const delta = newScore - auditResult.overallScore;
+          const sign = delta >= 0 ? "+" : "";
+          logger.success(`Score: ${auditResult.overallScore} \u2192 ${newScore} (${sign}${delta})`);
+        }
       }
     }
     return;
