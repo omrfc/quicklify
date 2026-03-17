@@ -31,7 +31,7 @@ export function createMcpServer(): McpServer {
 
   server.registerTool("server_info", {
     description:
-      "Get information about Kastell-managed servers. Actions: 'list' all servers, 'status' check cloud provider + Coolify/bare status, 'health' check Coolify reachability or SSH access for bare servers, 'sizes' list available server types with prices for a provider+region. Requires provider API tokens as environment variables (HETZNER_TOKEN, DIGITALOCEAN_TOKEN, VULTR_TOKEN, LINODE_TOKEN) for status/sizes checks. Avoid calling repeatedly in short intervals to prevent provider API rate limiting.",
+      "Get information about Kastell-managed servers. Actions: 'list' all servers, 'status' check cloud provider + Coolify/bare status, 'health' check Coolify reachability or SSH access for bare servers, 'sizes' list available server types with prices for a provider+region. Requires provider API tokens as environment variables (HETZNER_TOKEN, DIGITALOCEAN_TOKEN, VULTR_TOKEN, LINODE_TOKEN) for status/sizes checks. Avoid calling repeatedly in short intervals to prevent provider API rate limiting. For fleet-wide health and audit scores across all servers, use server_fleet instead.",
     inputSchema: serverInfoSchema,
     annotations: {
       title: "Server Information",
@@ -91,7 +91,7 @@ export function createMcpServer(): McpServer {
 
   server.registerTool("server_secure", {
     description:
-      "Secure Kastell servers. Secure: 'secure-setup' applies SSH hardening + fail2ban, 'secure-audit' runs security audit with score. Firewall: 'firewall-setup' installs UFW with Coolify ports, 'firewall-add'/'firewall-remove' manage port rules, 'firewall-status' shows current rules. Domain: 'domain-set'/'domain-remove' manage custom domain with optional SSL, 'domain-check' verifies DNS, 'domain-info' shows current FQDN. All require SSH access to server.",
+      "Secure Kastell servers. Secure: 'secure-setup' applies SSH hardening + fail2ban, 'secure-audit' runs security audit with score. Firewall: 'firewall-setup' installs UFW with Coolify ports, 'firewall-add'/'firewall-remove' manage port rules, 'firewall-status' shows current rules. Domain: 'domain-set'/'domain-remove' manage custom domain with optional SSL, 'domain-check' verifies DNS, 'domain-info' shows current FQDN. All require SSH access to server. For full one-shot hardening (SSH + fail2ban + UFW + sysctl + unattended-upgrades), use server_lock instead.",
     inputSchema: serverSecureSchema,
     annotations: {
       title: "Server Security",
@@ -136,7 +136,7 @@ export function createMcpServer(): McpServer {
 
   server.registerTool("server_audit", {
     description:
-      "Run a security audit on a Kastell-managed server. Returns overall score (0-100), per-category scores (SSH, Firewall, Updates, Auth, Docker, Network, Filesystem, Logging, Kernel), and actionable quick wins. Formats: 'summary' (compact text for AI consumption), 'json' (full AuditResult), 'score' (number only). Requires SSH access to target server.",
+      "Run a security audit on a Kastell-managed server. Scans 27 categories (SSH, Firewall, Updates, Auth, Docker, Network, Filesystem, Logging, Kernel, Accounts, Services, Boot, Scheduling, Time, Banners, Crypto, File Integrity, Malware, MAC, Memory, Secrets, Cloud Metadata, Supply Chain, Backup Hygiene, Resource Limits, Incident Readiness, DNS Security) with 412+ checks. Returns overall score (0-100), per-category scores, and actionable quick wins. Formats: 'summary' (compact text for AI consumption), 'json' (full AuditResult), 'score' (number only). Supports compliance framework filtering: cis-level1, cis-level2, pci-dss, hipaa. Requires SSH access to target server. For predictive health trends (disk trending, swap, stale packages), use server_doctor instead.",
     inputSchema: serverAuditSchema,
     annotations: {
       title: "Server Security Audit",
@@ -181,7 +181,7 @@ export function createMcpServer(): McpServer {
 
   server.registerTool("server_doctor", {
     description:
-      "Run proactive health analysis on a server. Detects disk trending full, high swap, stale packages, elevated fail2ban bans, audit regression streaks, old backups, and reclaimable Docker space. Uses cached metrics by default — pass fresh=true to fetch live data via SSH. Returns findings grouped by severity (critical/warning/info) with remediation commands.",
+      "Run proactive health analysis on a server. Detects disk trending full, high swap, stale packages, elevated fail2ban bans, audit regression streaks, old backups, and reclaimable Docker space. Uses cached metrics by default — pass fresh=true to fetch live data via SSH. Returns findings grouped by severity (critical/warning/info) with remediation commands. For a full scored security audit across 27 categories, use server_audit instead.",
     inputSchema: serverDoctorSchema,
     annotations: {
       title: "Server Doctor",
@@ -196,7 +196,7 @@ export function createMcpServer(): McpServer {
 
   server.registerTool("server_lock", {
     description:
-      "Harden a server to production standard. Applies SSH key-only auth, fail2ban, UFW firewall, sysctl hardening, and unattended-upgrades in a single SSH session. Requires production=true to confirm intent (safety gate). Pass dryRun=true to preview changes without applying. Platform-aware: preserves Coolify port 8000 or Dokploy port 3000 in UFW rules. Shows audit score before and after hardening. Requires SSH access to target server.",
+      "Harden a server to production standard. Applies 5 hardening steps in a single SSH session: SSH key-only auth, fail2ban, UFW firewall, sysctl hardening, and unattended-upgrades. Requires production=true to confirm intent (safety gate). Pass dryRun=true to preview changes without applying. Platform-aware: preserves Coolify port 8000 or Dokploy port 3000 in UFW rules. Shows audit score before and after hardening. Requires SSH access to target server. For fine-grained SSH hardening, firewall port rules, or domain management, use server_secure instead.",
     inputSchema: serverLockSchema,
     annotations: {
       title: "Server Lock",
@@ -211,7 +211,7 @@ export function createMcpServer(): McpServer {
 
   server.registerTool("server_fleet", {
     description:
-      "Get fleet-wide health and security posture for all registered servers. Returns server name, IP, provider, health status (ONLINE/DEGRADED/OFFLINE), cached audit score, and SSH response time. Use sort parameter to order results.",
+      "Get fleet-wide health and security posture for all registered servers. Returns server name, IP, provider, health status (ONLINE/DEGRADED/OFFLINE), cached audit score, and SSH response time. Use sort parameter to order results. For per-server cloud status or available server sizes, use server_info instead.",
     inputSchema: serverFleetSchema,
     annotations: {
       title: "Fleet Visibility",
