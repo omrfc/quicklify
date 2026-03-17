@@ -22,6 +22,7 @@ export class DokployAdapter implements PlatformAdapter {
     const safeName = serverName.replace(/[^a-z0-9-]/g, "");
     return `#!/bin/bash
 set +e
+export DEBIAN_FRONTEND=noninteractive
 touch /var/log/kastell-install.log
 chmod 600 /var/log/kastell-install.log
 exec > >(tee /var/log/kastell-install.log) 2>&1
