@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.10.1] - 2026-03-17
+
+### Added
+- **sshStream stdin support** — SSH batch commands piped via stdin for reliable cross-platform execution
+- **Audit batch error reporting** — Structured error details when audit SSH batches fail
+
+### Fixed
+- **Windows SSH argument escaping** — Batch commands now use stdin pipe instead of spawn arguments, fixing truncation on Windows
+- **Audit sentinel wrappers** — Added sentinel markers for 4 categories (accounts, services, boot, scheduling — 24 checks) fixing parser mismatches
+- **Cloud-init SSH lockout** — Fixed DigitalOcean + Coolify SSH lockout caused by ssh.socket/needrestart/UFW ordering
+- **Interactive menu back navigation** — Back option now works correctly in nested sub-menus
+- **DEBIAN_FRONTEND=noninteractive** — Added to Coolify and Dokploy cloud-init scripts preventing apt prompts
+- **Provision reliability** — Orphan cleanup, Vultr boot timeout (135s), SSH hardening safety guards
+- **Snapshot Zod schema** — Added 6 P52 optional fields (vpsIrrelevant, connectionError, vpsType, vpsAdjustedCount, skippedCategories, warnings) preventing silent strip on load
+
 ## [1.10.0] - 2026-03-16
 
 ### Added
