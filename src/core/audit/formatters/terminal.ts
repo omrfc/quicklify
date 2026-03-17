@@ -129,11 +129,28 @@ export function formatTerminal(result: AuditResult): string {
     }
   }
 
+  // Connection error categories (SSH batch failed)
+  const errorCats = result.categories.filter((c) => c.connectionError);
+  if (errorCats.length > 0) {
+    lines.push("");
+    for (const cat of errorCats) {
+      lines.push(chalk.yellow(`\u26A0 ${cat.name} — skipped (SSH batch failed)`));
+    }
+  }
+
   // Skipped categories display
   if (result.skippedCategories && result.skippedCategories.length > 0) {
     lines.push("");
     for (const name of result.skippedCategories) {
       lines.push(chalk.dim(`Skipped: ${name} (not installed)`));
+    }
+  }
+
+  // Batch warnings
+  if (result.warnings && result.warnings.length > 0) {
+    lines.push("");
+    for (const warn of result.warnings) {
+      lines.push(chalk.yellow(`\u26A0 ${warn}`));
     }
   }
 

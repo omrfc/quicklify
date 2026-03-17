@@ -158,7 +158,12 @@ export function sshConnect(ip: string): Promise<number> {
   });
 }
 
-function sshStreamInner(ip: string, command: string | SshCommand, retried: boolean): Promise<number> {
+function sshStreamInner(
+  ip: string,
+  command: string | SshCommand,
+  retried: boolean,
+  useStdin: boolean = false,
+): Promise<number> {
   const sshBin = resolveSshPath();
   return new Promise((resolve) => {
     let settled = false;
@@ -169,22 +174,31 @@ function sshStreamInner(ip: string, command: string | SshCommand, retried: boole
       resolve(code);
     };
 
+    // When useStdin is true, pipe the command via stdin to avoid Windows
+    // argument escaping issues (same pattern as sshExecInner).
+    const sshArgs = [
+      "-o", `StrictHostKeyChecking=${getHostKeyPolicy()}`,
+      "-o", "BatchMode=yes",
+      "-o", `ConnectTimeout=${SSH_CONNECT_TIMEOUT}`,
+      `root@${ip}`,
+      ...(useStdin ? ["bash", "-s"] : [command]),
+    ];
+
     const child = spawn(
       sshBin,
-      [
-        "-o", `StrictHostKeyChecking=${getHostKeyPolicy()}`,
-        "-o", "BatchMode=yes",
-        "-o", `ConnectTimeout=${SSH_CONNECT_TIMEOUT}`,
-        `root@${ip}`,
-        command,
-      ],
+      sshArgs,
       {
-        // stdin "ignore" — streaming commands don't need user input.
-        // Also prevents MCP stdin (JSON-RPC) from leaking into SSH.
-        stdio: ["ignore", "inherit", "pipe"],
+        // stdin: "pipe" when useStdin (we write the command), otherwise "ignore".
+        // "ignore" prevents MCP stdin (JSON-RPC) from leaking into SSH.
+        stdio: [useStdin ? "pipe" : "ignore", "inherit", "pipe"],
         env: sanitizedEnv(),
       },
     );
+
+    if (useStdin) {
+      child.stdin?.write(command);
+      child.stdin?.end();
+    }
 
     // Process-level timeout for stream operations (longer: 120s for interactive use)
     const timer = setTimeout(() => {
@@ -205,7 +219,7 @@ function sshStreamInner(ip: string, command: string | SshCommand, retried: boole
         removeStaleHostKey(ip);
         clearTimeout(timer);
         settled = true;
-        resolve(sshStreamInner(ip, command, true));
+        resolve(sshStreamInner(ip, command, true, useStdin));
       } else {
         finish(exitCode);
       }
@@ -214,9 +228,13 @@ function sshStreamInner(ip: string, command: string | SshCommand, retried: boole
   });
 }
 
-export function sshStream(ip: string, command: string | SshCommand): Promise<number> {
+export function sshStream(
+  ip: string,
+  command: string | SshCommand,
+  opts?: { useStdin?: boolean },
+): Promise<number> {
   assertValidIp(ip);
-  return sshStreamInner(ip, command, false);
+  return sshStreamInner(ip, command, false, opts?.useStdin ?? false);
 }
 
 function killChild(child: ChildProcess): void {
