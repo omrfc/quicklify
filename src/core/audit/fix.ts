@@ -4,11 +4,13 @@
  */
 
 import type { AuditResult, AuditCheck, Severity } from "./types.js";
-import { SEVERITY_WEIGHTS, CATEGORY_WEIGHTS, DEFAULT_CATEGORY_WEIGHT, buildImpactContext } from "./scoring.js";
+import { SEVERITY_WEIGHTS, CATEGORY_WEIGHTS, DEFAULT_CATEGORY_WEIGHT, buildImpactContext, calculateCategoryScore, calculateOverallScore } from "./scoring.js";
 import type { ImpactContext } from "./scoring.js";
 import { sshExec } from "../../utils/ssh.js";
 import { raw } from "../../utils/sshCommand.js";
 import inquirer from "inquirer";
+import { buildAuditBatchCommands, BATCH_TIMEOUTS } from "./commands.js";
+import { parseAllChecks } from "./checks/index.js";
 
 /** Whitelist of known safe fix command prefixes from audit check definitions */
 const KNOWN_AUDIT_FIX_PREFIXES = [
@@ -230,4 +232,46 @@ export async function runFix(
   }
 
   return { applied, skipped, errors };
+}
+
+/**
+ * Lightweight post-fix re-audit.
+ * Re-runs all SSH batches, but only replaces scores for affected categories.
+ * Returns new overall score, or null on failure or when nothing to check.
+ */
+export async function runScoreCheck(
+  ip: string,
+  platform: string,
+  originalResult: AuditResult,
+  affectedCategories: string[],
+): Promise<number | null> {
+  if (affectedCategories.length === 0) return null;
+
+  try {
+    const batches = buildAuditBatchCommands(platform);
+    const batchOutputs: string[] = [];
+
+    for (const batch of batches) {
+      const result = await sshExec(ip, batch.command, {
+        timeoutMs: BATCH_TIMEOUTS[batch.tier],
+        useStdin: true,
+      });
+      batchOutputs.push(result.stdout);
+    }
+
+    const freshCategories = parseAllChecks(batchOutputs, platform);
+
+    // Merge: replace only affected categories, keep others from original
+    const mergedCategories = originalResult.categories.map((original) => {
+      if (!affectedCategories.includes(original.name)) return original;
+      const fresh = freshCategories.find((c) => c.name === original.name);
+      if (!fresh) return original;
+      const { score, maxScore } = calculateCategoryScore(fresh.checks);
+      return { ...fresh, score, maxScore };
+    });
+
+    return calculateOverallScore(mergedCategories);
+  } catch {
+    return null;
+  }
 }
