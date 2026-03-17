@@ -62,7 +62,7 @@ export function buildUnattendedUpgradesCommand(): SshCommand {
 
   return raw(
     [
-      "apt-get install -y unattended-upgrades",
+      "DEBIAN_FRONTEND=noninteractive apt-get install -y unattended-upgrades",
       `printf '${periodicConfig}\\n' > /etc/apt/apt.conf.d/20auto-upgrades`,
     ].join(" && "),
   );

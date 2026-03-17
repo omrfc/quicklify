@@ -91,7 +91,8 @@ export function buildHardeningCommand(options?: { port?: number }): SshCommand {
     // If port is invalid (NaN, negative, out of range), silently skip — no injection risk
   }
 
-  parts.push(raw("systemctl restart sshd 2>/dev/null || systemctl restart ssh"));
+  parts.push(raw("sshd -t || (cp /etc/ssh/sshd_config.bak /etc/ssh/sshd_config && echo 'SSHD_CONFIG_INVALID' && exit 1)"));
+  parts.push(raw("systemctl restart ssh 2>/dev/null || systemctl restart sshd"));
   return and(...parts);
 }
 
@@ -109,7 +110,7 @@ export function buildFail2banCommand(): SshCommand {
 
   return raw(
     [
-      "apt-get install -y fail2ban python3-systemd",
+      "DEBIAN_FRONTEND=noninteractive apt-get install -y fail2ban python3-systemd",
       `printf '${jailContent}\\n' > /etc/fail2ban/jail.local`,
       "systemctl enable fail2ban",
       "systemctl restart fail2ban",

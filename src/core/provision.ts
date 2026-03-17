@@ -155,6 +155,19 @@ export async function provisionServer(config: ProvisionConfig): Promise<Provisio
     };
   }
 
+  // Helper: build ServerRecord with current state (avoids duplication between timeout and success paths)
+  const buildRecord = (ip: string): ServerRecord => ({
+    id: serverId,
+    name: config.name,
+    provider: config.provider,
+    ip,
+    region,
+    size,
+    createdAt: new Date().toISOString(),
+    mode: isBare ? ("bare" as const) : ("coolify" as const),
+    platform,
+  });
+
   // 10. Wait for running status (provider-specific timing)
   const bootConfig = BOOT_WAIT[config.provider] || BOOT_WAIT_DEFAULT;
   for (let i = 0; i < bootConfig.attempts; i++) {
@@ -166,10 +179,11 @@ export async function provisionServer(config: ProvisionConfig): Promise<Provisio
     }
     if (i === bootConfig.attempts - 1) {
       const totalSec = Math.round((bootConfig.attempts * bootConfig.interval) / 1000);
+      await saveServer(buildRecord(isPendingIp(serverIp) ? "pending" : serverIp));
       return {
         success: false,
         error: `Server did not reach running state within ${totalSec}s`,
-        hint: "The server may still be booting. Check status manually.",
+        hint: `Server saved to config as '${config.name}'. Check with: kastell status ${config.name}`,
       };
     }
     await sleep(bootConfig.interval);
@@ -206,17 +220,7 @@ export async function provisionServer(config: ProvisionConfig): Promise<Provisio
   }
 
   // 12. Save to config
-  const record: ServerRecord = {
-    id: serverId,
-    name: config.name,
-    provider: config.provider,
-    ip: serverIp,
-    region,
-    size,
-    createdAt: new Date().toISOString(),
-    mode: isBare ? ("bare" as const) : ("coolify" as const),
-    platform,
-  };
+  const record = buildRecord(serverIp);
   await saveServer(record);
 
   // 13. Return result

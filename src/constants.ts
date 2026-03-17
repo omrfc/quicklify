@@ -56,7 +56,7 @@ export const COOLIFY_MIN_WAIT: Record<string, number> = {
 export const BOOT_WAIT: Record<string, { attempts: number; interval: number }> = {
   hetzner:      { attempts: 15, interval: 2000 },   // 30s
   digitalocean: { attempts: 30, interval: 2000 },   // 60s
-  vultr:        { attempts: 45, interval: 3000 },   // 135s
+  vultr:        { attempts: 60, interval: 3000 },   // 180s
   linode:       { attempts: 40, interval: 3000 },   // 120s
 };
 export const BOOT_WAIT_DEFAULT = { attempts: 30, interval: 2000 }; // 60s fallback
