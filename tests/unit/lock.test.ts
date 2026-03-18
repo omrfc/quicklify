@@ -89,6 +89,73 @@ describe("buildSysctlHardeningCommand", () => {
     expect(cmd).toMatch(/printf|tee/);
     expect(cmd).toContain("99-kastell.conf");
   });
+
+  // Deep kernel hardening (CIS L2) — new settings
+  it("contains kernel.dmesg_restrict=1", () => {
+    const cmd = buildSysctlHardeningCommand();
+    expect(cmd).toContain("kernel.dmesg_restrict=1");
+  });
+
+  it("contains kernel.kptr_restrict=1", () => {
+    const cmd = buildSysctlHardeningCommand();
+    expect(cmd).toContain("kernel.kptr_restrict=1");
+  });
+
+  it("contains fs.suid_dumpable=0", () => {
+    const cmd = buildSysctlHardeningCommand();
+    expect(cmd).toContain("fs.suid_dumpable=0");
+  });
+
+  it("contains net.ipv4.conf.all.rp_filter=2 (loose mode for Docker)", () => {
+    const cmd = buildSysctlHardeningCommand();
+    expect(cmd).toContain("net.ipv4.conf.all.rp_filter=2");
+  });
+
+  it("contains net.ipv4.conf.default.rp_filter=2", () => {
+    const cmd = buildSysctlHardeningCommand();
+    expect(cmd).toContain("net.ipv4.conf.default.rp_filter=2");
+  });
+
+  it("contains net.core.bpf_jit_harden=1", () => {
+    const cmd = buildSysctlHardeningCommand();
+    expect(cmd).toContain("net.core.bpf_jit_harden=1");
+  });
+
+  it("contains kernel.unprivileged_bpf_disabled=1", () => {
+    const cmd = buildSysctlHardeningCommand();
+    expect(cmd).toContain("kernel.unprivileged_bpf_disabled=1");
+  });
+
+  it("contains net.ipv4.conf.all.send_redirects=0", () => {
+    const cmd = buildSysctlHardeningCommand();
+    expect(cmd).toContain("net.ipv4.conf.all.send_redirects=0");
+  });
+
+  it("contains net.ipv4.conf.default.send_redirects=0", () => {
+    const cmd = buildSysctlHardeningCommand();
+    expect(cmd).toContain("net.ipv4.conf.default.send_redirects=0");
+  });
+
+  it("contains net.ipv4.conf.all.secure_redirects=0", () => {
+    const cmd = buildSysctlHardeningCommand();
+    expect(cmd).toContain("net.ipv4.conf.all.secure_redirects=0");
+  });
+
+  it("contains net.ipv6.conf.all.accept_redirects=0", () => {
+    const cmd = buildSysctlHardeningCommand();
+    expect(cmd).toContain("net.ipv6.conf.all.accept_redirects=0");
+  });
+
+  it("contains net.ipv6.conf.default.accept_redirects=0", () => {
+    const cmd = buildSysctlHardeningCommand();
+    expect(cmd).toContain("net.ipv6.conf.default.accept_redirects=0");
+  });
+
+  it("contains all 21 sysctl settings (8 original + 13 new)", () => {
+    const cmd = buildSysctlHardeningCommand();
+    const settingCount = (cmd.match(/net\.|kernel\.|fs\./g) || []).length;
+    expect(settingCount).toBeGreaterThanOrEqual(21);
+  });
 });
 
 // ─── buildUnattendedUpgradesCommand ─────────────────────────────────────────
@@ -181,6 +248,59 @@ describe("buildAuditdCommand", () => {
   it("locks audit config with -e 2", () => {
     const cmd = buildAuditdCommand();
     expect(cmd).toContain("-e 2");
+  });
+
+  it("writes deep rules to 50-kastell-deep.rules", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("50-kastell-deep.rules");
+  });
+
+  it("writes -e 2 immutability to 99-kastell.rules (not 50)", () => {
+    const cmd = buildAuditdCommand();
+    // -e 2 must appear in the context of 99-kastell.rules
+    expect(cmd).toContain("99-kastell.rules");
+    // deep rules file must be separate
+    expect(cmd).toContain("50-kastell-deep.rules");
+  });
+
+  it("contains time-change audit key", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("-k time-change");
+  });
+
+  it("contains logins audit key", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("-k logins");
+  });
+
+  it("contains session audit key", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("-k session");
+  });
+
+  it("contains network-change audit key", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("-k network-change");
+  });
+
+  it("contains kernel-module audit key", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("-k kernel-module");
+  });
+
+  it("contains adjtimex syscall for time change monitoring", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("adjtimex");
+  });
+
+  it("contains sethostname syscall for network change monitoring", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("sethostname");
+  });
+
+  it("contains init_module syscall for kernel module monitoring", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("init_module");
   });
 });
 

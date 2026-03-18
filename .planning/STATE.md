@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.12
 milestone_name: Lock Advanced + Audit Explain
-status: ready_to_plan
-stopped_at: null
-last_updated: "2026-03-18"
-last_activity: 2026-03-18 — v1.12 roadmap created (phases 57-62)
+status: planning
+stopped_at: Completed 57-02-PLAN.md (explain param on MCP server_audit)
+last_updated: "2026-03-18T10:58:12.320Z"
+last_activity: 2026-03-18 — v1.12 roadmap created
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 2
   percent: 0
 ---
 
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Current Position
 
-Phase: 57 of 62 (Audit Explain) — ready to plan
-Plan: —
-Status: Ready to plan Phase 57
-Last activity: 2026-03-18 — v1.12 roadmap created
+Phase: 57 of 62 (Audit Explain) — both plans complete
+Plan: 01 + 02 (complete)
+Status: Phase 57 complete — both plans done
+Last activity: 2026-03-18 — P57 plan 01 SUMMARY created (terminal formatter explain flag)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█████░░░░░] 50%
 
 ## Accumulated Context
 
@@ -42,6 +42,7 @@ Progress: [░░░░░░░░░░] 0%
 - [v1.12 constraint]: P60 must run after P59 — relies on .bak created by sshHardening step 1 (or must create its own backup)
 - [v1.12 constraint]: SSHC-05 — shared cipher/MAC/KEX constants used by both lock.ts and audit/checks/ssh.ts
 - [v1.12 constraint]: Phase 62 touches GSD tooling (~/.claude/get-shit-done/), not Kastell src/
+- [Phase 57-audit-explain]: explain param only affects summary format; JSON format unchanged since AuditCheck.explain already in type
 
 ### Pending Todos
 
@@ -56,5 +57,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: v1.12 roadmap created, ready to plan Phase 57
+Stopped at: Completed 57-01-PLAN.md (--explain flag wired through terminal formatter)
 Resume file: None
