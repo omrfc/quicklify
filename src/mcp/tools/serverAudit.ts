@@ -18,12 +18,16 @@ export const serverAuditSchema = {
     .describe("Output format: summary (default), json (full result), score (number only)"),
   framework: z.enum(["cis-level1", "cis-level2", "pci-dss", "hipaa"]).optional()
     .describe("Compliance framework filter. Returns per-control pass/fail summary alongside audit results."),
+  explain: z.boolean().optional().describe(
+    "When true, include why + fix explanation for each failing check in summary format output. Capped at 10 checks."
+  ),
 };
 
 export async function handleServerAudit(params: {
   server?: string;
   format?: "summary" | "json" | "score";
   framework?: "cis-level1" | "cis-level2" | "pci-dss" | "hipaa";
+  explain?: boolean;
 }): Promise<McpResponse> {
   try {
     const servers = getServers();
@@ -110,6 +114,24 @@ export async function handleServerAudit(params: {
           `  Pass Rate: ${fwScore.passedControls}/${fwScore.totalControls} (${fwScore.passRate}%)`,
           `  Failing: ${fwScore.controls.filter((c) => !c.passed).length} controls`,
         );
+      }
+    }
+
+    // Explain: append failing check details when explain param is set (summary format only)
+    if (params.explain) {
+      const failingChecks = auditResult.categories
+        .flatMap((c) => c.checks)
+        .filter((ch) => !ch.passed && ch.explain);
+      if (failingChecks.length > 0) {
+        summaryParts.push("", "Failing Checks (with explanations):");
+        const maxDisplay = 10;
+        for (const ch of failingChecks.slice(0, maxDisplay)) {
+          summaryParts.push(`  [${ch.severity}] ${ch.id}: ${ch.name}`);
+          summaryParts.push(`    Why: ${ch.explain}`);
+        }
+        if (failingChecks.length > maxDisplay) {
+          summaryParts.push(`  ... and ${failingChecks.length - maxDisplay} more failing checks`);
+        }
       }
     }
 

@@ -11,6 +11,7 @@ export interface AuditCliOptions {
   report?: string;     // "html" | "md"
   summary?: boolean;
   scoreOnly?: boolean;
+  explain?: boolean;
 }
 
 /**
@@ -46,7 +47,7 @@ export async function selectFormatter(
   }
 
   // Default: terminal output
-  return formatTerminal;
+  return (result) => formatTerminal(result, options);
 }
 
 export { formatTerminal } from "./terminal.js";

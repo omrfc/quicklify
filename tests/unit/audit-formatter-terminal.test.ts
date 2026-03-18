@@ -28,6 +28,7 @@ const mockResult: AuditResult = {
           currentValue: "yes",
           expectedValue: "prohibit-password",
           fixCommand: "sed -i 's/PermitRootLogin yes/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config",
+          explain: "Root login allows brute-force attacks targeting the root account directly.",
         },
       ],
       score: 50,
@@ -212,5 +213,152 @@ describe("formatTerminal", () => {
     // Old flat "Failed Checks" section heading should be gone
     // Check that "Failed Checks" does not appear as a standalone heading
     expect(output).not.toMatch(/\bFailed Checks\b/);
+  });
+});
+
+describe("explain mode", () => {
+  it("shows Why: line for a failing check when explain option is true", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    const output = formatTerminal(mockResult, { explain: true });
+
+    expect(output).toContain("Why:");
+    expect(output).toContain("Root login allows brute-force attacks targeting the root account directly.");
+  });
+
+  it("does NOT show Why: line when explain option is false", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    const output = formatTerminal(mockResult, { explain: false });
+
+    expect(output).not.toContain("Why:");
+  });
+
+  it("does NOT show Why: line when explain option is not provided", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    const output = formatTerminal(mockResult);
+
+    expect(output).not.toContain("Why:");
+  });
+
+  it("does NOT show Why: for a passing check even when explain is true", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    // SSH-PASSWORD-AUTH is passing — its explain should never appear
+    const resultWithPassingExplain: AuditResult = {
+      ...mockResult,
+      categories: [
+        {
+          name: "SSH",
+          checks: [
+            {
+              id: "SSH-PASSWORD-AUTH",
+              category: "SSH",
+              name: "Password Auth",
+              severity: "critical",
+              passed: true,
+              currentValue: "no",
+              expectedValue: "no",
+              explain: "Password auth should be disabled.",
+            },
+          ],
+          score: 100,
+          maxScore: 100,
+        },
+      ],
+      quickWins: [],
+    };
+    const output = formatTerminal(resultWithPassingExplain, { explain: true });
+
+    expect(output).not.toContain("Why:");
+  });
+
+  it("does NOT show Why: for a failing check with no explain field", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    const resultNoExplain: AuditResult = {
+      ...mockResult,
+      categories: [
+        {
+          name: "SSH",
+          checks: [
+            {
+              id: "SSH-ROOT-LOGIN",
+              category: "SSH",
+              name: "Root Login",
+              severity: "critical",
+              passed: false,
+              currentValue: "yes",
+              expectedValue: "prohibit-password",
+              // no explain field
+            },
+          ],
+          score: 0,
+          maxScore: 100,
+        },
+      ],
+      quickWins: [],
+    };
+    const output = formatTerminal(resultNoExplain, { explain: true });
+
+    expect(output).not.toContain("Why:");
+  });
+
+  it("shows Why: when explain is true and only SSH category checks are present (--category filter applied upstream)", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    const sshOnlyResult: AuditResult = {
+      ...mockResult,
+      categories: [
+        {
+          name: "SSH",
+          checks: [
+            {
+              id: "SSH-ROOT-LOGIN",
+              category: "SSH",
+              name: "Root Login",
+              severity: "critical",
+              passed: false,
+              currentValue: "yes",
+              expectedValue: "prohibit-password",
+              explain: "Root login allows brute-force attacks targeting the root account directly.",
+            },
+          ],
+          score: 0,
+          maxScore: 100,
+        },
+      ],
+      quickWins: [],
+    };
+    const output = formatTerminal(sshOnlyResult, { explain: true });
+
+    expect(output).toContain("Why:");
+    expect(output).toContain("Root login allows brute-force attacks targeting the root account directly.");
+  });
+
+  it("shows Why: when explain is true and only critical severity checks are present (--severity filter applied upstream)", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    const criticalOnlyResult: AuditResult = {
+      ...mockResult,
+      categories: [
+        {
+          name: "SSH",
+          checks: [
+            {
+              id: "SSH-ROOT-LOGIN",
+              category: "SSH",
+              name: "Root Login",
+              severity: "critical",
+              passed: false,
+              currentValue: "yes",
+              expectedValue: "prohibit-password",
+              explain: "Root login allows brute-force attacks targeting the root account directly.",
+            },
+          ],
+          score: 0,
+          maxScore: 100,
+        },
+      ],
+      quickWins: [],
+    };
+    const output = formatTerminal(criticalOnlyResult, { explain: true });
+
+    expect(output).toContain("Why:");
+    expect(output).toContain("Root login allows brute-force attacks targeting the root account directly.");
   });
 });

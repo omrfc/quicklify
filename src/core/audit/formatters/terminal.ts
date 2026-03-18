@@ -25,7 +25,7 @@ const FAIL_ICON = "\u274C";  // Red X
  * Shows: header -> overall score -> compliance -> stats header -> VPS banner ->
  *        failing categories (expanded) -> passing categories (collapsed) -> quick wins
  */
-export function formatTerminal(result: AuditResult): string {
+export function formatTerminal(result: AuditResult, options?: { explain?: boolean }): string {
   const lines: string[] = [];
 
   // Header
@@ -114,6 +114,9 @@ export function formatTerminal(result: AuditResult): string {
         );
         if (check.fixCommand) {
           lines.push(chalk.gray(`     Fix: ${check.fixCommand}`));
+        }
+        if (options?.explain && check.explain) {
+          lines.push(chalk.dim(`     Why: ${check.explain}`));
         }
       }
     }

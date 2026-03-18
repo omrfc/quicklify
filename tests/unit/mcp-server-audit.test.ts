@@ -54,6 +54,7 @@ const sampleAuditResult: AuditResult = {
           currentValue: "inactive",
           expectedValue: "active",
           fixCommand: "ufw --force enable",
+          explain: "An active firewall is the first line of defense against unauthorized network access.",
         },
       ],
       score: 0,
@@ -180,5 +181,82 @@ describe("MCP server_audit tool", () => {
     expect(result.isError).toBe(true);
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.error).toContain("SSH connection failed");
+  });
+});
+
+describe("explain param", () => {
+  beforeEach(() => {
+    mockedConfig.getServers.mockReturnValue([sampleServer] as never);
+    mockedConfig.findServer.mockReturnValue(sampleServer as never);
+    mockedAuditRunner.runAudit.mockResolvedValue({
+      success: true,
+      data: sampleAuditResult,
+    });
+  });
+
+  it("should include 'Failing Checks (with explanations):' when explain: true and format is summary", async () => {
+    const result = await handleServerAudit({ server: "coolify-test", format: "summary", explain: true });
+
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.summary).toContain("Failing Checks (with explanations):");
+  });
+
+  it("should include 'Why:' line with check explain text for a failing check", async () => {
+    const result = await handleServerAudit({ server: "coolify-test", format: "summary", explain: true });
+
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.summary).toContain("Why: An active firewall is the first line of defense against unauthorized network access.");
+  });
+
+  it("should NOT include 'Failing Checks (with explanations):' when explain param is not set", async () => {
+    const result = await handleServerAudit({ server: "coolify-test", format: "summary" });
+
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.summary).not.toContain("Failing Checks (with explanations):");
+  });
+
+  it("should return full JSON without extra processing when format is json and explain: true", async () => {
+    const result = await handleServerAudit({ server: "coolify-test", format: "json", explain: true });
+
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.overallScore).toBe(72);
+    expect(parsed.categories).toHaveLength(2);
+  });
+
+  it("should cap output at 10 failing checks with '... and N more' for remainder", async () => {
+    const manyFailingChecks = Array.from({ length: 12 }, (_, i) => ({
+      id: `CHECK-${i + 1}`,
+      category: "Test",
+      name: `Test Check ${i + 1}`,
+      severity: "warning" as const,
+      passed: false,
+      currentValue: "bad",
+      expectedValue: "good",
+      explain: `Explanation for check ${i + 1}`,
+    }));
+
+    const auditResultWith12Failures: AuditResult = {
+      ...sampleAuditResult,
+      categories: [
+        {
+          name: "Test",
+          checks: manyFailingChecks,
+          score: 0,
+          maxScore: 100,
+        },
+      ],
+    };
+
+    mockedAuditRunner.runAudit.mockResolvedValue({
+      success: true,
+      data: auditResultWith12Failures,
+    });
+
+    const result = await handleServerAudit({ server: "coolify-test", format: "summary", explain: true });
+
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.summary).toContain("... and 2 more failing checks");
   });
 });
