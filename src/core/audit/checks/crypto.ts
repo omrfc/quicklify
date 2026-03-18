@@ -5,6 +5,7 @@
  */
 
 import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import { WEAK_CIPHERS, WEAK_MACS, WEAK_KEX } from "../../../constants.js";
 
 interface CryptoCheckDef {
   id: string;
@@ -15,10 +16,6 @@ interface CryptoCheckDef {
   fixCommand: string;
   explain: string;
 }
-
-const WEAK_CIPHERS = ["arcfour", "arcfour128", "arcfour256", "3des-cbc", "blowfish-cbc", "cast128-cbc"];
-const WEAK_MACS = ["hmac-md5", "hmac-sha1-96", "umac-64@openssh.com"];
-const WEAK_KEX = ["diffie-hellman-group1-sha1", "diffie-hellman-group14-sha1"];
 
 const CRYPTO_CHECKS: CryptoCheckDef[] = [
   {

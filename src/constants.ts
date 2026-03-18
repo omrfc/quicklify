@@ -114,5 +114,10 @@ export function formatSnapshotCost(provider: string, sizeGb: number): string {
   return `${cost.currency}${(sizeGb * cost.rate).toFixed(2)}/mo`;
 }
 
+// ─── SSH Crypto Blacklists (shared by lock + audit) ─────────────────────────
+export const WEAK_CIPHERS = ["arcfour", "arcfour128", "arcfour256", "3des-cbc", "blowfish-cbc", "cast128-cbc"];
+export const WEAK_MACS = ["hmac-md5", "hmac-sha1-96", "umac-64@openssh.com"];
+export const WEAK_KEX = ["diffie-hellman-group1-sha1", "diffie-hellman-group14-sha1"];
+
 // ─── Audit Versioning ─────────────────────────────────────────────────────────
 export const AUDIT_VERSION = "1.10.0";
