@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.12.0] - 2026-03-18
+
+### Added
+- **`audit --explain`** — Inline "Why:" + fix explanation for each failing check in CLI and MCP (`--explain` flag, 95%+ coverage)
+- **Lock: auditd CIS L2 rules** — Deep audit rules (time-change, network-change, kernel-module) in `50-kastell-deep.rules` with immutability ordering
+- **Lock: sysctl deep tuning** — 21 kernel hardening settings (dmesg_restrict, kptr_restrict, bpf_jit_harden, rp_filter, ASLR, core dumps)
+- **Lock: pwquality** — CIS L1 password policy (minlen=14, complexity classes, maxrepeat=3), non-fatal with graceful skip
+- **Lock: SSH cipher blacklist** — Weak ciphers/MACs/KEX removed via minus-prefix with `sshd -t` validation and automatic rollback
+- **Lock: Docker runtime hardening** — daemon.json merge (no-new-privileges, live-restore, log rotation, icc:false) with platform-aware guards and reload-not-restart
+- **Lock 19-step hardening** — Expanded from 16 to 19 steps (pwquality + SSH cipher + Docker hardening)
+- **Audit 413 checks** — 4 new checks (KRN-BPF-JIT-HARDEN, LOG-AUDIT-TIME-RULES, LOG-AUDIT-NETWORK-RULES, LOG-AUDIT-MODULE-RULES)
+
+### Fixed
+- **jq injection prevention** — Docker hardening uses stdin pipe instead of shell interpolation
+- **SSH sed tab pattern** — Cipher/MAC/KEX sed patterns now match both space and tab separators
+- **Interactive menu** — Lock description updated from 16-step to 19-step
+
+### Changed
+- **WEAK_CIPHERS/MACS/KEX constants** — Single source in constants.ts, shared by lock and audit
+- **Test coverage** — 4152→4156 tests (SSH cipher builder tests added)
+
 ## [1.11.0] - 2026-03-18
 
 ### Added

@@ -38,6 +38,8 @@ Response time: Within 48 hours
 - `assertSafePath()` — rejects remote SCP paths containing shell metacharacters (`;`, `|`, `&`, `$`, `` ` ``, `(`, `)`, `<`, `>`, newlines, spaces)
 - Server name validation: 3-63 chars, lowercase alphanumeric + hyphens, must start with letter
 - `buildHardeningCommand()` — SSH port option validated as integer in range 1-65535 before interpolation into sed command
+- `buildDockerHardeningCommand()` — JSON settings passed to jq via stdin pipe (`printf '%s' | jq -s`), never via shell string interpolation
+- `buildSshCipherCommand()` — sshd_config validated with `sshd -t` before restart; automatic rollback on failure
 - YAML config: 22+ security key patterns detected and warned
 - MCP tools: Zod schema validation on all inputs (port ranges, provider enums, backup ID regex)
 
