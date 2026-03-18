@@ -3,6 +3,7 @@ import * as config from "../../src/utils/config";
 import * as serverSelect from "../../src/utils/serverSelect";
 import * as providerFactory from "../../src/utils/providerFactory";
 import * as sshUtils from "../../src/utils/ssh";
+import * as loggerUtils from "../../src/utils/logger";
 import * as coreStatus from "../../src/core/status";
 import { statusCommand } from "../../src/commands/status";
 import type { CloudProvider } from "../../src/providers/base";
@@ -11,6 +12,7 @@ jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/serverSelect");
 jest.mock("../../src/utils/providerFactory");
 jest.mock("../../src/utils/ssh");
+jest.mock("../../src/utils/logger");
 jest.mock("../../src/core/status");
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
@@ -18,6 +20,7 @@ const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
 const mockedProviderFactory = providerFactory as jest.Mocked<typeof providerFactory>;
 const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
+const mockedLogger = loggerUtils as jest.Mocked<typeof loggerUtils>;
 const mockedCoreStatus = coreStatus as jest.Mocked<typeof coreStatus>;
 
 const sampleServer = {
@@ -62,6 +65,14 @@ const mockProvider: CloudProvider = {
   getSnapshotCostEstimate: jest.fn(),
 };
 
+const mockSpinner = {
+  start: jest.fn().mockReturnThis(),
+  succeed: jest.fn().mockReturnThis(),
+  fail: jest.fn().mockReturnThis(),
+  stop: jest.fn().mockReturnThis(),
+  warn: jest.fn().mockReturnThis(),
+};
+
 describe("statusCommand", () => {
   let consoleSpy: jest.SpyInstance;
 
@@ -70,6 +81,17 @@ describe("statusCommand", () => {
     jest.resetAllMocks();
     // Default: SSH available
     mockedSsh.checkSshAvailable.mockReturnValue(true);
+    // Default: spinner mock
+    mockedLogger.createSpinner.mockReturnValue(mockSpinner as any);
+    // Default: logger methods mock
+    (mockedLogger.logger as jest.Mocked<typeof mockedLogger.logger>) = {
+      info: jest.fn(),
+      success: jest.fn(),
+      error: jest.fn(),
+      warning: jest.fn(),
+      title: jest.fn(),
+      step: jest.fn(),
+    };
     // Default: restartCoolify succeeds
     mockedCoreStatus.restartCoolify.mockResolvedValue({ success: true, nowRunning: true });
   });
@@ -91,8 +113,6 @@ describe("statusCommand", () => {
   it("should display status for found server", async () => {
     mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
     mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
-    (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
-    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
     mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
 
     // Coolify health check success
@@ -100,10 +120,11 @@ describe("statusCommand", () => {
 
     await statusCommand("1.2.3.4");
 
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("coolify-test");
-    expect(output).toContain("hetzner");
-    expect(output).toContain("1.2.3.4");
+    // logger.info prints server details
+    const infoCalls = (mockedLogger.logger.info as jest.Mock).mock.calls.map((c) => c[0]).join("\n");
+    expect(infoCalls).toContain("coolify-test");
+    expect(infoCalls).toContain("hetzner");
+    expect(infoCalls).toContain("1.2.3.4");
   });
 
   it("should show coolify as not reachable when health check fails", async () => {
@@ -116,8 +137,8 @@ describe("statusCommand", () => {
 
     await statusCommand("1.2.3.4");
 
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("not reachable");
+    const warnCalls = (mockedLogger.logger.warning as jest.Mock).mock.calls.map((c) => c[0]).join("\n");
+    expect(warnCalls).toContain("not reachable");
   });
 
   it("should handle API error gracefully", async () => {
@@ -127,8 +148,8 @@ describe("statusCommand", () => {
 
     await statusCommand("1.2.3.4");
 
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("Unauthorized");
+    const errorCalls = (mockedLogger.logger.error as jest.Mock).mock.calls.map((c) => c[0]).join("\n");
+    expect(errorCalls).toContain("Unauthorized");
   });
 
   it("should allow interactive server selection", async () => {
@@ -140,8 +161,8 @@ describe("statusCommand", () => {
     await statusCommand();
 
     expect(mockedServerSelect.resolveServer).toHaveBeenCalledWith(undefined);
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("coolify-test");
+    const infoCalls = (mockedLogger.logger.info as jest.Mock).mock.calls.map((c) => c[0]).join("\n");
+    expect(infoCalls).toContain("coolify-test");
   });
 
   // ---- --all mode tests ----
@@ -153,8 +174,9 @@ describe("statusCommand", () => {
 
       await statusCommand(undefined, { all: true });
 
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("No servers found");
+      expect(mockedLogger.logger.info).toHaveBeenCalledWith(
+        expect.stringContaining("No servers found"),
+      );
     });
 
     it("should check all servers and display a summary table", async () => {
@@ -274,8 +296,8 @@ describe("statusCommand", () => {
 
       await statusCommand("9.9.9.9");
 
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("bare");
+      const infoCalls = (mockedLogger.logger.info as jest.Mock).mock.calls.map((c) => c[0]).join("\n");
+      expect(infoCalls).toContain("bare");
     });
 
     it("should NOT show Coolify status line for bare server", async () => {
@@ -285,8 +307,8 @@ describe("statusCommand", () => {
 
       await statusCommand("9.9.9.9");
 
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).not.toContain("Coolify Status");
+      const infoCalls = (mockedLogger.logger.info as jest.Mock).mock.calls.map((c) => c[0]).join("\n");
+      expect(infoCalls).not.toContain("Coolify Status");
       expect(mockedAxios.get).not.toHaveBeenCalled();
     });
 
@@ -373,8 +395,8 @@ describe("statusCommand", () => {
       await statusCommand("1.2.3.4", { autostart: true });
 
       expect(mockedCoreStatus.restartCoolify).not.toHaveBeenCalled();
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("SSH not available");
+      const warnCalls = (mockedLogger.logger.warning as jest.Mock).mock.calls.map((c) => c[0]).join("\n");
+      expect(warnCalls).toContain("SSH not available");
     });
 
     it("should not trigger restart when server itself is not running", async () => {
@@ -405,8 +427,8 @@ describe("statusCommand", () => {
       await statusCommand("1.2.3.4", { autostart: true });
 
       expect(mockedCoreStatus.restartCoolify).toHaveBeenCalled();
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("compose error");
+      const errorCalls = (mockedLogger.logger.error as jest.Mock).mock.calls.map((c) => c[0]).join("\n");
+      expect(errorCalls).toContain("compose error");
     });
 
     it("should handle restartCoolify exception via SSH hint", async () => {
@@ -425,9 +447,10 @@ describe("statusCommand", () => {
 
       await statusCommand("1.2.3.4", { autostart: true });
 
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("Connection refused");
-      expect(output).toContain("SSH connection refused");
+      const errorCalls = (mockedLogger.logger.error as jest.Mock).mock.calls.map((c) => c[0]).join("\n");
+      const infoCalls = (mockedLogger.logger.info as jest.Mock).mock.calls.map((c) => c[0]).join("\n");
+      expect(errorCalls).toContain("Connection refused");
+      expect(infoCalls).toContain("SSH connection refused");
     });
 
     it("should warn when coolify still not running after restart", async () => {
@@ -441,8 +464,8 @@ describe("statusCommand", () => {
 
       await statusCommand("1.2.3.4", { autostart: true });
 
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("still be starting");
+      const warnCalls = (mockedLogger.logger.warning as jest.Mock).mock.calls.map((c) => c[0]).join("\n");
+      expect(warnCalls).toContain("still be starting");
     });
   });
 });
