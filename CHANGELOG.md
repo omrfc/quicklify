@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.11.0] - 2026-03-18
+
+### Added
+- **MCP tool descriptions** — Updated all 13 MCP tools with 27-category routing hints and accurate check counts
+- **Audit display filter** — `audit --filter` for display-only category/severity filtering without re-running SSH
+- **Audit fix score delta** — Post-fix score re-audit shows before/after comparison
+- **Lock 16-step expansion** — `server lock` expanded from 5 to 16 hardening steps with grouped CLI output and dry-run preview
+- **Lock step helpers** — `runLockStep` + 11 command builders for modular hardening (auditd, sysctl, pwquality, AIDE, etc.)
+- **SSH host key remediation** — Proactive `removeStaleHostKey` before SSH polling + error output with remediation hints
+
+### Fixed
+- **Interactive menu audit filters** — Audit sub-menu now correctly passes filter and fix options
+- **FW-05 passed field** — Fixed incorrect variable in firewall IPv6 check (`passed: isActive` → `passed: ipv6Enabled`)
+- **MCP check count** — Corrected inflated 488+ count back to accurate 409
+- **Audit filter+fix hardening** — Shell metacharacter guard, severity validation, structured error logging
+- **CLOUDMETA_CATALOG_INPUT format** — Fixed cloud metadata catalog input format
+- **SSH retry error handling** — Added `.catch()` to SSH retry preventing unhandled rejections
+
+### Changed
+- **`getErrorMessage` reuse** — Consolidated error message extraction across modules
+- **`extractSentinelValue` scoping** — Documented as intentionally local to firewall.ts
+
 ## [1.10.1] - 2026-03-17
 
 ### Added
