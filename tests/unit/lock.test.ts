@@ -3,6 +3,18 @@ import * as auditModule from "../../src/core/audit/index";
 import {
   buildSysctlHardeningCommand,
   buildUnattendedUpgradesCommand,
+  buildLoginBannersCommand,
+  buildAuditdCommand,
+  buildResourceLimitsCommand,
+  buildServiceDisableCommand,
+  buildAptValidationCommand,
+  buildLogRetentionCommand,
+  buildCloudMetaBlockCommand,
+  buildAccountLockCommand,
+  buildAideInitCommand,
+  buildBackupPermissionsCommand,
+  buildDnsSecurityCommand,
+  buildDnsRollbackCommand,
   applyLock,
 } from "../../src/core/lock";
 import type { LockResult } from "../../src/core/lock";
@@ -103,6 +115,276 @@ describe("buildUnattendedUpgradesCommand", () => {
   });
 });
 
+// ─── buildLoginBannersCommand ────────────────────────────────────────────────
+
+describe("buildLoginBannersCommand", () => {
+  it("writes to /etc/issue", () => {
+    const cmd = buildLoginBannersCommand();
+    expect(cmd).toContain("/etc/issue");
+  });
+
+  it("writes to /etc/issue.net", () => {
+    const cmd = buildLoginBannersCommand();
+    expect(cmd).toContain("/etc/issue.net");
+  });
+
+  it("adds Banner /etc/issue.net to sshd_config", () => {
+    const cmd = buildLoginBannersCommand();
+    expect(cmd).toContain("Banner /etc/issue.net");
+  });
+
+  it("restarts ssh service", () => {
+    const cmd = buildLoginBannersCommand();
+    expect(cmd).toContain("systemctl restart ssh");
+  });
+
+  it("includes authorized access text", () => {
+    const cmd = buildLoginBannersCommand();
+    expect(cmd).toContain("Authorized access only");
+  });
+});
+
+// ─── buildAuditdCommand ──────────────────────────────────────────────────────
+
+describe("buildAuditdCommand", () => {
+  it("installs auditd via apt-get", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("apt-get install -y auditd");
+  });
+
+  it("writes rules to 99-kastell.rules", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("99-kastell.rules");
+  });
+
+  it("watches /etc/passwd with write/attr permissions", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("/etc/passwd -p wa");
+  });
+
+  it("watches /etc/shadow with write/attr permissions", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("/etc/shadow -p wa");
+  });
+
+  it("watches /etc/sudoers with write/attr permissions", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("/etc/sudoers -p wa");
+  });
+
+  it("monitors setuid and setgid syscalls", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("setuid");
+    expect(cmd).toContain("setgid");
+  });
+
+  it("locks audit config with -e 2", () => {
+    const cmd = buildAuditdCommand();
+    expect(cmd).toContain("-e 2");
+  });
+});
+
+// ─── buildResourceLimitsCommand ─────────────────────────────────────────────
+
+describe("buildResourceLimitsCommand", () => {
+  it("writes to /etc/security/limits.d/99-kastell.conf", () => {
+    const cmd = buildResourceLimitsCommand();
+    expect(cmd).toContain("limits.d/99-kastell.conf");
+  });
+
+  it("sets nproc limits", () => {
+    const cmd = buildResourceLimitsCommand();
+    expect(cmd).toContain("nproc");
+  });
+
+  it("sets nofile limits", () => {
+    const cmd = buildResourceLimitsCommand();
+    expect(cmd).toContain("nofile");
+  });
+});
+
+// ─── buildServiceDisableCommand ─────────────────────────────────────────────
+
+describe("buildServiceDisableCommand", () => {
+  it("targets bluetooth service", () => {
+    const cmd = buildServiceDisableCommand();
+    expect(cmd).toContain("bluetooth");
+  });
+
+  it("targets avahi-daemon service", () => {
+    const cmd = buildServiceDisableCommand();
+    expect(cmd).toContain("avahi-daemon");
+  });
+
+  it("targets cups service", () => {
+    const cmd = buildServiceDisableCommand();
+    expect(cmd).toContain("cups");
+  });
+
+  it("targets rpcbind service", () => {
+    const cmd = buildServiceDisableCommand();
+    expect(cmd).toContain("rpcbind");
+  });
+
+  it("checks service existence with systemctl list-unit-files", () => {
+    const cmd = buildServiceDisableCommand();
+    expect(cmd).toContain("systemctl list-unit-files");
+  });
+
+  it("disables services with systemctl disable", () => {
+    const cmd = buildServiceDisableCommand();
+    expect(cmd).toContain("systemctl disable");
+  });
+});
+
+// ─── buildAptValidationCommand ───────────────────────────────────────────────
+
+describe("buildAptValidationCommand", () => {
+  it("writes to 99-kastell-apt.conf", () => {
+    const cmd = buildAptValidationCommand();
+    expect(cmd).toContain("99-kastell-apt.conf");
+  });
+
+  it("sets AllowUnauthenticated to false", () => {
+    const cmd = buildAptValidationCommand();
+    expect(cmd).toContain("AllowUnauthenticated");
+  });
+
+  it("sets AllowInsecureRepositories to false", () => {
+    const cmd = buildAptValidationCommand();
+    expect(cmd).toContain("AllowInsecureRepositories");
+  });
+});
+
+// ─── buildLogRetentionCommand ────────────────────────────────────────────────
+
+describe("buildLogRetentionCommand", () => {
+  it("enables rsyslog", () => {
+    const cmd = buildLogRetentionCommand();
+    expect(cmd).toContain("rsyslog");
+  });
+
+  it("sets log rotation to 90 days", () => {
+    const cmd = buildLogRetentionCommand();
+    expect(cmd).toContain("rotate 90");
+  });
+
+  it("writes to 99-kastell-syslog logrotate config", () => {
+    const cmd = buildLogRetentionCommand();
+    expect(cmd).toContain("99-kastell-syslog");
+  });
+});
+
+// ─── buildCloudMetaBlockCommand ──────────────────────────────────────────────
+
+describe("buildCloudMetaBlockCommand", () => {
+  it("blocks metadata endpoint 169.254.169.254", () => {
+    const cmd = buildCloudMetaBlockCommand();
+    expect(cmd).toContain("169.254.169.254");
+  });
+
+  it("uses ufw deny", () => {
+    const cmd = buildCloudMetaBlockCommand();
+    expect(cmd).toContain("ufw deny");
+  });
+});
+
+// ─── buildAccountLockCommand ─────────────────────────────────────────────────
+
+describe("buildAccountLockCommand", () => {
+  it("locks accounts with passwd -l", () => {
+    const cmd = buildAccountLockCommand();
+    expect(cmd).toContain("passwd -l");
+  });
+
+  it("targets accounts with UID >= 1000 using awk", () => {
+    const cmd = buildAccountLockCommand();
+    expect(cmd).toContain("$3 >= 1000");
+  });
+});
+
+// ─── buildAideInitCommand ────────────────────────────────────────────────────
+
+describe("buildAideInitCommand", () => {
+  it("installs aide via apt-get", () => {
+    const cmd = buildAideInitCommand();
+    expect(cmd).toContain("apt-get install -y aide");
+  });
+
+  it("uses nohup fire-and-forget for aide --init", () => {
+    const cmd = buildAideInitCommand();
+    expect(cmd).toContain("nohup aide --init");
+  });
+
+  it("creates kastell-aide cron file", () => {
+    const cmd = buildAideInitCommand();
+    expect(cmd).toContain("kastell-aide");
+  });
+
+  it("schedules daily cron at 05:00", () => {
+    const cmd = buildAideInitCommand();
+    expect(cmd).toContain("0 5 * * *");
+  });
+});
+
+// ─── buildBackupPermissionsCommand ───────────────────────────────────────────
+
+describe("buildBackupPermissionsCommand", () => {
+  it("installs rsync via apt-get", () => {
+    const cmd = buildBackupPermissionsCommand();
+    expect(cmd).toContain("apt-get install -y rsync");
+  });
+
+  it("sets chmod 700 on /var/backups", () => {
+    const cmd = buildBackupPermissionsCommand();
+    expect(cmd).toContain("chmod 700 /var/backups");
+  });
+});
+
+// ─── buildDnsSecurityCommand ─────────────────────────────────────────────────
+
+describe("buildDnsSecurityCommand", () => {
+  it("writes to 99-kastell-dns.conf drop-in", () => {
+    const cmd = buildDnsSecurityCommand();
+    expect(cmd).toContain("99-kastell-dns.conf");
+  });
+
+  it("sets DNSSEC=yes", () => {
+    const cmd = buildDnsSecurityCommand();
+    expect(cmd).toContain("DNSSEC=yes");
+  });
+
+  it("sets DNSOverTLS=opportunistic", () => {
+    const cmd = buildDnsSecurityCommand();
+    expect(cmd).toContain("DNSOverTLS=opportunistic");
+  });
+
+  it("verifies DNS with dig google.com", () => {
+    const cmd = buildDnsSecurityCommand();
+    expect(cmd).toContain("dig google.com");
+  });
+
+  it("backs up resolved.conf", () => {
+    const cmd = buildDnsSecurityCommand();
+    expect(cmd).toContain("resolved.conf.kastell.bak");
+  });
+});
+
+// ─── buildDnsRollbackCommand ─────────────────────────────────────────────────
+
+describe("buildDnsRollbackCommand", () => {
+  it("removes 99-kastell-dns.conf drop-in", () => {
+    const cmd = buildDnsRollbackCommand();
+    expect(cmd).toContain("rm -f");
+    expect(cmd).toContain("99-kastell-dns.conf");
+  });
+
+  it("restarts systemd-resolved after rollback", () => {
+    const cmd = buildDnsRollbackCommand();
+    expect(cmd).toContain("systemctl restart systemd-resolved");
+  });
+});
+
 // ─── applyLock ───────────────────────────────────────────────────────────────
 
 describe("applyLock", () => {
@@ -113,7 +395,7 @@ describe("applyLock", () => {
       expect(mockedSsh.sshExec).not.toHaveBeenCalled();
     });
 
-    it("returns LockResult with steps structure", async () => {
+    it("returns LockResult with all 16 step fields", async () => {
       const result = await applyLock("1.2.3.4", "test-server", undefined, { dryRun: true });
       expect(result).toHaveProperty("steps");
       expect(result.steps).toHaveProperty("sshHardening");
@@ -121,11 +403,22 @@ describe("applyLock", () => {
       expect(result.steps).toHaveProperty("ufw");
       expect(result.steps).toHaveProperty("sysctl");
       expect(result.steps).toHaveProperty("unattendedUpgrades");
+      expect(result.steps).toHaveProperty("banners");
+      expect(result.steps).toHaveProperty("accountLock");
+      expect(result.steps).toHaveProperty("cloudMeta");
+      expect(result.steps).toHaveProperty("dns");
+      expect(result.steps).toHaveProperty("aptValidation");
+      expect(result.steps).toHaveProperty("resourceLimits");
+      expect(result.steps).toHaveProperty("serviceDisable");
+      expect(result.steps).toHaveProperty("backupPermissions");
+      expect(result.steps).toHaveProperty("auditd");
+      expect(result.steps).toHaveProperty("logRetention");
+      expect(result.steps).toHaveProperty("aide");
     });
   });
 
   describe("happy path", () => {
-    it("calls sshExec 6 times: key check + 5 steps", async () => {
+    it("calls sshExec 17 times: key check + 16 steps", async () => {
       mockedAudit.runAudit
         .mockResolvedValueOnce(makeAuditResult(45))
         .mockResolvedValueOnce(makeAuditResult(72));
@@ -133,8 +426,10 @@ describe("applyLock", () => {
 
       await applyLock("1.2.3.4", "test-server", undefined, {});
 
-      // key check + SSH hardening + fail2ban + UFW + sysctl + unattended-upgrades = 6
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(6);
+      // key check + SSH hardening + fail2ban + banners + accountLock + UFW + cloudMeta + DNS
+      // + sysctl + unattended-upgrades + aptValidation + resourceLimits + serviceDisable
+      // + backupPermissions + auditd + logRetention + aide = 17
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(17);
     });
 
     it("captures scoreBefore=45 and scoreAfter=72 from runAudit", async () => {
@@ -160,6 +455,26 @@ describe("applyLock", () => {
       expect(result.steps.ufw).toBe(true);
       expect(result.steps.sysctl).toBe(true);
       expect(result.steps.unattendedUpgrades).toBe(true);
+      expect(result.steps.banners).toBe(true);
+      expect(result.steps.accountLock).toBe(true);
+      expect(result.steps.cloudMeta).toBe(true);
+      expect(result.steps.dns).toBe(true);
+      expect(result.steps.aptValidation).toBe(true);
+      expect(result.steps.resourceLimits).toBe(true);
+      expect(result.steps.serviceDisable).toBe(true);
+      expect(result.steps.backupPermissions).toBe(true);
+      expect(result.steps.auditd).toBe(true);
+      expect(result.steps.logRetention).toBe(true);
+      expect(result.steps.aide).toBe(true);
+    });
+
+    it("stepErrors is absent on full success", async () => {
+      mockedAudit.runAudit.mockResolvedValue(makeAuditResult(80));
+      mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "2", stderr: "" });
+
+      const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+
+      expect(result.stepErrors).toBeUndefined();
     });
 
     it("returns success=true on full success", async () => {
@@ -226,9 +541,7 @@ describe("applyLock", () => {
         .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" }) // key check
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // SSH hardening
         .mockRejectedValueOnce(new Error("fail2ban install failed")) // fail2ban
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // UFW
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // sysctl
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }); // unattended-upgrades
+        .mockResolvedValue({ code: 0, stdout: "", stderr: "" }); // all remaining steps
 
       const result = await applyLock("1.2.3.4", "test-server", undefined, {});
 
@@ -240,20 +553,31 @@ describe("applyLock", () => {
       expect(result.success).toBe(true);
     });
 
+    it("populates stepErrors for the failed step", async () => {
+      mockedAudit.runAudit.mockResolvedValue(makeAuditResult(50));
+      mockedSsh.sshExec
+        .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" }) // key check
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // SSH hardening
+        .mockRejectedValueOnce(new Error("fail2ban install failed")) // fail2ban
+        .mockResolvedValue({ code: 0, stdout: "", stderr: "" }); // all remaining steps
+
+      const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+
+      expect(result.stepErrors?.fail2ban).toBeDefined();
+    });
+
     it("runs all remaining steps even when a non-critical step fails", async () => {
       mockedAudit.runAudit.mockResolvedValue(makeAuditResult(50));
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" }) // key check
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // SSH hardening
         .mockRejectedValueOnce(new Error("fail2ban failed")) // fail2ban (non-fatal)
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // UFW
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // sysctl
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }); // unattended-upgrades
+        .mockResolvedValue({ code: 0, stdout: "", stderr: "" }); // all remaining steps
 
       await applyLock("1.2.3.4", "test-server", undefined, {});
 
-      // All 6 calls were made (key check + 5 steps)
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(6);
+      // All 17 calls were made (key check + 16 steps)
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(17);
     });
   });
 
@@ -262,7 +586,8 @@ describe("applyLock", () => {
       mockedAudit.runAudit.mockResolvedValue(makeAuditResult(30));
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" }) // key check
-        .mockRejectedValueOnce(new Error("SSH hardening failed")); // SSH hardening (critical)
+        .mockRejectedValueOnce(new Error("SSH hardening failed")) // SSH hardening (critical)
+        .mockResolvedValue({ code: 0, stdout: "", stderr: "" }); // remaining steps
 
       const result = await applyLock("1.2.3.4", "test-server", undefined, {});
 
@@ -275,14 +600,76 @@ describe("applyLock", () => {
       mockedSsh.sshExec
         .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" }) // key check
         .mockRejectedValueOnce(new Error("SSH hardening failed")) // SSH hardening
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // fail2ban
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // UFW
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // sysctl
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }); // unattended-upgrades
+        .mockResolvedValue({ code: 0, stdout: "", stderr: "" }); // all remaining steps
 
       await applyLock("1.2.3.4", "test-server", undefined, {});
 
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(6);
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(17);
+    });
+  });
+
+  describe("cloud metadata skip when UFW fails", () => {
+    it("skips cloudMeta when UFW step fails", async () => {
+      mockedAudit.runAudit.mockResolvedValue(makeAuditResult(50));
+      mockedSsh.sshExec
+        .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" }) // key check
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // SSH hardening
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // fail2ban
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // banners
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // accountLock
+        .mockRejectedValueOnce(new Error("UFW failed")) // UFW
+        // cloudMeta is SKIPPED (no sshExec call)
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // DNS
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // sysctl
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // unattended
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // aptValidation
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // resourceLimits
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // serviceDisable
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // backupPermissions
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // auditd
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // logRetention
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }); // aide
+
+      const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+
+      expect(result.steps.ufw).toBe(false);
+      expect(result.steps.cloudMeta).toBe(false);
+      expect(result.stepErrors?.ufw).toBeDefined();
+      expect(result.stepErrors?.cloudMeta).toBe("UFW required");
+      // 16 calls: no cloudMeta call since UFW failed
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(16);
+    });
+  });
+
+  describe("DNS rollback on failure", () => {
+    it("rolls back DNS on dig failure and sets dns=false", async () => {
+      mockedAudit.runAudit.mockResolvedValue(makeAuditResult(50));
+      mockedSsh.sshExec
+        .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" }) // key check
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // SSH hardening
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // fail2ban
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // banners
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // accountLock
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // UFW
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // cloudMeta
+        .mockRejectedValueOnce(new Error("dig timeout")) // DNS FAIL
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // DNS rollback
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // sysctl
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // unattended
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // aptValidation
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // resourceLimits
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // serviceDisable
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // backupPermissions
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // auditd
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // logRetention
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }); // aide
+
+      const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+
+      expect(result.steps.dns).toBe(false);
+      expect(result.stepErrors?.dns).toContain("dig timeout");
+      // 18 calls: 17 normal + 1 DNS rollback
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(18);
     });
   });
 
@@ -322,8 +709,8 @@ describe("applyLock", () => {
 
       const result = await applyLock("1.2.3.4", "test-server", undefined, {});
 
-      // Should still complete all steps
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(6);
+      // Should still complete all 17 steps
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(17);
       expect(result.steps.sshHardening).toBe(true);
     });
   });
