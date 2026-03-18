@@ -60,7 +60,7 @@ const failedResult: LockResult = {
     accountLock: true,
     ufw: true,
     cloudMeta: true,
-    dns: true,
+    dns: false,
     sysctl: true,
     unattendedUpgrades: true,
     aptValidation: true,
@@ -71,7 +71,13 @@ const failedResult: LockResult = {
     logRetention: true,
     aide: true,
   },
+  stepErrors: {
+    sshHardening: "connection refused",
+    dns: "rollback: connectivity test failed",
+  },
   error: "SSH hardening failed",
+  scoreBefore: 45,
+  scoreAfter: 50,
 };
 
 // Spinner mock
@@ -143,19 +149,24 @@ describe("lockCommand", () => {
   });
 
   describe("dry-run mode", () => {
-    it("calls applyLock with dryRun=true when --dry-run is set", async () => {
+    it("does not call applyLock in dry-run mode", async () => {
       await lockCommand("prod-server", { production: true, dryRun: true });
-      expect(mockedLock.applyLock).toHaveBeenCalledWith(
-        sampleServer.ip,
-        sampleServer.name,
-        sampleServer.platform,
-        expect.objectContaining({ dryRun: true }),
-      );
+      expect(mockedLock.applyLock).not.toHaveBeenCalled();
     });
 
     it("does not use spinner when --dry-run is set", async () => {
       await lockCommand("prod-server", { production: true, dryRun: true });
       expect(mockedLogger.createSpinner).not.toHaveBeenCalled();
+    });
+
+    it("displays preview with markers in dry-run mode", async () => {
+      await lockCommand("prod-server", { production: true, dryRun: true });
+      const infoCalls = (mockedLogger.logger.info as jest.Mock).mock.calls
+        .map((c: string[]) => c[0])
+        .join(" ");
+      expect(infoCalls).toContain("○");
+      expect(infoCalls).toContain("SSH & Auth");
+      expect(infoCalls).toContain("Monitoring");
     });
   });
 
@@ -178,17 +189,41 @@ describe("lockCommand", () => {
       expect(mockSpinner.start).toHaveBeenCalled();
     });
 
-    it("displays per-step results for all 5 steps", async () => {
+    it("displays per-step results for all 16 steps", async () => {
       await lockCommand("prod-server", { production: true, force: true });
-      // 5 steps should be logged: sshHardening, fail2ban, ufw, sysctl, unattendedUpgrades
-      const logCalls = (mockedLogger.logger.info as jest.Mock).mock.calls.map((c: string[]) => c[0]);
-      const stepCalls = (mockedLogger.logger.success as jest.Mock).mock.calls.map((c: string[]) => c[0]);
-      const allOutputs = [...logCalls, ...stepCalls].join(" ");
-      expect(allOutputs).toMatch(/ssh/i);
-      expect(allOutputs).toMatch(/fail2ban/i);
-      expect(allOutputs).toMatch(/ufw|firewall/i);
-      expect(allOutputs).toMatch(/sysctl/i);
-      expect(allOutputs).toMatch(/unattended|upgrade/i);
+      const allCalls = [
+        ...(mockedLogger.logger.info as jest.Mock).mock.calls.map((c: string[]) => c[0]),
+        ...(mockedLogger.logger.success as jest.Mock).mock.calls.map((c: string[]) => c[0]),
+        ...(mockedLogger.logger.error as jest.Mock).mock.calls.map((c: string[]) => c[0]),
+      ].join(" ").toLowerCase();
+
+      expect(allCalls).toContain("ssh");
+      expect(allCalls).toContain("fail2ban");
+      expect(allCalls).toContain("banner");
+      expect(allCalls).toContain("account");
+      expect(allCalls).toContain("firewall");
+      expect(allCalls).toContain("metadata");
+      expect(allCalls).toContain("dns");
+      expect(allCalls).toContain("sysctl");
+      expect(allCalls).toContain("upgrade");
+      expect(allCalls).toContain("apt");
+      expect(allCalls).toContain("limit");
+      expect(allCalls).toContain("service");
+      expect(allCalls).toContain("backup");
+      expect(allCalls).toContain("auditd");
+      expect(allCalls).toContain("log");
+      expect(allCalls).toContain("aide");
+    });
+
+    it("displays 4 group headers in output", async () => {
+      await lockCommand("prod-server", { production: true, force: true });
+      const infoCalls = (mockedLogger.logger.info as jest.Mock).mock.calls
+        .map((c: string[]) => c[0])
+        .join(" ");
+      expect(infoCalls).toContain("SSH & Auth");
+      expect(infoCalls).toContain("Firewall & Network");
+      expect(infoCalls).toContain("System");
+      expect(infoCalls).toContain("Monitoring");
     });
 
     it("displays audit score delta when both scores are present", async () => {
@@ -216,6 +251,16 @@ describe("lockCommand", () => {
       expect(mockedLogger.logger.error).toHaveBeenCalledWith(
         expect.stringContaining("SSH hardening failed"),
       );
+    });
+
+    it("displays error reason for failed steps", async () => {
+      mockedLock.applyLock.mockResolvedValue(failedResult);
+      await lockCommand("prod-server", { production: true, force: true });
+      const errorCalls = (mockedLogger.logger.error as jest.Mock).mock.calls
+        .map((c: string[]) => c[0])
+        .join(" ");
+      expect(errorCalls).toContain("✗");
+      expect(errorCalls).toContain("connectivity test failed");
     });
   });
 });
