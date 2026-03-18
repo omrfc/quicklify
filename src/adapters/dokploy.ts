@@ -17,6 +17,9 @@ const DOKPLOY_UPDATE_CMD = `curl -sSL ${DOKPLOY_INSTALL_URL} -o /tmp/dokploy-ins
 
 export class DokployAdapter implements PlatformAdapter {
   readonly name = "dokploy";
+  readonly port = DOKPLOY_PORT;
+  readonly defaultLogService = "dokploy";
+  readonly platformPorts: readonly number[] = [80, 443, DOKPLOY_PORT];
 
   getCloudInit(serverName: string): string {
     const safeName = serverName.replace(/[^a-z0-9-]/g, "");

@@ -120,6 +120,30 @@ describe("getAdapter", () => {
   it("should throw for unknown platform", () => {
     expect(() => getAdapter("unknown" as any)).toThrow("Unknown platform: unknown");
   });
+
+  it("coolify adapter port is 8000", () => {
+    expect(getAdapter("coolify").port).toBe(8000);
+  });
+
+  it("dokploy adapter port is 3000", () => {
+    expect(getAdapter("dokploy").port).toBe(3000);
+  });
+
+  it("coolify adapter defaultLogService is 'coolify'", () => {
+    expect(getAdapter("coolify").defaultLogService).toBe("coolify");
+  });
+
+  it("dokploy adapter defaultLogService is 'dokploy'", () => {
+    expect(getAdapter("dokploy").defaultLogService).toBe("dokploy");
+  });
+
+  it("coolify adapter platformPorts includes 8000", () => {
+    expect(getAdapter("coolify").platformPorts).toContain(8000);
+  });
+
+  it("dokploy adapter platformPorts includes 3000", () => {
+    expect(getAdapter("dokploy").platformPorts).toContain(3000);
+  });
 });
 
 describe("resolvePlatform", () => {

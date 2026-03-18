@@ -101,6 +101,28 @@ describe.each(ADAPTERS)("PlatformAdapter contract — $adapterName", ({ factory 
     expect(adapter.name).toBe(adapter.name.toLowerCase());
   });
 
+  // ─── new properties (port, defaultLogService, platformPorts) ─────────────────
+
+  it("port is a number greater than 0", () => {
+    expect(typeof adapter.port).toBe("number");
+    expect(adapter.port).toBeGreaterThan(0);
+  });
+
+  it("defaultLogService is a non-empty string", () => {
+    expect(typeof adapter.defaultLogService).toBe("string");
+    expect(adapter.defaultLogService.length).toBeGreaterThan(0);
+  });
+
+  it("platformPorts is an array that includes adapter.port", () => {
+    expect(Array.isArray(adapter.platformPorts)).toBe(true);
+    expect(adapter.platformPorts).toContain(adapter.port);
+  });
+
+  it("platformPorts includes 80 and 443", () => {
+    expect(adapter.platformPorts).toContain(80);
+    expect(adapter.platformPorts).toContain(443);
+  });
+
   // ─── getCloudInit ─────────────────────────────────────────────────────────────
 
   it("getCloudInit returns a bash script string starting with #!/bin/bash", () => {

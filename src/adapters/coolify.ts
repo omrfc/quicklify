@@ -17,6 +17,9 @@ const COOLIFY_UPDATE_CMD = `curl -fsSL ${COOLIFY_INSTALL_URL} -o /tmp/coolify-in
 
 export class CoolifyAdapter implements PlatformAdapter {
   readonly name = "coolify";
+  readonly port = COOLIFY_PORT;
+  readonly defaultLogService = "coolify";
+  readonly platformPorts: readonly number[] = [80, 443, COOLIFY_PORT, 6001, 6002];
 
   getCloudInit(serverName: string): string {
     const safeName = serverName.replace(/[^a-z0-9-]/g, "");
