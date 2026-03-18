@@ -570,7 +570,7 @@ describe("applyLock", () => {
       expect(mockedSsh.sshExec).not.toHaveBeenCalled();
     });
 
-    it("returns LockResult with all 16 step fields", async () => {
+    it("returns LockResult with all 17 step fields", async () => {
       const result = await applyLock("1.2.3.4", "test-server", undefined, { dryRun: true });
       expect(result).toHaveProperty("steps");
       expect(result.steps).toHaveProperty("sshHardening");
@@ -586,6 +586,7 @@ describe("applyLock", () => {
       expect(result.steps).toHaveProperty("resourceLimits");
       expect(result.steps).toHaveProperty("serviceDisable");
       expect(result.steps).toHaveProperty("backupPermissions");
+      expect(result.steps).toHaveProperty("pwquality");
       expect(result.steps).toHaveProperty("auditd");
       expect(result.steps).toHaveProperty("logRetention");
       expect(result.steps).toHaveProperty("aide");
@@ -593,7 +594,7 @@ describe("applyLock", () => {
   });
 
   describe("happy path", () => {
-    it("calls sshExec 17 times: key check + 16 steps", async () => {
+    it("calls sshExec 18 times: key check + 17 steps", async () => {
       mockedAudit.runAudit
         .mockResolvedValueOnce(makeAuditResult(45))
         .mockResolvedValueOnce(makeAuditResult(72));
@@ -603,8 +604,8 @@ describe("applyLock", () => {
 
       // key check + SSH hardening + fail2ban + banners + accountLock + UFW + cloudMeta + DNS
       // + sysctl + unattended-upgrades + aptValidation + resourceLimits + serviceDisable
-      // + backupPermissions + auditd + logRetention + aide = 17
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(17);
+      // + backupPermissions + pwquality + auditd + logRetention + aide = 18
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(18);
     });
 
     it("captures scoreBefore=45 and scoreAfter=72 from runAudit", async () => {
@@ -638,6 +639,7 @@ describe("applyLock", () => {
       expect(result.steps.resourceLimits).toBe(true);
       expect(result.steps.serviceDisable).toBe(true);
       expect(result.steps.backupPermissions).toBe(true);
+      expect(result.steps.pwquality).toBe(true);
       expect(result.steps.auditd).toBe(true);
       expect(result.steps.logRetention).toBe(true);
       expect(result.steps.aide).toBe(true);
@@ -751,8 +753,8 @@ describe("applyLock", () => {
 
       await applyLock("1.2.3.4", "test-server", undefined, {});
 
-      // All 17 calls were made (key check + 16 steps)
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(17);
+      // All 18 calls were made (key check + 17 steps)
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(18);
     });
   });
 
@@ -779,7 +781,7 @@ describe("applyLock", () => {
 
       await applyLock("1.2.3.4", "test-server", undefined, {});
 
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(17);
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(18);
     });
   });
 
@@ -801,6 +803,7 @@ describe("applyLock", () => {
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // resourceLimits
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // serviceDisable
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // backupPermissions
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // pwquality
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // auditd
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // logRetention
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }); // aide
@@ -811,8 +814,8 @@ describe("applyLock", () => {
       expect(result.steps.cloudMeta).toBe(false);
       expect(result.stepErrors?.ufw).toBeDefined();
       expect(result.stepErrors?.cloudMeta).toBe("UFW required");
-      // 16 calls: no cloudMeta call since UFW failed
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(16);
+      // 17 calls: no cloudMeta call since UFW failed, but pwquality still runs
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(17);
     });
   });
 
@@ -835,6 +838,7 @@ describe("applyLock", () => {
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // resourceLimits
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // serviceDisable
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // backupPermissions
+        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // pwquality
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // auditd
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // logRetention
         .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }); // aide
@@ -843,8 +847,8 @@ describe("applyLock", () => {
 
       expect(result.steps.dns).toBe(false);
       expect(result.stepErrors?.dns).toContain("dig timeout");
-      // 18 calls: 17 normal + 1 DNS rollback
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(18);
+      // 19 calls: 18 normal + 1 DNS rollback
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(19);
     });
   });
 
@@ -884,8 +888,8 @@ describe("applyLock", () => {
 
       const result = await applyLock("1.2.3.4", "test-server", undefined, {});
 
-      // Should still complete all 17 steps
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(17);
+      // Should still complete all 18 steps
+      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(18);
       expect(result.steps.sshHardening).toBe(true);
     });
   });
