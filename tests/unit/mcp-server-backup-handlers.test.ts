@@ -8,6 +8,7 @@ jest.mock("../../src/core/manage");
 jest.mock("../../src/utils/modeGuard");
 jest.mock("../../src/adapters/factory", () => ({
   resolvePlatform: jest.fn(),
+  getAdapter: jest.fn(),
 }));
 jest.mock("../../src/mcp/utils", () => ({
   mcpSuccess: jest.fn((data: Record<string, unknown>) => ({
@@ -85,10 +86,8 @@ beforeEach(() => {
 // ─── handleBackupCreate ───────────────────────────────────────────────────────
 
 describe("handleBackupCreate", () => {
-  it("calls createBackup for platform server", async () => {
-    mockedModeGuard.isBareServer.mockReturnValue(false);
-    mockedFactory.resolvePlatform.mockReturnValue("coolify");
-    mockedBackup.createBackup.mockResolvedValue({
+  it("calls backupServer for platform server and returns success", async () => {
+    mockedBackup.backupServer.mockResolvedValue({
       success: true,
       backupPath: "/backups/test-server/2024-01-01",
       manifest: { serverName: "test-server", provider: "hetzner", timestamp: "2024-01-01T00:00:00Z", coolifyVersion: "4.0.0", files: ["db.sql"] },
@@ -96,27 +95,24 @@ describe("handleBackupCreate", () => {
 
     await handleBackupCreate(mockServer);
 
-    expect(mockedBackup.createBackup).toHaveBeenCalledWith("1.2.3.4", "test-server", "hetzner", "coolify");
+    expect(mockedBackup.backupServer).toHaveBeenCalledWith(mockServer);
   });
 
-  it("calls createBareBackup for bare server", async () => {
-    mockedModeGuard.isBareServer.mockReturnValue(true);
-    mockedFactory.resolvePlatform.mockReturnValue(undefined);
-    mockedBackup.createBareBackup.mockResolvedValue({
+  it("calls backupServer for bare server and returns success", async () => {
+    const bareServer: ServerRecord = { ...mockServer, mode: "bare", platform: undefined };
+    mockedBackup.backupServer.mockResolvedValue({
       success: true,
       backupPath: "/backups/test-server/2024-01-01",
-      manifest: { serverName: "test-server", provider: "hetzner", timestamp: "2024-01-01T00:00:00Z", coolifyVersion: "N/A", files: [] },
+      manifest: { serverName: "test-server", provider: "hetzner", timestamp: "2024-01-01T00:00:00Z", coolifyVersion: "n/a", files: ["bare-config.tar.gz"], mode: "bare" },
     });
 
-    await handleBackupCreate(mockServer);
+    await handleBackupCreate(bareServer);
 
-    expect(mockedBackup.createBareBackup).toHaveBeenCalledWith("1.2.3.4", "test-server", "hetzner");
+    expect(mockedBackup.backupServer).toHaveBeenCalledWith(bareServer);
   });
 
   it("returns mcpSuccess with backup path on success", async () => {
-    mockedModeGuard.isBareServer.mockReturnValue(false);
-    mockedFactory.resolvePlatform.mockReturnValue("coolify");
-    mockedBackup.createBackup.mockResolvedValue({
+    mockedBackup.backupServer.mockResolvedValue({
       success: true,
       backupPath: "/backups/test-server/2024-01-01",
       manifest: { serverName: "test-server", provider: "hetzner", timestamp: "2024-01-01T00:00:00Z", coolifyVersion: "4.0.0", files: ["db.sql"] },
@@ -130,10 +126,8 @@ describe("handleBackupCreate", () => {
     expect(payload.backupPath).toBe("/backups/test-server/2024-01-01");
   });
 
-  it("returns error when createBackup fails", async () => {
-    mockedModeGuard.isBareServer.mockReturnValue(false);
-    mockedFactory.resolvePlatform.mockReturnValue("coolify");
-    mockedBackup.createBackup.mockResolvedValue({
+  it("returns error when backupServer fails", async () => {
+    mockedBackup.backupServer.mockResolvedValue({
       success: false,
       error: "SSH connection failed",
     });

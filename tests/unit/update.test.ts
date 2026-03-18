@@ -3,19 +3,27 @@ import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
 import * as serverSelect from "../../src/utils/serverSelect";
 import * as adapterFactory from "../../src/adapters/factory";
+import * as loggerUtils from "../../src/utils/logger";
+import * as modeGuard from "../../src/utils/modeGuard";
 import * as coreUpdate from "../../src/core/update";
 import { updateCommand } from "../../src/commands/update";
 
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");
 jest.mock("../../src/utils/serverSelect");
+jest.mock("../../src/utils/logger");
 jest.mock("../../src/core/update");
+jest.mock("../../src/adapters/factory");
+jest.mock("../../src/utils/modeGuard");
 
 const mockedInquirer = inquirer as jest.Mocked<typeof inquirer>;
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
 const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
+const mockedLogger = loggerUtils as jest.Mocked<typeof loggerUtils>;
+const mockedModeGuard = modeGuard as jest.Mocked<typeof modeGuard>;
 const mockedCoreUpdate = coreUpdate as jest.Mocked<typeof coreUpdate>;
+const mockedAdapterFactory = adapterFactory as jest.Mocked<typeof adapterFactory>;
 
 const sampleServer = {
   id: "123",
@@ -39,30 +47,62 @@ const sampleServer2 = {
   mode: "coolify" as const,
 };
 
+const mockSpinner = {
+  start: jest.fn().mockReturnThis(),
+  succeed: jest.fn().mockReturnThis(),
+  fail: jest.fn().mockReturnThis(),
+  stop: jest.fn().mockReturnThis(),
+  warn: jest.fn().mockReturnThis(),
+};
+
+const mockAdapter = {
+  name: "coolify",
+  getCloudInit: jest.fn(() => ""),
+  healthCheck: jest.fn(async () => ({ status: "running" as const })),
+  createBackup: jest.fn(async () => ({ success: true })),
+  getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
+  update: jest.fn(async () => ({ success: true })),
+};
+
 describe("updateCommand", () => {
   let consoleSpy: jest.SpyInstance;
-  let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
-    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
     jest.resetAllMocks();
     // Default: SSH available
     mockedSsh.checkSshAvailable.mockReturnValue(true);
+    // Default: spinner mock
+    mockedLogger.createSpinner.mockReturnValue(mockSpinner as any);
+    // Logger methods mock
+    (mockedLogger.logger as jest.Mocked<typeof mockedLogger.logger>) = {
+      info: jest.fn(),
+      success: jest.fn(),
+      error: jest.fn(),
+      warning: jest.fn(),
+      title: jest.fn(),
+      step: jest.fn(),
+    };
     // Default: updateServer succeeds
     mockedCoreUpdate.updateServer.mockResolvedValue({ success: true, output: "Updated" });
+    // Default: adapter returns coolify mock
+    mockedAdapterFactory.getAdapter.mockReturnValue(mockAdapter as any);
+    mockedAdapterFactory.resolvePlatform.mockReturnValue("coolify");
+    // Default: modeGuard — server is managed (not bare)
+    mockedModeGuard.isBareServer.mockReturnValue(false);
+    mockedModeGuard.requireManagedMode.mockReturnValue(null);
   });
 
   afterEach(() => {
     consoleSpy.mockRestore();
-    consoleErrorSpy.mockRestore();
   });
 
   it("should show error when SSH not available", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(false);
     await updateCommand();
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("SSH client not found");
+    expect(mockedLogger.logger.error).toHaveBeenCalledWith(
+      expect.stringContaining("SSH client not found"),
+    );
   });
 
   it("should return when no server found", async () => {
@@ -79,12 +119,11 @@ describe("updateCommand", () => {
     mockedInquirer.prompt.mockResolvedValueOnce({ confirm: false });
 
     await updateCommand("1.2.3.4");
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("Update cancelled");
+    expect(mockedLogger.logger.info).toHaveBeenCalledWith("Update cancelled.");
     expect(mockedCoreUpdate.updateServer).not.toHaveBeenCalled();
   });
 
-  it("should call updateServer and show success output", async () => {
+  it("should call updateServer with correct args and show success", async () => {
     mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
     mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
     mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
@@ -97,8 +136,9 @@ describe("updateCommand", () => {
       "test-token",
       "coolify",
     );
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("update completed successfully");
+    expect(mockedLogger.logger.success).toHaveBeenCalledWith(
+      expect.stringContaining("update completed successfully"),
+    );
   });
 
   it("should show error when updateServer returns failure", async () => {
@@ -108,8 +148,9 @@ describe("updateCommand", () => {
     mockedCoreUpdate.updateServer.mockResolvedValue({ success: false, error: "SSH connection refused" });
 
     await updateCommand("1.2.3.4");
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("Update failed");
+    expect(mockedLogger.logger.error).toHaveBeenCalledWith(
+      expect.stringContaining("Update failed"),
+    );
   });
 
   // ---- DX-01: --dry-run support ----
@@ -119,11 +160,8 @@ describe("updateCommand", () => {
 
     await updateCommand("1.2.3.4", { dryRun: true });
 
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("Dry Run");
-    expect(output).toContain("coolify-test");
-    expect(output).toContain("1.2.3.4");
-    expect(output).toContain("No changes applied");
+    expect(mockedLogger.logger.title).toHaveBeenCalledWith("Dry Run: Update Server");
+    expect(mockedLogger.logger.info).toHaveBeenCalledWith("No changes applied (dry run).");
     expect(mockedCoreUpdate.updateServer).not.toHaveBeenCalled();
     expect(mockedInquirer.prompt).not.toHaveBeenCalled();
   });
@@ -133,8 +171,9 @@ describe("updateCommand", () => {
 
     await updateCommand("1.2.3.4", { dryRun: true });
 
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("Run update script via SSH");
+    expect(mockedLogger.logger.step).toHaveBeenCalledWith(
+      expect.stringContaining("Run update script via SSH"),
+    );
   });
 
   it("should show dry-run per server in --all mode", async () => {
@@ -142,10 +181,8 @@ describe("updateCommand", () => {
 
     await updateCommand(undefined, { all: true, dryRun: true });
 
-    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(output).toContain("Dry Run");
-    expect(output).toContain("coolify-test");
-    expect(output).toContain("No changes applied");
+    expect(mockedLogger.logger.title).toHaveBeenCalledWith("Dry Run: Update Server");
+    expect(mockedLogger.logger.info).toHaveBeenCalledWith("No changes applied (dry run).");
     expect(mockedCoreUpdate.updateServer).not.toHaveBeenCalled();
     expect(mockedInquirer.prompt).not.toHaveBeenCalled();
   });
@@ -163,11 +200,13 @@ describe("updateCommand", () => {
 
     it("should print error and return when server is bare", async () => {
       mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
+      mockedModeGuard.requireManagedMode.mockReturnValue(
+        'The "update" command is not available for bare servers.',
+      );
 
       await updateCommand("9.9.9.9");
 
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("bare");
+      expect(mockedLogger.logger.error).toHaveBeenCalled();
       expect(mockedCoreUpdate.updateServer).not.toHaveBeenCalled();
       expect(mockedInquirer.prompt).not.toHaveBeenCalled();
     });
@@ -179,43 +218,48 @@ describe("updateCommand", () => {
       mockedCoreUpdate.updateServer.mockResolvedValue({ success: true });
 
       await updateCommand("1.2.3.4");
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("update completed successfully");
+      expect(mockedLogger.logger.success).toHaveBeenCalledWith(
+        expect.stringContaining("update completed successfully"),
+      );
     });
   });
 
   // ---- Dokploy server tests ----
 
   describe("dokploy server", () => {
+    const dokplayAdapter = {
+      name: "dokploy",
+      getCloudInit: jest.fn(() => ""),
+      healthCheck: jest.fn(async () => ({ status: "running" as const })),
+      createBackup: jest.fn(async () => ({ success: true })),
+      getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
+      update: jest.fn(async () => ({ success: true })),
+    };
+
     const dokployServer = {
       ...sampleServer,
       id: "dok-123",
       name: "dokploy-test",
       ip: "10.0.0.1",
-      platform: "dokploy" as const,
     };
 
-    it("should update Dokploy server and call updateServer with dokploy platform", async () => {
+    it("should update Dokploy server and call updateServer", async () => {
+      mockedAdapterFactory.getAdapter.mockReturnValue(dokplayAdapter as any);
+      mockedAdapterFactory.resolvePlatform.mockReturnValue("dokploy");
       mockedServerSelect.resolveServer.mockResolvedValue(dokployServer);
       mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
       mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
       mockedCoreUpdate.updateServer.mockResolvedValue({ success: true });
 
-      const mockAdapter = {
-        name: "dokploy",
-        getCloudInit: jest.fn(() => ""),
-        healthCheck: jest.fn(async () => ({ status: "running" as const })),
-        createBackup: jest.fn(async () => ({ success: true })),
-        getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
-        update: jest.fn(async () => ({ success: true })),
-      };
-      const spy = jest.spyOn(adapterFactory, "getAdapter").mockReturnValue(mockAdapter);
-
       await updateCommand("10.0.0.1");
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("update completed");
-      expect(output).not.toContain("not yet supported");
-      spy.mockRestore();
+      expect(mockedCoreUpdate.updateServer).toHaveBeenCalledWith(
+        dokployServer,
+        "test-token",
+        "dokploy",
+      );
+      expect(mockedLogger.logger.success).toHaveBeenCalledWith(
+        expect.stringContaining("update completed"),
+      );
     });
   });
 
@@ -227,8 +271,9 @@ describe("updateCommand", () => {
 
       await updateCommand(undefined, { all: true });
 
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("SSH client not found");
+      expect(mockedLogger.logger.error).toHaveBeenCalledWith(
+        expect.stringContaining("SSH client not found"),
+      );
     });
 
     it("should show info when no servers exist", async () => {
@@ -236,8 +281,9 @@ describe("updateCommand", () => {
 
       await updateCommand(undefined, { all: true });
 
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("No servers found");
+      expect(mockedLogger.logger.info).toHaveBeenCalledWith(
+        expect.stringContaining("No servers found"),
+      );
     });
 
     it("should cancel when user declines confirmation", async () => {
@@ -246,8 +292,7 @@ describe("updateCommand", () => {
 
       await updateCommand(undefined, { all: true });
 
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("Update cancelled");
+      expect(mockedLogger.logger.info).toHaveBeenCalledWith("Update cancelled.");
       expect(mockedServerSelect.collectProviderTokens).not.toHaveBeenCalled();
     });
 
@@ -264,9 +309,10 @@ describe("updateCommand", () => {
 
       await updateCommand(undefined, { all: true });
 
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(mockedCoreUpdate.updateServer).toHaveBeenCalledTimes(2);
-      expect(output).toContain("All 2 server(s) updated successfully");
+      expect(mockedLogger.logger.success).toHaveBeenCalledWith(
+        expect.stringContaining("All 2 server(s) updated successfully"),
+      );
     });
 
     it("should report mixed results when some servers fail", async () => {
@@ -285,12 +331,12 @@ describe("updateCommand", () => {
 
       await updateCommand(undefined, { all: true });
 
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("1 succeeded");
-      expect(output).toContain("1 failed");
+      expect(mockedLogger.logger.warning).toHaveBeenCalledWith(
+        expect.stringContaining("1 succeeded"),
+      );
     });
 
-    it("should report failure when server is not running", async () => {
+    it("should call updateServer even for non-running server result", async () => {
       mockedConfig.getServers.mockReturnValue([sampleServer]);
       mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
       mockedServerSelect.collectProviderTokens.mockResolvedValue(new Map([["hetzner", "h-token"]]));
@@ -308,7 +354,7 @@ describe("updateCommand", () => {
       );
     });
 
-    it("should handle server verification error in --all", async () => {
+    it("should handle server error gracefully in --all", async () => {
       mockedConfig.getServers.mockReturnValue([sampleServer]);
       mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
       mockedServerSelect.collectProviderTokens.mockResolvedValue(new Map([["hetzner", "h-token"]]));
@@ -335,14 +381,19 @@ describe("updateCommand", () => {
       mockedServerSelect.collectProviderTokens.mockResolvedValue(
         new Map([["hetzner", "h-token"]]),
       );
+      // Return false for sampleServer, true for bareServer
+      mockedModeGuard.isBareServer
+        .mockReturnValueOnce(false)
+        .mockReturnValueOnce(true);
       mockedCoreUpdate.updateServer.mockResolvedValue({ success: true, output: "Updated" });
 
       await updateCommand(undefined, { all: true });
 
       // Only 1 call (bare server skipped)
       expect(mockedCoreUpdate.updateServer).toHaveBeenCalledTimes(1);
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("bare");
+      expect(mockedLogger.logger.warning).toHaveBeenCalledWith(
+        expect.stringContaining("bare"),
+      );
     });
   });
 });

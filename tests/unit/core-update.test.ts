@@ -54,23 +54,24 @@ const mockAdapter = {
   healthCheck: jest.fn(async () => ({ status: "running" as const })),
   createBackup: jest.fn(async () => ({ success: true })),
   getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
-  update: jest.fn(async () => ({ success: true, output: "Coolify updated" })),
+  update: jest.fn(),
 };
 
 beforeEach(() => {
   jest.resetAllMocks();
   mockedAdapterFactory.getAdapter.mockReturnValue(mockAdapter as any);
+  (mockAdapter.update as jest.Mock).mockResolvedValue({ success: true, output: "Coolify updated" });
   mockedErrorMapper.getErrorMessage.mockImplementation((e) =>
     e instanceof Error ? e.message : String(e),
   );
-  mockedErrorMapper.mapProviderError.mockReturnValue(null);
+  mockedErrorMapper.mapProviderError.mockReturnValue(null as unknown as string);
 });
 
 describe("updateServer", () => {
   it("should return success when server is running and adapter update succeeds", async () => {
     (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
     mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
-    mockAdapter.update.mockResolvedValue({ success: true, output: "Updated" });
+    (mockAdapter.update as jest.Mock).mockResolvedValue({ success: true, output: "Updated" });
 
     const result = await updateServer(sampleServer, "test-token", "coolify");
 
@@ -95,7 +96,7 @@ describe("updateServer", () => {
   });
 
   it("should skip provider status check for manual servers", async () => {
-    mockAdapter.update.mockResolvedValue({ success: true, output: "Updated" });
+    (mockAdapter.update as jest.Mock).mockResolvedValue({ success: true, output: "Updated" });
 
     const result = await updateServer(manualServer, "", "coolify");
 
@@ -122,7 +123,7 @@ describe("updateServer", () => {
   it("should return error when adapter update fails", async () => {
     (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
     mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
-    mockAdapter.update.mockResolvedValue({ success: false, error: "SSH connection refused" });
+    (mockAdapter.update as jest.Mock).mockResolvedValue({ success: false, error: "SSH connection refused" });
 
     const result = await updateServer(sampleServer, "test-token", "coolify");
 
@@ -135,7 +136,7 @@ describe("updateServer", () => {
     (mockProvider.getServerStatus as jest.Mock).mockRejectedValue(apiError);
     mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
     mockedErrorMapper.getErrorMessage.mockReturnValue("Some error");
-    mockedErrorMapper.mapProviderError.mockReturnValue(null);
+    mockedErrorMapper.mapProviderError.mockReturnValue(null as unknown as string);
 
     const result = await updateServer(sampleServer, "test-token", "coolify");
 
