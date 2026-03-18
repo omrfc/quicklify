@@ -5,6 +5,7 @@ import { runAudit } from "./audit/index.js";
 import { raw, type SshCommand } from "../utils/sshCommand.js";
 import type { Platform } from "../types/index.js";
 import { LOCK_FIREWALL_TIMEOUT_MS, LOCK_UPGRADES_TIMEOUT_MS, LOCK_PACKAGES_TIMEOUT_MS } from "../constants.js";
+import { getErrorMessage } from "../utils/errorMapper.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -253,8 +254,7 @@ async function runLockStep(
     await sshExec(ip, command, opts);
     return { ok: true };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { ok: false, error: message };
+    return { ok: false, error: getErrorMessage(err) };
   }
 }
 
@@ -323,33 +323,24 @@ export async function applyLock(
       };
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
     return {
       success: false,
       steps,
-      error: `SSH key check failed: ${message}`,
+      error: `SSH key check failed: ${getErrorMessage(err)}`,
     };
   }
 
   // ── Group 1: SSH & Auth ──────────────────────────────────────────────────
 
-  // Step 1: SSH hardening (critical)
-  try {
-    await sshExec(ip, buildHardeningCommand());
-    steps.sshHardening = true;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    stepErrors.sshHardening = message;
-  }
+  // Step 1: SSH hardening (critical — determines overall success)
+  const sshResult = await runLockStep(ip, buildHardeningCommand());
+  steps.sshHardening = sshResult.ok;
+  if (!sshResult.ok) stepErrors.sshHardening = sshResult.error!;
 
-  // Step 2: fail2ban (non-fatal)
-  try {
-    await sshExec(ip, buildFail2banCommand());
-    steps.fail2ban = true;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    stepErrors.fail2ban = message;
-  }
+  // Step 2: fail2ban
+  const fail2banResult = await runLockStep(ip, buildFail2banCommand());
+  steps.fail2ban = fail2banResult.ok;
+  if (!fail2banResult.ok) stepErrors.fail2ban = fail2banResult.error!;
 
   // Step 3: Login banners
   const bannersResult = await runLockStep(ip, buildLoginBannersCommand());
@@ -363,14 +354,10 @@ export async function applyLock(
 
   // ── Group 2: Firewall & Network ──────────────────────────────────────────
 
-  // Step 5: UFW firewall (non-fatal), 60s timeout for apt
-  try {
-    await sshExec(ip, buildFirewallSetupCommand(platform), { timeoutMs: LOCK_FIREWALL_TIMEOUT_MS });
-    steps.ufw = true;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    stepErrors.ufw = message;
-  }
+  // Step 5: UFW firewall, 60s timeout for apt
+  const ufwResult = await runLockStep(ip, buildFirewallSetupCommand(platform), { timeoutMs: LOCK_FIREWALL_TIMEOUT_MS });
+  steps.ufw = ufwResult.ok;
+  if (!ufwResult.ok) stepErrors.ufw = ufwResult.error!;
 
   // Step 6: Cloud metadata — conditional on UFW
   if (steps.ufw) {
@@ -391,23 +378,15 @@ export async function applyLock(
 
   // ── Group 3: System ──────────────────────────────────────────────────────
 
-  // Step 8: sysctl hardening (non-fatal)
-  try {
-    await sshExec(ip, buildSysctlHardeningCommand());
-    steps.sysctl = true;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    stepErrors.sysctl = message;
-  }
+  // Step 8: sysctl hardening
+  const sysctlResult = await runLockStep(ip, buildSysctlHardeningCommand());
+  steps.sysctl = sysctlResult.ok;
+  if (!sysctlResult.ok) stepErrors.sysctl = sysctlResult.error!;
 
-  // Step 9: unattended-upgrades (non-fatal), 120s timeout for apt
-  try {
-    await sshExec(ip, buildUnattendedUpgradesCommand(), { timeoutMs: LOCK_UPGRADES_TIMEOUT_MS });
-    steps.unattendedUpgrades = true;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    stepErrors.unattendedUpgrades = message;
-  }
+  // Step 9: unattended-upgrades, 120s timeout for apt
+  const upgradesResult = await runLockStep(ip, buildUnattendedUpgradesCommand(), { timeoutMs: LOCK_UPGRADES_TIMEOUT_MS });
+  steps.unattendedUpgrades = upgradesResult.ok;
+  if (!upgradesResult.ok) stepErrors.unattendedUpgrades = upgradesResult.error!;
 
   // Step 10: APT validation
   const aptResult = await runLockStep(ip, buildAptValidationCommand());

@@ -74,6 +74,7 @@ export async function handleServerLock(params: {
     return mcpSuccess({
       success: result.success,
       steps: result.steps,
+      ...(result.stepErrors && { stepErrors: result.stepErrors }),
       scoreBefore: result.scoreBefore,
       scoreAfter: result.scoreAfter,
     });

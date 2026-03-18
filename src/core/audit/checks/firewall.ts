@@ -99,7 +99,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     category: "Firewall",
     name: "IPv6 Firewall Rules",
     severity: "info",
-    passed: isNA ? false : isActive,
+    passed: isNA ? false : ipv6Enabled,
     currentValue: isNA ? "Unable to determine" : ipv6Enabled ? "IPv6 rules present" : "IPv6 status unknown",
     expectedValue: "IPv6 firewall rules configured",
     fixCommand: "sed -i 's/IPV6=no/IPV6=yes/' /etc/default/ufw && ufw reload",
