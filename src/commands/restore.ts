@@ -115,7 +115,7 @@ export async function restoreCommand(
   }
 
   // Determine platform (default to coolify for backward compat)
-  const platform = manifest.platform || "coolify";
+  const platform = manifest.platform ?? "coolify";
 
   if (dryRun) {
     logger.title("Dry Run - Restore");

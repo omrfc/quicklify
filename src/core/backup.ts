@@ -352,7 +352,7 @@ export async function restoreBackup(
   }
 
   // Delegate to platform adapter (default to coolify for backward compat)
-  const platform = manifest.platform || "coolify";
+  const platform = manifest.platform ?? "coolify";
   const adapter = getAdapter(platform);
   if (!adapter.restoreBackup) {
     return { success: false, steps: [], error: `Adapter ${platform} does not support restore` };

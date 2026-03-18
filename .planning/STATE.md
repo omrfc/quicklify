@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.13
 milestone_name: Foundation + Housekeeping
-status: in-progress
-stopped_at: Ready to plan Phase 63
-last_updated: "2026-03-19"
-last_activity: 2026-03-19 — Roadmap initialized, phases 63-71 defined
+status: planning
+stopped_at: Completed 63-01-PLAN.md (update+status extraction)
+last_updated: "2026-03-19T00:00:00.000Z"
+last_activity: 2026-03-19 — Phase 63 Plan 01 completed (updateServer + restartCoolify extraction)
 progress:
   total_phases: 9
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 11
 ---
 
 # Project State
@@ -26,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 ## Current Position
 
 Phase: 63 of 71 (Command Business Logic Extraction)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-03-19 — Roadmap initialized, phases 63-71 written
+Plan: 01 of 02 in current phase (completed)
+Status: In progress
+Last activity: 2026-03-19 — Plan 01: updateServer() + restartCoolify() extracted to core layer
 
-Progress: [░░░░░░░░░░] 0% of v1.13 (9 phases, 25 requirements)
+Progress: [█░░░░░░░░░] 11% of v1.13 (9 phases, 25 requirements)
 
 ## Accumulated Context
 
@@ -41,6 +42,10 @@ Progress: [░░░░░░░░░░] 0% of v1.13 (9 phases, 25 requirement
 - [v1.13 Research]: kastell-fixer MUST be in .claude/agents/ NOT kastell-plugin/agents/ — isolation:worktree silently ignored in plugin agents
 - [v1.13 Research]: SKILL.md must stay under 500 lines — use references/ subdirectory for progressive disclosure
 - [v1.13 Research]: Plugin components belong at kastell-plugin root — .claude-plugin/ holds ONLY plugin.json
+- [Phase 63-01]: updateServer() core function takes (server, apiToken, platform) — no UI deps, returns UpdateServerResult
+- [Phase 63-01]: restartCoolify() core function handles SSH restart + POLL_DELAY_MS wait + health check — no UI deps, returns RestartCoolifyResult
+- [Phase 63-01]: Command tests mock core module instead of low-level deps (providerFactory/sshExec)
+- [Phase 63-02]: backupServer() in core/backup.ts consolidates bare/managed dispatch; command and MCP handler both delegate to core
 
 ### Pending Todos
 
@@ -54,6 +59,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-19
-Stopped at: Roadmap created — ready to plan Phase 63
+Last session: 2026-03-19T00:00:00.000Z
+Stopped at: Completed 63-01-PLAN.md (update+status extraction)
 Resume file: None
