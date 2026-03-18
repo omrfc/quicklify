@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.11
 milestone_name: MCP Polish + Audit UX + Lock Expansion
 status: planning
-stopped_at: Phase 56 context gathered
-last_updated: "2026-03-18T05:59:23.181Z"
+stopped_at: Completed 56-01-PLAN.md
+last_updated: "2026-03-18T06:42:19.313Z"
 last_activity: 2026-03-17 — v1.11 roadmap initialized (4 phases, 29 requirements mapped)
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 6
   percent: 0
 ---
 
@@ -51,6 +51,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 55-02]: extractSentinelValue kept local to firewall.ts — intentionally not extracted to shared utils (no other parser uses sentinel-to-number pattern)
 - [Phase 55-01]: removeStaleHostKey placed before SSH polling loop in barePostSetup, inside hasValidIp guard
 - [Phase 55-01]: Use .then() on sshExecInner retry to append ssh-keygen hint only when retry also fails with host key mismatch
+- [Phase 56-lock-expansion]: runLockStep() is internal (not exported) — command builders are exported for direct test access
+- [Phase 56-lock-expansion]: stepErrors spread only when non-empty to keep happy-path LockResult lean
 
 ### Pending Todos
 
@@ -63,6 +65,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T05:59:23.172Z
-Stopped at: Phase 56 context gathered
-Resume file: .planning/phases/56-lock-expansion/56-CONTEXT.md
+Last session: 2026-03-18T06:42:19.304Z
+Stopped at: Completed 56-01-PLAN.md
+Resume file: None

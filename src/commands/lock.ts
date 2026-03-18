@@ -3,6 +3,49 @@ import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { applyLock } from "../core/lock.js";
+import type { LockStepResult } from "../core/lock.js";
+
+const groups: Array<{
+  label: string;
+  steps: Array<{ key: keyof LockStepResult; label: string }>;
+}> = [
+  {
+    label: "SSH & Auth",
+    steps: [
+      { key: "sshHardening", label: "SSH hardening" },
+      { key: "fail2ban", label: "Fail2ban" },
+      { key: "banners", label: "Login banners" },
+      { key: "accountLock", label: "Account locking" },
+    ],
+  },
+  {
+    label: "Firewall & Network",
+    steps: [
+      { key: "ufw", label: "UFW firewall" },
+      { key: "cloudMeta", label: "Cloud metadata block" },
+      { key: "dns", label: "DNS security" },
+    ],
+  },
+  {
+    label: "System",
+    steps: [
+      { key: "sysctl", label: "Sysctl hardening" },
+      { key: "unattendedUpgrades", label: "Unattended upgrades" },
+      { key: "aptValidation", label: "APT validation" },
+      { key: "resourceLimits", label: "Resource limits" },
+      { key: "serviceDisable", label: "Service disabling" },
+      { key: "backupPermissions", label: "Backup permissions" },
+    ],
+  },
+  {
+    label: "Monitoring",
+    steps: [
+      { key: "auditd", label: "Auditd" },
+      { key: "logRetention", label: "Log retention" },
+      { key: "aide", label: "AIDE integrity" },
+    ],
+  },
+];
 
 export async function lockCommand(
   query: string | undefined,
@@ -25,9 +68,16 @@ export async function lockCommand(
   const server = await resolveServer(query, "Select a server to lock:");
   if (!server) return;
 
-  // Dry-run: delegate entirely to applyLock, no spinner
+  // Dry-run: show grouped preview without applying
   if (options.dryRun) {
-    await applyLock(server.ip, server.name, server.platform, { dryRun: true });
+    logger.title("Dry Run — Lock Preview");
+    for (const group of groups) {
+      logger.info(`\n  ${group.label}`);
+      for (const step of group.steps) {
+        logger.info(`    ○ ${step.label}`);
+      }
+    }
+    logger.info("\nNo changes applied. Use --production --force to apply.");
     return;
   }
 
@@ -55,16 +105,21 @@ export async function lockCommand(
 
   spinner.stop();
 
-  // Display per-step results
-  const check = (ok: boolean, label: string) =>
-    ok ? logger.success(`${label}: applied`) : logger.error(`${label}: failed`);
-
+  // Display grouped per-step results
   logger.title("Hardening Results");
-  check(result.steps.sshHardening, "SSH hardening");
-  check(result.steps.fail2ban, "fail2ban");
-  check(result.steps.ufw, "UFW firewall");
-  check(result.steps.sysctl, "sysctl kernel settings");
-  check(result.steps.unattendedUpgrades, "Unattended upgrades");
+  for (const group of groups) {
+    logger.info(`\n  ${group.label}`);
+    for (const step of group.steps) {
+      const ok = result.steps[step.key];
+      if (ok) {
+        logger.success(`    ${step.label}`);
+      } else {
+        const reason = result.stepErrors?.[step.key];
+        const suffix = reason ? ` (${reason})` : "";
+        logger.error(`    ✗ ${step.label}${suffix}`);
+      }
+    }
+  }
 
   // Audit score delta
   if (result.scoreBefore !== undefined && result.scoreAfter !== undefined) {
