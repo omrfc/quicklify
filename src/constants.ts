@@ -94,6 +94,7 @@ export const HTTP_TIMEOUT_MS = 5_000;       // axios health/status checks
 export const DOCTOR_TIMEOUT_MS = 10_000;    // doctor token validation
 export const LOCK_FIREWALL_TIMEOUT_MS = 60_000;
 export const LOCK_UPGRADES_TIMEOUT_MS = 120_000;
+export const LOCK_PACKAGES_TIMEOUT_MS = 60_000;
 export const EVIDENCE_TIMEOUT_MS = 120_000;
 export const POLL_DELAY_MS = 5_000;         // status/deploy polling
 export const RESTART_DELAY_MS = 2_000;      // restart wait
