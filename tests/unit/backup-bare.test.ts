@@ -1,7 +1,7 @@
 /**
  * Tests for bare-mode routing in backup command.
- * Verifies that backupCommand routes to createBareBackup for bare servers
- * and createBackup (inline) for coolify servers.
+ * Verifies that backupCommand routes to backupServer() for both bare and managed servers.
+ * The bare/managed dispatch is now tested in core-backup-cmd.test.ts.
  */
 import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
@@ -24,7 +24,22 @@ jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");
 jest.mock("../../src/utils/serverSelect");
 jest.mock("../../src/core/backup");
+jest.mock("../../src/adapters/factory", () => ({
+  resolvePlatform: jest.fn().mockReturnValue("coolify"),
+  getAdapter: jest.fn(),
+}));
+jest.mock("ora", () =>
+  jest.fn(() => ({
+    start: jest.fn().mockReturnThis(),
+    succeed: jest.fn().mockReturnThis(),
+    fail: jest.fn().mockReturnThis(),
+    stop: jest.fn().mockReturnThis(),
+  })),
+);
 
+import ora from "ora";
+
+const mockedOra = ora as jest.MockedFunction<typeof ora>;
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
 const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
@@ -70,47 +85,49 @@ describe("backupCommand — bare mode routing", () => {
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
-    jest.clearAllMocks();
-    // formatTimestamp is a pure function, keep real implementation via passthrough
+    jest.resetAllMocks();
     mockedCoreBackup.formatTimestamp.mockReturnValue("2026-02-28_08-00-00-000");
     mockedCoreBackup.getBackupDir.mockReturnValue("/home/user/.kastell/backups/bare-test");
+    mockedOra.mockReturnValue({
+      start: jest.fn().mockReturnThis(),
+      succeed: jest.fn().mockReturnThis(),
+      fail: jest.fn().mockReturnThis(),
+      stop: jest.fn().mockReturnThis(),
+    } as any);
   });
 
   afterEach(() => {
     consoleSpy.mockRestore();
   });
 
-  it("should call createBareBackup (not sshExec with pg_dump) for a bare server", async () => {
+  it("should call backupServer with bare server", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
-    mockedCoreBackup.createBareBackup.mockResolvedValue(bareBackupResult);
+    mockedCoreBackup.backupServer.mockResolvedValue(bareBackupResult);
 
     await backupCommand("bare-test");
 
-    expect(mockedCoreBackup.createBareBackup).toHaveBeenCalledWith(
-      bareServer.ip,
-      bareServer.name,
-      bareServer.provider,
-    );
+    expect(mockedCoreBackup.backupServer).toHaveBeenCalledWith(bareServer);
   });
 
-  it("should NOT call createBareBackup for a coolify server", async () => {
+  it("should call backupServer with coolify server", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedServerSelect.resolveServer.mockResolvedValue(coolifyServer);
-    // sshExec needs to return pg_dump success, config tar, etc.
-    mockedSsh.sshExec
-      .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" }) // version
-      .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "" }); // pg_dump fail to short-circuit
+    mockedCoreBackup.backupServer.mockResolvedValue({
+      success: true,
+      backupPath: "/backups/coolify-test/ts",
+      manifest: { serverName: "coolify-test", provider: "hetzner", timestamp: "ts", coolifyVersion: "4.0.0", files: [] },
+    });
 
     await backupCommand("coolify-test");
 
-    expect(mockedCoreBackup.createBareBackup).not.toHaveBeenCalled();
+    expect(mockedCoreBackup.backupServer).toHaveBeenCalledWith(coolifyServer);
   });
 
   it("should show backup success message for bare server", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
-    mockedCoreBackup.createBareBackup.mockResolvedValue(bareBackupResult);
+    mockedCoreBackup.backupServer.mockResolvedValue(bareBackupResult);
 
     await backupCommand("bare-test");
 
@@ -118,10 +135,10 @@ describe("backupCommand — bare mode routing", () => {
     expect(output).toContain("Backup saved");
   });
 
-  it("should show error when createBareBackup returns failure", async () => {
+  it("should show error when backupServer returns failure", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
-    mockedCoreBackup.createBareBackup.mockResolvedValue({
+    mockedCoreBackup.backupServer.mockResolvedValue({
       success: false,
       error: "Config backup failed",
       hint: "Check nginx is installed",
@@ -133,36 +150,33 @@ describe("backupCommand — bare mode routing", () => {
     expect(output).toContain("Config backup failed");
   });
 
-  it("should route each server correctly in --all mode with mixed bare+coolify servers", async () => {
+  it("should call backupServer for each server in --all mode", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.getServers.mockReturnValue([bareServer, coolifyServer]);
-    mockedCoreBackup.createBareBackup.mockResolvedValue(bareBackupResult);
-
-    // coolify server path uses sshExec - make pg_dump fail quickly
-    mockedSsh.sshExec
-      .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" }) // coolify version
-      .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "" }); // coolify pg_dump fails
+    mockedCoreBackup.backupServer
+      .mockResolvedValueOnce(bareBackupResult)
+      .mockResolvedValueOnce({
+        success: true,
+        backupPath: "/backups/coolify-test/ts",
+        manifest: { serverName: "coolify-test", provider: "hetzner", timestamp: "ts", coolifyVersion: "4.0.0", files: [] },
+      });
 
     await backupCommand(undefined, { all: true });
 
-    // bare server should be routed to createBareBackup
-    expect(mockedCoreBackup.createBareBackup).toHaveBeenCalledWith(
-      bareServer.ip,
-      bareServer.name,
-      bareServer.provider,
-    );
-    // coolify server should NOT use createBareBackup
-    expect(mockedCoreBackup.createBareBackup).toHaveBeenCalledTimes(1);
+    expect(mockedCoreBackup.backupServer).toHaveBeenCalledTimes(2);
+    expect(mockedCoreBackup.backupServer).toHaveBeenCalledWith(bareServer);
+    expect(mockedCoreBackup.backupServer).toHaveBeenCalledWith(coolifyServer);
   });
 
-  it("should use 'Backing up system config' spinner text for bare server", async () => {
+  it("should use backupServer as single entry point (no direct createBareBackup calls)", async () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
-    mockedCoreBackup.createBareBackup.mockResolvedValue(bareBackupResult);
+    mockedCoreBackup.backupServer.mockResolvedValue(bareBackupResult);
 
     await backupCommand("bare-test");
 
-    // Verify createBareBackup was called (means bare path was taken)
-    expect(mockedCoreBackup.createBareBackup).toHaveBeenCalled();
+    // Command must not call createBareBackup directly — it delegates to backupServer
+    expect(mockedCoreBackup.backupServer).toHaveBeenCalled();
+    expect(mockedCoreBackup.createBareBackup).not.toHaveBeenCalled();
   });
 });

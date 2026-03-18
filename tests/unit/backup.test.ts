@@ -35,7 +35,37 @@ jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");
 jest.mock("../../src/utils/serverSelect");
 jest.mock("inquirer");
+jest.mock("ora", () =>
+  jest.fn(() => ({
+    start: jest.fn().mockReturnThis(),
+    succeed: jest.fn().mockReturnThis(),
+    fail: jest.fn().mockReturnThis(),
+    stop: jest.fn().mockReturnThis(),
+  })),
+);
 
+// Mock core/backup so command tests are isolated from backup implementation
+jest.mock("../../src/core/backup", () => {
+  const actual = jest.requireActual("../../src/core/backup");
+  return {
+    ...actual,
+    backupServer: jest.fn(),
+  };
+});
+
+// Mock adapters/factory for resolvePlatform used in dry-run display
+jest.mock("../../src/adapters/factory", () => ({
+  resolvePlatform: jest.fn(),
+  getAdapter: jest.fn(),
+}));
+
+import ora from "ora";
+import { backupServer } from "../../src/core/backup";
+import { resolvePlatform } from "../../src/adapters/factory";
+
+const mockedOra = ora as jest.MockedFunction<typeof ora>;
+const mockedBackupServer = backupServer as jest.MockedFunction<typeof backupServer>;
+const mockedResolvePlatform = resolvePlatform as jest.MockedFunction<typeof resolvePlatform>;
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
 const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
@@ -85,8 +115,15 @@ describe("backup", () => {
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
-    jest.clearAllMocks();
+    jest.resetAllMocks();
     mockedSsh.resolveScpPath.mockReturnValue("scp");
+    mockedResolvePlatform.mockReturnValue("coolify");
+    mockedOra.mockReturnValue({
+      start: jest.fn().mockReturnThis(),
+      succeed: jest.fn().mockReturnThis(),
+      fail: jest.fn().mockReturnThis(),
+      stop: jest.fn().mockReturnThis(),
+    } as any);
   });
 
   afterEach(() => {
@@ -257,251 +294,80 @@ describe("backup", () => {
       );
     });
 
-    it("should show dry-run output", async () => {
+    it("should show dry-run output for managed server", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+      mockedResolvePlatform.mockReturnValue("coolify");
 
       await backupCommand("1.2.3.4", { dryRun: true });
 
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("Dry Run");
       expect(output).toContain("No changes applied");
-      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+      expect(mockedBackupServer).not.toHaveBeenCalled();
     });
 
-    it("should handle database backup failure with stderr", async () => {
+    it("should show dry-run output for bare server", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedServerSelect.resolveServer.mockResolvedValue({ ...sampleServer, mode: "bare" as const });
+      mockedResolvePlatform.mockReturnValue(undefined);
+
+      await backupCommand("1.2.3.4", { dryRun: true });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Dry Run");
+      expect(output).toContain("bare-config.tar.gz");
+      expect(mockedBackupServer).not.toHaveBeenCalled();
+    });
+
+    it("should call backupServer and show success on backup", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "pg_dump error" });
+      mockedBackupServer.mockResolvedValue({
+        success: true,
+        backupPath: "/backups/coolify-test/2026-01-01",
+        manifest: {
+          serverName: "coolify-test",
+          provider: "hetzner",
+          timestamp: "2026-01-01_00-00-00-000",
+          coolifyVersion: "4.0.0",
+          files: ["coolify-backup.sql.gz", "coolify-config.tar.gz"],
+        },
+      });
 
       await backupCommand("1.2.3.4");
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(2);
+
+      expect(mockedBackupServer).toHaveBeenCalledWith(sampleServer);
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Backup saved to");
+      expect(output).toContain("Platform version: 4.0.0");
     });
 
-    it("should handle database backup failure without stderr", async () => {
+    it("should show backup failure message when backupServer returns success:false", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "" });
+      mockedBackupServer.mockResolvedValue({
+        success: false,
+        error: "pg_dump failed",
+        hint: "Check postgres container",
+      });
 
       await backupCommand("1.2.3.4");
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(2);
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("pg_dump failed");
+      expect(output).toContain("Check postgres container");
     });
 
-    it("should handle database backup exception", async () => {
+    it("should handle backupServer throwing an exception", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockRejectedValueOnce(new Error("Connection lost"));
+      mockedBackupServer.mockRejectedValue(new Error("Connection lost"));
 
       await backupCommand("1.2.3.4");
 
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("Connection lost");
-    });
-
-    it("should show SSH hint on database backup exception with connection refused", async () => {
-      mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockRejectedValueOnce(new Error("Connection refused"));
-
-      await backupCommand("1.2.3.4");
-
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("SSH connection refused");
-    });
-
-    it("should handle config backup failure with stderr", async () => {
-      mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "tar error" });
-
-      await backupCommand("1.2.3.4");
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(3);
-    });
-
-    it("should handle config backup failure without stderr", async () => {
-      mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "" });
-
-      await backupCommand("1.2.3.4");
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(3);
-    });
-
-    it("should handle config backup exception", async () => {
-      mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockRejectedValueOnce(new Error("fail"));
-
-      await backupCommand("1.2.3.4");
-      expect(mockedSsh.sshExec).toHaveBeenCalledTimes(3);
-    });
-
-    it("should complete full backup successfully", async () => {
-      mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" }) // version
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // pg_dump
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // config tar
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }); // cleanup
-      // SCP downloads
-      mockedSpawn
-        .mockReturnValueOnce(createMockProcess(0)) // db download
-        .mockReturnValueOnce(createMockProcess(0)); // config download
-
-      await backupCommand("1.2.3.4");
-
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("Backup saved to");
-      expect(output).toContain("Platform version: 4.0.0");
-      expect(mockedWriteFileSync).toHaveBeenCalled(); // manifest written
-    });
-
-    it("should create backup directory with mode 0o700", async () => {
-      mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
-      mockedSpawn
-        .mockReturnValueOnce(createMockProcess(0))
-        .mockReturnValueOnce(createMockProcess(0));
-
-      await backupCommand("1.2.3.4");
-
-      const mkdirSyncMock = mkdirSync as jest.MockedFunction<typeof mkdirSync>;
-      expect(mkdirSyncMock).toHaveBeenCalledWith(
-        expect.any(String),
-        { recursive: true, mode: 0o700 },
-      );
-    });
-
-    it("should handle SCP db download failure with stderr", async () => {
-      mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
-      mockedSpawn.mockReturnValueOnce(createMockProcess(1, "scp: error"));
-
-      await backupCommand("1.2.3.4");
-      expect(mockedWriteFileSync).not.toHaveBeenCalled();
-    });
-
-    it("should handle SCP db download failure without stderr", async () => {
-      mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
-      mockedSpawn.mockReturnValueOnce(createMockProcess(1));
-
-      await backupCommand("1.2.3.4");
-      expect(mockedWriteFileSync).not.toHaveBeenCalled();
-    });
-
-    it("should handle SCP config download failure with stderr", async () => {
-      mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
-      mockedSpawn
-        .mockReturnValueOnce(createMockProcess(0)) // db OK
-        .mockReturnValueOnce(createMockProcess(1, "scp: error")); // config fail
-
-      await backupCommand("1.2.3.4");
-      expect(mockedWriteFileSync).not.toHaveBeenCalled();
-    });
-
-    it("should handle SCP config download failure without stderr", async () => {
-      mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
-      mockedSpawn
-        .mockReturnValueOnce(createMockProcess(0))
-        .mockReturnValueOnce(createMockProcess(1)); // config fail, no stderr
-
-      await backupCommand("1.2.3.4");
-      expect(mockedWriteFileSync).not.toHaveBeenCalled();
-    });
-
-    it("should handle SCP download exception via error event", async () => {
-      mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
-      // spawn throws error event
-      const proc = new EventEmitter() as any;
-      proc.stdout = new EventEmitter();
-      proc.stderr = new EventEmitter();
-      proc.stdin = null;
-      setTimeout(() => proc.emit("error", new Error("spawn failed")), 10);
-      mockedSpawn.mockReturnValueOnce(proc);
-
-      await backupCommand("1.2.3.4");
-      expect(mockedWriteFileSync).not.toHaveBeenCalled();
-    });
-
-    it("should handle SCP download exception via synchronous throw", async () => {
-      mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
-      // spawn throws synchronously
-      mockedSpawn.mockImplementationOnce(() => {
-        throw new Error("ENOMEM");
-      });
-
-      await backupCommand("1.2.3.4");
-      expect(mockedWriteFileSync).not.toHaveBeenCalled();
-    });
-
-    it("should handle version check failure gracefully", async () => {
-      mockedSsh.checkSshAvailable.mockReturnValue(true);
-      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "" }) // version fails
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // pg_dump
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // config tar
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }); // cleanup
-      mockedSpawn
-        .mockReturnValueOnce(createMockProcess(0))
-        .mockReturnValueOnce(createMockProcess(0));
-
-      await backupCommand("1.2.3.4");
-
-      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      expect(output).toContain("unknown");
     });
   });
 
@@ -583,55 +449,38 @@ describe("backup", () => {
       expect(output).toContain("No servers found");
     });
 
-    it("should backup all servers sequentially", async () => {
+    it("should backup all servers using backupServer", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.getServers.mockReturnValue([sampleServer, sampleServer2]);
-
-      // Each server: version + pg_dump + config tar + cleanup = 4 sshExec calls
-      mockedSsh.sshExec
-        // Server 1
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        // Server 2
-        .mockResolvedValueOnce({ code: 0, stdout: "4.1.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
-
-      // SCP downloads for both servers
-      mockedSpawn
-        .mockReturnValueOnce(createMockProcess(0)) // s1 db
-        .mockReturnValueOnce(createMockProcess(0)) // s1 config
-        .mockReturnValueOnce(createMockProcess(0)) // s2 db
-        .mockReturnValueOnce(createMockProcess(0)); // s2 config
+      mockedBackupServer
+        .mockResolvedValueOnce({
+          success: true,
+          backupPath: "/backups/coolify-test/ts",
+          manifest: { serverName: "coolify-test", provider: "hetzner", timestamp: "ts", coolifyVersion: "4.0.0", files: [] },
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          backupPath: "/backups/coolify-prod/ts",
+          manifest: { serverName: "coolify-prod", provider: "digitalocean", timestamp: "ts", coolifyVersion: "4.1.0", files: [] },
+        });
 
       await backupCommand(undefined, { all: true });
 
+      expect(mockedBackupServer).toHaveBeenCalledTimes(2);
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("All 2 server(s) backed up successfully");
-      expect(mockedWriteFileSync).toHaveBeenCalledTimes(2); // manifest per server
     });
 
     it("should report mixed results when some servers fail", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.getServers.mockReturnValue([sampleServer, sampleServer2]);
-
-      mockedSsh.sshExec
-        // Server 1: success
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        // Server 2: db backup fails
-        .mockResolvedValueOnce({ code: 0, stdout: "4.1.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "pg_dump error" });
-
-      // SCP downloads for server 1 only
-      mockedSpawn
-        .mockReturnValueOnce(createMockProcess(0))
-        .mockReturnValueOnce(createMockProcess(0));
+      mockedBackupServer
+        .mockResolvedValueOnce({
+          success: true,
+          backupPath: "/backups/coolify-test/ts",
+          manifest: { serverName: "coolify-test", provider: "hetzner", timestamp: "ts", coolifyVersion: "4.0.0", files: [] },
+        })
+        .mockResolvedValueOnce({ success: false, error: "pg_dump error" });
 
       await backupCommand(undefined, { all: true });
 
@@ -649,22 +498,17 @@ describe("backup", () => {
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       // In --all dry-run, backupSingleServer logs dry-run message per server
       expect(output).toContain("Dry run");
-      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+      expect(mockedBackupServer).not.toHaveBeenCalled();
     });
 
     it("should handle single server backup in --all", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.getServers.mockReturnValue([sampleServer]);
-
-      mockedSsh.sshExec
-        .mockResolvedValueOnce({ code: 0, stdout: "4.0.0", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" })
-        .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
-
-      mockedSpawn
-        .mockReturnValueOnce(createMockProcess(0))
-        .mockReturnValueOnce(createMockProcess(0));
+      mockedBackupServer.mockResolvedValue({
+        success: true,
+        backupPath: "/backups/coolify-test/ts",
+        manifest: { serverName: "coolify-test", provider: "hetzner", timestamp: "ts", coolifyVersion: "4.0.0", files: [] },
+      });
 
       await backupCommand(undefined, { all: true });
 

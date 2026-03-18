@@ -1,6 +1,5 @@
 import {
-  createBackup,
-  createBareBackup,
+  backupServer,
   restoreBackup,
   restoreBareBackup,
   listBackups,
@@ -14,7 +13,6 @@ import {
 } from "../../core/snapshot.js";
 import { isSafeMode } from "../../core/manage.js";
 import { isBareServer } from "../../utils/modeGuard.js";
-import { resolvePlatform } from "../../adapters/factory.js";
 import { join } from "path";
 import {
   mcpSuccess,
@@ -27,11 +25,7 @@ import type { ServerRecord } from "../../types/index.js";
 // ─── Backup handlers ──────────────────────────────────────────────────────────
 
 export async function handleBackupCreate(server: ServerRecord): Promise<McpResponse> {
-  const bare = isBareServer(server);
-  const platform = resolvePlatform(server);
-  const result = bare
-    ? await createBareBackup(server.ip, server.name, server.provider)
-    : await createBackup(server.ip, server.name, server.provider, platform || "coolify");
+  const result = await backupServer(server);
 
   if (!result.success) {
     return {

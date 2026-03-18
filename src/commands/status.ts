@@ -1,17 +1,18 @@
 import { getServers } from "../utils/config.js";
 import { resolveServer, promptApiToken, collectProviderTokens } from "../utils/serverSelect.js";
-import { checkSshAvailable, sshExec } from "../utils/ssh.js";
+import { checkSshAvailable } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
-import { getErrorMessage, mapProviderError, mapSshError } from "../utils/errorMapper.js";
+import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import {
   getCloudServerStatus,
   checkAllServersStatus,
+  restartCoolify,
 } from "../core/status.js";
 import { isBareServer, getServerModeLabel } from "../utils/modeGuard.js";
 import { getAdapter, resolvePlatform } from "../adapters/factory.js";
 import type { ServerRecord } from "../types/index.js";
 import type { StatusResult } from "../core/status.js";
-import { COOLIFY_RESTART_CMD, COOLIFY_PORT, DOKPLOY_PORT, POLL_DELAY_MS } from "../constants.js";
+import { COOLIFY_PORT, DOKPLOY_PORT } from "../constants.js";
 
 interface StatusOptions {
   all?: boolean;
@@ -77,29 +78,21 @@ async function autostartCoolify(server: ServerRecord): Promise<void> {
   const spinner = createSpinner("Restarting Coolify via SSH...");
   spinner.start();
 
-  try {
-    const result = await sshExec(server.ip, COOLIFY_RESTART_CMD);
-    if (result.code === 0) {
-      spinner.succeed("Coolify restart command sent");
+  const result = await restartCoolify(server);
 
-      // Wait and check again
-      await new Promise((resolve) => setTimeout(resolve, POLL_DELAY_MS));
-      const resolvedPlatform = resolvePlatform(server) ?? "coolify";
-      const healthResult2 = await getAdapter(resolvedPlatform).healthCheck(server.ip, server.domain);
-      if (healthResult2.status === "running") {
-        logger.success("Coolify is now running!");
-      } else {
-        logger.warning("Coolify may still be starting. Check again in a moment.");
-      }
-    } else {
-      spinner.fail("Coolify restart failed");
-      if (result.stderr) logger.error(result.stderr);
-    }
-  } catch (error: unknown) {
-    spinner.fail("Failed to restart Coolify");
-    logger.error(getErrorMessage(error));
-    const hint = mapSshError(error, server.ip);
-    if (hint) logger.info(hint);
+  if (!result.success) {
+    spinner.fail("Coolify restart failed");
+    if (result.error) logger.error(result.error);
+    if (result.hint) logger.info(result.hint);
+    return;
+  }
+
+  spinner.succeed("Coolify restart command sent");
+
+  if (result.nowRunning) {
+    logger.success("Coolify is now running!");
+  } else {
+    logger.warning("Coolify may still be starting. Check again in a moment.");
   }
 }
 

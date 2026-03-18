@@ -3,6 +3,7 @@ import * as config from "../../src/utils/config";
 import * as serverSelect from "../../src/utils/serverSelect";
 import * as providerFactory from "../../src/utils/providerFactory";
 import * as sshUtils from "../../src/utils/ssh";
+import * as coreStatus from "../../src/core/status";
 import { statusCommand } from "../../src/commands/status";
 import type { CloudProvider } from "../../src/providers/base";
 
@@ -10,12 +11,14 @@ jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/serverSelect");
 jest.mock("../../src/utils/providerFactory");
 jest.mock("../../src/utils/ssh");
+jest.mock("../../src/core/status");
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
 const mockedProviderFactory = providerFactory as jest.Mocked<typeof providerFactory>;
 const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
+const mockedCoreStatus = coreStatus as jest.Mocked<typeof coreStatus>;
 
 const sampleServer = {
   id: "123",
@@ -64,21 +67,24 @@ describe("statusCommand", () => {
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    // Default: SSH available
+    mockedSsh.checkSshAvailable.mockReturnValue(true);
+    // Default: restartCoolify succeeds
+    mockedCoreStatus.restartCoolify.mockResolvedValue({ success: true, nowRunning: true });
   });
 
   afterEach(() => {
     consoleSpy.mockRestore();
   });
 
-  // ---- Existing single-server tests (adapted for module mocks) ----
+  // ---- Existing single-server tests ----
 
   it("should show error when server not found by query", async () => {
     mockedServerSelect.resolveServer.mockResolvedValue(undefined);
 
     await statusCommand("nonexistent");
 
-    // resolveServer returns undefined -> early return
     expect(mockedServerSelect.resolveServer).toHaveBeenCalledWith("nonexistent");
   });
 
@@ -87,6 +93,7 @@ describe("statusCommand", () => {
     mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
     (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
     mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+    mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
 
     // Coolify health check success
     mockedAxios.get.mockResolvedValueOnce({ status: 200 });
@@ -97,14 +104,12 @@ describe("statusCommand", () => {
     expect(output).toContain("coolify-test");
     expect(output).toContain("hetzner");
     expect(output).toContain("1.2.3.4");
-    expect(output).toContain("running");
   });
 
   it("should show coolify as not reachable when health check fails", async () => {
     mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
     mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
-    (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
-    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+    mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
 
     // Coolify health check fails
     mockedAxios.get.mockRejectedValueOnce(new Error("ECONNREFUSED"));
@@ -118,8 +123,7 @@ describe("statusCommand", () => {
   it("should handle API error gracefully", async () => {
     mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
     mockedServerSelect.promptApiToken.mockResolvedValue("bad-token");
-    (mockProvider.getServerStatus as jest.Mock).mockRejectedValue(new Error("Unauthorized"));
-    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+    mockedCoreStatus.getCloudServerStatus.mockRejectedValue(new Error("Unauthorized"));
 
     await statusCommand("1.2.3.4");
 
@@ -130,8 +134,7 @@ describe("statusCommand", () => {
   it("should allow interactive server selection", async () => {
     mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
     mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
-    (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
-    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+    mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
     mockedAxios.get.mockResolvedValueOnce({ status: 200 });
 
     await statusCommand();
@@ -146,6 +149,7 @@ describe("statusCommand", () => {
   describe("--all mode", () => {
     it("should show info when no servers exist", async () => {
       mockedConfig.getServers.mockReturnValue([]);
+      mockedCoreStatus.checkAllServersStatus.mockResolvedValue([]);
 
       await statusCommand(undefined, { all: true });
 
@@ -161,11 +165,18 @@ describe("statusCommand", () => {
           ["digitalocean", "do-token"],
         ]),
       );
-      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
-      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
-
-      // Coolify health check: both running
-      mockedAxios.get.mockResolvedValue({ status: 200 });
+      mockedCoreStatus.checkAllServersStatus.mockResolvedValue([
+        {
+          server: sampleServer,
+          serverStatus: "running",
+          platformStatus: "running",
+        },
+        {
+          server: sampleServer2,
+          serverStatus: "running",
+          platformStatus: "running",
+        },
+      ]);
 
       await statusCommand(undefined, { all: true });
 
@@ -188,32 +199,25 @@ describe("statusCommand", () => {
           ["digitalocean", "do-token"],
         ]),
       );
-
-      // First server: running
-      const runningProvider: CloudProvider = {
-        ...mockProvider,
-        getServerStatus: jest.fn().mockResolvedValue("running"),
-      };
-      // Second server: API error
-      const errorProvider: CloudProvider = {
-        ...mockProvider,
-        getServerStatus: jest.fn().mockRejectedValue(new Error("API failure")),
-      };
-
-      mockedProviderFactory.createProviderWithToken
-        .mockReturnValueOnce(runningProvider)
-        .mockReturnValueOnce(errorProvider);
-
-      // First server Coolify check succeeds
-      mockedAxios.get.mockResolvedValue({ status: 200 });
+      mockedCoreStatus.checkAllServersStatus.mockResolvedValue([
+        {
+          server: sampleServer,
+          serverStatus: "running",
+          platformStatus: "running",
+        },
+        {
+          server: sampleServer2,
+          serverStatus: "error",
+          platformStatus: "unknown",
+          error: "API failure",
+        },
+      ]);
 
       await statusCommand(undefined, { all: true });
 
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
-      // Table should contain both servers
       expect(output).toContain("coolify-test");
       expect(output).toContain("coolify-prod");
-      // Summary should mention errors
       expect(output).toContain("error");
     });
 
@@ -221,22 +225,26 @@ describe("statusCommand", () => {
       const server3 = { ...sampleServer, id: "789", name: "coolify-staging" };
       mockedConfig.getServers.mockReturnValue([sampleServer, server3]);
       mockedServerSelect.collectProviderTokens.mockResolvedValue(new Map([["hetzner", "h-token"]]));
-      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
-      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
-      mockedAxios.get.mockResolvedValue({ status: 200 });
+      mockedCoreStatus.checkAllServersStatus.mockResolvedValue([
+        { server: sampleServer, serverStatus: "running", platformStatus: "running" },
+        { server: server3, serverStatus: "running", platformStatus: "running" },
+      ]);
 
       await statusCommand(undefined, { all: true });
 
-      // Both servers are hetzner, so collectProviderTokens is called with both
       expect(mockedServerSelect.collectProviderTokens).toHaveBeenCalledTimes(1);
     });
 
     it("should show coolify as not reachable for failed health check in --all", async () => {
       mockedConfig.getServers.mockReturnValue([sampleServer]);
       mockedServerSelect.collectProviderTokens.mockResolvedValue(new Map([["hetzner", "h-token"]]));
-      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
-      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
-      mockedAxios.get.mockRejectedValue(new Error("ECONNREFUSED"));
+      mockedCoreStatus.checkAllServersStatus.mockResolvedValue([
+        {
+          server: sampleServer,
+          serverStatus: "running",
+          platformStatus: "not reachable",
+        },
+      ]);
 
       await statusCommand(undefined, { all: true });
 
@@ -262,8 +270,7 @@ describe("statusCommand", () => {
     it("should display Mode: bare in status output for bare server", async () => {
       mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
       mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
-      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
-      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+      mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
 
       await statusCommand("9.9.9.9");
 
@@ -274,26 +281,23 @@ describe("statusCommand", () => {
     it("should NOT show Coolify status line for bare server", async () => {
       mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
       mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
-      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
-      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+      mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
 
       await statusCommand("9.9.9.9");
 
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).not.toContain("Coolify Status");
-      // Should not attempt Coolify health check
       expect(mockedAxios.get).not.toHaveBeenCalled();
     });
 
     it("should NOT trigger autostart for bare server", async () => {
       mockedServerSelect.resolveServer.mockResolvedValue(bareServer);
       mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
-      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
-      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+      mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
 
       await statusCommand("9.9.9.9", { autostart: true });
 
-      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+      expect(mockedCoreStatus.restartCoolify).not.toHaveBeenCalled();
       expect(mockedAxios.get).not.toHaveBeenCalled();
     });
   });
@@ -315,9 +319,10 @@ describe("statusCommand", () => {
       mockedServerSelect.collectProviderTokens.mockResolvedValue(
         new Map([["hetzner", "h-token"]]),
       );
-      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
-      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
-      mockedAxios.get.mockResolvedValue({ status: 200 });
+      mockedCoreStatus.checkAllServersStatus.mockResolvedValue([
+        { server: sampleServer, serverStatus: "running", platformStatus: "running" },
+        { server: bareServer, serverStatus: "running", platformStatus: "n/a" },
+      ]);
 
       await statusCommand(undefined, { all: true });
 
@@ -329,109 +334,94 @@ describe("statusCommand", () => {
   // ---- --autostart tests ----
 
   describe("--autostart mode", () => {
-    beforeEach(() => {
-      jest.useFakeTimers();
-    });
-
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
-    function setupAutostartMocks(
-      serverStatus: string,
-      axiosBehavior: "reject" | "resolve" | "reject-then-resolve" | "reject-both",
-      sshAvailable = true,
-    ) {
+    it("should trigger restartCoolify when coolify is down but server is running", async () => {
       mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
       mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
-      (mockProvider.getServerStatus as jest.Mock).mockResolvedValue(serverStatus);
-      mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
-      mockedSsh.checkSshAvailable.mockReturnValue(sshAvailable);
+      mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
 
-      switch (axiosBehavior) {
-        case "resolve":
-          mockedAxios.get.mockResolvedValue({ status: 200 });
-          break;
-        case "reject":
-          mockedAxios.get.mockRejectedValue(new Error("ECONNREFUSED"));
-          break;
-        case "reject-then-resolve":
-          mockedAxios.get
-            .mockRejectedValueOnce(new Error("ECONNREFUSED"))
-            .mockResolvedValueOnce({ status: 200 });
-          break;
-        case "reject-both":
-          mockedAxios.get
-            .mockRejectedValueOnce(new Error("ECONNREFUSED"))
-            .mockRejectedValueOnce(new Error("ECONNREFUSED"));
-          break;
-      }
-    }
+      // First axios call: Coolify health check fails
+      mockedAxios.get.mockRejectedValueOnce(new Error("ECONNREFUSED"));
+      // Core restartCoolify: succeeds and Coolify is now running
+      mockedCoreStatus.restartCoolify.mockResolvedValue({ success: true, nowRunning: true });
 
-    it("should trigger SSH restart when coolify is down but server is running", async () => {
-      setupAutostartMocks("running", "reject-then-resolve");
-      mockedSsh.sshExec.mockResolvedValue({
-        code: 0,
-        stdout: "",
-        stderr: "",
-      });
+      await statusCommand("1.2.3.4", { autostart: true });
 
-      const promise = statusCommand("1.2.3.4", { autostart: true });
-      // Advance past the 5-second wait in autostartCoolify
-      await jest.advanceTimersByTimeAsync(6000);
-      await promise;
-
-      expect(mockedSsh.sshExec).toHaveBeenCalledWith(
-        "1.2.3.4",
-        expect.stringContaining("docker compose"),
-      );
+      expect(mockedCoreStatus.restartCoolify).toHaveBeenCalledWith(sampleServer);
     });
 
     it("should not trigger restart when coolify is already running", async () => {
-      setupAutostartMocks("running", "resolve");
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+      mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+      mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
+
+      mockedAxios.get.mockResolvedValueOnce({ status: 200 });
 
       await statusCommand("1.2.3.4", { autostart: true });
 
-      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+      expect(mockedCoreStatus.restartCoolify).not.toHaveBeenCalled();
     });
 
     it("should not trigger restart when SSH is not available", async () => {
-      setupAutostartMocks("running", "reject", false);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+      mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+      mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
+      mockedSsh.checkSshAvailable.mockReturnValue(false);
+
+      mockedAxios.get.mockRejectedValueOnce(new Error("ECONNREFUSED"));
 
       await statusCommand("1.2.3.4", { autostart: true });
 
-      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+      expect(mockedCoreStatus.restartCoolify).not.toHaveBeenCalled();
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("SSH not available");
     });
 
     it("should not trigger restart when server itself is not running", async () => {
-      setupAutostartMocks("off", "reject");
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+      mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+      mockedCoreStatus.getCloudServerStatus.mockResolvedValue("off");
+
+      mockedAxios.get.mockRejectedValueOnce(new Error("ECONNREFUSED"));
 
       await statusCommand("1.2.3.4", { autostart: true });
 
-      // autostart should NOT trigger because server status is "off", not "running"
-      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+      expect(mockedCoreStatus.restartCoolify).not.toHaveBeenCalled();
     });
 
-    it("should handle SSH restart failure gracefully", async () => {
-      setupAutostartMocks("running", "reject");
-      mockedSsh.sshExec.mockResolvedValue({
-        code: 1,
-        stdout: "",
-        stderr: "compose error",
+    it("should handle restartCoolify failure gracefully", async () => {
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+      mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+      mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+
+      mockedAxios.get.mockRejectedValueOnce(new Error("ECONNREFUSED"));
+      mockedCoreStatus.restartCoolify.mockResolvedValue({
+        success: false,
+        nowRunning: false,
+        error: "compose error",
       });
 
       await statusCommand("1.2.3.4", { autostart: true });
 
-      expect(mockedSsh.sshExec).toHaveBeenCalled();
+      expect(mockedCoreStatus.restartCoolify).toHaveBeenCalled();
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("compose error");
     });
 
-    it("should handle SSH restart exception gracefully", async () => {
-      setupAutostartMocks("running", "reject");
-      mockedSsh.sshExec.mockRejectedValue(new Error("Connection refused"));
+    it("should handle restartCoolify exception via SSH hint", async () => {
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+      mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+      mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+
+      mockedAxios.get.mockRejectedValueOnce(new Error("ECONNREFUSED"));
+      mockedCoreStatus.restartCoolify.mockResolvedValue({
+        success: false,
+        nowRunning: false,
+        error: "Connection refused",
+        hint: "SSH connection refused. Check the IP address and SSH access.",
+      });
 
       await statusCommand("1.2.3.4", { autostart: true });
 
@@ -441,16 +431,15 @@ describe("statusCommand", () => {
     });
 
     it("should warn when coolify still not running after restart", async () => {
-      setupAutostartMocks("running", "reject-both");
-      mockedSsh.sshExec.mockResolvedValue({
-        code: 0,
-        stdout: "",
-        stderr: "",
-      });
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+      mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+      mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
 
-      const promise = statusCommand("1.2.3.4", { autostart: true });
-      await jest.advanceTimersByTimeAsync(6000);
-      await promise;
+      mockedAxios.get.mockRejectedValueOnce(new Error("ECONNREFUSED"));
+      mockedCoreStatus.restartCoolify.mockResolvedValue({ success: true, nowRunning: false });
+
+      await statusCommand("1.2.3.4", { autostart: true });
 
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("still be starting");

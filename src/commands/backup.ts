@@ -5,14 +5,13 @@ import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
 import { getErrorMessage } from "../utils/errorMapper.js";
-import { isBareServer } from "../utils/modeGuard.js";
-import { resolvePlatform, getAdapter } from "../adapters/factory.js";
+import { resolvePlatform } from "../adapters/factory.js";
 import type { ServerRecord } from "../types/index.js";
 import {
   formatTimestamp,
   getBackupDir,
   listBackups,
-  createBareBackup,
+  backupServer,
   listOrphanBackups,
   cleanupServerBackups,
 } from "../core/backup.js";
@@ -34,51 +33,25 @@ async function backupSingleServer(server: ServerRecord, dryRun: boolean): Promis
     return true;
   }
 
-  // Bare server: backup system config files instead of Coolify DB
-  if (isBareServer(server)) {
-    const spinner = createSpinner(`[${server.name}] Backing up system config...`);
-    spinner.start();
-    try {
-      const result = await createBareBackup(server.ip, server.name, server.provider);
-      if (result.success) {
-        spinner.succeed(`[${server.name}] System config backup saved to ${result.backupPath}`);
-        return true;
-      } else {
-        spinner.fail(`[${server.name}] Backup failed: ${result.error}`);
-        if (result.hint) logger.info(result.hint);
-        return false;
-      }
-    } catch (error: unknown) {
-      spinner.fail(`[${server.name}] Backup failed`);
-      logger.error(getErrorMessage(error));
-      return false;
-    }
-  }
-
-  // Managed server: route through adapter
   const platform = resolvePlatform(server);
-  if (platform) {
-    const spinner = createSpinner(`[${server.name}] Backing up via ${platform} adapter...`);
-    spinner.start();
-    try {
-      const adapter = getAdapter(platform);
-      const result = await adapter.createBackup(server.ip, server.name, server.provider);
-      if (result.success) {
-        spinner.succeed(`[${server.name}] Backup saved to ${result.backupPath}`);
-        return true;
-      } else {
-        spinner.fail(`[${server.name}] Backup failed: ${result.error}`);
-        if (result.hint) logger.info(result.hint);
-        return false;
-      }
-    } catch (error: unknown) {
-      spinner.fail(`[${server.name}] Backup failed`);
-      logger.error(getErrorMessage(error));
+  const label = platform ? `${platform} adapter` : "system config";
+  const spinner = createSpinner(`[${server.name}] Backing up via ${label}...`);
+  spinner.start();
+  try {
+    const result = await backupServer(server);
+    if (result.success) {
+      spinner.succeed(`[${server.name}] Backup saved to ${result.backupPath}`);
+      return true;
+    } else {
+      spinner.fail(`[${server.name}] Backup failed: ${result.error}`);
+      if (result.hint) logger.info(result.hint);
       return false;
     }
+  } catch (error: unknown) {
+    spinner.fail(`[${server.name}] Backup failed`);
+    logger.error(getErrorMessage(error));
+    return false;
   }
-
-  return false;
 }
 
 async function backupAll(dryRun: boolean): Promise<void> {
@@ -290,12 +263,12 @@ export async function backupCommand(
     logger.info(`Backup path: ${backupPath}`);
     console.log();
     logger.info("Commands to execute:");
-    if (isBareServer(server)) {
+    const dryPlatform = resolvePlatform(server);
+    if (!dryPlatform) {
       logger.step("tar czf /tmp/bare-config.tar.gz --ignore-failed-read -C / etc/nginx etc/ssh/sshd_config etc/ufw etc/fail2ban etc/crontab");
       logger.step(`scp root@${server.ip}:/tmp/bare-config.tar.gz ${backupPath}/`);
     } else {
-      const platform = resolvePlatform(server);
-      logger.step(`Platform backup via ${platform || "coolify"} adapter`);
+      logger.step(`Platform backup via ${dryPlatform} adapter`);
       logger.step(`Commands executed remotely via SSH to ${server.ip}`);
     }
     console.log();
@@ -303,53 +276,28 @@ export async function backupCommand(
     return;
   }
 
-  // Bare server: backup system config files instead of Coolify DB
-  if (isBareServer(server)) {
-    const spinner = createSpinner("Backing up system config...");
-    spinner.start();
-    try {
-      const result = await createBareBackup(server.ip, server.name, server.provider);
-      if (result.success) {
-        spinner.succeed("System config backup created");
-        logger.success(`Backup saved to ${result.backupPath}`);
-        logger.info("Files: bare-config.tar.gz, manifest.json");
-      } else {
-        spinner.fail("System config backup failed");
-        logger.error(result.error ?? "Backup failed");
-        if (result.hint) logger.info(result.hint);
-      }
-    } catch (error: unknown) {
-      spinner.fail("System config backup failed");
-      logger.error(getErrorMessage(error));
-    }
-    return;
-  }
-
-  // Managed server: route through adapter
   const platform = resolvePlatform(server);
-  if (platform) {
-    const spinner = createSpinner("Creating backup...");
-    spinner.start();
-    try {
-      const adapter = getAdapter(platform);
-      const result = await adapter.createBackup(server.ip, server.name, server.provider);
-      if (result.success) {
-        spinner.succeed("Backup created");
-        logger.success(`Backup saved to ${result.backupPath}`);
-        if (result.manifest) {
-          logger.info(`Platform version: ${result.manifest.coolifyVersion}`);
+  const spinner = createSpinner("Creating backup...");
+  spinner.start();
+  try {
+    const result = await backupServer(server);
+    if (result.success) {
+      spinner.succeed("Backup created");
+      logger.success(`Backup saved to ${result.backupPath}`);
+      if (result.manifest) {
+        logger.info(`Platform version: ${result.manifest.coolifyVersion}`);
+        if (platform) {
           logger.info(`Provider: ${server.provider} | IP: ${server.ip} | Platform: ${platform}`);
-          logger.info(`Files: ${result.manifest.files.join(", ")}, manifest.json`);
         }
-      } else {
-        spinner.fail("Backup failed");
-        logger.error(result.error ?? "Backup failed");
-        if (result.hint) logger.info(result.hint);
+        logger.info(`Files: ${result.manifest.files.join(", ")}, manifest.json`);
       }
-    } catch (error: unknown) {
+    } else {
       spinner.fail("Backup failed");
-      logger.error(getErrorMessage(error));
+      logger.error(result.error ?? "Backup failed");
+      if (result.hint) logger.info(result.hint);
     }
-    return;
+  } catch (error: unknown) {
+    spinner.fail("Backup failed");
+    logger.error(getErrorMessage(error));
   }
 }
