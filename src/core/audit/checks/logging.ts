@@ -374,5 +374,68 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
     explain: "Configuring auditd space and rotation actions ensures audit logs are not silently discarded when disk fills, preventing evidence destruction.",
   };
 
-  return [log01, log02, log03, log04, log05, log06, log07, log08, log09, log10, log11, log12, log13, log14, log15, log16, log17];
+  // LOG-AUDIT-TIME-RULES: auditctl has time change event rules
+  const hasTimeRules = /adjtimex|settimeofday|clock_settime|-k time-change/i.test(output);
+  const log18: AuditCheck = {
+    id: "LOG-AUDIT-TIME-RULES",
+    category: "Logging",
+    name: "Audit Time Change Rules",
+    severity: "warning",
+    passed: isNA ? false : hasTimeRules,
+    currentValue: isNA
+      ? "Unable to determine"
+      : hasTimeRules
+        ? "Time change audit rules configured"
+        : "No time change audit rules found",
+    expectedValue: "auditctl rules monitoring time change events (adjtimex, settimeofday)",
+    fixCommand:
+      "auditctl -a always,exit -F arch=b64 -S adjtimex -S settimeofday -S clock_settime -k time-change",
+    explain:
+      "Auditing time changes detects tampering with system clocks that could be used to falsify log timestamps.",
+  };
+
+  // LOG-AUDIT-NETWORK-RULES: auditctl has network change event rules
+  const hasNetworkRules = /sethostname|setdomainname|-k network-change/i.test(output);
+  const log19: AuditCheck = {
+    id: "LOG-AUDIT-NETWORK-RULES",
+    category: "Logging",
+    name: "Audit Network Change Rules",
+    severity: "warning",
+    passed: isNA ? false : hasNetworkRules,
+    currentValue: isNA
+      ? "Unable to determine"
+      : hasNetworkRules
+        ? "Network change audit rules configured"
+        : "No network change audit rules found",
+    expectedValue: "auditctl rules monitoring hostname and domain name changes",
+    fixCommand:
+      "auditctl -a always,exit -F arch=b64 -S sethostname -S setdomainname -k network-change",
+    explain:
+      "Auditing network configuration changes detects unauthorized hostname or domain modifications that could indicate compromise.",
+  };
+
+  // LOG-AUDIT-MODULE-RULES: auditctl has kernel module event rules
+  const hasModuleRules = /init_module|delete_module|finit_module|-k kernel-module/i.test(output);
+  const log20: AuditCheck = {
+    id: "LOG-AUDIT-MODULE-RULES",
+    category: "Logging",
+    name: "Audit Kernel Module Rules",
+    severity: "warning",
+    passed: isNA ? false : hasModuleRules,
+    currentValue: isNA
+      ? "Unable to determine"
+      : hasModuleRules
+        ? "Kernel module audit rules configured"
+        : "No kernel module audit rules found",
+    expectedValue: "auditctl rules monitoring kernel module loading and unloading",
+    fixCommand:
+      "auditctl -a always,exit -F arch=b64 -S init_module -S delete_module -S finit_module -k kernel-module",
+    explain:
+      "Auditing kernel module events detects loading of potentially malicious kernel modules like rootkits.",
+  };
+
+  return [
+    log01, log02, log03, log04, log05, log06, log07, log08, log09, log10,
+    log11, log12, log13, log14, log15, log16, log17, log18, log19, log20,
+  ];
 };

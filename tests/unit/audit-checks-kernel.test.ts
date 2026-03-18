@@ -15,11 +15,12 @@ describe("parseKernelChecks", () => {
       "kernel.kptr_restrict = 1",
       "kernel.perf_event_paranoid = 2",
       "net.ipv4.ip_forward = 0",
-      "net.ipv4.conf.all.rp_filter = 1",
+      "net.ipv4.conf.all.rp_filter = 2",
       "net.ipv4.tcp_timestamps = 0",
       "net.ipv4.icmp_echo_ignore_broadcasts = 1",
       "net.ipv6.conf.all.accept_redirects = 0",
       "kernel.unprivileged_bpf_disabled = 1",
+      "net.core.bpf_jit_harden = 1",
       "kernel.modules_disabled = 0",
       "net.ipv6.conf.all.forwarding = 0",
       "net.ipv4.conf.all.send_redirects = 0",
@@ -63,9 +64,9 @@ describe("parseKernelChecks", () => {
     "N/A",
   ].join("\n");
 
-  it("should return 30 checks", () => {
+  it("should return 31 checks", () => {
     const checks = parseKernelChecks(secureOutput, "bare");
-    expect(checks).toHaveLength(30);
+    expect(checks).toHaveLength(31);
     checks.forEach((check) => {
       expect(check.category).toBe("Kernel");
       expect(check.id).toMatch(/^KRN-[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)+$/);
@@ -168,7 +169,7 @@ describe("parseKernelChecks", () => {
 
   it("should handle N/A output gracefully", () => {
     const checks = parseKernelChecks("N/A", "bare");
-    expect(checks).toHaveLength(30);
+    expect(checks).toHaveLength(31);
     checks.forEach((check) => {
       expect(check.passed).toBe(false);
     });
@@ -242,6 +243,50 @@ describe("parseKernelChecks", () => {
   it("KRN-LOCKDOWN-MODE fails when [none] is active", () => {
     const checks = parseKernelChecks("kernel.randomize_va_space = 2\n5.15.0-91-generic\nN/A\n0\n0\nStorage=none\n[none] integrity confidentiality", "bare");
     const check = checks.find((c: { id: string }) => c.id === "KRN-LOCKDOWN-MODE");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(false);
+  });
+
+  // KRN-RP-FILTER loose mode tests
+  it("KRN-RP-FILTER passes when rp_filter=2 (loose mode, Docker-compatible)", () => {
+    const checks = parseKernelChecks("net.ipv4.conf.all.rp_filter = 2", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-RP-FILTER");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("KRN-RP-FILTER passes when rp_filter=1 (strict mode)", () => {
+    const checks = parseKernelChecks("net.ipv4.conf.all.rp_filter = 1", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-RP-FILTER");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("KRN-RP-FILTER fails when rp_filter=0 (disabled)", () => {
+    const checks = parseKernelChecks("net.ipv4.conf.all.rp_filter = 0", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-RP-FILTER");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(false);
+  });
+
+  // KRN-BPF-JIT-HARDEN tests
+  it("KRN-BPF-JIT-HARDEN passes when bpf_jit_harden=1", () => {
+    const checks = parseKernelChecks("net.core.bpf_jit_harden = 1", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-BPF-JIT-HARDEN");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("KRN-BPF-JIT-HARDEN passes when bpf_jit_harden=2", () => {
+    const checks = parseKernelChecks("net.core.bpf_jit_harden = 2", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-BPF-JIT-HARDEN");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("KRN-BPF-JIT-HARDEN fails when bpf_jit_harden=0", () => {
+    const checks = parseKernelChecks("net.core.bpf_jit_harden = 0", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-BPF-JIT-HARDEN");
     expect(check).toBeDefined();
     expect(check!.passed).toBe(false);
   });

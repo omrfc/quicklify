@@ -22,8 +22,8 @@ describe("parseLoggingChecks", () => {
     "weekly\nrotate 4\ncreate\ncompress",
     // auth log
     "EXISTS",
-    // auditctl rules (includes login, sudo, file rules)
-    "-w /var/log/lastlog -p wa -k logins\n-w /etc/sudoers -p wa -k privilege\n-w /etc/passwd -p wa -k identity\n-w /etc/shadow -p wa -k identity",
+    // auditctl rules (includes login, sudo, file rules, time-change, network-change, kernel-module)
+    "-w /var/log/lastlog -p wa -k logins\n-w /etc/sudoers -p wa -k privilege\n-w /etc/passwd -p wa -k identity\n-w /etc/shadow -p wa -k identity\n-a always,exit -F arch=b64 -S adjtimex -S settimeofday -k time-change\n-a always,exit -F arch=b64 -S sethostname -S setdomainname -k network-change\n-a always,exit -F arch=b64 -S init_module -S delete_module -k kernel-module",
     // auditd service active
     "active",
     // /var/log permissions (750 = not world-readable)
@@ -43,6 +43,12 @@ describe("parseLoggingChecks", () => {
     // auditd space/file action (LOG-AUDITD-SPACE-ACTION)
     "space_left_action = email",
     "max_log_file_action = keep_logs",
+    // time-change rules (LOG-AUDIT-TIME-RULES)
+    "-a always,exit -F arch=b64 -S adjtimex -S settimeofday -k time-change",
+    // network-change rules (LOG-AUDIT-NETWORK-RULES)
+    "-a always,exit -F arch=b64 -S sethostname -S setdomainname -k network-change",
+    // kernel-module rules (LOG-AUDIT-MODULE-RULES)
+    "-a always,exit -F arch=b64 -S init_module -S delete_module -k kernel-module",
   ].join("\n");
 
   const insecureOutput = [
@@ -66,9 +72,9 @@ describe("parseLoggingChecks", () => {
     "NONE",
   ].join("\n");
 
-  it("should return 17 checks", () => {
+  it("should return 20 checks", () => {
     const checks = parseLoggingChecks(secureOutput, "bare");
-    expect(checks).toHaveLength(17);
+    expect(checks).toHaveLength(20);
     checks.forEach((check) => {
       expect(check.category).toBe("Logging");
       expect(check.id).toMatch(/^LOG-[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)+$/);
@@ -158,7 +164,7 @@ describe("parseLoggingChecks", () => {
 
   it("should handle N/A output gracefully", () => {
     const checks = parseLoggingChecks("N/A", "bare");
-    expect(checks).toHaveLength(17);
+    expect(checks).toHaveLength(20);
   });
 
   it("LOG-AUDIT-WATCH-COUNT passes when file watch count >= 5", () => {
@@ -187,6 +193,72 @@ describe("parseLoggingChecks", () => {
     const output = secureOutput.replace("space_left_action = email", "space_left_action = ignore");
     const checks = parseLoggingChecks(output, "bare");
     const check = checks.find((c: { id: string }) => c.id === "LOG-AUDITD-SPACE-ACTION");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("LOG-AUDIT-TIME-RULES passes when output contains -k time-change", () => {
+    const checks = parseLoggingChecks(secureOutput, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "LOG-AUDIT-TIME-RULES");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("LOG-AUDIT-TIME-RULES passes when output contains adjtimex", () => {
+    const output = "adjtimex syscall monitoring active";
+    const checks = parseLoggingChecks(output, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "LOG-AUDIT-TIME-RULES");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("LOG-AUDIT-TIME-RULES fails when no time-change rules present", () => {
+    const checks = parseLoggingChecks(insecureOutput, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "LOG-AUDIT-TIME-RULES");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(false);
+  });
+
+  it("LOG-AUDIT-NETWORK-RULES passes when output contains -k network-change", () => {
+    const checks = parseLoggingChecks(secureOutput, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "LOG-AUDIT-NETWORK-RULES");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("LOG-AUDIT-NETWORK-RULES passes when output contains sethostname", () => {
+    const output = "sethostname syscall monitoring active";
+    const checks = parseLoggingChecks(output, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "LOG-AUDIT-NETWORK-RULES");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("LOG-AUDIT-NETWORK-RULES fails when no network-change rules present", () => {
+    const checks = parseLoggingChecks(insecureOutput, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "LOG-AUDIT-NETWORK-RULES");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(false);
+  });
+
+  it("LOG-AUDIT-MODULE-RULES passes when output contains -k kernel-module", () => {
+    const checks = parseLoggingChecks(secureOutput, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "LOG-AUDIT-MODULE-RULES");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("LOG-AUDIT-MODULE-RULES passes when output contains init_module", () => {
+    const output = "init_module syscall monitoring active";
+    const checks = parseLoggingChecks(output, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "LOG-AUDIT-MODULE-RULES");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("LOG-AUDIT-MODULE-RULES fails when no kernel-module rules present", () => {
+    const checks = parseLoggingChecks(insecureOutput, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "LOG-AUDIT-MODULE-RULES");
+    expect(check).toBeDefined();
     expect(check!.passed).toBe(false);
   });
 });
