@@ -5,6 +5,7 @@ import {
   resolveServerForMcp,
   mcpSuccess,
   mcpError,
+  mcpLog,
   type McpResponse,
 } from "../utils.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
@@ -63,7 +64,7 @@ export async function handleServerLock(params: {
     const platform: Platform | undefined =
       platformStr === "coolify" || platformStr === "dokploy" ? platformStr : undefined;
 
-    await mcpServer?.sendLoggingMessage({ level: "info", data: `Starting 19-step hardening on ${server.name}` });
+    await mcpLog(mcpServer, `Starting 19-step hardening on ${server.name}`);
 
     const result = await applyLock(server.ip, server.name, platform, {
       production,
@@ -75,7 +76,7 @@ export async function handleServerLock(params: {
       return mcpError(result.error ?? "Lock hardening failed", result.hint);
     }
 
-    await mcpServer?.sendLoggingMessage({ level: "info", data: "Hardening complete" });
+    await mcpLog(mcpServer, "Hardening complete");
 
     return mcpSuccess({
       success: result.success,

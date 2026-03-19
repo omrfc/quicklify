@@ -103,14 +103,16 @@ describe.each(ADAPTERS)("PlatformAdapter contract — $adapterName", ({ factory 
 
   // ─── new properties (port, defaultLogService, platformPorts) ─────────────────
 
-  it("port is a number greater than 0", () => {
+  it("port is a valid port number (1-65535)", () => {
     expect(typeof adapter.port).toBe("number");
     expect(adapter.port).toBeGreaterThan(0);
+    expect(adapter.port).toBeLessThanOrEqual(65535);
+    expect(Number.isInteger(adapter.port)).toBe(true);
   });
 
-  it("defaultLogService is a non-empty string", () => {
-    expect(typeof adapter.defaultLogService).toBe("string");
-    expect(adapter.defaultLogService.length).toBeGreaterThan(0);
+  it("defaultLogService is a valid LogService value", () => {
+    const validServices = ["coolify", "dokploy", "docker", "system"];
+    expect(validServices).toContain(adapter.defaultLogService);
   });
 
   it("platformPorts is an array that includes adapter.port", () => {
@@ -121,6 +123,16 @@ describe.each(ADAPTERS)("PlatformAdapter contract — $adapterName", ({ factory 
   it("platformPorts includes 80 and 443", () => {
     expect(adapter.platformPorts).toContain(80);
     expect(adapter.platformPorts).toContain(443);
+  });
+
+  it("platformPorts contains only valid port numbers with no duplicates", () => {
+    for (const port of adapter.platformPorts) {
+      expect(typeof port).toBe("number");
+      expect(port).toBeGreaterThan(0);
+      expect(port).toBeLessThanOrEqual(65535);
+    }
+    const unique = new Set(adapter.platformPorts);
+    expect(unique.size).toBe(adapter.platformPorts.length);
   });
 
   // ─── getCloudInit ─────────────────────────────────────────────────────────────

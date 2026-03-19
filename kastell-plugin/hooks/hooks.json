@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"const input=require('fs').readFileSync('/dev/stdin','utf8'); const data=JSON.parse(input); const cmd=(data.tool_input&&data.tool_input.command)||''; if(/\\bkastell\\s+(destroy|server-delete)\\b/.test(cmd)){process.stdout.write(JSON.stringify({decision:'block',reason:'Destructive kastell operation detected. Use kastell destroy with --force flag directly in terminal, not through Claude Code.'}));process.exit(2)}\""
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/destroy-block.cjs"
           },
           {
             "type": "command",

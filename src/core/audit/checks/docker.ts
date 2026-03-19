@@ -216,8 +216,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
   // DCK-08: no-new-privileges default
   const securityOpts2 = dockerInfo.SecurityOptions ?? [];
   const noNewPrivilegesDefault = securityOpts2.some((o: string) => o.includes("no-new-privileges")) ||
-    (Array.isArray(daemonJson["default-security-opt"]) &&
-      (daemonJson["default-security-opt"] as string[]).some((o) => o.includes("no-new-privileges")));
+    daemonJson["no-new-privileges"] === true;
   const dck08: AuditCheck = {
     id: "DCK-NO-NEW-PRIVILEGES",
     category: "Docker",
@@ -225,8 +224,8 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     severity: "warning",
     passed: noNewPrivilegesDefault,
     currentValue: noNewPrivilegesDefault ? "no-new-privileges configured" : "no-new-privileges not set as default",
-    expectedValue: "no-new-privileges in SecurityOptions or default-security-opt",
-    fixCommand: "jq '. + {\"default-security-opt\":[\"no-new-privileges\"]}' /etc/docker/daemon.json > /tmp/d.json && mv /tmp/d.json /etc/docker/daemon.json && systemctl restart docker",
+    expectedValue: "no-new-privileges: true in daemon.json",
+    fixCommand: "jq '. + {\"no-new-privileges\":true}' /etc/docker/daemon.json > /tmp/d.json && mv /tmp/d.json /etc/docker/daemon.json && systemctl restart docker",
     explain: "Preventing privilege escalation by default stops containers from gaining elevated host privileges.",
   };
 

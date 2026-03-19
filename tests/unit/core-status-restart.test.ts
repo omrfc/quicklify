@@ -1,14 +1,15 @@
 import * as sshUtils from "../../src/utils/ssh";
 import * as adapterFactory from "../../src/adapters/factory";
 import * as errorMapper from "../../src/utils/errorMapper";
-import { restartCoolify } from "../../src/core/status";
+import { restartPlatform } from "../../src/core/status";
+import { createMockAdapter } from "../helpers/mockAdapter";
 
 jest.mock("../../src/utils/ssh");
 jest.mock("../../src/adapters/factory");
 jest.mock("../../src/utils/errorMapper");
 jest.mock("../../src/constants", () => ({
   COOLIFY_RESTART_CMD: "docker compose -f /data/coolify/source/docker-compose.yml restart",
-  POLL_DELAY_MS: 0,
+  POLL_DELAY_MS: 1,
   COOLIFY_PORT: 8000,
   DOKPLOY_PORT: 3000,
 }));
@@ -28,18 +29,11 @@ const sampleServer = {
   mode: "coolify" as const,
 };
 
-const mockAdapter = {
-  name: "coolify",
-  getCloudInit: jest.fn(() => ""),
-  healthCheck: jest.fn(),
-  createBackup: jest.fn(async () => ({ success: true })),
-  getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
-  update: jest.fn(async () => ({ success: true })),
-};
+const mockAdapter = createMockAdapter({ overrides: { healthCheck: jest.fn() } });
 
 beforeEach(() => {
   jest.resetAllMocks();
-  mockedAdapterFactory.getAdapter.mockReturnValue(mockAdapter as any);
+  mockedAdapterFactory.getAdapter.mockReturnValue(mockAdapter);
   mockedAdapterFactory.resolvePlatform.mockReturnValue("coolify");
   mockedErrorMapper.getErrorMessage.mockImplementation((e) =>
     e instanceof Error ? e.message : String(e),
@@ -47,12 +41,12 @@ beforeEach(() => {
   mockedErrorMapper.mapSshError.mockReturnValue(null as unknown as string);
 });
 
-describe("restartCoolify", () => {
+describe("restartPlatform", () => {
   it("should return { success: true, nowRunning: true } when restart succeeds and Coolify is running", async () => {
     mockedSshUtils.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
-    mockAdapter.healthCheck.mockResolvedValue({ status: "running" });
+    (mockAdapter.healthCheck as jest.Mock).mockResolvedValue({ status: "running" });
 
-    const result = await restartCoolify(sampleServer);
+    const result = await restartPlatform(sampleServer);
 
     expect(result.success).toBe(true);
     expect(result.nowRunning).toBe(true);
@@ -70,7 +64,7 @@ describe("restartCoolify", () => {
       stderr: "compose error: service not found",
     });
 
-    const result = await restartCoolify(sampleServer);
+    const result = await restartPlatform(sampleServer);
 
     expect(result.success).toBe(false);
     expect(result.nowRunning).toBe(false);
@@ -80,9 +74,9 @@ describe("restartCoolify", () => {
 
   it("should return { success: true, nowRunning: false } when restart succeeds but health check fails", async () => {
     mockedSshUtils.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
-    mockAdapter.healthCheck.mockResolvedValue({ status: "not reachable" });
+    (mockAdapter.healthCheck as jest.Mock).mockResolvedValue({ status: "not reachable" });
 
-    const result = await restartCoolify(sampleServer);
+    const result = await restartPlatform(sampleServer);
 
     expect(result.success).toBe(true);
     expect(result.nowRunning).toBe(false);
@@ -95,7 +89,7 @@ describe("restartCoolify", () => {
     mockedErrorMapper.getErrorMessage.mockReturnValue("Connection refused");
     mockedErrorMapper.mapSshError.mockReturnValue("SSH connection refused. Check the IP address and SSH access.");
 
-    const result = await restartCoolify(sampleServer);
+    const result = await restartPlatform(sampleServer);
 
     expect(result.success).toBe(false);
     expect(result.nowRunning).toBe(false);
@@ -110,7 +104,7 @@ describe("restartCoolify", () => {
       stderr: "ssh: connect to host failed",
     });
 
-    const result = await restartCoolify(sampleServer);
+    const result = await restartPlatform(sampleServer);
 
     expect(result.success).toBe(false);
     expect(result.error).toBe("ssh: connect to host failed");
@@ -119,10 +113,23 @@ describe("restartCoolify", () => {
   it("should use fallback error message when SSH failure stderr is empty", async () => {
     mockedSshUtils.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "" });
 
-    const result = await restartCoolify(sampleServer);
+    const result = await restartPlatform(sampleServer);
 
     expect(result.success).toBe(false);
     expect(result.error).toBe("Restart command failed");
+  });
+
+  it("should return error when platform does not support restart", async () => {
+    mockedAdapterFactory.resolvePlatform.mockReturnValue("dokploy");
+    const dokployAdapter = createMockAdapter({ name: "dokploy" });
+    mockedAdapterFactory.getAdapter.mockReturnValue(dokployAdapter);
+
+    const result = await restartPlatform(sampleServer);
+
+    expect(result.success).toBe(false);
+    expect(result.nowRunning).toBe(false);
+    expect(result.error).toContain("not supported");
+    expect(mockedSshUtils.sshExec).not.toHaveBeenCalled();
   });
 
   it("should not include hint field when mapSshError returns null", async () => {
@@ -130,7 +137,7 @@ describe("restartCoolify", () => {
     mockedSshUtils.sshExec.mockRejectedValue(sshError);
     mockedErrorMapper.mapSshError.mockReturnValue(null as unknown as string);
 
-    const result = await restartCoolify(sampleServer);
+    const result = await restartPlatform(sampleServer);
 
     expect(result.success).toBe(false);
     expect(result.hint).toBeUndefined();

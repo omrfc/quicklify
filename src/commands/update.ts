@@ -7,7 +7,7 @@ import { isBareServer, requireManagedMode } from "../utils/modeGuard.js";
 import { getAdapter, resolvePlatform } from "../adapters/factory.js";
 import { adapterDisplayName } from "../adapters/shared.js";
 import { updateServer } from "../core/update.js";
-import type { Platform } from "../types/index.js";
+import type { ServerRecord, Platform } from "../types/index.js";
 
 interface UpdateOptions {
   all?: boolean;
@@ -27,44 +27,27 @@ function showDryRun(server: { name: string; ip: string }, platformDisplayName: s
 }
 
 async function updateSingleServer(
-  serverName: string,
-  serverIp: string,
-  serverId: string,
-  provider: string,
+  server: ServerRecord,
   apiToken: string,
   platform: Platform,
 ): Promise<boolean> {
-  const adapter = getAdapter(platform);
-  const displayName = adapterDisplayName(adapter);
-
-  const spinner = createSpinner(`Validating ${serverName}...`);
+  const spinner = createSpinner(`Validating ${server.name}...`);
   spinner.start();
 
-  const serverRecord = {
-    id: serverId,
-    name: serverName,
-    ip: serverIp,
-    provider,
-  } as Parameters<typeof updateServer>[0];
-
-  const result = await updateServer(serverRecord, apiToken, platform);
+  const result = await updateServer(server, apiToken, platform);
+  const displayName = result.displayName ?? "Platform";
 
   if (!result.success) {
-    if (result.error?.includes("not running")) {
-      spinner.fail(`${serverName}: ${result.error}`);
-    } else {
-      spinner.fail(`${serverName}: Failed to verify server`);
-      if (result.error) logger.error(result.error);
-      if (result.hint) logger.info(result.hint);
-    }
+    spinner.fail(`${server.name}: ${result.error ?? "Failed to verify server"}`);
+    if (result.hint) logger.info(result.hint);
     return false;
   }
 
-  spinner.succeed(`${serverName}: Server verified`);
+  spinner.succeed(`${server.name}: Server verified`);
 
-  logger.info(`Updating ${displayName} on ${serverName} (${serverIp})...`);
+  logger.info(`Updating ${displayName} on ${server.name} (${server.ip})...`);
   if (result.output) console.log(result.output);
-  logger.success(`${serverName}: ${displayName} update completed!`);
+  logger.success(`${server.name}: ${displayName} update completed!`);
   return true;
 }
 
@@ -139,7 +122,7 @@ async function updateAll(options?: UpdateOptions): Promise<void> {
       continue;
     }
     const token = tokenMap.get(server.provider)!;
-    const ok = await updateSingleServer(server.name, server.ip, server.id, server.provider, token, serverPlatform);
+    const ok = await updateSingleServer(server, token, serverPlatform);
     if (ok) succeeded++;
     else failed++;
     console.log();

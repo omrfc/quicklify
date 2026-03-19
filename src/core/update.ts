@@ -1,6 +1,7 @@
 import { createProviderWithToken } from "../utils/providerFactory.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
 import { getAdapter } from "../adapters/factory.js";
+import { adapterDisplayName } from "../adapters/shared.js";
 import type { ServerRecord, Platform } from "../types/index.js";
 
 export interface UpdateServerResult {
@@ -8,6 +9,7 @@ export interface UpdateServerResult {
   output?: string;
   error?: string;
   hint?: string;
+  displayName?: string;
 }
 
 export async function updateServer(
@@ -15,18 +17,22 @@ export async function updateServer(
   apiToken: string,
   platform: Platform,
 ): Promise<UpdateServerResult> {
+  const adapter = getAdapter(platform);
+  const displayName = adapterDisplayName(adapter);
+
   // Check server status via provider API (skip for manual servers)
   if (!server.id.startsWith("manual-")) {
     try {
       const providerInstance = createProviderWithToken(server.provider, apiToken);
       const status = await providerInstance.getServerStatus(server.id);
       if (status !== "running") {
-        return { success: false, error: `Server is not running (status: ${status})` };
+        return { success: false, displayName, error: `Server is not running (status: ${status})` };
       }
     } catch (error: unknown) {
       const hint = mapProviderError(error, server.provider);
       return {
         success: false,
+        displayName,
         error: getErrorMessage(error),
         ...(hint ? { hint } : {}),
       };
@@ -34,11 +40,19 @@ export async function updateServer(
   }
 
   // Call adapter update
-  const adapter = getAdapter(platform);
-  const result = await adapter.update(server.ip);
-  return {
-    success: result.success,
-    output: result.output,
-    error: result.error,
-  };
+  try {
+    const result = await adapter.update(server.ip);
+    return {
+      success: result.success,
+      output: result.output,
+      error: result.error,
+      displayName,
+    };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      displayName,
+      error: getErrorMessage(error),
+    };
+  }
 }

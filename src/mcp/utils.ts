@@ -1,3 +1,4 @@
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { findServer } from "../utils/config.js";
 import { getProviderToken } from "../core/tokens.js";
 import type { ServerRecord } from "../types/index.js";
@@ -19,6 +20,19 @@ export type McpResponse = {
   content: Array<{ type: "text"; text: string }>;
   isError?: boolean;
 };
+
+// ─── mcpLog ──────────────────────────────────────────────────────────────────
+
+/**
+ * Send a structured log message via the MCP server (no-op when server is undefined).
+ */
+export async function mcpLog(
+  server: McpServer | undefined,
+  message: string,
+  level: "info" | "warning" | "error" = "info",
+): Promise<void> {
+  await server?.sendLoggingMessage({ level, data: message });
+}
 
 // ─── resolveServerForMcp ─────────────────────────────────────────────────────
 

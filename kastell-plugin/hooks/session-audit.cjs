@@ -54,7 +54,7 @@ process.stdin.on('end', () => {
     // Run audit with --score-only flag (stdio: 'pipe' captures both stdout+stderr)
     let output;
     try {
-      output = execSync(`npx kastell audit ${server.name} --score-only`, {
+      output = execSync(`npx --no-install kastell audit ${server.name} --score-only`, {
         cwd,
         timeout: 45000,
         encoding: 'utf8',

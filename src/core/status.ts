@@ -3,7 +3,7 @@ import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
 import { getAdapter, resolvePlatform } from "../adapters/factory.js";
 import { sshExec } from "../utils/ssh.js";
 import { COOLIFY_RESTART_CMD, POLL_DELAY_MS } from "../constants.js";
-import type { ServerRecord } from "../types/index.js";
+import type { ServerRecord, Platform } from "../types/index.js";
 
 export interface StatusResult {
   server: ServerRecord;
@@ -56,16 +56,28 @@ export async function checkAllServersStatus(
   );
 }
 
-export interface RestartCoolifyResult {
+export interface RestartPlatformResult {
   success: boolean;
   nowRunning: boolean;
   error?: string;
   hint?: string;
 }
 
-export async function restartCoolify(server: ServerRecord): Promise<RestartCoolifyResult> {
+/** @deprecated Use restartPlatform instead */
+export const restartCoolify = restartPlatform;
+
+export async function restartPlatform(server: ServerRecord): Promise<RestartPlatformResult> {
+  const platform: Platform = resolvePlatform(server) ?? "coolify";
+  const adapter = getAdapter(platform);
+
+  // Currently only Coolify has a known restart command
+  const restartCmd = platform === "coolify" ? COOLIFY_RESTART_CMD : null;
+  if (!restartCmd) {
+    return { success: false, nowRunning: false, error: `Restart not supported for ${adapter.name}` };
+  }
+
   try {
-    const result = await sshExec(server.ip, COOLIFY_RESTART_CMD);
+    const result = await sshExec(server.ip, restartCmd);
     if (result.code !== 0) {
       return {
         success: false,
@@ -74,16 +86,17 @@ export async function restartCoolify(server: ServerRecord): Promise<RestartCooli
       };
     }
 
-    // Wait for Coolify to start
-    await new Promise((resolve) => setTimeout(resolve, POLL_DELAY_MS));
-
-    // Check health
-    const platform = resolvePlatform(server) ?? "coolify";
-    const healthResult = await getAdapter(platform).healthCheck(server.ip, server.domain);
-    return {
-      success: true,
-      nowRunning: healthResult.status === "running",
-    };
+    // Poll for platform health (check every 1s, up to POLL_DELAY_MS total)
+    const pollInterval = 1_000;
+    const maxAttempts = Math.ceil(POLL_DELAY_MS / pollInterval);
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      const healthResult = await adapter.healthCheck(server.ip, server.domain);
+      if (healthResult.status === "running") {
+        return { success: true, nowRunning: true };
+      }
+    }
+    return { success: true, nowRunning: false };
   } catch (error: unknown) {
     const hint = mapSshError(error, server.ip);
     return {

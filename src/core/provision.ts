@@ -7,7 +7,7 @@ import { findLocalSshKey, generateSshKey, getSshKeyName } from "../utils/sshKey.
 import { saveServer } from "../utils/config.js";
 import { getTemplateDefaults } from "../utils/templates.js";
 import { getErrorMessage, mapProviderError } from "../utils/errorMapper.js";
-import { assertValidIp } from "../utils/ssh.js";
+import { assertValidIp, clearKnownHostKey } from "../utils/ssh.js";
 import type { CloudProvider } from "../providers/base.js";
 import type { ServerRecord, Platform } from "../types/index.js";
 import { IP_WAIT, BOOT_WAIT, BOOT_WAIT_DEFAULT, invalidProviderError } from "../constants.js";
@@ -219,11 +219,16 @@ export async function provisionServer(config: ProvisionConfig): Promise<Provisio
     }
   }
 
-  // 12. Save to config
+  // 12. Clear stale known_hosts entry (IP reuse across provision/destroy cycles)
+  if (!isPendingIp(serverIp)) {
+    clearKnownHostKey(serverIp);
+  }
+
+  // 13. Save to config
   const record = buildRecord(serverIp);
   await saveServer(record);
 
-  // 13. Return result
+  // 14. Return result
   if (isPendingIp(serverIp)) {
     return {
       success: true,

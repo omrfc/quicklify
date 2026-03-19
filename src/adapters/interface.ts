@@ -1,4 +1,5 @@
 import type { BackupManifest } from "../types/index.js";
+import type { LogService } from "../core/logs.js";
 
 /**
  * Result of a platform health check.
@@ -104,7 +105,7 @@ export interface PlatformAdapter {
    * Matches the platform name (lowercase).
    * @example "coolify" | "dokploy"
    */
-  readonly defaultLogService: string;
+  readonly defaultLogService: LogService;
 
   /**
    * Ports required by this platform that should be protected from firewall removal.

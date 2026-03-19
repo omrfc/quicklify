@@ -11,7 +11,7 @@ describe("PlatformAdapter interface", () => {
   const mockAdapter: PlatformAdapter = {
     name: "test-platform",
     port: 8000,
-    defaultLogService: "test-platform",
+    defaultLogService: "coolify",
     platformPorts: [80, 443, 8000],
     getCloudInit(serverName: string): string {
       return `#!/bin/bash\necho ${serverName}`;

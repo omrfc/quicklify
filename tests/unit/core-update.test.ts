@@ -2,6 +2,7 @@ import * as providerFactory from "../../src/utils/providerFactory";
 import * as adapterFactory from "../../src/adapters/factory";
 import * as errorMapper from "../../src/utils/errorMapper";
 import { updateServer } from "../../src/core/update";
+import { createMockAdapter } from "../helpers/mockAdapter";
 import type { CloudProvider } from "../../src/providers/base";
 
 jest.mock("../../src/utils/providerFactory");
@@ -48,18 +49,11 @@ const mockProvider: CloudProvider = {
   getSnapshotCostEstimate: jest.fn(),
 };
 
-const mockAdapter = {
-  name: "coolify",
-  getCloudInit: jest.fn(() => ""),
-  healthCheck: jest.fn(async () => ({ status: "running" as const })),
-  createBackup: jest.fn(async () => ({ success: true })),
-  getStatus: jest.fn(async () => ({ platformVersion: "1.0", status: "running" as const })),
-  update: jest.fn(),
-};
+const mockAdapter = createMockAdapter({ overrides: { update: jest.fn() } });
 
 beforeEach(() => {
   jest.resetAllMocks();
-  mockedAdapterFactory.getAdapter.mockReturnValue(mockAdapter as any);
+  mockedAdapterFactory.getAdapter.mockReturnValue(mockAdapter);
   (mockAdapter.update as jest.Mock).mockResolvedValue({ success: true, output: "Coolify updated" });
   mockedErrorMapper.getErrorMessage.mockImplementation((e) =>
     e instanceof Error ? e.message : String(e),
@@ -129,6 +123,30 @@ describe("updateServer", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toBe("SSH connection refused");
+  });
+
+  it("should return error when adapter.update() throws an exception", async () => {
+    (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+    (mockAdapter.update as jest.Mock).mockRejectedValue(new Error("SSH connection lost"));
+    mockedErrorMapper.getErrorMessage.mockReturnValue("SSH connection lost");
+
+    const result = await updateServer(sampleServer, "test-token", "coolify");
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("SSH connection lost");
+    expect(result.output).toBeUndefined();
+  });
+
+  it("should include displayName in result", async () => {
+    (mockProvider.getServerStatus as jest.Mock).mockResolvedValue("running");
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+    (mockAdapter.update as jest.Mock).mockResolvedValue({ success: true, output: "Done" });
+
+    const result = await updateServer(sampleServer, "test-token", "coolify");
+
+    expect(result.displayName).toBeDefined();
+    expect(typeof result.displayName).toBe("string");
   });
 
   it("should not include hint field when mapProviderError returns null", async () => {

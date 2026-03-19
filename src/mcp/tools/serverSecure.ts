@@ -3,6 +3,7 @@ import { getServers } from "../../utils/config.js";
 import {
   resolveServerForMcp,
   mcpError,
+  mcpLog,
   type McpResponse,
 } from "../utils.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -86,7 +87,7 @@ export async function handleServerSecure(params: {
       }
     }
 
-    await mcpServer?.sendLoggingMessage({ level: "info", data: `Applying ${params.action} on ${server.name}` });
+    await mcpLog(mcpServer, `Applying ${params.action} on ${server.name}`);
 
     switch (params.action) {
       case "secure-setup":   return handleSecureSetup(server, params.port);

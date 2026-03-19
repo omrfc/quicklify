@@ -317,7 +317,7 @@ export function buildDockerHardeningCommand(platform: Platform | undefined): Ssh
   const settings: Record<string, unknown> = {
     "log-driver": "json-file",
     "log-opts": { "max-size": "10m", "max-file": "3" },
-    "default-security-opt": ["no-new-privileges"],
+    "no-new-privileges": true,
   };
 
   if (!isDokploy) {

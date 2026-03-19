@@ -5,6 +5,7 @@ import {
   resolveServerForMcp,
   mcpSuccess,
   mcpError,
+  mcpLog,
   type McpResponse,
 } from "../utils.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
@@ -52,7 +53,7 @@ export async function handleServerAudit(params: {
       );
     }
 
-    await mcpServer?.sendLoggingMessage({ level: "info", data: `Starting 413-check audit on ${server.name}` });
+    await mcpLog(mcpServer, `Starting 413-check audit on ${server.name}`);
 
     const platform = server.platform ?? server.mode ?? "bare";
     const result = await runAudit(server.ip, server.name, platform);
@@ -65,7 +66,7 @@ export async function handleServerAudit(params: {
     }
 
     const auditResult = result.data;
-    await mcpServer?.sendLoggingMessage({ level: "info", data: `Audit complete, score: ${auditResult.overallScore}` });
+    await mcpLog(mcpServer, `Audit complete, score: ${auditResult.overallScore}`);
 
     const format = params.format ?? "summary";
 

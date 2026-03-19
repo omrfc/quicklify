@@ -32,7 +32,7 @@ export async function logsCommand(
   const adapter = platform ? getAdapter(platform) : null;
   const defaultService: LogService = isBareServer(server) || !adapter
     ? "system"
-    : (adapter.defaultLogService as LogService);
+    : adapter.defaultLogService;
   const service: LogService = (options?.service as LogService) || defaultService;
   const validServices: LogService[] = ["coolify", "dokploy", "docker", "system"];
   if (!validServices.includes(service)) {

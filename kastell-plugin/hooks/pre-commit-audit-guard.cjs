@@ -57,6 +57,7 @@ process.stdin.on('end', () => {
       const current = entries[entries.length - 1].overallScore;
       const previous = entries[entries.length - 2].overallScore;
 
+      if (typeof current !== 'number' || typeof previous !== 'number') continue;
       if (current < previous) {
         process.stdout.write(JSON.stringify({
           decision: 'block',

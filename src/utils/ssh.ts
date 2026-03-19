@@ -61,6 +61,25 @@ export function resolveScpPath(): string {
   return join(dir, `scp${ext}`);
 }
 
+/**
+ * Resolve ssh-keygen binary path from the resolved SSH path.
+ */
+function resolveSshKeygenPath(): string {
+  const sshPath = resolveSshPath();
+  if (sshPath === "ssh") return "ssh-keygen";
+  const dir = dirname(sshPath);
+  const ext = sshPath.endsWith(".exe") ? ".exe" : "";
+  return join(dir, `ssh-keygen${ext}`);
+}
+
+/**
+ * Remove stale host key for an IP from known_hosts.
+ * Best-effort — failures are silently ignored.
+ */
+export function clearKnownHostKey(ip: string): void {
+  spawnSync(resolveSshKeygenPath(), ["-R", ip], { stdio: "ignore" });
+}
+
 export function checkSshAvailable(): boolean {
   const sshBin = resolveSshPath();
   // spawnSync avoids shell invocation — pass binary and args separately
@@ -126,9 +145,9 @@ export function sanitizedEnv(): NodeJS.ProcessEnv {
  */
 export function removeStaleHostKey(ip: string): void {
   assertValidIp(ip);
-  // spawnSync with separate args prevents shell injection of ip (defense-in-depth,
-  // even though assertValidIp() already validates the format above)
-  spawnSync("ssh-keygen", ["-R", ip], { stdio: "ignore", env: sanitizedEnv() });
+  // Use resolved path — bare "ssh-keygen" may not be on PATH in MCP environments.
+  // spawnSync with separate args prevents shell injection (defense-in-depth).
+  spawnSync(resolveSshKeygenPath(), ["-R", ip], { stdio: "ignore", env: sanitizedEnv() });
 }
 
 export const HOST_KEY_PATTERN = /Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED/i;
