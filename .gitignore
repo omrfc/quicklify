@@ -141,7 +141,8 @@ vite.config.ts.timestamp-*
 # Claude Code settings
 .claude/skills/
 .claude/settings.local.json
-.mcp.json
+/.mcp.json
+# Allow kastell-plugin/.mcp.json (plugin distribution config — must be committed)
 
 # Personal notes & internal planning
 TODO.md
