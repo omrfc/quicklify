@@ -4,6 +4,7 @@ import { provisionServer } from "../../core/provision.js";
 import { mcpSuccess, mcpError } from "../utils.js";
 import { SUPPORTED_PROVIDERS } from "../../constants.js";
 import type { SupportedProvider } from "../../constants.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -51,7 +52,7 @@ export async function handleServerProvision(params: {
   name: string;
   template?: "starter" | "production" | "dev";
   mode?: "coolify" | "dokploy" | "bare";
-}): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
+}, mcpServer?: McpServer): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
   const mode = params.mode ?? "coolify";
 
   // SAFE_MODE guard
@@ -61,6 +62,8 @@ export async function handleServerProvision(params: {
       "Set KASTELL_SAFE_MODE=false to enable server provisioning. WARNING: This creates billable cloud resources.",
     );
   }
+
+  await mcpServer?.sendLoggingMessage({ level: "info", data: `Provisioning ${params.provider} server: ${params.name}` });
 
   try {
     const result = await provisionServer({
@@ -129,6 +132,8 @@ export async function handleServerProvision(params: {
               reason: "Check cloud provider status",
             },
           ];
+
+    await mcpServer?.sendLoggingMessage({ level: "info", data: "Provision complete" });
 
     return mcpSuccess({
       success: true,

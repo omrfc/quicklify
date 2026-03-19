@@ -26,7 +26,31 @@ export function createMcpServer(): McpServer {
   setMcpVersion(pkg.version);
   const server = new McpServer(
     { name: pkg.name, version: pkg.version },
-    { capabilities: { logging: {} } },
+    {
+      capabilities: { logging: {} },
+      instructions: `Kastell manages self-hosted servers across 4 cloud providers (Hetzner, DigitalOcean, Vultr, Linode) and 3 platforms (Coolify, Dokploy, bare VPS).
+
+Workflow: provision a server -> add to config -> secure/harden -> audit -> maintain.
+
+Tool routing:
+- server_info: read-only queries (list, status, health, sizes)
+- server_provision: creates new billable cloud resources (requires SAFE_MODE=false)
+- server_manage: register existing servers (add), unregister (remove), permanently delete (destroy - requires SAFE_MODE=false)
+- server_lock: one-shot 19-step production hardening (SSH + fail2ban + UFW + sysctl + auditd + AIDE + Docker)
+- server_audit: 413-check security scan, 27 categories, CIS/PCI-DSS/HIPAA compliance filtering
+- server_secure: granular security (SSH hardening, firewall rules, domain/SSL)
+- server_backup: backup/restore + VPS snapshots
+- server_maintain: platform updates, restarts, full maintenance cycle
+- server_logs: live logs and system metrics via SSH
+- server_evidence: forensic collection with SHA256 checksums
+- server_guard: autonomous monitoring daemon (cron-based)
+- server_doctor: proactive health analysis (disk trend, swap, stale packages)
+- server_fleet: fleet-wide dashboard (all servers at once)
+
+Safety: KASTELL_SAFE_MODE=true (default in MCP) blocks destructive operations. Set SAFE_MODE=false explicitly to provision, destroy, or restore.
+
+Bare servers: use service 'system' or 'docker' for logs (not 'coolify'). server_maintain update/maintain blocked on bare servers.`,
+    },
   );
 
   server.registerTool("server_info", {
@@ -101,7 +125,7 @@ export function createMcpServer(): McpServer {
       openWorldHint: true,
     },
   }, async (params) => {
-    return handleServerSecure(params);
+    return handleServerSecure(params, server);
   });
 
   server.registerTool("server_backup", {
@@ -131,7 +155,7 @@ export function createMcpServer(): McpServer {
       openWorldHint: true,
     },
   }, async (params) => {
-    return handleServerProvision(params);
+    return handleServerProvision(params, server);
   });
 
   server.registerTool("server_audit", {
@@ -146,7 +170,7 @@ export function createMcpServer(): McpServer {
       openWorldHint: true,
     },
   }, async (params) => {
-    return handleServerAudit(params);
+    return handleServerAudit(params, server);
   });
 
   server.registerTool("server_evidence", {
@@ -206,7 +230,7 @@ export function createMcpServer(): McpServer {
       openWorldHint: true,
     },
   }, async (params) => {
-    return handleServerLock(params);
+    return handleServerLock(params, server);
   });
 
   server.registerTool("server_fleet", {

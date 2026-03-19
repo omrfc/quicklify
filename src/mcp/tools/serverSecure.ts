@@ -5,6 +5,7 @@ import {
   mcpError,
   type McpResponse,
 } from "../utils.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { requireManagedMode } from "../../utils/modeGuard.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
 import {
@@ -54,7 +55,7 @@ export async function handleServerSecure(params: {
   protocol?: "tcp" | "udp";
   domain?: string;
   ssl?: boolean;
-}): Promise<McpResponse> {
+}, mcpServer?: McpServer): Promise<McpResponse> {
   try {
     const servers = getServers();
     if (servers.length === 0) {
@@ -84,6 +85,8 @@ export async function handleServerSecure(params: {
         return mcpError(modeError, "Domain management requires a managed platform (Coolify or Dokploy). Use SSH for bare server DNS configuration.");
       }
     }
+
+    await mcpServer?.sendLoggingMessage({ level: "info", data: `Applying ${params.action} on ${server.name}` });
 
     switch (params.action) {
       case "secure-setup":   return handleSecureSetup(server, params.port);

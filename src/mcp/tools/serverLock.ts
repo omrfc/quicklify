@@ -9,6 +9,7 @@ import {
 } from "../utils.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
 import type { Platform } from "../../types/index.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 export const serverLockSchema = {
   server: z.string().optional().describe("Server name or IP. Auto-selected if only one server exists."),
@@ -22,7 +23,7 @@ export async function handleServerLock(params: {
   production?: boolean;
   dryRun?: boolean;
   force?: boolean;
-}): Promise<McpResponse> {
+}, mcpServer?: McpServer): Promise<McpResponse> {
   try {
     const servers = getServers();
     if (servers.length === 0) {
@@ -62,6 +63,8 @@ export async function handleServerLock(params: {
     const platform: Platform | undefined =
       platformStr === "coolify" || platformStr === "dokploy" ? platformStr : undefined;
 
+    await mcpServer?.sendLoggingMessage({ level: "info", data: `Starting 19-step hardening on ${server.name}` });
+
     const result = await applyLock(server.ip, server.name, platform, {
       production,
       dryRun,
@@ -71,6 +74,8 @@ export async function handleServerLock(params: {
     if (!result.success) {
       return mcpError(result.error ?? "Lock hardening failed", result.hint);
     }
+
+    await mcpServer?.sendLoggingMessage({ level: "info", data: "Hardening complete" });
 
     return mcpSuccess({
       success: result.success,

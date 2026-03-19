@@ -10,6 +10,7 @@ import {
 import { getErrorMessage } from "../../utils/errorMapper.js";
 import { calculateComplianceDetail } from "../../core/audit/compliance/scoring.js";
 import { FRAMEWORK_KEY_MAP } from "../../core/audit/compliance/types.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 
 export const serverAuditSchema = {
@@ -28,7 +29,7 @@ export async function handleServerAudit(params: {
   format?: "summary" | "json" | "score";
   framework?: "cis-level1" | "cis-level2" | "pci-dss" | "hipaa";
   explain?: boolean;
-}): Promise<McpResponse> {
+}, mcpServer?: McpServer): Promise<McpResponse> {
   try {
     const servers = getServers();
     if (servers.length === 0) {
@@ -51,6 +52,8 @@ export async function handleServerAudit(params: {
       );
     }
 
+    await mcpServer?.sendLoggingMessage({ level: "info", data: `Starting 413-check audit on ${server.name}` });
+
     const platform = server.platform ?? server.mode ?? "bare";
     const result = await runAudit(server.ip, server.name, platform);
 
@@ -62,6 +65,8 @@ export async function handleServerAudit(params: {
     }
 
     const auditResult = result.data;
+    await mcpServer?.sendLoggingMessage({ level: "info", data: `Audit complete, score: ${auditResult.overallScore}` });
+
     const format = params.format ?? "summary";
 
     if (format === "json") {
