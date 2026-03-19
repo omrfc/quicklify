@@ -4,7 +4,7 @@ Autonomous server security and infrastructure management for Claude Code.
 
 ## What You Get
 
-The Kastell plugin bundles 13 MCP tools, 4 skills, 1 agent, and 4 hooks that give Claude Code
+The Kastell plugin bundles 13 MCP tools, 4 skills, 1 agent, and 5 hooks that give Claude Code
 full control over your self-hosted server infrastructure. Use it to provision cloud servers,
 run 413-check security audits across 27 categories, apply 19-step hardening, manage backups,
 and operate entire fleets — all from natural language in Claude Code.
