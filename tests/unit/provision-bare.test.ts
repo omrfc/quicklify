@@ -95,7 +95,7 @@ describe("provisionServer — bare mode cloud-init selection", () => {
 
     expect(result.success).toBe(true);
     expect(mockedAdapterFactory.getAdapter).toHaveBeenCalledWith("coolify");
-    expect(mockedAdapterFactory.getAdapter("coolify").getCloudInit).toHaveBeenCalledWith("coolify-srv");
+    expect(mockedAdapterFactory.getAdapter("coolify").getCloudInit).toHaveBeenCalledWith("coolify-srv", expect.any(String));
     expect(mockedCloudInit.getBareCloudInit).not.toHaveBeenCalled();
   });
 
@@ -109,7 +109,7 @@ describe("provisionServer — bare mode cloud-init selection", () => {
 
     expect(result.success).toBe(true);
     expect(mockedAdapterFactory.getAdapter).toHaveBeenCalledWith("coolify");
-    expect(mockedAdapterFactory.getAdapter("coolify").getCloudInit).toHaveBeenCalledWith("default-srv");
+    expect(mockedAdapterFactory.getAdapter("coolify").getCloudInit).toHaveBeenCalledWith("default-srv", expect.any(String));
     expect(mockedCloudInit.getBareCloudInit).not.toHaveBeenCalled();
   });
 });

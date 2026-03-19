@@ -128,8 +128,9 @@ export async function provisionServer(config: ProvisionConfig): Promise<Provisio
   const modeStr = config.mode || "coolify";
   const isBare = modeStr === "bare";
   const platform: Platform | undefined = isBare ? undefined : (modeStr === "dokploy" ? "dokploy" : "coolify");
+  const sshPublicKey = findLocalSshKey() ?? undefined;
   const cloudInit = platform
-    ? getAdapter(platform).getCloudInit(config.name)
+    ? getAdapter(platform).getCloudInit(config.name, sshPublicKey)
     : getBareCloudInit(config.name);
 
   // 9. Create server

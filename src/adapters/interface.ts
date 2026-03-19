@@ -119,9 +119,11 @@ export interface PlatformAdapter {
    *
    * @param serverName - Server name used inside the script for logging.
    *   Sanitized to `[a-z0-9-]` before insertion.
+   * @param sshPublicKey - Optional SSH public key to re-inject after platform
+   *   installation (some installers overwrite authorized_keys).
    * @returns A bash script string starting with `#!/bin/bash`.
    */
-  getCloudInit(serverName: string): string;
+  getCloudInit(serverName: string, sshPublicKey?: string): string;
 
   /**
    * Checks whether the platform's web UI is reachable.

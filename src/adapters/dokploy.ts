@@ -21,7 +21,7 @@ export class DokployAdapter implements PlatformAdapter {
   readonly defaultLogService = "dokploy";
   readonly platformPorts: readonly number[] = [80, 443, DOKPLOY_PORT];
 
-  getCloudInit(serverName: string): string {
+  getCloudInit(serverName: string, sshPublicKey?: string): string {
     const safeName = serverName.replace(/[^a-z0-9-]/g, "");
     return `#!/bin/bash
 set +e
@@ -104,6 +104,13 @@ if ! ss -tlnp | grep -q ':22 '; then
   systemctl restart ssh.service 2>/dev/null || systemctl restart sshd.service 2>/dev/null || true
   sleep 2
 fi
+
+# Re-inject SSH public key (platform installer may overwrite authorized_keys)
+${sshPublicKey ? `echo "Re-injecting SSH public key..."
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+grep -qF '${sshPublicKey.trim().replace(/'/g, "'\\''")}' /root/.ssh/authorized_keys 2>/dev/null || echo '${sshPublicKey.trim().replace(/'/g, "'\\''")}' >> /root/.ssh/authorized_keys
+chmod 600 /root/.ssh/authorized_keys` : "# No SSH public key provided — skipping re-injection"}
 
 # Wait for services
 echo "Waiting for Dokploy services to start..."
