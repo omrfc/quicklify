@@ -45,7 +45,7 @@ npx kastell
  ██║  ██╗  ██║  ██║ ███████║   ██║   ███████╗███████╗███████╗
  ╚═╝  ╚═╝  ╚═╝  ╚═╝ ╚══════╝   ╚═╝   ╚══════╝╚══════╝╚══════╝
 
-  KASTELL  v1.12.0  ·  Your infrastructure, fortified.
+  KASTELL  v1.13.0  ·  Your infrastructure, fortified.
 
   $ kastell init --template production  → deploy a new server
   $ kastell status --all                → check all servers
@@ -152,18 +152,26 @@ kastell domain add sunucum --domain ornek.com  # Domain + SSL ayarla
 
 ### Güvenlik Denetimi
 ```bash
-kastell audit sunucum                # Tam güvenlik denetimi (9 kategori, 46+ kontrol)
-kastell audit sunucum --json         # Otomasyon için JSON çıktısı
-kastell audit sunucum --threshold 70 # Skor eşiğin altındaysa exit code 1
-kastell audit sunucum --fix          # İnteraktif düzeltme modu (önem derecesine göre)
-kastell audit sunucum --fix --dry-run # Düzeltmeleri çalıştırmadan önizle
-kastell audit sunucum --watch        # 5 dk aralıkla tekrar denetle, sadece değişiklikleri göster
-kastell audit sunucum --watch 60     # Özel aralık (60 saniye)
-kastell audit --host root@1.2.3.4   # Kayıtlı olmayan sunucuyu denetle
-kastell audit sunucum --badge        # SVG rozet çıktısı
-kastell audit sunucum --report html  # Tam HTML raporu
-kastell audit sunucum --score-only   # Sadece skor (CI uyumlu)
-kastell audit sunucum --summary      # Kompakt özet görünümü
+kastell audit sunucum                    # Tam güvenlik denetimi (27 kategori, 413 kontrol)
+kastell audit sunucum --json             # Otomasyon için JSON çıktısı
+kastell audit sunucum --threshold 70     # Skor eşiğin altındaysa exit code 1
+kastell audit sunucum --fix              # İnteraktif düzeltme modu (önem derecesine göre)
+kastell audit sunucum --fix --dry-run    # Düzeltmeleri çalıştırmadan önizle
+kastell audit sunucum --watch            # 5 dk aralıkla tekrar denetle, sadece değişiklikleri göster
+kastell audit sunucum --watch 60         # Özel aralık (60 saniye)
+kastell audit --host root@1.2.3.4       # Kayıtlı olmayan sunucuyu denetle
+kastell audit sunucum --badge            # SVG rozet çıktısı
+kastell audit sunucum --report html      # Tam HTML raporu
+kastell audit sunucum --score-only       # Sadece skor (CI uyumlu)
+kastell audit sunucum --summary          # Kompakt özet görünümü
+kastell audit sunucum --explain          # Başarısız kontrolleri iyileştirme rehberiyle açıkla
+kastell audit sunucum --compliance cis   # Uyumluluk çerçevesine göre filtrele (cis-level1, cis-level2, pci-dss, hipaa)
+```
+
+### Güvenlik Sertleştirme
+```bash
+kastell lock sunucum                          # 19 adımlı production sertleştirme (SSH + UFW + sysctl + auditd + AIDE + Docker)
+kastell lock sunucum --dry-run                # Sertleştirme adımlarını uygulamadan önizle
 ```
 
 ### İzleme ve Hata Ayıklama
@@ -237,7 +245,7 @@ kastell init --template production --provider hetzner
 
 ## Güvenlik
 
-Kastell güvenlik öncelikli olarak geliştirilmektedir -- 149 test suite'inde **3.333 test**, özel güvenlik test suite'leri dahil.
+Kastell güvenlik öncelikli olarak geliştirilmektedir -- 183 test suite'inde **4.173 test**, özel güvenlik test suite'leri dahil.
 
 - API token'ları asla diske kaydedilmez -- çalışma zamanında sorulur veya ortam değişkenlerinden alınır
 - SSH anahtarları gerekirse otomatik oluşturulur (Ed25519)
@@ -249,6 +257,7 @@ Kastell güvenlik öncelikli olarak geliştirilmektedir -- 149 test suite'inde *
 - İçe/dışa aktarma işlemleri hassas alanları temizler ve dosya izinlerini sıkılaştırır (`0o600`)
 - `--full-setup` güvenlik duvarı ve SSH sıkılaştırmasını otomatik etkinleştirir
 - MCP: SAFE_MODE (varsayılan: açık) tüm yıkıcı işlemleri engeller, tüm girdilerde Zod şema doğrulaması, yedek geri yüklemede path traversal koruması
+- Claude Code hook'ları: destroy-block, `--force` olmadan `kastell destroy` komutunu engeller; pre-commit audit guard skor düşüşünde uyarır
 
 ## Kurulum
 
@@ -278,6 +287,8 @@ Platform durumunu kontrol edip gerekirse otomatik yeniden başlatmak için `kast
 
 Geliştirme ortamı kurulumu, test ve katkı rehberi için [CONTRIBUTING.md](CONTRIBUTING.md) dosyasına bakın.
 
+Kastell, 183 suite'te **4.173 test** kullanmaktadır. PR göndermeden önce `npm test` çalıştırın.
+
 ## MCP Sunucusu (Yapay Zeka Entegrasyonu)
 
 Kastell, yapay zeka destekli sunucu yönetimi için yerleşik bir [Model Context Protocol](https://modelcontextprotocol.io/) sunucusu içerir. Claude Code, Cursor, Windsurf ve diğer MCP uyumlu istemcilerle çalışır.
@@ -303,21 +314,42 @@ Mevcut araçlar:
 
 | Araç | Eylemler | Açıklama |
 |------|----------|----------|
-| `server_info` | list, status, health | Sunucu bilgilerini sorgula, bulut sağlayıcı ve platform durumunu kontrol et |
+| `server_info` | list, status, health, sizes | Sunucu bilgilerini sorgula, bulut sağlayıcı ve platform durumunu kontrol et |
 | `server_logs` | logs, monitor | SSH ile platform/Docker loglarını ve sistem metriklerini getir |
 | `server_manage` | add, remove, destroy | Sunucuları kaydet, kaldır veya bulut sunucusunu sil |
 | `server_maintain` | update, restart, maintain | Platformu güncelle, sunucuları yeniden başlat, tam bakım yap |
 | `server_secure` | secure, firewall, domain | SSH sıkılaştırma, güvenlik duvarı kuralları, domain/SSL yönetimi (10 alt komut) |
 | `server_backup` | backup, snapshot | Veritabanı yedekle/geri yükle ve VPS snapshot oluştur/yönet |
 | `server_provision` | create | Bulut sağlayıcılarda yeni sunucu oluştur |
-| `server_audit` | audit | Güvenlik denetimi çalıştır (summary/json/score çıktı formatları) |
+| `server_audit` | audit | 413 kontrollü güvenlik denetimi, uyumluluk çerçevesi filtresiyle; iyileştirme rehberi için `--explain` kullanın |
 | `server_evidence` | collect | Adli kanıt paketi topla (SHA256 checksum ile) |
 | `server_guard` | start, stop, status | Otonom güvenlik izleme daemon'u yönet |
 | `server_doctor` | diagnose | Proaktif sağlık analizi ve iyileştirme komutları |
-| `server_lock` | harden | Sunucuyu tek adımda production standardına sıkılaştır |
+| `server_lock` | harden | 19 adımlı production sertleştirme (SSH, UFW, sysctl, auditd, AIDE, Docker) |
 | `server_fleet` | overview | Tüm filo için sağlık ve güvenlik duruşu panosu |
 
 > Tüm yıkıcı işlemler (destroy, restore, snapshot-delete, provision, restart, maintain, snapshot-create) çalıştırılmak için `SAFE_MODE=false` gerektirir.
+
+### Claude Code Eklentisi
+
+Kastell, Anthropic marketplace için [Claude Code eklentisi](kastell-plugin/) olarak da sunulmaktadır. Eklenti şunları içerir:
+
+- **4 beceri**: kastell-ops (mimari referans), kastell-scaffold (bileşen üretimi), kastell-careful (yıkıcı işlem koruyucusu), kastell-research (kod tabanı keşfi)
+- **2 ajan**: kastell-auditor (paralel denetim analizcisi), kastell-fixer (worktree izolasyonlu otomatik düzeltici)
+- **5 hook**: destroy-block, session-audit, session-log, pre-commit-audit-guard, stop-quality-check
+
+Kurulum için Claude Code eklenti yöneticisini kullanın ya da doğrudan `claude --plugin-dir kastell-plugin` ile çalıştırın.
+
+### MCP Platform Kurulumu
+
+| Platform | Yapılandırma Konumu | Kılavuz |
+|----------|---------------------|---------|
+| Claude Code | `claude mcp add` veya `.mcp.json` | [Kurulum Rehberi](docs/mcp-platforms/claude-code.md) |
+| Claude Desktop | `claude_desktop_config.json` | [Kurulum Rehberi](docs/mcp-platforms/claude-desktop.md) |
+| VS Code / Copilot | `.vscode/mcp.json` | [Kurulum Rehberi](docs/mcp-platforms/vscode.md) |
+| Cursor | `.cursor/mcp.json` | [Kurulum Rehberi](docs/mcp-platforms/cursor.md) |
+
+> Daha fazla platform (JetBrains, Windsurf, Gemini ve diğerleri) v2.0'da eklenecek.
 
 `kastell audit` komutunu CI pipeline'ınızda güvenlik eşiği zorunluluğu için kullanın:
 
@@ -340,9 +372,9 @@ jobs:
 
 ## Gelecek Planlar
 
-- Audit Pro: 20+ kategoride 400+ güvenlik kontrolü
-- AI IDE'ler için plugin ekosistemi
-- Dashboard ve yönetilen hizmet
+- Test Mükemmelliği: Mutasyon testi, kapsam boşlukları, entegrasyon testleri (v1.14)
+- Marketplace dağıtımıyla plugin ekosistemi (v2.0)
+- Dashboard ve yönetilen hizmet (v3.0)
 
 ## Felsefe
 

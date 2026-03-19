@@ -45,7 +45,7 @@ Running `kastell` without any arguments launches an **interactive search menu** 
  ██║  ██╗  ██║  ██║ ███████║   ██║   ███████╗███████╗███████╗
  ╚═╝  ╚═╝  ╚═╝  ╚═╝ ╚══════╝   ╚═╝   ╚══════╝╚══════╝╚══════╝
 
-  KASTELL  v1.12.0  ·  Your infrastructure, fortified.
+  KASTELL  v1.13.0  ·  Your infrastructure, fortified.
 
   $ kastell init --template production  → deploy a new server
   $ kastell status --all                → check all servers
@@ -152,18 +152,26 @@ kastell domain add my-server --domain example.com  # Set domain + SSL
 
 ### Security Audit
 ```bash
-kastell audit my-server                # Full security audit (9 categories, 46+ checks)
-kastell audit my-server --json         # JSON output for automation
-kastell audit my-server --threshold 70 # Exit code 1 if score below threshold
-kastell audit my-server --fix          # Interactive fix mode (prompts per severity)
-kastell audit my-server --fix --dry-run # Preview fixes without executing
-kastell audit my-server --watch        # Re-audit every 5 min, show only changes
-kastell audit my-server --watch 60     # Custom interval (60 seconds)
-kastell audit --host root@1.2.3.4     # Audit unregistered server
-kastell audit my-server --badge        # SVG badge output
-kastell audit my-server --report html  # Full HTML report
-kastell audit my-server --score-only   # Just the score (CI-friendly)
-kastell audit my-server --summary      # Compact dashboard view
+kastell audit my-server                  # Full security audit (27 categories, 413 checks)
+kastell audit my-server --json           # JSON output for automation
+kastell audit my-server --threshold 70   # Exit code 1 if score below threshold
+kastell audit my-server --fix            # Interactive fix mode (prompts per severity)
+kastell audit my-server --fix --dry-run  # Preview fixes without executing
+kastell audit my-server --watch          # Re-audit every 5 min, show only changes
+kastell audit my-server --watch 60       # Custom interval (60 seconds)
+kastell audit --host root@1.2.3.4       # Audit unregistered server
+kastell audit my-server --badge          # SVG badge output
+kastell audit my-server --report html    # Full HTML report
+kastell audit my-server --score-only     # Just the score (CI-friendly)
+kastell audit my-server --summary        # Compact dashboard view
+kastell audit my-server --explain        # Explain failed checks with remediation guidance
+kastell audit my-server --compliance cis # Filter by compliance framework (cis-level1, cis-level2, pci-dss, hipaa)
+```
+
+### Security Hardening
+```bash
+kastell lock my-server                        # 19-step production hardening (SSH + UFW + sysctl + auditd + AIDE + Docker)
+kastell lock my-server --dry-run              # Preview hardening steps without applying
 ```
 
 ### Monitor & Debug
@@ -237,7 +245,7 @@ kastell init --template production --provider hetzner
 
 ## Security
 
-Kastell is built with security as a priority -- **3,333 tests** across 149 suites, including dedicated security test suites.
+Kastell is built with security as a priority -- **4,173 tests** across 183 suites, including dedicated security test suites.
 
 - API tokens are never stored on disk -- prompted at runtime or via environment variables
 - SSH keys are auto-generated if needed (Ed25519)
@@ -249,6 +257,7 @@ Kastell is built with security as a priority -- **3,333 tests** across 149 suite
 - Import/export operations strip sensitive fields and enforce strict file permissions (`0o600`)
 - `--full-setup` enables UFW firewall and SSH hardening automatically
 - MCP: SAFE_MODE (default: on) blocks all destructive operations, Zod schema validation on all inputs, path traversal protection on backup restore
+- Claude Code hooks: destroy-block prevents accidental `kastell destroy` without `--force`, pre-commit audit guard warns on score drops
 
 ## Installation
 
@@ -278,6 +287,8 @@ Use `kastell status my-server --autostart` to check platform status and auto-res
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and contribution guidelines.
 
+Kastell uses **4,173 tests** across 183 suites. Run `npm test` before submitting PRs.
+
 ## MCP Server (AI Integration)
 
 Kastell includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server for AI-powered server management. Works with Claude Code, Cursor, Windsurf, and other MCP-compatible clients.
@@ -303,21 +314,42 @@ Available tools:
 
 | Tool | Actions | Description |
 |------|---------|-------------|
-| `server_info` | list, status, health | Query server information, check cloud provider and platform status |
+| `server_info` | list, status, health, sizes | Query server information, check cloud provider and platform status |
 | `server_logs` | logs, monitor | Fetch platform/Docker logs and system metrics via SSH |
 | `server_manage` | add, remove, destroy | Register, unregister, or destroy cloud servers |
 | `server_maintain` | update, restart, maintain | Update platform, restart servers, run full maintenance |
 | `server_secure` | secure, firewall, domain | SSH hardening, firewall rules, domain/SSL management (10 subcommands) |
 | `server_backup` | backup, snapshot | Backup/restore databases and create/manage VPS snapshots |
 | `server_provision` | create | Provision new servers on cloud providers |
-| `server_audit` | audit | Run security audit with summary/json/score output formats |
+| `server_audit` | audit | 413-check security audit with compliance framework filtering; use `--explain` for remediation guidance |
 | `server_evidence` | collect | Collect forensic evidence package with checksums |
 | `server_guard` | start, stop, status | Manage autonomous security monitoring daemon |
 | `server_doctor` | diagnose | Proactive health analysis with remediation commands |
-| `server_lock` | harden | Harden server to production standard in one step |
+| `server_lock` | harden | 19-step production hardening (SSH, UFW, sysctl, auditd, AIDE, Docker) |
 | `server_fleet` | overview | Fleet-wide health and security posture dashboard |
 
 > All destructive operations (destroy, restore, snapshot-delete, provision, restart, maintain, snapshot-create) require `SAFE_MODE=false` to execute.
+
+### Claude Code Plugin
+
+Kastell is available as a [Claude Code plugin](kastell-plugin/) for the Anthropic marketplace. The plugin bundles:
+
+- **4 skills**: kastell-ops (architecture reference), kastell-scaffold (component generation), kastell-careful (destructive op guard), kastell-research (codebase exploration)
+- **2 agents**: kastell-auditor (parallel audit analyzer), kastell-fixer (worktree-isolated auto-fix)
+- **5 hooks**: destroy-block, session-audit, session-log, pre-commit-audit-guard, stop-quality-check
+
+Install via Claude Code plugin manager or use directly with `claude --plugin-dir kastell-plugin`.
+
+### MCP Platform Setup
+
+| Platform | Config Location | Guide |
+|----------|----------------|-------|
+| Claude Code | `claude mcp add` or `.mcp.json` | [Setup Guide](docs/mcp-platforms/claude-code.md) |
+| Claude Desktop | `claude_desktop_config.json` | [Setup Guide](docs/mcp-platforms/claude-desktop.md) |
+| VS Code / Copilot | `.vscode/mcp.json` | [Setup Guide](docs/mcp-platforms/vscode.md) |
+| Cursor | `.cursor/mcp.json` | [Setup Guide](docs/mcp-platforms/cursor.md) |
+
+> More platforms (JetBrains, Windsurf, Gemini, and others) coming in v2.0.
 
 ## CI/CD Integration
 
@@ -347,9 +379,9 @@ The `--threshold` flag causes a non-zero exit code when the score falls below th
 
 ## What's Next
 
-- Audit Pro: 400+ security checks across 20+ categories
-- Plugin ecosystem for AI IDEs
-- Dashboard and managed service
+- Test Excellence: Mutation testing, coverage gaps, integration tests (v1.14)
+- Plugin ecosystem with marketplace distribution (v2.0)
+- Dashboard and managed service (v3.0)
 
 ## Philosophy
 

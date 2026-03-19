@@ -71,6 +71,15 @@ Response time: Within 48 hours
 - **SAFE_MODE** (`KASTELL_SAFE_MODE=true`, default enabled for MCP) blocks destructive operations: `destroy`, `restore`, `snapshot-delete`, `provision`, `restart`, `maintain`, `snapshot-create`
 - Mode guard (`requireCoolifyMode()`) prevents Coolify-specific operations on bare servers
 
+### Claude Code Plugin Security
+- Plugin hooks run in the Claude Code process — no separate daemon or elevated privileges
+- `destroy-block` hook prevents accidental `kastell destroy` without explicit `--force` flag
+- `pre-commit-audit-guard` hook compares audit scores before/after — blocks commit if score drops
+- `session-audit` hook runs `kastell audit --silent` at session start — informational only, never blocks
+- Plugin agents (`kastell-auditor`) use `memory: user` scope — audit data stays in user's Claude context
+- `kastell-fixer` uses `isolation: worktree` — runs in a separate git worktree, cannot modify the working tree directly
+- All hooks use Node.js (not shell scripts) for Windows cross-platform compatibility
+
 ### Import/Export Security
 - Sensitive field stripping on import
 - Strict file permissions on export
@@ -89,7 +98,7 @@ Response time: Within 48 hours
 | A6 - Vulnerable Components | See below | Production: 0 vulnerabilities |
 | A7 - XSS | N/A | CLI tool, no web UI |
 | A8 - Insecure Deserialization | Mitigated | JSON.parse wrapped in try/catch with safe defaults |
-| A9 - Logging & Monitoring | Partial | `sanitizeStderr()` prevents sensitive data in logs |
+| A9 - Logging & Monitoring | Mitigated | `sanitizeStderr()` prevents sensitive data in logs, MCP structured logging via `sendLoggingMessage()` |
 | A10 - SSRF | Mitigated | `assertValidIp()` on all outbound SSH/HTTP targets |
 
 ## Dependency Security
