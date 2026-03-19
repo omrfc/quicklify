@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.13
 milestone_name: Foundation + Housekeeping
 status: executing
-stopped_at: Completed 64-02-PLAN.md (adapter dispatch fix - 6 command files)
-last_updated: "2026-03-18T23:51:12.240Z"
+stopped_at: Completed 65-01-PLAN.md (plugin scaffold - plugin.json, .mcp.json, hooks.json)
+last_updated: "2026-03-19T07:49:09.393Z"
 last_activity: "2026-03-19 — Plan 01: PlatformAdapter extended with port/defaultLogService/platformPorts; adapterDisplayName helper added"
 progress:
   total_phases: 9
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  completed_phases: 3
+  total_plans: 5
+  completed_plans: 5
   percent: 22
 ---
 
@@ -49,6 +49,8 @@ Progress: [██░░░░░░░░] 22% of v1.13 (9 phases, 25 requiremen
 - [Phase 64-01]: platformPorts defined inline in each adapter (not imported from core/firewall.ts) to avoid architectural dependency inversion
 - [Phase 64-01]: adapterDisplayName accepts minimal { name: string } shape — avoids circular typing, usable with any adapter-like object
 - [Phase 64-02]: Command layer uses adapter properties (port/defaultLogService/platformPorts) instead of platform string conditionals
+- [Phase 65-01]: Scoped gitignore /.mcp.json to repo root only so kastell-plugin/.mcp.json can be committed as plugin distribution content
+- [Phase 65-01]: hooks.json PreToolUse destroy-block uses Node.js (not bash) for Windows cross-platform compatibility
 
 ### Pending Todos
 
@@ -62,6 +64,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T23:51:12.231Z
-Stopped at: Completed 64-02-PLAN.md (adapter dispatch fix - 6 command files)
+Last session: 2026-03-19T07:49:09.384Z
+Stopped at: Completed 65-01-PLAN.md (plugin scaffold - plugin.json, .mcp.json, hooks.json)
 Resume file: None
