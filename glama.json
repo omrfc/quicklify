@@ -1,0 +1,50 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.kastelldev/kastell",
+  "description": "CLI toolkit for provisioning, securing, and managing self-hosted servers. 413-check security audit, 19-step hardening, CIS/PCI-DSS/HIPAA compliance.",
+  "repository": {
+    "url": "https://github.com/kastelldev/kastell",
+    "source": "github"
+  },
+  "version": "1.13.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "kastell",
+      "version": "1.13.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "HETZNER_TOKEN",
+          "description": "Hetzner Cloud API token (optional — only for Hetzner servers)",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "DIGITALOCEAN_TOKEN",
+          "description": "DigitalOcean API token (optional — only for DigitalOcean servers)",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "VULTR_TOKEN",
+          "description": "Vultr API token (optional — only for Vultr servers)",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "LINODE_TOKEN",
+          "description": "Linode API token (optional — only for Linode servers)",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}
