@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.13
 milestone_name: Foundation + Housekeeping
 status: completed
-stopped_at: Phase 68 context gathered
-last_updated: "2026-03-19T11:15:28.545Z"
-last_activity: 2026-03-19 — Roadmap created (8 phases, P72-P79, 25/25 requirements mapped)
+stopped_at: Completed 68-01-PLAN.md
+last_updated: "2026-03-19T11:53:38.053Z"
+last_activity: 2026-03-19
 progress:
   total_phases: 12
-  completed_phases: 6
-  total_plans: 9
-  completed_plans: 22
+  completed_phases: 7
+  total_plans: 10
+  completed_plans: 23
 ---
 
 # Project State
@@ -21,12 +21,12 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Brand:** Kastell (kastell.dev | npm: kastell | GitHub: kastelldev)
 **Core value:** Autonomous server security and maintenance across multiple cloud providers
-**Current focus:** Phase 67 — remaining-skills
+**Current focus:** Phase 68 — agents
 
 ## Current Position
 
-Phase: 67 (remaining-skills) — EXECUTING
-Plan: 2 of 2
+Phase: 68 (agents) — EXECUTING
+Plan: 1 of 1
 
 ## Accumulated Context
 
@@ -53,6 +53,8 @@ Plan: 2 of 2
 - [Phase 67-01]: kastell-research has no disable-model-invocation: true so Claude can auto-delegate exploration queries
 - [Phase 67-02]: context: fork + disable-model-invocation: true for kastell-scaffold — manual invocation only, isolated subagent execution
 - [Phase 67-02]: Architecture Rules inlined in kastell-scaffold SKILL.md body (forked subagent does not inherit kastell-ops context)
+- [Phase 68-01]: kastell-auditor in plugin/agents (memory:user), kastell-fixer in .claude/agents (isolation:worktree requires project scope)
+- [Phase 68-01]: Both agents use skills:[kastell-ops] for domain injection — agent prompts stay compact with no duplicated architecture docs
 
 ### Pending Todos
 
@@ -68,7 +70,7 @@ None.
 
 Phase: Not started (roadmap defined 2026-03-19)
 Status: Roadmap complete — awaiting v1.13 completion before execution
-Last activity: 2026-03-19 — Roadmap created (8 phases, P72-P79, 25/25 requirements mapped)
+Last activity: 2026-03-19
 
 ### v1.14 Phase Structure
 
@@ -93,6 +95,6 @@ Last activity: 2026-03-19 — Roadmap created (8 phases, P72-P79, 25/25 requirem
 
 ## Session Continuity
 
-Last session: 2026-03-19T11:15:28.534Z
-Stopped at: Phase 68 context gathered
-Resume file: .planning/phases/68-agents/68-CONTEXT.md
+Last session: 2026-03-19T11:48:04.985Z
+Stopped at: Completed 68-01-PLAN.md
+Resume file: None
