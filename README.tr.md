@@ -245,7 +245,7 @@ kastell init --template production --provider hetzner
 
 ## Güvenlik
 
-Kastell güvenlik öncelikli olarak geliştirilmektedir -- 183 test suite'inde **4.173 test**, özel güvenlik test suite'leri dahil.
+Kastell güvenlik öncelikli olarak geliştirilmektedir -- 183 test suite'inde **4.178 test**, özel güvenlik test suite'leri dahil.
 
 - API token'ları asla diske kaydedilmez -- çalışma zamanında sorulur veya ortam değişkenlerinden alınır
 - SSH anahtarları gerekirse otomatik oluşturulur (Ed25519)
@@ -287,7 +287,7 @@ Platform durumunu kontrol edip gerekirse otomatik yeniden başlatmak için `kast
 
 Geliştirme ortamı kurulumu, test ve katkı rehberi için [CONTRIBUTING.md](CONTRIBUTING.md) dosyasına bakın.
 
-Kastell, 183 suite'te **4.173 test** kullanmaktadır. PR göndermeden önce `npm test` çalıştırın.
+Kastell, 183 suite'te **4.178 test** kullanmaktadır. PR göndermeden önce `npm test` çalıştırın.
 
 ## MCP Sunucusu (Yapay Zeka Entegrasyonu)
 

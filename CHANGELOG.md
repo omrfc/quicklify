@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.13.0] - 2026-03-19
+
+### Added
+- **Claude Code Plugin** — `kastell-plugin/` marketplace-ready package with `plugin.json` manifest, `.mcp.json`, and `hooks.json`
+- **4 Skills** — `kastell-ops` (background server management), `kastell-research` (Explore agent + architecture map), `kastell-careful` (skill-scoped LLM prompt hook), `kastell-scaffold` (4 fork-friendly templates)
+- **2 Agents** — `kastell-auditor` (security review) and `kastell-fixer` (bug diagnosis) project-scope agents
+- **5 Hooks** — `session-log`, `stop-quality-check`, `session-audit`, `pre-commit-audit-guard`, `destroy-block` with ESM-compatible `.cjs` scripts
+- **MCP Discoverability** — `server.instructions`, MCP Logging, `llms.txt`, `SUBMISSIONS.md`, 4 platform setup guides, `mcp-server` keyword
+- **Dynamic Content Injection** — `!command` syntax in 4 skill files for live codebase context
+
+### Fixed
+- **CLI↔MCP parity** — 3 bugs fixed: logs default service (Dokploy), health host-key-mismatch detection, maintain update validation
+- **DO Coolify SSH key loss** — Re-inject SSH public key after platform installer in cloud-init
+- **Docker crash after lock** — SSH host key resolution in MCP health checks
+- **Plugin hook ESM compatibility** — Renamed `.js` → `.cjs` for ESM project compatibility
+
+### Changed
+- **Commands→Core extraction** — `backup`, `status`, `update` business logic moved from commands/ to core/ (thin command pattern)
+- **Adapter bypass elimination** — 9 commands now use adapter properties (`port`, `defaultLogService`, `platformPorts`) instead of hardcoded values
+- **Shared `createMockAdapter()`** — Test mock factory in `tests/helpers/mockAdapter.ts`; deduplicated across all test files
+- **Test coverage** — 4156→4178 tests (adapter contract, core extraction, hook tests)
+
 ## [1.12.0] - 2026-03-18
 
 ### Added
