@@ -155,3 +155,7 @@ kastell.yml
 kastell-export.json
 quicklify-export.json
 servers.json
+
+# Stryker mutation testing
+reports/mutation/
+.stryker-tmp/
