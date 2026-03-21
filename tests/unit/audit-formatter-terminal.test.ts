@@ -362,3 +362,167 @@ describe("explain mode", () => {
     expect(output).toContain("Root login allows brute-force attacks targeting the root account directly.");
   });
 });
+
+describe("formatTerminal branch coverage", () => {
+  it("connectionError category: shows SSH batch failed message instead of check details", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    const resultWithConnectionError: AuditResult = {
+      ...mockResult,
+      categories: [
+        {
+          name: "Docker",
+          checks: [],
+          score: 0,
+          maxScore: 100,
+          connectionError: true,
+        },
+      ],
+      quickWins: [],
+    };
+    const output = formatTerminal(resultWithConnectionError);
+
+    expect(output).toMatch(/skipped.*SSH batch failed|SSH batch failed/i);
+    expect(output).toContain("Docker");
+  });
+
+  it("skippedCategories: shows skipped category name in output", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    const resultWithSkipped: AuditResult = {
+      ...mockResult,
+      skippedCategories: ["Docker"],
+      quickWins: [],
+    };
+    const output = formatTerminal(resultWithSkipped);
+
+    expect(output).toContain("Skipped");
+    expect(output).toContain("Docker");
+  });
+
+  it("warnings: shows batch warning message in output", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    const resultWithWarning: AuditResult = {
+      ...mockResult,
+      warnings: ["Some warning about connectivity"],
+      quickWins: [],
+    };
+    const output = formatTerminal(resultWithWarning);
+
+    expect(output).toContain("Some warning about connectivity");
+  });
+
+  it("complianceRefs: shows compliance framework in output when checks have CIS refs", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    const resultWithCompliance: AuditResult = {
+      ...mockResult,
+      categories: [
+        {
+          name: "SSH",
+          checks: [
+            {
+              id: "SSH-01",
+              category: "SSH",
+              name: "Test Check",
+              severity: "critical",
+              passed: true,
+              currentValue: "yes",
+              expectedValue: "yes",
+              complianceRefs: [
+                {
+                  framework: "CIS",
+                  controlId: "5.2.1",
+                  version: "1.0",
+                  description: "Disable password auth",
+                  coverage: "full",
+                  level: "L1",
+                },
+              ],
+            },
+          ],
+          score: 100,
+          maxScore: 100,
+        },
+      ],
+      quickWins: [],
+    };
+    const output = formatTerminal(resultWithCompliance);
+
+    expect(output).toContain("CIS");
+  });
+
+  it("score color thresholds: score 95 (green) produces non-empty string", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    const highScore: AuditResult = { ...mockResult, overallScore: 95, quickWins: [] };
+    const output = formatTerminal(highScore);
+    expect(output).toContain("95");
+    expect(output.length).toBeGreaterThan(0);
+  });
+
+  it("score color thresholds: score 70 (yellow) produces non-empty string", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    const midScore: AuditResult = { ...mockResult, overallScore: 70, quickWins: [] };
+    const output = formatTerminal(midScore);
+    expect(output).toContain("70");
+    expect(output.length).toBeGreaterThan(0);
+  });
+
+  it("score color thresholds: score 40 (red) produces non-empty string", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    const lowScore: AuditResult = { ...mockResult, overallScore: 40, quickWins: [] };
+    const output = formatTerminal(lowScore);
+    expect(output).toContain("40");
+    expect(output.length).toBeGreaterThan(0);
+  });
+
+  it("VPS adjusted count 0: does not show VPS adjustment banner", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    const noAdjustmentResult: AuditResult = {
+      ...mockResult,
+      vpsType: "hetzner",
+      vpsAdjustedCount: 0,
+      quickWins: [],
+    };
+    const output = formatTerminal(noAdjustmentResult);
+
+    // When adjusted count is 0, VPS banner should NOT appear
+    expect(output).not.toContain("checks adjusted to info");
+  });
+
+  it("partial compliance: shows manual review recommended when partials exist", async () => {
+    const { formatTerminal } = await import("../../src/core/audit/formatters/terminal");
+    const resultWithPartial: AuditResult = {
+      ...mockResult,
+      categories: [
+        {
+          name: "SSH",
+          checks: [
+            {
+              id: "SSH-01",
+              category: "SSH",
+              name: "Test Check",
+              severity: "critical",
+              passed: true,
+              currentValue: "yes",
+              expectedValue: "yes",
+              complianceRefs: [
+                {
+                  framework: "CIS",
+                  controlId: "5.2.1",
+                  version: "1.0",
+                  description: "Disable password auth",
+                  coverage: "partial",
+                  level: "L1",
+                },
+              ],
+            },
+          ],
+          score: 100,
+          maxScore: 100,
+        },
+      ],
+      quickWins: [],
+    };
+    const output = formatTerminal(resultWithPartial);
+
+    expect(output).toContain("manual review recommended");
+  });
+});
