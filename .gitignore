@@ -139,7 +139,9 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 # Claude Code settings
+CLAUDE.md
 .claude/skills/
+.claude/agents/
 .claude/settings.local.json
 /.mcp.json
 .maestro/
