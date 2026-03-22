@@ -224,3 +224,38 @@ describe("serverEvidenceSchema", () => {
     expect(serverEvidenceSchema).toHaveProperty("no_sysinfo");
   });
 });
+
+describe("malformed params", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedConfig.getServers.mockReturnValue([makeServer()] as never);
+    mockedMcpUtils.resolveServerForMcp.mockReturnValue(undefined);
+    (mockedMcpUtils.mcpError as jest.Mock).mockImplementation((error: string, hint?: string) => ({
+      content: [{ type: "text", text: JSON.stringify({ error, ...(hint ? { hint } : {}) }) }],
+      isError: true,
+    }));
+  });
+
+  it("returns mcpError when server param is empty string", async () => {
+    const result = await handleServerEvidence({ server: "" });
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns mcpError when server param is null", async () => {
+    const result = await handleServerEvidence({ server: null as any });
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns mcpError for unmatched server string", async () => {
+    const result = await handleServerEvidence({ server: "999.999.999.999" });
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns mcpError when core throws SSH error", async () => {
+    const server = makeServer();
+    mockedMcpUtils.resolveServerForMcp.mockReturnValue(server as never);
+    mockedEvidence.collectEvidence.mockRejectedValue(new Error("SSH connection refused"));
+    const result = await handleServerEvidence({ server: "prod-server" });
+    expect(result.isError).toBe(true);
+  });
+});

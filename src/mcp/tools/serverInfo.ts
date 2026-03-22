@@ -387,6 +387,12 @@ export async function handleServerInfo(params: {
           ],
         });
       }
+
+      default:
+        return mcpError(
+          `Invalid action: ${String(params.action)}`,
+          "Valid actions: list, status, health, sizes",
+        );
     }
   } catch (error: unknown) {
     return mcpError(getErrorMessage(error));

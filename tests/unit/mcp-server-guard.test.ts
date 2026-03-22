@@ -187,3 +187,32 @@ describe("MCP server_guard tool", () => {
     });
   });
 });
+
+describe("malformed params", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+    mockedConfig.getServers.mockReturnValue([sampleServer] as never);
+    mockedConfig.findServer.mockReturnValue(undefined as never);
+  });
+
+  it("returns mcpError when server param is empty string", async () => {
+    const result = await handleServerGuard({ server: "", action: "status" });
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns mcpError when server param is null", async () => {
+    const result = await handleServerGuard({ server: null as any, action: "status" });
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns mcpError for unmatched server string", async () => {
+    const result = await handleServerGuard({ server: "999.999.999.999", action: "status" });
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns mcpError when action is null", async () => {
+    mockedConfig.findServer.mockReturnValue(sampleServer as never);
+    const result = await handleServerGuard({ server: "my-server", action: null as any });
+    expect(result.isError).toBe(true);
+  });
+});

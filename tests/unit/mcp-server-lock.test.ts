@@ -297,3 +297,26 @@ describe("MCP server_lock tool", () => {
     });
   });
 });
+
+describe("malformed params", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+    mockedConfig.getServers.mockReturnValue([sampleServer] as never);
+    mockedConfig.findServer.mockReturnValue(undefined as never);
+  });
+
+  it("returns mcpError when server param is empty string", async () => {
+    const result = await handleServerLock({ server: "", production: true });
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns mcpError when server param is null", async () => {
+    const result = await handleServerLock({ server: null as any, production: true });
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns mcpError for unmatched server string", async () => {
+    const result = await handleServerLock({ server: "999.999.999.999", production: true });
+    expect(result.isError).toBe(true);
+  });
+});

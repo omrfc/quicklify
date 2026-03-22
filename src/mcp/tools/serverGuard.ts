@@ -76,6 +76,9 @@ export async function handleServerGuard(params: {
           installedAt: result.installedAt,
         });
       }
+
+      default:
+        return mcpError(`Invalid action: ${String(params.action)}`, "Valid actions: start, stop, status");
     }
   } catch (error: unknown) {
     return mcpError(getErrorMessage(error));

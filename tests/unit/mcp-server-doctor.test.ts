@@ -204,3 +204,33 @@ describe("MCP server_doctor tool", () => {
     });
   });
 });
+
+describe("malformed params", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+    mockedConfig.getServers.mockReturnValue([sampleServer] as never);
+    mockedConfig.findServer.mockReturnValue(undefined as never);
+  });
+
+  it("returns mcpError when server param is empty string", async () => {
+    const result = await handleServerDoctor({ server: "" });
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns mcpError when server param is null", async () => {
+    const result = await handleServerDoctor({ server: null as any });
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns mcpError for unmatched server string", async () => {
+    const result = await handleServerDoctor({ server: "999.999.999.999" });
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns mcpError when core throws SSH error", async () => {
+    mockedConfig.findServer.mockReturnValue(sampleServer as never);
+    mockedDoctor.runServerDoctor.mockRejectedValue(new Error("SSH connection refused"));
+    const result = await handleServerDoctor({ server: "my-server" });
+    expect(result.isError).toBe(true);
+  });
+});

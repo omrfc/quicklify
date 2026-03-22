@@ -161,3 +161,18 @@ describe("MCP server_fleet tool", () => {
     });
   });
 });
+
+describe("malformed params", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+    mockedConfig.getServers.mockReturnValue([] as never);
+    mockedErrorMapper.getErrorMessage.mockImplementation((err: unknown) =>
+      err instanceof Error ? err.message : String(err),
+    );
+  });
+
+  it("returns mcpError when no servers configured", async () => {
+    const result = await handleServerFleet({});
+    expect(result.isError).toBe(true);
+  });
+});

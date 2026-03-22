@@ -542,3 +542,33 @@ describe("handleServerInfo — error handling", () => {
     expect(data.error).toBe("unexpected string error");
   });
 });
+
+describe("malformed params", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedConfig.getServers.mockReturnValue([sampleServer] as never);
+    mockedConfig.findServer.mockReturnValue(undefined as never);
+  });
+
+  it("returns mcpError when action is null", async () => {
+    const result = await handleServerInfo({ action: null as any });
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns mcpError when action is empty string", async () => {
+    const result = await handleServerInfo({ action: "" as any });
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns mcpError for unmatched server string in status action", async () => {
+    mockedConfig.findServer.mockReturnValue(undefined);
+    const result = await handleServerInfo({ action: "status", server: "999.999.999.999" });
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns mcpError for unmatched server string in health action", async () => {
+    mockedConfig.findServer.mockReturnValue(undefined);
+    const result = await handleServerInfo({ action: "health", server: "nonexistent" });
+    expect(result.isError).toBe(true);
+  });
+});
