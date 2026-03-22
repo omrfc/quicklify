@@ -161,3 +161,24 @@ describe.each(MCP_TOOLS)(
     });
   },
 );
+
+// ─── _kastell_version contract (success path) ────────────────────────────────
+
+describe("MCP contract — _kastell_version in success responses", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+    mockedConfig.getServers.mockReturnValue([]);
+  });
+
+  it("mcpSuccess always injects _kastell_version", async () => {
+    const { setMcpVersion } = await import("../../src/mcp/utils");
+    setMcpVersion("test-contract-version");
+
+    // server_info action:"list" returns mcpSuccess even with empty server list
+    const response = await handleServerInfo({ action: "list" } as any);
+
+    expect(response.isError).toBeUndefined();
+    const parsed = JSON.parse(response.content[0].text) as Record<string, unknown>;
+    expect(parsed._kastell_version).toBe("test-contract-version");
+  });
+});
