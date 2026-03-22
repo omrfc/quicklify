@@ -86,6 +86,8 @@ describe("MCP→Core Integration", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.KASTELL_SAFE_MODE = "false";
+    // Ensure safe mode defaults to false unless overridden per-test
+    mockedCoreManage.isSafeMode.mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -197,22 +199,17 @@ describe("MCP→Core Integration", () => {
     });
 
     it("should return error when SAFE_MODE is enabled", async () => {
-      process.env.KASTELL_SAFE_MODE = "true";
-      // Restore isSafeMode to real behavior
-      jest.unmock("../../src/core/manage.js");
-      const { isSafeMode } = await import("../../src/core/manage.js");
-      // Reset after test
+      // isSafeMode is mocked from coreManage — make it return true
+      mockedCoreManage.isSafeMode.mockReturnValue(true);
+
       const response = await handleServerProvision({
         provider: "hetzner",
         name: "test-server",
       });
 
-      // In safe mode, provision is blocked
-      if (isSafeMode()) {
-        expect(response.isError).toBe(true);
-        const body = JSON.parse(response.content[0].text);
-        expect(body.error).toMatch(/SAFE_MODE/);
-      }
+      expect(response.isError).toBe(true);
+      const body = JSON.parse(response.content[0].text);
+      expect(body.error).toMatch(/SAFE_MODE/);
     });
 
     it("should return error when provisionServer fails", async () => {

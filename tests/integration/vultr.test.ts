@@ -973,4 +973,75 @@ describe("VultrProvider", () => {
       }
     });
   });
+
+  describe("workflow", () => {
+    describe("create→status→destroy lifecycle", () => {
+      const serverConfig = {
+        name: "workflow-instance",
+        size: "vc2-1c-2gb",
+        region: "ewr",
+        cloudInit: "#!/bin/bash\necho hello",
+      };
+
+      it("should complete full lifecycle: create, poll status, destroy", async () => {
+        mockedAxios.post.mockResolvedValueOnce({
+          data: {
+            instance: {
+              id: "uuid-123",
+              main_ip: "3.4.5.6",
+              power_status: "running",
+            },
+          },
+        });
+        mockedAxios.get
+          .mockResolvedValueOnce({
+            data: { instance: { power_status: "running", server_status: "installingbooting" } },
+          })
+          .mockResolvedValueOnce({
+            data: { instance: { power_status: "running", server_status: "ok" } },
+          });
+        mockedAxios.delete.mockResolvedValueOnce({});
+
+        const created = await provider.createServer(serverConfig);
+        const status1 = await provider.getServerStatus(created.id);
+        const status2 = await provider.getServerStatus(created.id);
+        await provider.destroyServer(created.id);
+
+        expect(created.ip).toBe("3.4.5.6");
+        expect(status1).toBe("provisioning");
+        expect(status2).toBe("running");
+        expect(mockedAxios.delete).toHaveBeenCalledWith(
+          `https://api.vultr.com/v2/instances/${created.id}`,
+          expect.objectContaining({
+            headers: { Authorization: "Bearer test-api-token" },
+          }),
+        );
+      });
+
+      it("should NOT call destroy when create fails", async () => {
+        mockedAxios.post.mockRejectedValueOnce({
+          response: { data: { error: "quota exceeded" } },
+        });
+
+        await expect(provider.createServer(serverConfig)).rejects.toThrow();
+        expect(mockedAxios.delete).not.toHaveBeenCalled();
+      });
+
+      it("should propagate error when destroy fails after successful create", async () => {
+        mockedAxios.post.mockResolvedValueOnce({
+          data: {
+            instance: {
+              id: "uuid-456",
+              main_ip: "7.8.9.10",
+              power_status: "running",
+            },
+          },
+        });
+        mockedAxios.delete.mockRejectedValueOnce(new Error("Network Error"));
+
+        const created = await provider.createServer(serverConfig);
+        await expect(provider.destroyServer(created.id)).rejects.toThrow();
+      });
+    });
+  });
 });

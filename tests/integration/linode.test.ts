@@ -1095,4 +1095,59 @@ describe("LinodeProvider", () => {
       }
     });
   });
+
+  describe("workflow", () => {
+    describe("create→status→destroy lifecycle", () => {
+      const serverConfig = {
+        name: "workflow-linode",
+        size: "g6-standard-2",
+        region: "us-east",
+        cloudInit: "#!/bin/bash\necho hello",
+      };
+
+      it("should complete full lifecycle: create, poll status, destroy", async () => {
+        mockedAxios.post.mockResolvedValueOnce({
+          data: { id: 456, ipv4: ["4.5.6.7"], status: "provisioning" },
+        });
+        mockedAxios.get
+          .mockResolvedValueOnce({ data: { status: "provisioning" } })
+          .mockResolvedValueOnce({ data: { status: "running" } });
+        mockedAxios.delete.mockResolvedValueOnce({});
+
+        const created = await provider.createServer(serverConfig);
+        const status1 = await provider.getServerStatus(created.id);
+        const status2 = await provider.getServerStatus(created.id);
+        await provider.destroyServer(created.id);
+
+        expect(created.ip).toBe("4.5.6.7");
+        expect(status1).toBe("provisioning");
+        expect(status2).toBe("running");
+        expect(mockedAxios.delete).toHaveBeenCalledWith(
+          `https://api.linode.com/v4/linode/instances/${created.id}`,
+          expect.objectContaining({
+            headers: { Authorization: "Bearer test-api-token" },
+          }),
+        );
+      });
+
+      it("should NOT call destroy when create fails", async () => {
+        mockedAxios.post.mockRejectedValueOnce({
+          response: { data: { errors: [{ reason: "quota exceeded" }] } },
+        });
+
+        await expect(provider.createServer(serverConfig)).rejects.toThrow();
+        expect(mockedAxios.delete).not.toHaveBeenCalled();
+      });
+
+      it("should propagate error when destroy fails after successful create", async () => {
+        mockedAxios.post.mockResolvedValueOnce({
+          data: { id: 789, ipv4: ["8.9.10.11"], status: "running" },
+        });
+        mockedAxios.delete.mockRejectedValueOnce(new Error("Network Error"));
+
+        const created = await provider.createServer(serverConfig);
+        await expect(provider.destroyServer(created.id)).rejects.toThrow();
+      });
+    });
+  });
 });
