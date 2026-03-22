@@ -10,7 +10,7 @@ export type SshExecResult = { code: number; stdout: string; stderr: string };
 /**
  * MockChildProcess — typed substitute for ChildProcess in tests.
  *
- * Centralizes the EventEmitter cast so individual test files need no `as any`.
+ * Centralizes the EventEmitter-to-ChildProcess cast for reuse across test files.
  * The constructor auto-emits "close" with the given exitCode (optionally delayed).
  */
 export class MockChildProcess extends EventEmitter {

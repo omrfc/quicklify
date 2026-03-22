@@ -82,7 +82,7 @@ describe("statusCommand", () => {
     // Default: SSH available
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     // Default: spinner mock
-    mockedLogger.createSpinner.mockReturnValue(mockSpinner as any);
+    mockedLogger.createSpinner.mockReturnValue(mockSpinner as unknown as ReturnType<typeof mockedLogger.createSpinner>);
     // Default: logger methods mock
     (mockedLogger.logger as jest.Mocked<typeof mockedLogger.logger>) = {
       info: jest.fn(),

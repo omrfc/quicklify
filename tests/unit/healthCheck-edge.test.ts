@@ -8,10 +8,10 @@ describe("waitForCoolify edge cases", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    global.setTimeout = ((fn: Function) => {
+    global.setTimeout = ((fn: () => void) => {
       fn();
       return 0;
-    }) as any;
+    }) as unknown as typeof setTimeout;
   });
 
   afterEach(() => {

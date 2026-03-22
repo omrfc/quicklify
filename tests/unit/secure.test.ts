@@ -318,7 +318,7 @@ port 2222`;
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "2", stderr: "" });
-      mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: false }) as any;
+      mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: false }) as unknown as typeof mockedInquirer.prompt;
 
       await secureCommand("setup", "1.2.3.4");
 
@@ -333,7 +333,7 @@ port 2222`;
       mockedInquirer.prompt = jest
         .fn()
         .mockResolvedValueOnce({ confirm: true })
-        .mockResolvedValueOnce({ confirmName: "wrong-name" }) as any;
+        .mockResolvedValueOnce({ confirmName: "wrong-name" }) as unknown as typeof mockedInquirer.prompt;
 
       await secureCommand("setup", "1.2.3.4");
 
@@ -351,7 +351,7 @@ port 2222`;
       mockedInquirer.prompt = jest
         .fn()
         .mockResolvedValueOnce({ confirm: true })
-        .mockResolvedValueOnce({ confirmName: "coolify-test" }) as any;
+        .mockResolvedValueOnce({ confirmName: "coolify-test" }) as unknown as typeof mockedInquirer.prompt;
 
       await secureCommand("setup", "1.2.3.4");
 
@@ -368,7 +368,7 @@ port 2222`;
       mockedInquirer.prompt = jest
         .fn()
         .mockResolvedValueOnce({ confirm: true })
-        .mockResolvedValueOnce({ confirmName: "coolify-test" }) as any;
+        .mockResolvedValueOnce({ confirmName: "coolify-test" }) as unknown as typeof mockedInquirer.prompt;
 
       await secureCommand("setup", "1.2.3.4");
       // Should not continue to fail2ban
@@ -384,7 +384,7 @@ port 2222`;
       mockedInquirer.prompt = jest
         .fn()
         .mockResolvedValueOnce({ confirm: true })
-        .mockResolvedValueOnce({ confirmName: "coolify-test" }) as any;
+        .mockResolvedValueOnce({ confirmName: "coolify-test" }) as unknown as typeof mockedInquirer.prompt;
 
       await secureCommand("setup", "1.2.3.4");
       expect(mockedSsh.sshExec).toHaveBeenCalledTimes(2);
@@ -399,7 +399,7 @@ port 2222`;
       mockedInquirer.prompt = jest
         .fn()
         .mockResolvedValueOnce({ confirm: true })
-        .mockResolvedValueOnce({ confirmName: "coolify-test" }) as any;
+        .mockResolvedValueOnce({ confirmName: "coolify-test" }) as unknown as typeof mockedInquirer.prompt;
 
       await secureCommand("setup", "1.2.3.4");
 
@@ -417,7 +417,7 @@ port 2222`;
       mockedInquirer.prompt = jest
         .fn()
         .mockResolvedValueOnce({ confirm: true })
-        .mockResolvedValueOnce({ confirmName: "coolify-test" }) as any;
+        .mockResolvedValueOnce({ confirmName: "coolify-test" }) as unknown as typeof mockedInquirer.prompt;
 
       await secureCommand("setup", "1.2.3.4");
 
@@ -436,7 +436,7 @@ port 2222`;
       mockedInquirer.prompt = jest
         .fn()
         .mockResolvedValueOnce({ confirm: true })
-        .mockResolvedValueOnce({ confirmName: "coolify-test" }) as any;
+        .mockResolvedValueOnce({ confirmName: "coolify-test" }) as unknown as typeof mockedInquirer.prompt;
 
       await secureCommand("setup", "1.2.3.4");
 
@@ -466,7 +466,7 @@ port 2222`;
       mockedInquirer.prompt = jest
         .fn()
         .mockResolvedValueOnce({ confirm: true })
-        .mockResolvedValueOnce({ confirmName: "coolify-test" }) as any;
+        .mockResolvedValueOnce({ confirmName: "coolify-test" }) as unknown as typeof mockedInquirer.prompt;
 
       await secureCommand("setup", "1.2.3.4", { port: "2222" });
 

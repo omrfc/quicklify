@@ -238,7 +238,7 @@ describe("addCommand", () => {
       await addCommand({ provider: "hetzner" });
 
       // Extract IP prompt validate function
-      const ipPromptCall = mockedInquirer.prompt.mock.calls[0][0] as any[];
+      const ipPromptCall = mockedInquirer.prompt.mock.calls[0][0] as unknown as Array<{ validate: (val: string) => string | boolean }>;
       const ipValidator = ipPromptCall[0].validate;
 
       expect(ipValidator("")).toBe("IP address is required");
@@ -260,7 +260,7 @@ describe("addCommand", () => {
       await addCommand({ provider: "hetzner" });
 
       // Extract name prompt validate function
-      const namePromptCall = mockedInquirer.prompt.mock.calls[1][0] as any[];
+      const namePromptCall = mockedInquirer.prompt.mock.calls[1][0] as unknown as Array<{ validate: (val: string) => string | boolean }>;
       const nameValidator = namePromptCall[0].validate;
 
       expect(nameValidator("")).toBe("Server name is required");

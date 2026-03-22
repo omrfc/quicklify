@@ -93,7 +93,7 @@ describe("backupCommand — bare mode routing", () => {
       succeed: jest.fn().mockReturnThis(),
       fail: jest.fn().mockReturnThis(),
       stop: jest.fn().mockReturnThis(),
-    } as any);
+    } as unknown as ReturnType<typeof ora>);
   });
 
   afterEach(() => {

@@ -1,7 +1,7 @@
 import { mkdirSync, existsSync, writeFileSync } from "fs";
 import { spawn } from "child_process";
-import { EventEmitter } from "events";
 import * as sshUtils from "../../src/utils/ssh";
+import { MockChildProcess } from "../helpers/ssh-factories.js";
 import {
   buildBareConfigTarCommand,
   buildBareRestoreConfigCommand,
@@ -35,15 +35,11 @@ const mockedWriteFileSync = writeFileSync as jest.MockedFunction<typeof writeFil
 const mockedSpawn = spawn as jest.MockedFunction<typeof spawn>;
 
 function createMockProcess(code: number = 0, stderrData: string = "") {
-  const proc = new EventEmitter() as any;
-  proc.stdout = new EventEmitter();
-  proc.stderr = new EventEmitter();
-  proc.stdin = null;
-  setTimeout(() => {
-    if (stderrData) proc.stderr.emit("data", Buffer.from(stderrData));
-    proc.emit("close", code);
-  }, 10);
-  return proc;
+  const proc = new MockChildProcess(code, 10);
+  if (stderrData) {
+    setTimeout(() => proc.stderr.emit("data", Buffer.from(stderrData)), 5);
+  }
+  return proc as unknown as ReturnType<typeof spawn>;
 }
 
 describe("core/backup — bare backup/restore", () => {
@@ -467,7 +463,7 @@ describe("restoreBackup — adapter delegation", () => {
     mockGetAdapter.mockReturnValue({
       name: "dokploy",
       restoreBackup: mockRestoreBackup,
-    } as any);
+    } as unknown as ReturnType<typeof mockGetAdapter>);
 
     const result = await restoreBackup("1.2.3.4", "dok-server", "2026-01-01_00-00-00");
     expect(result.success).toBe(true);
@@ -496,7 +492,7 @@ describe("restoreBackup — adapter delegation", () => {
     mockGetAdapter.mockReturnValue({
       name: "coolify",
       restoreBackup: mockRestoreBackup,
-    } as any);
+    } as unknown as ReturnType<typeof mockGetAdapter>);
 
     const result = await restoreBackup("1.2.3.4", "old-server", "2026-01-01_00-00-00");
     expect(result.success).toBe(true);
@@ -514,7 +510,7 @@ describe("SCP security hardening (SEC-01, SEC-02)", () => {
       mockedSpawn.mockReturnValue(createMockProcess(0));
       await scpDownload("1.2.3.4", "/tmp/file.gz", "/local/file.gz");
       const [, , opts] = mockedSpawn.mock.calls[0];
-      expect((opts as any).stdio[0]).toBe("ignore");
+      expect((opts as Record<string, unknown> & { stdio: unknown[] }).stdio[0]).toBe("ignore");
     });
 
     it("should include -o BatchMode=yes in SCP args", async () => {
@@ -528,12 +524,9 @@ describe("SCP security hardening (SEC-01, SEC-02)", () => {
     it("should reject with timeout error when SCP hangs", async () => {
       jest.useFakeTimers();
       // Process that never closes
-      const hangingProc = new EventEmitter() as any;
-      hangingProc.stdout = new EventEmitter();
-      hangingProc.stderr = new EventEmitter();
-      hangingProc.stdin = null;
-      hangingProc.kill = jest.fn();
-      mockedSpawn.mockReturnValue(hangingProc);
+      const hangingProc = new MockChildProcess(0, 400000);
+      (hangingProc as unknown as { kill: jest.Mock }).kill = jest.fn();
+      mockedSpawn.mockReturnValue(hangingProc as unknown as ReturnType<typeof spawn>);
 
       const promise = scpDownload("1.2.3.4", "/tmp/file.gz", "/local/file.gz");
       jest.advanceTimersByTime(300_001);
@@ -548,18 +541,16 @@ describe("SCP security hardening (SEC-01, SEC-02)", () => {
 
     it("should kill the child process (SIGTERM) on timeout", async () => {
       jest.useFakeTimers();
-      const hangingProc = new EventEmitter() as any;
-      hangingProc.stdout = new EventEmitter();
-      hangingProc.stderr = new EventEmitter();
-      hangingProc.stdin = null;
-      hangingProc.kill = jest.fn();
-      mockedSpawn.mockReturnValue(hangingProc);
+      const hangingProc = new MockChildProcess(0, 400000);
+      const killMock = jest.fn();
+      (hangingProc as unknown as { kill: jest.Mock }).kill = killMock;
+      mockedSpawn.mockReturnValue(hangingProc as unknown as ReturnType<typeof spawn>);
 
       const promise = scpDownload("1.2.3.4", "/tmp/file.gz", "/local/file.gz");
       jest.advanceTimersByTime(300_001);
       await Promise.resolve();
       await promise.catch(() => {});
-      expect(hangingProc.kill).toHaveBeenCalledWith("SIGTERM");
+      expect(killMock).toHaveBeenCalledWith("SIGTERM");
       jest.useRealTimers();
     });
   });
@@ -569,7 +560,7 @@ describe("SCP security hardening (SEC-01, SEC-02)", () => {
       mockedSpawn.mockReturnValue(createMockProcess(0));
       await scpUpload("1.2.3.4", "/local/file.gz", "/tmp/file.gz");
       const [, , opts] = mockedSpawn.mock.calls[0];
-      expect((opts as any).stdio[0]).toBe("ignore");
+      expect((opts as Record<string, unknown> & { stdio: unknown[] }).stdio[0]).toBe("ignore");
     });
 
     it("should include -o BatchMode=yes in SCP args", async () => {
@@ -582,12 +573,9 @@ describe("SCP security hardening (SEC-01, SEC-02)", () => {
 
     it("should reject with timeout error when SCP hangs", async () => {
       jest.useFakeTimers();
-      const hangingProc = new EventEmitter() as any;
-      hangingProc.stdout = new EventEmitter();
-      hangingProc.stderr = new EventEmitter();
-      hangingProc.stdin = null;
-      hangingProc.kill = jest.fn();
-      mockedSpawn.mockReturnValue(hangingProc);
+      const hangingProc = new MockChildProcess(0, 400000);
+      (hangingProc as unknown as { kill: jest.Mock }).kill = jest.fn();
+      mockedSpawn.mockReturnValue(hangingProc as unknown as ReturnType<typeof spawn>);
 
       const promise = scpUpload("1.2.3.4", "/local/file.gz", "/tmp/file.gz");
       jest.advanceTimersByTime(300_001);
@@ -602,18 +590,16 @@ describe("SCP security hardening (SEC-01, SEC-02)", () => {
 
     it("should kill the child process (SIGTERM) on timeout", async () => {
       jest.useFakeTimers();
-      const hangingProc = new EventEmitter() as any;
-      hangingProc.stdout = new EventEmitter();
-      hangingProc.stderr = new EventEmitter();
-      hangingProc.stdin = null;
-      hangingProc.kill = jest.fn();
-      mockedSpawn.mockReturnValue(hangingProc);
+      const hangingProc = new MockChildProcess(0, 400000);
+      const killMock = jest.fn();
+      (hangingProc as unknown as { kill: jest.Mock }).kill = killMock;
+      mockedSpawn.mockReturnValue(hangingProc as unknown as ReturnType<typeof spawn>);
 
       const promise = scpUpload("1.2.3.4", "/local/file.gz", "/tmp/file.gz");
       jest.advanceTimersByTime(300_001);
       await Promise.resolve();
       await promise.catch(() => {});
-      expect(hangingProc.kill).toHaveBeenCalledWith("SIGTERM");
+      expect(killMock).toHaveBeenCalledWith("SIGTERM");
       jest.useRealTimers();
     });
   });

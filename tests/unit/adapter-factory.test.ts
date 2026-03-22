@@ -118,7 +118,7 @@ describe("getAdapter", () => {
   });
 
   it("should throw for unknown platform", () => {
-    expect(() => getAdapter("unknown" as any)).toThrow("Unknown platform: unknown");
+    expect(() => getAdapter("unknown" as unknown as Parameters<typeof getAdapter>[0])).toThrow("Unknown platform: unknown");
   });
 
   it("coolify adapter port is 8000", () => {

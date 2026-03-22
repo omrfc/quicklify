@@ -13,14 +13,14 @@ jest.mock("axios", () => ({
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 function make429Error(headers: Record<string, string> = {}): Error & { isAxiosError: boolean; response: { status: number; headers: Record<string, string> } } {
-  const err = new Error("Too Many Requests") as any;
+  const err = new Error("Too Many Requests") as Error & { isAxiosError: boolean; response: { status: number; headers: Record<string, string> } };
   err.isAxiosError = true;
   err.response = { status: 429, headers };
   return err;
 }
 
 function make500Error(): Error & { isAxiosError: boolean; response: { status: number; headers: Record<string, string> } } {
-  const err = new Error("Internal Server Error") as any;
+  const err = new Error("Internal Server Error") as Error & { isAxiosError: boolean; response: { status: number; headers: Record<string, string> } };
   err.isAxiosError = true;
   err.response = { status: 500, headers: {} };
   return err;

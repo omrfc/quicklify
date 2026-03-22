@@ -179,7 +179,7 @@ describe("saveSchedule", () => {
     mockedExistsSync.mockReturnValue(false);
     saveSchedule(SERVER_NAME, CRON_EXPR);
     const [, , opts] = mockedWriteFileSync.mock.calls[0];
-    expect((opts as any).mode).toBe(0o600);
+    expect((opts as Record<string, unknown>).mode).toBe(0o600);
   });
 
   it("merges with existing schedules", () => {

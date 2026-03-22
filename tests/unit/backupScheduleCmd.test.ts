@@ -73,7 +73,7 @@ describe("backupCommand --schedule option routing", () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
 
     // Default spinner
-    mockedLogger.createSpinner.mockReturnValue(mockSpinner as any);
+    mockedLogger.createSpinner.mockReturnValue(mockSpinner as unknown as ReturnType<typeof mockedLogger.createSpinner>);
 
     // Default server resolution
     mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);

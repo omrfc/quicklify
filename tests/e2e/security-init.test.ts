@@ -52,13 +52,13 @@ describe("security-init E2E", () => {
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
-    processExitSpy = jest.spyOn(process, "exit").mockImplementation((() => {}) as any);
+    processExitSpy = jest.spyOn(process, "exit").mockImplementation((() => {}) as unknown as typeof process.exit);
     originalProcessTitle = process.title;
     jest.clearAllMocks();
-    global.setTimeout = ((fn: Function) => {
+    global.setTimeout = ((fn: () => void) => {
       fn();
       return 0;
-    }) as any;
+    }) as unknown as typeof setTimeout;
   });
 
   afterEach(() => {
@@ -232,12 +232,12 @@ describe("security-init E2E", () => {
     it("should not expose API token in error messages", async () => {
       const secretToken = "hcloud-super-secret-token-12345";
 
-      const axiosError = new Error("Request failed with status code 401");
-      (axiosError as any).response = {
+      const axiosError = new Error("Request failed with status code 401") as Error & { response: unknown; config: unknown };
+      axiosError.response = {
         status: 401,
         data: { error: { message: "Unauthorized" } },
       };
-      (axiosError as any).config = {
+      axiosError.config = {
         headers: { Authorization: `Bearer ${secretToken}` },
       };
 

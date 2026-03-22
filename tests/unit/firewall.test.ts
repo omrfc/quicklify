@@ -369,7 +369,7 @@ describe("firewall", () => {
     it("should warn when removing Coolify port", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServers.mockReturnValue([sampleServer]);
-      mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: false }) as any;
+      mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: false }) as unknown as typeof mockedInquirer.prompt;
 
       await firewallCommand("remove", "1.2.3.4", { port: "8000" });
 
@@ -699,7 +699,7 @@ describe("firewall", () => {
     it("should remove Coolify port when confirmed", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServers.mockReturnValue([sampleServer]);
-      mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: true }) as any;
+      mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: true }) as unknown as typeof mockedInquirer.prompt;
       mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
 
       await firewallCommand("remove", "1.2.3.4", { port: "8000" });

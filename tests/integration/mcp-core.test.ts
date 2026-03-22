@@ -369,7 +369,7 @@ describe("MCP→Core Integration", () => {
         update: jest.fn(),
         restoreBackup: jest.fn(),
       };
-      mockedAdapterFactory.getAdapter.mockReturnValue(mockAdapter as any);
+      mockedAdapterFactory.getAdapter.mockReturnValue(mockAdapter as unknown as ReturnType<typeof mockedAdapterFactory.getAdapter>);
 
       const response = await handleServerInfo({ action: "health", server: "my-server" });
 
@@ -439,7 +439,7 @@ describe("MCP→Core Integration", () => {
     it("should call removeServerRecord for action=remove", async () => {
       mockedCoreManage.removeServerRecord.mockResolvedValue({
         success: true,
-        server: { name: "my-server", ip: "1.2.3.4", provider: "hetzner" } as any,
+        server: { name: "my-server", ip: "1.2.3.4", provider: "hetzner", id: "1", region: "nbg1", size: "cax11", createdAt: "2026-01-01T00:00:00Z", mode: "coolify" as const },
       });
 
       const response = await handleServerManage({

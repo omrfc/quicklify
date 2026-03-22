@@ -57,7 +57,7 @@ describe("serverSelect", () => {
       mockedInquirer.prompt.mockResolvedValueOnce({ serverId: "123" });
 
       await selectServer("Pick one:");
-      const promptArgs = mockedInquirer.prompt.mock.calls[0][0] as any[];
+      const promptArgs = mockedInquirer.prompt.mock.calls[0][0] as unknown as Array<{ message?: string; choices?: unknown[] }>;
       expect(promptArgs[0].message).toBe("Pick one:");
     });
 
@@ -106,7 +106,7 @@ describe("serverSelect", () => {
       mockedInquirer.prompt.mockResolvedValueOnce({ serverId: "123" });
 
       await resolveServer(undefined, "Custom message:");
-      const promptArgs = mockedInquirer.prompt.mock.calls[0][0] as any[];
+      const promptArgs = mockedInquirer.prompt.mock.calls[0][0] as unknown as Array<{ message?: string; choices?: unknown[] }>;
       expect(promptArgs[0].message).toBe("Custom message:");
     });
   });

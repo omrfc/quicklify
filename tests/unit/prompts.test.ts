@@ -70,7 +70,7 @@ describe("getProviderConfig", () => {
 
     await getProviderConfig();
 
-    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
+    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as unknown as Array<{ validate: (val: string) => string | true; choices: Array<{ value?: unknown; name?: unknown }>; type?: string; name?: string; default?: unknown }>;
     expect(promptConfig[0].type).toBe("list");
     expect(promptConfig[0].name).toBe("provider");
     expect(promptConfig[0].choices).toHaveLength(4);
@@ -81,7 +81,7 @@ describe("getProviderConfig", () => {
 
     await getProviderConfig();
 
-    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
+    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as unknown as Array<{ validate: (val: string) => string | true; choices: Array<{ value?: unknown; name?: unknown }>; type?: string; name?: string; default?: unknown }>;
     const choices = promptConfig[0].choices;
     expect(choices[0].value).toBe("hetzner");
     expect(choices[0].name).toBe("Hetzner Cloud");
@@ -126,7 +126,7 @@ describe("getDeploymentConfig", () => {
 
     await getDeploymentConfig(mockProvider);
 
-    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
+    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as unknown as Array<{ validate: (val: string) => string | true; choices: Array<{ value?: unknown; name?: unknown }>; type?: string; name?: string; default?: unknown }>;
     expect(promptConfig[0].type).toBe("password");
     expect(promptConfig[0].name).toBe("apiToken");
   });
@@ -137,7 +137,7 @@ describe("getDeploymentConfig", () => {
     beforeEach(async () => {
       mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "x" });
       await getDeploymentConfig(mockProvider);
-      const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
+      const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as unknown as Array<{ validate: (val: string) => string | true; choices: Array<{ value?: unknown; name?: unknown }>; type?: string; name?: string; default?: unknown }>;
       validateToken = promptConfig[0].validate;
     });
 
@@ -174,7 +174,7 @@ describe("getLocationConfig", () => {
 
     await getLocationConfig(mockProvider);
 
-    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
+    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as unknown as Array<{ validate: (val: string) => string | true; choices: Array<{ value?: unknown; name?: unknown }>; type?: string; name?: string; default?: unknown }>;
     expect(promptConfig[0].type).toBe("list");
     // Separator + 2 locations + Separator + Back = 5 choices
     expect(promptConfig[0].choices).toHaveLength(5);
@@ -201,7 +201,7 @@ describe("getServerTypeConfig", () => {
 
     await getServerTypeConfig(mockProvider, "nbg1");
 
-    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
+    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as unknown as Array<{ validate: (val: string) => string | true; choices: Array<{ value?: unknown; name?: unknown }>; type?: string; name?: string; default?: unknown }>;
     const choices = promptConfig[0].choices;
     // choices[0] is Separator, choices[1] is first server type
     expect(choices[1].name).toContain("40GB");
@@ -239,7 +239,7 @@ describe("getServerNameConfig", () => {
 
     await getServerNameConfig();
 
-    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
+    const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as unknown as Array<{ validate: (val: string) => string | true; choices: Array<{ value?: unknown; name?: unknown }>; type?: string; name?: string; default?: unknown }>;
     expect(promptConfig[0].default).toBe("coolify-server");
   });
 
@@ -249,7 +249,7 @@ describe("getServerNameConfig", () => {
     beforeEach(async () => {
       mockedInquirer.prompt.mockResolvedValueOnce({ serverName: "s" });
       await getServerNameConfig();
-      const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as any[];
+      const promptConfig = mockedInquirer.prompt.mock.calls[0][0] as unknown as Array<{ validate: (val: string) => string | true; choices: Array<{ value?: unknown; name?: unknown }>; type?: string; name?: string; default?: unknown }>;
       validateName = promptConfig[0].validate;
     });
 

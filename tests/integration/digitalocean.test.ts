@@ -812,7 +812,7 @@ describe("DigitalOceanProvider", () => {
 
   describe("cause chain sanitization", () => {
     it("should not leak API token in error cause chain", async () => {
-      const axiosError = new Error("Request failed") as any;
+      const axiosError = new Error("Request failed") as Error & Record<string, unknown>;
       axiosError.isAxiosError = true;
       axiosError.response = { status: 401, data: { message: "unauthorized" } };
       axiosError.config = { headers: { Authorization: "Bearer test-api-token" }, data: "sensitive" };
@@ -832,7 +832,7 @@ describe("DigitalOceanProvider", () => {
         });
       } catch (error: unknown) {
         const err = error as Error;
-        const cause = err.cause as any;
+        const cause = err.cause as Record<string, unknown> & { config: Record<string, unknown>; response: Record<string, unknown> };
         // Sensitive data should be stripped (set to undefined)
         expect(cause.config.headers).toBeUndefined();
         expect(cause.config.data).toBeUndefined();

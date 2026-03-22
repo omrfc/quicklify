@@ -111,8 +111,7 @@ beforeEach(() => {
     title: jest.fn(),
     step: jest.fn(),
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  mockedLogger.createSpinner.mockReturnValue(mockSpinner as any);
+  mockedLogger.createSpinner.mockReturnValue(mockSpinner as unknown as ReturnType<typeof mockedLogger.createSpinner>);
 });
 
 describe("lockCommand", () => {

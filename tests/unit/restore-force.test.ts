@@ -75,7 +75,7 @@ describe("BUG-02 — restore --force backup auto-selection", () => {
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     mockedConfig.findServers.mockReturnValue([sampleServer]);
     mockedExistsSync.mockReturnValue(true);
-    mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest) as any);
+    mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest) as unknown as ReturnType<typeof mockedReadFileSync>);
     mockedBackup.getBackupDir.mockReturnValue("/home/test/.kastell/backups/my-server");
   });
 
@@ -152,8 +152,8 @@ describe("BUG-02 — restore --force backup auto-selection", () => {
 
       // First prompt: backup selection, second would be confirmation (cancel it)
       mockedInquirerPrompt
-        .mockResolvedValueOnce({ backup: "2026-03-01_10-00-00-000" } as any)
-        .mockResolvedValueOnce({ confirm: false } as any);
+        .mockResolvedValueOnce({ backup: "2026-03-01_10-00-00-000" })
+        .mockResolvedValueOnce({ confirm: false });
 
       await restoreCommand("my-server");
 

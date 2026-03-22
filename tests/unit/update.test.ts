@@ -73,7 +73,7 @@ describe("updateCommand", () => {
     // Default: SSH available
     mockedSsh.checkSshAvailable.mockReturnValue(true);
     // Default: spinner mock
-    mockedLogger.createSpinner.mockReturnValue(mockSpinner as any);
+    mockedLogger.createSpinner.mockReturnValue(mockSpinner as unknown as ReturnType<typeof mockedLogger.createSpinner>);
     // Logger methods mock
     (mockedLogger.logger as jest.Mocked<typeof mockedLogger.logger>) = {
       info: jest.fn(),
@@ -86,7 +86,7 @@ describe("updateCommand", () => {
     // Default: updateServer succeeds
     mockedCoreUpdate.updateServer.mockResolvedValue({ success: true, output: "Updated" });
     // Default: adapter returns coolify mock
-    mockedAdapterFactory.getAdapter.mockReturnValue(mockAdapter as any);
+    mockedAdapterFactory.getAdapter.mockReturnValue(mockAdapter as unknown as ReturnType<typeof mockedAdapterFactory.getAdapter>);
     mockedAdapterFactory.resolvePlatform.mockReturnValue("coolify");
     // Default: modeGuard — server is managed (not bare)
     mockedModeGuard.isBareServer.mockReturnValue(false);
@@ -244,7 +244,7 @@ describe("updateCommand", () => {
     };
 
     it("should update Dokploy server and call updateServer", async () => {
-      mockedAdapterFactory.getAdapter.mockReturnValue(dokplayAdapter as any);
+      mockedAdapterFactory.getAdapter.mockReturnValue(dokplayAdapter as unknown as ReturnType<typeof mockedAdapterFactory.getAdapter>);
       mockedAdapterFactory.resolvePlatform.mockReturnValue("dokploy");
       mockedServerSelect.resolveServer.mockResolvedValue(dokployServer);
       mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });

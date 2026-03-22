@@ -71,13 +71,13 @@ describe("logsCommand", () => {
     });
 
     it("should build dokploy log command", () => {
-      expect(buildLogCommand("dokploy" as any, 50, false)).toBe(
+      expect(buildLogCommand("dokploy" as unknown as Parameters<typeof buildLogCommand>[0],50, false)).toBe(
         "docker service logs dokploy_dokploy --tail 50",
       );
     });
 
     it("should build dokploy log command with follow", () => {
-      expect(buildLogCommand("dokploy" as any, 100, true)).toBe(
+      expect(buildLogCommand("dokploy" as unknown as Parameters<typeof buildLogCommand>[0],100, true)).toBe(
         "docker service logs dokploy_dokploy --tail 100 --follow",
       );
     });

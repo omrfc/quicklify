@@ -773,7 +773,7 @@ describe("HetznerProvider", () => {
     });
 
     it("should throw on API error", async () => {
-      const axiosError = new Error("API Error") as any;
+      const axiosError = new Error("API Error") as Error & Record<string, unknown>;
       axiosError.isAxiosError = true;
       axiosError.response = { status: 500, data: { error: { message: "Server error" } } };
       mockedAxios.post.mockRejectedValueOnce(axiosError);
@@ -847,7 +847,7 @@ describe("HetznerProvider", () => {
     });
 
     it("should throw on API error", async () => {
-      const axiosError = new Error("API Error") as any;
+      const axiosError = new Error("API Error") as Error & Record<string, unknown>;
       axiosError.isAxiosError = true;
       axiosError.response = { status: 500, data: { error: { message: "Server error" } } };
       mockedAxios.get.mockRejectedValueOnce(axiosError);
@@ -864,7 +864,7 @@ describe("HetznerProvider", () => {
     });
 
     it("should throw on delete error", async () => {
-      const axiosError = new Error("API Error") as any;
+      const axiosError = new Error("API Error") as Error & Record<string, unknown>;
       axiosError.isAxiosError = true;
       axiosError.response = { status: 404, data: { error: { message: "Not found" } } };
       mockedAxios.delete.mockRejectedValueOnce(axiosError);
@@ -893,7 +893,7 @@ describe("HetznerProvider", () => {
     });
 
     it("should throw on API error", async () => {
-      const axiosError = new Error("API Error") as any;
+      const axiosError = new Error("API Error") as Error & Record<string, unknown>;
       axiosError.isAxiosError = true;
       axiosError.response = { status: 500, data: { error: { message: "Server error" } } };
       mockedAxios.get.mockRejectedValueOnce(axiosError);
@@ -906,7 +906,7 @@ describe("HetznerProvider", () => {
 
   describe("cause chain sanitization", () => {
     it("should not leak API token in error cause chain", async () => {
-      const axiosError = new Error("Request failed") as any;
+      const axiosError = new Error("Request failed") as Error & Record<string, unknown>;
       axiosError.isAxiosError = true;
       axiosError.response = { status: 401, data: { error: { message: "unauthorized" } } };
       axiosError.config = { headers: { Authorization: "Bearer test-api-token" }, data: "sensitive" };
@@ -926,7 +926,7 @@ describe("HetznerProvider", () => {
         });
       } catch (error: unknown) {
         const err = error as Error;
-        const cause = err.cause as any;
+        const cause = err.cause as Record<string, unknown> & { config: Record<string, unknown>; response: Record<string, unknown> };
         // Sensitive data should be stripped (set to undefined)
         expect(cause.config.headers).toBeUndefined();
         expect(cause.config.data).toBeUndefined();

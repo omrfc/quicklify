@@ -97,12 +97,10 @@ beforeEach(() => {
     title: jest.fn(),
     step: jest.fn(),
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  mockedLogger.createSpinner.mockReturnValue(mockSpinner as any);
+  mockedLogger.createSpinner.mockReturnValue(mockSpinner as unknown as ReturnType<typeof mockedLogger.createSpinner>);
 
   // Default: user confirms
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (mockedInquirer.prompt as any) = jest.fn().mockResolvedValue({ confirm: true });
+  mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: true }) as unknown as typeof mockedInquirer.prompt;
 });
 
 // ─── guard start ──────────────────────────────────────────────────────────────
@@ -158,8 +156,7 @@ describe("guardCommand start", () => {
   });
 
   it("does not call startGuard when user declines confirmation", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (mockedInquirer.prompt as any).mockResolvedValue({ confirm: false });
+    (mockedInquirer.prompt as jest.MockedFunction<typeof mockedInquirer.prompt>).mockResolvedValue({ confirm: false });
     await guardCommand("start", "prod-server", {});
     expect(mockedGuard.startGuard).not.toHaveBeenCalled();
   });

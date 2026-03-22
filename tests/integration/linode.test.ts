@@ -1037,7 +1037,7 @@ describe("LinodeProvider", () => {
 
   describe("cause chain sanitization", () => {
     it("should not leak API token in error cause chain", async () => {
-      const axiosError = new Error("Request failed") as any;
+      const axiosError = new Error("Request failed") as Error & Record<string, unknown>;
       axiosError.isAxiosError = true;
       axiosError.response = { status: 401, data: { errors: [{ reason: "unauthorized" }] } };
       axiosError.config = { headers: { Authorization: "Bearer test-api-token" }, data: '{"root_pass":"secret"}' };
@@ -1063,7 +1063,7 @@ describe("LinodeProvider", () => {
         expect(cause).toHaveProperty("isAxiosError", true);
         expect(cause).toHaveProperty("message", "Request failed with status code 401");
         // Config exists but headers and data are undefined
-        const config = (cause as any).config;
+        const config = (cause as Record<string, unknown> & { config: Record<string, unknown> }).config;
         expect(config.headers).toBeUndefined();
         expect(config.data).toBeUndefined();
         // Request is stripped
@@ -1072,7 +1072,7 @@ describe("LinodeProvider", () => {
     });
 
     it("should clear error.config.data on createServer failure (rootPass protection)", async () => {
-      const axiosError = new Error("Request failed") as any;
+      const axiosError = new Error("Request failed") as Error & { isAxiosError: boolean; response: unknown; config: { data?: string }; code: string };
       axiosError.isAxiosError = true;
       axiosError.response = { status: 400, data: { errors: [{ reason: "bad request" }] } };
       axiosError.config = { data: '{"root_pass":"Ql1!supersecretpass"}' };

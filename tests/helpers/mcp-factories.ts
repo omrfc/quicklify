@@ -2,7 +2,7 @@ import type { McpResponse } from "../../src/mcp/utils.js";
 
 /**
  * createMcpParams — creates a typed MCP handler params object.
- * Replaces `{ params: { arguments: { ... } } } as any` in test files.
+ * Replaces untyped inline params objects in test files.
  *
  * MCP handlers receive params directly (not wrapped); this helper provides
  * a flat Record matching the handler's expected input shape.
@@ -13,7 +13,7 @@ export function createMcpParams(args: Record<string, unknown> = {}): Record<stri
 
 /**
  * createMcpTextResponse — builds a success McpResponse with a single text content item.
- * Replaces `{ content: [{ type: "text", text: "..." }] } as any` in test files.
+ * Replaces untyped inline response objects in test files.
  */
 export function createMcpTextResponse(text: string): McpResponse {
   return {

@@ -119,7 +119,7 @@ describe("removeCommand", () => {
 
     await removeCommand("coolify-test");
 
-    const promptCall = mockedInquirer.prompt.mock.calls[0][0] as any[];
+    const promptCall = mockedInquirer.prompt.mock.calls[0][0] as unknown as Array<{ message?: string; default?: boolean }>;
     expect(promptCall[0].message).toContain("coolify-test");
     expect(promptCall[0].message).toContain("1.2.3.4");
     expect(promptCall[0].message).toContain("will NOT be destroyed");

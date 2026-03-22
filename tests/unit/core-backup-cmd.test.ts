@@ -40,8 +40,8 @@ jest.mock("../../src/core/manage", () => ({
 }));
 
 import { spawn } from "child_process";
-import { EventEmitter } from "events";
 import * as sshUtils from "../../src/utils/ssh";
+import { MockChildProcess } from "../helpers/ssh-factories.js";
 import { isBareServer } from "../../src/utils/modeGuard";
 import { resolvePlatform, getAdapter } from "../../src/adapters/factory";
 import { backupServer } from "../../src/core/backup";
@@ -53,15 +53,11 @@ const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
 const mockedSpawn = spawn as jest.MockedFunction<typeof spawn>;
 
 function createMockProcess(code: number = 0, stderrData: string = "") {
-  const proc = new EventEmitter() as any;
-  proc.stdout = new EventEmitter();
-  proc.stderr = new EventEmitter();
-  proc.stdin = null;
-  setTimeout(() => {
-    if (stderrData) proc.stderr.emit("data", Buffer.from(stderrData));
-    proc.emit("close", code);
-  }, 10);
-  return proc;
+  const proc = new MockChildProcess(code, 10);
+  if (stderrData) {
+    setTimeout(() => proc.stderr.emit("data", Buffer.from(stderrData)), 5);
+  }
+  return proc as unknown as ReturnType<typeof spawn>;
 }
 
 const bareServer: ServerRecord = {
@@ -125,7 +121,7 @@ describe("backupServer", () => {
         files: ["coolify-backup.sql.gz", "coolify-config.tar.gz"],
       },
     });
-    mockedGetAdapter.mockReturnValue({ name: "coolify", createBackup: mockCreateBackup } as any);
+    mockedGetAdapter.mockReturnValue({ name: "coolify", createBackup: mockCreateBackup } as unknown as ReturnType<typeof mockedGetAdapter>);
 
     const result = await backupServer(managedServer);
 
@@ -173,7 +169,7 @@ describe("backupServer", () => {
       error: "pg_dump failed",
       hint: "Check postgres container",
     });
-    mockedGetAdapter.mockReturnValue({ name: "coolify", createBackup: mockCreateBackup } as any);
+    mockedGetAdapter.mockReturnValue({ name: "coolify", createBackup: mockCreateBackup } as unknown as ReturnType<typeof mockedGetAdapter>);
 
     const result = await backupServer(managedServer);
 

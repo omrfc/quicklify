@@ -1,4 +1,4 @@
-import { EventEmitter } from "events";
+import { MockChildProcess } from "../helpers/ssh-factories.js";
 
 jest.mock("child_process", () => ({
   spawn: jest.fn(),
@@ -18,11 +18,8 @@ const mockedSpawn = spawn as jest.MockedFunction<typeof spawn>;
 const mockedSpawnSync = spawnSync as jest.MockedFunction<typeof spawnSync>;
 
 function createMockProcess(exitCode: number = 0) {
-  const cp = new EventEmitter() as any;
-  cp.stdout = new EventEmitter();
-  cp.stderr = new EventEmitter();
-  process.nextTick(() => cp.emit("close", exitCode));
-  return cp;
+  const cp = new MockChildProcess(exitCode, 0);
+  return cp as unknown as ReturnType<typeof spawn>;
 }
 
 describe("security-ssh E2E", () => {
@@ -101,8 +98,6 @@ describe("security-ssh E2E", () => {
 
     it("sshExec should use StrictHostKeyChecking=accept-new", async () => {
       const mockCp = createMockProcess(0);
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
       mockedSpawn.mockReturnValue(mockCp);
 
       await sshExec("1.2.3.4", "uptime");
@@ -263,10 +258,8 @@ describe("security-ssh E2E", () => {
       process.env.DIGITALOCEAN_TOKEN = "do-secret";
       process.env.HOME = "/home/test";
 
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshExec("1.2.3.4", "test");
       process.nextTick(() => mockCp.emit("close", 0));
@@ -314,10 +307,8 @@ describe("security-ssh E2E", () => {
 
   describe("error handling", () => {
     it("sshConnect should return 1 on spawn error", async () => {
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshConnect("1.2.3.4");
       process.nextTick(() => mockCp.emit("error", new Error("spawn failed")));
@@ -327,10 +318,8 @@ describe("security-ssh E2E", () => {
     });
 
     it("sshExec should return error details on spawn error", async () => {
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshExec("1.2.3.4", "test");
       process.nextTick(() => mockCp.emit("error", new Error("spawn failed")));
@@ -341,10 +330,8 @@ describe("security-ssh E2E", () => {
     });
 
     it("sshStream should return 1 on spawn error", async () => {
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshStream("1.2.3.4", "journalctl -f");
       process.nextTick(() => mockCp.emit("error", new Error("spawn failed")));

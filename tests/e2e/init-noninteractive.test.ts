@@ -34,15 +34,15 @@ describe("initCommand Non-Interactive", () => {
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
-    processExitSpy = jest.spyOn(process, "exit").mockImplementation((() => {}) as any);
+    processExitSpy = jest.spyOn(process, "exit").mockImplementation((() => {}) as unknown as typeof process.exit);
     jest.clearAllMocks();
     process.env = { ...originalEnv };
     delete process.env.HETZNER_TOKEN;
     delete process.env.DIGITALOCEAN_TOKEN;
-    global.setTimeout = ((fn: Function) => {
+    global.setTimeout = ((fn: () => void) => {
       fn();
       return 0;
-    }) as any;
+    }) as unknown as typeof setTimeout;
   });
 
   afterEach(() => {

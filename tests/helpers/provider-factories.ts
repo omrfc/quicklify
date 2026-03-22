@@ -18,7 +18,7 @@ const DEFAULT_SNAPSHOT: SnapshotInfo = {
  * createMockProvider — creates a jest.Mocked<CloudProvider> with sensible defaults.
  *
  * Centralizes provider mock construction so test files don't repeat the full
- * interface and cast with `as any`. Pass method overrides via the second parameter.
+ * interface. Pass method overrides via the second parameter.
  *
  * Usage:
  *   const provider = createMockProvider();

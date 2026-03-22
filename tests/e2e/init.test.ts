@@ -86,7 +86,7 @@ describe("initCommand E2E", () => {
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
-    processExitSpy = jest.spyOn(process, "exit").mockImplementation((() => {}) as any);
+    processExitSpy = jest.spyOn(process, "exit").mockImplementation((() => {}) as unknown as typeof process.exit);
     jest.clearAllMocks();
     // Save and clear provider tokens so promptApiToken/initCommand doesn't pick them up
     for (const key of ["HETZNER_TOKEN", "DIGITALOCEAN_TOKEN", "VULTR_TOKEN", "LINODE_TOKEN"]) {
@@ -95,10 +95,10 @@ describe("initCommand E2E", () => {
     }
 
     // Make all setTimeout calls resolve instantly for test speed
-    global.setTimeout = ((fn: Function) => {
+    global.setTimeout = ((fn: () => void) => {
       fn();
       return 0;
-    }) as any;
+    }) as unknown as typeof setTimeout;
   });
 
   afterEach(() => {

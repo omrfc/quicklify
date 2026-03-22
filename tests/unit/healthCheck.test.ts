@@ -9,10 +9,10 @@ describe("waitForCoolify", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Make setTimeout instant for tests
-    global.setTimeout = ((fn: Function) => {
+    global.setTimeout = ((fn: () => void) => {
       fn();
       return 0;
-    }) as any;
+    }) as unknown as typeof setTimeout;
   });
 
   afterEach(() => {

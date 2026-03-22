@@ -942,7 +942,7 @@ describe("VultrProvider", () => {
 
   describe("cause chain sanitization", () => {
     it("should not leak API token in error cause chain", async () => {
-      const axiosError = new Error("Request failed") as any;
+      const axiosError = new Error("Request failed") as Error & Record<string, unknown>;
       axiosError.isAxiosError = true;
       axiosError.response = { status: 401, data: { error: "unauthorized" } };
       axiosError.config = { headers: { Authorization: "Bearer test-api-token" }, data: "secret" };
@@ -964,9 +964,10 @@ describe("VultrProvider", () => {
         const err = error as Error;
         const cause = err.cause as Record<string, unknown>;
         // Sensitive data should be stripped from the cause chain
-        expect((cause as any).config?.headers).toBeUndefined();
-        expect((cause as any).config?.data).toBeUndefined();
-        expect((cause as any).request).toBeUndefined();
+        const causeTyped = cause as Record<string, unknown> & { config?: Record<string, unknown> };
+        expect(causeTyped.config?.headers).toBeUndefined();
+        expect(causeTyped.config?.data).toBeUndefined();
+        expect(cause.request).toBeUndefined();
         // Error properties should still be present
         expect(cause).toHaveProperty("response");
         expect(cause).toHaveProperty("message");
