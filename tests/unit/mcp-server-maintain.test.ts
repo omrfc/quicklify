@@ -647,3 +647,55 @@ describe("handleServerMaintain — bare mode", () => {
     expect(data.hint.toLowerCase()).toContain("ssh");
   });
 });
+
+// ─── MCP Handler: malformed params ───────────────────────────────────────────
+
+describe("handleServerMaintain — malformed params", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+    mockedSsh.assertValidIp.mockImplementation(() => {});
+  });
+
+  it("returns mcpError when server param is empty string", async () => {
+    // Arrange
+    mockedConfig.getServers.mockReturnValue([sampleServer]);
+    mockedConfig.findServer.mockReturnValue(undefined as never);
+
+    // Act
+    const result = await handleServerMaintain({ action: "update", server: "" });
+
+    // Assert
+    expect(result.isError).toBe(true);
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBeTruthy();
+  });
+
+  it("returns mcpError when server param is null (as any)", async () => {
+    // Arrange
+    mockedConfig.getServers.mockReturnValue([sampleServer]);
+    mockedConfig.findServer.mockReturnValue(undefined as never);
+
+    // Act
+    const result = await handleServerMaintain({ action: "update", server: null as any });
+
+    // Assert
+    expect(result.isError).toBe(true);
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBeTruthy();
+  });
+
+  it("returns mcpError when action param is null (as any)", async () => {
+    // Arrange
+    mockedConfig.getServers.mockReturnValue([sampleServer]);
+    mockedConfig.findServer.mockReturnValue(sampleServer as never);
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "OK", stderr: "" });
+
+    // Act
+    const result = await handleServerMaintain({ action: null as any, server: "coolify-test" });
+
+    // Assert — handler should either catch or return mcpError, never throw uncaught
+    expect(result.isError).toBe(true);
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBeTruthy();
+  });
+});

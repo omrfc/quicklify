@@ -251,6 +251,9 @@ export async function handleServerManage(params: {
           ],
         });
       }
+      default: {
+        return mcpError(`Unknown action: ${params.action as string}`);
+      }
     }
   } catch (error: unknown) {
     return mcpError(
