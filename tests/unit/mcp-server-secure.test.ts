@@ -1004,3 +1004,78 @@ describe("handleServerSecure — shared utils integration", () => {
     expect(data.hint).toContain("coolify-test");
   });
 });
+
+// ─── handleServerSecure: malformed params ─────────────────────────────────────
+
+describe("handleServerSecure — malformed params", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+    mockedSsh.assertValidIp.mockImplementation(() => {});
+  });
+
+  it("returns mcpError when server param is empty string", async () => {
+    // Arrange
+    mockedConfig.getServers.mockReturnValue([sampleServer]);
+    mockedConfig.findServer.mockReturnValue(undefined as never);
+
+    // Act
+    const result = await handleServerSecure({ action: "secure-audit", server: "" });
+
+    // Assert
+    expect(result.isError).toBe(true);
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBeTruthy();
+  });
+
+  it("returns mcpError when server param is null (as any)", async () => {
+    // Arrange
+    mockedConfig.getServers.mockReturnValue([sampleServer]);
+    mockedConfig.findServer.mockReturnValue(undefined as never);
+
+    // Act
+    const result = await handleServerSecure({ action: "secure-audit", server: null as any });
+
+    // Assert
+    expect(result.isError).toBe(true);
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBeTruthy();
+  });
+
+  it("returns mcpError when action param is invalid (as any)", async () => {
+    // Arrange
+    mockedConfig.getServers.mockReturnValue([sampleServer]);
+    mockedConfig.findServer.mockReturnValue(sampleServer as never);
+
+    // Act
+    const result = await handleServerSecure({ action: "nonexistent" as any });
+
+    // Assert
+    expect(result.isError).toBe(true);
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBeTruthy();
+  });
+
+  it("returns mcpError when SSH connection fails (secure-audit)", async () => {
+    // Arrange — spy on runSecureAudit to simulate SSH error result (same pattern as existing tests)
+    mockedConfig.getServers.mockReturnValue([sampleServer]);
+    // Use single server so auto-select works (no findServer needed)
+    jest.spyOn(secure, "runSecureAudit").mockResolvedValueOnce({
+      audit: {
+        passwordAuth: { key: "PasswordAuthentication", value: "", status: "missing" as const },
+        rootLogin: { key: "PermitRootLogin", value: "", status: "missing" as const },
+        fail2ban: { installed: false, active: false },
+        sshPort: 22,
+      },
+      score: 0,
+      error: "SSH operation timed out after 30000ms",
+    });
+
+    // Act
+    const result = await handleServerSecure({ action: "secure-audit" });
+
+    // Assert
+    expect(result.isError).toBe(true);
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBeTruthy();
+  });
+});

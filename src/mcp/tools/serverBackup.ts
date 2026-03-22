@@ -70,6 +70,9 @@ export async function handleServerBackup(params: {
       case "snapshot-create": return handleSnapshotCreate(server);
       case "snapshot-list":   return handleSnapshotList(server);
       case "snapshot-delete": return handleSnapshotDelete(server, params.snapshotId);
+      default: {
+        return mcpError(`Unknown action: ${params.action as string}`);
+      }
     }
   } catch (error: unknown) {
     return mcpError(getErrorMessage(error));

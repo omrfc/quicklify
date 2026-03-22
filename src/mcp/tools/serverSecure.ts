@@ -100,6 +100,9 @@ export async function handleServerSecure(params: {
       case "domain-remove": return handleDomainRemove(server);
       case "domain-check":  return handleDomainCheck(server, params.domain);
       case "domain-info":   return handleDomainInfo(server);
+      default: {
+        return mcpError(`Unknown action: ${params.action as string}`);
+      }
     }
   } catch (error: unknown) {
     return mcpError(getErrorMessage(error));

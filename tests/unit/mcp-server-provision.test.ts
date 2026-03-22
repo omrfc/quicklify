@@ -708,3 +708,93 @@ describe("handleServerProvision — template", () => {
     expect(mockedTemplates.getTemplateDefaults).toHaveBeenCalledWith("starter", "hetzner");
   });
 });
+
+// ─── handleServerProvision — malformed params ────────────────────────────────
+
+describe("handleServerProvision — malformed params", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+    mockedSsh.assertValidIp.mockImplementation(() => {});
+    mockedSshKey.findLocalSshKey.mockReturnValue("ssh-ed25519 AAAA test@kastell");
+    mockedSshKey.getSshKeyName.mockReturnValue("kastell-1234567890");
+    mockedTemplates.getTemplateDefaults.mockReturnValue({ region: "nbg1", size: "cax11" });
+    mockedConfig.saveServer.mockImplementation(() => Promise.resolve());
+  });
+
+  it("returns mcpError when provider param is empty string", async () => {
+    // Arrange — empty string provider is not in SUPPORTED_PROVIDERS enum
+    mockedTokens.getProviderToken.mockReturnValue("test-token");
+
+    // Act
+    const result = await handleServerProvision({
+      provider: "" as any,
+      region: "nbg1",
+      size: "cax11",
+      name: "test-srv",
+    });
+
+    // Assert
+    expect(result.isError).toBe(true);
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBeTruthy();
+  });
+
+  it("returns mcpError when provider param is null (as any)", async () => {
+    // Arrange
+    mockedTokens.getProviderToken.mockReturnValue("test-token");
+
+    // Act
+    const result = await handleServerProvision({
+      provider: null as any,
+      region: "nbg1",
+      size: "cax11",
+      name: "test-srv",
+    });
+
+    // Assert
+    expect(result.isError).toBe(true);
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBeTruthy();
+  });
+
+  it("returns mcpError when name param is null (as any)", async () => {
+    // Arrange
+    mockedTokens.getProviderToken.mockReturnValue("test-token");
+    mockProvider = createMockProvider();
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+
+    // Act
+    const result = await handleServerProvision({
+      provider: "hetzner",
+      region: "nbg1",
+      size: "cax11",
+      name: null as any,
+    });
+
+    // Assert
+    expect(result.isError).toBe(true);
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBeTruthy();
+  });
+
+  it("returns mcpError when server creation fails (simulated SSH/API error)", async () => {
+    // Arrange
+    mockedTokens.getProviderToken.mockReturnValue("test-token");
+    mockProvider = createMockProvider();
+    mockProvider.createServer.mockRejectedValue(new Error("SSH connection refused"));
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+
+    // Act
+    const result = await handleServerProvision({
+      provider: "hetzner",
+      region: "nbg1",
+      size: "cax11",
+      name: "test-srv",
+    });
+
+    // Assert
+    expect(result.isError).toBe(true);
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBeTruthy();
+  });
+});

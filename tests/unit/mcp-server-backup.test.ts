@@ -1030,3 +1030,73 @@ describe("handleServerBackup - bare mode backup-restore", () => {
     expect(data.error).toContain("SAFE_MODE");
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Handler: malformed params
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe("handleServerBackup — malformed params", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+    mockedSsh.assertValidIp.mockImplementation(() => {});
+    mockedSsh.sanitizedEnv.mockReturnValue({} as NodeJS.ProcessEnv);
+    mockedConfig.BACKUPS_DIR = "/tmp/kastell-backups";
+  });
+
+  test("returns mcpError when server param is empty string", async () => {
+    // Arrange
+    mockedConfig.getServers.mockReturnValue([sampleServer]);
+    mockedConfig.findServer.mockReturnValue(undefined as never);
+
+    // Act
+    const result = await handleServerBackup({ action: "backup-list", server: "" });
+
+    // Assert
+    expect(result.isError).toBe(true);
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBeTruthy();
+  });
+
+  test("returns mcpError when server param is null (as any)", async () => {
+    // Arrange
+    mockedConfig.getServers.mockReturnValue([sampleServer]);
+    mockedConfig.findServer.mockReturnValue(undefined as never);
+
+    // Act
+    const result = await handleServerBackup({ action: "backup-list", server: null as any });
+
+    // Assert
+    expect(result.isError).toBe(true);
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBeTruthy();
+  });
+
+  test("returns mcpError when action param is invalid (as any)", async () => {
+    // Arrange
+    mockedConfig.getServers.mockReturnValue([sampleServer]);
+    mockedConfig.findServer.mockReturnValue(sampleServer as never);
+
+    // Act
+    const result = await handleServerBackup({ action: "nonexistent" as any, server: "coolify-test" });
+
+    // Assert
+    expect(result.isError).toBe(true);
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBeTruthy();
+  });
+
+  test("returns mcpError when SSH connection fails (backup-create)", async () => {
+    // Arrange
+    mockedConfig.getServers.mockReturnValue([sampleServer]);
+    mockedConfig.findServer.mockReturnValue(sampleServer as never);
+    mockedSsh.sshExec.mockRejectedValue(new Error("SSH connection refused"));
+
+    // Act
+    const result = await handleServerBackup({ action: "backup-create", server: "coolify-test" });
+
+    // Assert
+    expect(result.isError).toBe(true);
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBeTruthy();
+  });
+});
