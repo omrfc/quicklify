@@ -1,5 +1,3 @@
-import { EventEmitter } from "events";
-
 jest.mock("child_process", () => ({
   spawn: jest.fn(),
   spawnSync: jest.fn(),
@@ -24,19 +22,12 @@ import {
   sshStream,
   sanitizedEnv,
 } from "../../src/utils/ssh";
+import { MockChildProcess, mockProcess } from "../helpers/ssh-factories";
 
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 
 const mockedSpawn = spawn as jest.MockedFunction<typeof spawn>;
 const mockedSpawnSync = spawnSync as jest.MockedFunction<typeof spawnSync>;
-
-function createMockProcess(exitCode: number = 0) {
-  const cp = new EventEmitter() as any;
-  cp.stdout = new EventEmitter();
-  cp.stderr = new EventEmitter();
-  process.nextTick(() => cp.emit("close", exitCode));
-  return cp;
-}
 
 describe("ssh utils", () => {
   beforeEach(() => {
@@ -93,7 +84,7 @@ describe("ssh utils", () => {
 
   describe("sshConnect", () => {
     it("should spawn ssh with correct args", async () => {
-      const mockCp = createMockProcess(0);
+      const mockCp = mockProcess(0);
       mockedSpawn.mockReturnValue(mockCp);
 
       const code = await sshConnect("1.2.3.4");
@@ -106,7 +97,7 @@ describe("ssh utils", () => {
     });
 
     it("should return non-zero exit code", async () => {
-      const mockCp = createMockProcess(255);
+      const mockCp = mockProcess(255);
       mockedSpawn.mockReturnValue(mockCp);
 
       const code = await sshConnect("1.2.3.4");
@@ -114,10 +105,8 @@ describe("ssh utils", () => {
     });
 
     it("should return 1 on error", async () => {
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshConnect("1.2.3.4");
       process.nextTick(() => mockCp.emit("error", new Error("spawn failed")));
@@ -126,10 +115,8 @@ describe("ssh utils", () => {
     });
 
     it("should return 0 when close code is null", async () => {
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshConnect("1.2.3.4");
       process.nextTick(() => mockCp.emit("close", null));
@@ -146,7 +133,7 @@ describe("ssh utils", () => {
 
   describe("sshStream", () => {
     it("should spawn ssh with command and pipe stderr for host key detection", async () => {
-      const mockCp = createMockProcess(0);
+      const mockCp = mockProcess(0);
       mockedSpawn.mockReturnValue(mockCp);
 
       const code = await sshStream("1.2.3.4", "docker logs coolify --follow");
@@ -159,7 +146,7 @@ describe("ssh utils", () => {
     });
 
     it("should return non-zero exit code", async () => {
-      const mockCp = createMockProcess(1);
+      const mockCp = mockProcess(1);
       mockedSpawn.mockReturnValue(mockCp);
 
       const code = await sshStream("1.2.3.4", "journalctl -f");
@@ -167,10 +154,8 @@ describe("ssh utils", () => {
     });
 
     it("should return 1 on error", async () => {
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshStream("1.2.3.4", "tail -f /var/log/syslog");
       process.nextTick(() => mockCp.emit("error", new Error("spawn failed")));
@@ -179,10 +164,8 @@ describe("ssh utils", () => {
     });
 
     it("should return 0 when close code is null", async () => {
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshStream("1.2.3.4", "journalctl -f");
       process.nextTick(() => mockCp.emit("close", null));
@@ -197,10 +180,8 @@ describe("ssh utils", () => {
 
   describe("sshExec", () => {
     it("should execute command and return output", async () => {
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshExec("1.2.3.4", "docker ps");
       process.nextTick(() => {
@@ -215,10 +196,8 @@ describe("ssh utils", () => {
     });
 
     it("should capture stderr", async () => {
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshExec("1.2.3.4", "bad-command");
       process.nextTick(() => {
@@ -232,10 +211,8 @@ describe("ssh utils", () => {
     });
 
     it("should handle spawn error", async () => {
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshExec("1.2.3.4", "test");
       process.nextTick(() => mockCp.emit("error", new Error("spawn failed")));
@@ -246,9 +223,7 @@ describe("ssh utils", () => {
     });
 
     it("should pass correct args with StrictHostKeyChecking", async () => {
-      const mockCp = createMockProcess(0);
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
+      const mockCp = mockProcess(0);
       mockedSpawn.mockReturnValue(mockCp);
 
       await sshExec("1.2.3.4", "uptime");
@@ -260,10 +235,8 @@ describe("ssh utils", () => {
     });
 
     it("should default to code 1 when close code is null", async () => {
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshExec("1.2.3.4", "test-cmd");
       process.nextTick(() => mockCp.emit("close", null));
@@ -301,16 +274,12 @@ describe("ssh utils", () => {
   describe("sshExec host key retry", () => {
     it("should retry once when stderr contains 'Host key verification failed'", async () => {
       // First call: host key mismatch
-      const mockCp1 = new EventEmitter() as any;
-      mockCp1.stdout = new EventEmitter();
-      mockCp1.stderr = new EventEmitter();
+      const mockCp1 = new MockChildProcess(0, 99999);
 
       // Second call: success after key removal
-      const mockCp2 = new EventEmitter() as any;
-      mockCp2.stdout = new EventEmitter();
-      mockCp2.stderr = new EventEmitter();
+      const mockCp2 = new MockChildProcess(0, 99999);
 
-      mockedSpawn.mockReturnValueOnce(mockCp1).mockReturnValueOnce(mockCp2);
+      mockedSpawn.mockReturnValueOnce(mockCp1 as unknown as ReturnType<typeof spawn>).mockReturnValueOnce(mockCp2 as unknown as ReturnType<typeof spawn>);
       mockedSpawnSync.mockReturnValue({ status: 0, stdout: Buffer.from(""), stderr: Buffer.from(""), pid: 1, output: [], signal: null });
 
       const promise = sshExec("1.2.3.4", "echo ok");
@@ -332,15 +301,11 @@ describe("ssh utils", () => {
     });
 
     it("should retry once when stderr contains 'REMOTE HOST IDENTIFICATION HAS CHANGED'", async () => {
-      const mockCp1 = new EventEmitter() as any;
-      mockCp1.stdout = new EventEmitter();
-      mockCp1.stderr = new EventEmitter();
+      const mockCp1 = new MockChildProcess(0, 99999);
 
-      const mockCp2 = new EventEmitter() as any;
-      mockCp2.stdout = new EventEmitter();
-      mockCp2.stderr = new EventEmitter();
+      const mockCp2 = new MockChildProcess(0, 99999);
 
-      mockedSpawn.mockReturnValueOnce(mockCp1).mockReturnValueOnce(mockCp2);
+      mockedSpawn.mockReturnValueOnce(mockCp1 as unknown as ReturnType<typeof spawn>).mockReturnValueOnce(mockCp2 as unknown as ReturnType<typeof spawn>);
       mockedSpawnSync.mockReturnValue({ status: 0, stdout: Buffer.from(""), stderr: Buffer.from(""), pid: 1, output: [], signal: null });
 
       const promise = sshExec("1.2.3.4", "uptime");
@@ -358,10 +323,8 @@ describe("ssh utils", () => {
     });
 
     it("should NOT retry on other SSH errors (permission denied)", async () => {
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshExec("1.2.3.4", "uptime");
       process.nextTick(() => {
@@ -376,17 +339,12 @@ describe("ssh utils", () => {
 
     it("should NOT retry more than once (no infinite loop)", async () => {
       // Both calls return host key mismatch
-      const makeHostKeyMockCp = () => {
-        const cp = new EventEmitter() as any;
-        cp.stdout = new EventEmitter();
-        cp.stderr = new EventEmitter();
-        return cp;
-      };
+      const makeHostKeyMockCp = () => new MockChildProcess(0, 99999);
 
       const mockCp1 = makeHostKeyMockCp();
       const mockCp2 = makeHostKeyMockCp();
 
-      mockedSpawn.mockReturnValueOnce(mockCp1).mockReturnValueOnce(mockCp2);
+      mockedSpawn.mockReturnValueOnce(mockCp1 as unknown as ReturnType<typeof spawn>).mockReturnValueOnce(mockCp2 as unknown as ReturnType<typeof spawn>);
       mockedSpawnSync.mockReturnValue({ status: 0, stdout: Buffer.from(""), stderr: Buffer.from(""), pid: 1, output: [], signal: null });
 
       const promise = sshExec("1.2.3.4", "uptime");
@@ -406,17 +364,12 @@ describe("ssh utils", () => {
     });
 
     it("should append ssh-keygen remediation hint to stderr when retry also fails with host key mismatch", async () => {
-      const makeHostKeyMockCp = () => {
-        const cp = new EventEmitter() as any;
-        cp.stdout = new EventEmitter();
-        cp.stderr = new EventEmitter();
-        return cp;
-      };
+      const makeHostKeyMockCp = () => new MockChildProcess(0, 99999);
 
       const mockCp1 = makeHostKeyMockCp();
       const mockCp2 = makeHostKeyMockCp();
 
-      mockedSpawn.mockReturnValueOnce(mockCp1).mockReturnValueOnce(mockCp2);
+      mockedSpawn.mockReturnValueOnce(mockCp1 as unknown as ReturnType<typeof spawn>).mockReturnValueOnce(mockCp2 as unknown as ReturnType<typeof spawn>);
       mockedSpawnSync.mockReturnValue({ status: 0, stdout: Buffer.from(""), stderr: Buffer.from(""), pid: 1, output: [], signal: null });
 
       const promise = sshExec("1.2.3.4", "uptime");
@@ -435,17 +388,12 @@ describe("ssh utils", () => {
     });
 
     it("should include the actual IP address in the remediation hint", async () => {
-      const makeHostKeyMockCp = () => {
-        const cp = new EventEmitter() as any;
-        cp.stdout = new EventEmitter();
-        cp.stderr = new EventEmitter();
-        return cp;
-      };
+      const makeHostKeyMockCp = () => new MockChildProcess(0, 99999);
 
       const mockCp1 = makeHostKeyMockCp();
       const mockCp2 = makeHostKeyMockCp();
 
-      mockedSpawn.mockReturnValueOnce(mockCp1).mockReturnValueOnce(mockCp2);
+      mockedSpawn.mockReturnValueOnce(mockCp1 as unknown as ReturnType<typeof spawn>).mockReturnValueOnce(mockCp2 as unknown as ReturnType<typeof spawn>);
       mockedSpawnSync.mockReturnValue({ status: 0, stdout: Buffer.from(""), stderr: Buffer.from(""), pid: 1, output: [], signal: null });
 
       const promise = sshExec("5.6.7.8", "hostname");
@@ -463,15 +411,10 @@ describe("ssh utils", () => {
     });
 
     it("should NOT append hint when retry succeeds after host key mismatch", async () => {
-      const mockCp1 = new EventEmitter() as any;
-      mockCp1.stdout = new EventEmitter();
-      mockCp1.stderr = new EventEmitter();
+      const mockCp1 = new MockChildProcess(0, 99999);
+      const mockCp2 = new MockChildProcess(0, 99999);
 
-      const mockCp2 = new EventEmitter() as any;
-      mockCp2.stdout = new EventEmitter();
-      mockCp2.stderr = new EventEmitter();
-
-      mockedSpawn.mockReturnValueOnce(mockCp1).mockReturnValueOnce(mockCp2);
+      mockedSpawn.mockReturnValueOnce(mockCp1 as unknown as ReturnType<typeof spawn>).mockReturnValueOnce(mockCp2 as unknown as ReturnType<typeof spawn>);
       mockedSpawnSync.mockReturnValue({ status: 0, stdout: Buffer.from(""), stderr: Buffer.from(""), pid: 1, output: [], signal: null });
 
       const promise = sshExec("1.2.3.4", "echo ok");
@@ -490,15 +433,10 @@ describe("ssh utils", () => {
     });
 
     it("should return retry result (not original failure) on host key fix", async () => {
-      const mockCp1 = new EventEmitter() as any;
-      mockCp1.stdout = new EventEmitter();
-      mockCp1.stderr = new EventEmitter();
+      const mockCp1 = new MockChildProcess(0, 99999);
+      const mockCp2 = new MockChildProcess(0, 99999);
 
-      const mockCp2 = new EventEmitter() as any;
-      mockCp2.stdout = new EventEmitter();
-      mockCp2.stderr = new EventEmitter();
-
-      mockedSpawn.mockReturnValueOnce(mockCp1).mockReturnValueOnce(mockCp2);
+      mockedSpawn.mockReturnValueOnce(mockCp1 as unknown as ReturnType<typeof spawn>).mockReturnValueOnce(mockCp2 as unknown as ReturnType<typeof spawn>);
       mockedSpawnSync.mockReturnValue({ status: 0, stdout: Buffer.from(""), stderr: Buffer.from(""), pid: 1, output: [], signal: null });
 
       const promise = sshExec("1.2.3.4", "hostname");
@@ -521,15 +459,10 @@ describe("ssh utils", () => {
 
   describe("sshStream host key retry", () => {
     it("should retry once when stderr contains host key mismatch pattern", async () => {
-      const mockCp1 = new EventEmitter() as any;
-      mockCp1.stdout = new EventEmitter();
-      mockCp1.stderr = new EventEmitter();
+      const mockCp1 = new MockChildProcess(0, 99999);
+      const mockCp2 = new MockChildProcess(0, 99999);
 
-      const mockCp2 = new EventEmitter() as any;
-      mockCp2.stdout = new EventEmitter();
-      mockCp2.stderr = new EventEmitter();
-
-      mockedSpawn.mockReturnValueOnce(mockCp1).mockReturnValueOnce(mockCp2);
+      mockedSpawn.mockReturnValueOnce(mockCp1 as unknown as ReturnType<typeof spawn>).mockReturnValueOnce(mockCp2 as unknown as ReturnType<typeof spawn>);
       mockedSpawnSync.mockReturnValue({ status: 0, stdout: Buffer.from(""), stderr: Buffer.from(""), pid: 1, output: [], signal: null });
 
       const promise = sshStream("1.2.3.4", "journalctl -f");
@@ -547,10 +480,8 @@ describe("ssh utils", () => {
     });
 
     it("should NOT retry on non-host-key errors", async () => {
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshStream("1.2.3.4", "journalctl -f");
       process.nextTick(() => {
@@ -758,12 +689,10 @@ describe("ssh utils", () => {
   describe("sshExec timeout", () => {
     it("returns code 1 when command times out", async () => {
       jest.useFakeTimers();
-      const hangingCp = new EventEmitter() as any;
-      hangingCp.stdout = new EventEmitter();
-      hangingCp.stderr = new EventEmitter();
-      hangingCp.stdin = { write: jest.fn(), end: jest.fn() };
-      hangingCp.kill = jest.fn();
-      mockedSpawn.mockReturnValue(hangingCp);
+      const hangingCp = new MockChildProcess(0, 99999);
+      hangingCp.stdin = { write: jest.fn(), end: jest.fn() } as unknown as null;
+      (hangingCp as unknown as { kill: jest.Mock }).kill = jest.fn();
+      mockedSpawn.mockReturnValue(hangingCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshExec("203.0.113.1", "sleep 999", { timeoutMs: 5000 });
       jest.advanceTimersByTime(5001);
@@ -777,11 +706,10 @@ describe("ssh utils", () => {
 
   describe("sshExec useStdin", () => {
     it("writes command to stdin when useStdin is true", async () => {
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockCp.stdin = { write: jest.fn(), end: jest.fn() };
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      const stdinMock = { write: jest.fn(), end: jest.fn() };
+      mockCp.stdin = stdinMock as unknown as null;
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshExec("203.0.113.1", "echo hello", { useStdin: true });
       process.nextTick(() => {
@@ -791,7 +719,7 @@ describe("ssh utils", () => {
 
       const result = await promise;
       expect(result.code).toBe(0);
-      expect(mockCp.stdin.write).toHaveBeenCalledWith("echo hello");
+      expect(stdinMock.write).toHaveBeenCalledWith("echo hello");
       expect(mockedSpawn).toHaveBeenCalledWith(
         expect.any(String),
         expect.arrayContaining(["bash", "-s"]),
@@ -802,11 +730,9 @@ describe("ssh utils", () => {
 
   describe("sshExec error event", () => {
     it("resolves with code 1 and error message when spawn emits error", async () => {
-      const mockCp = new EventEmitter() as any;
-      mockCp.stdout = new EventEmitter();
-      mockCp.stderr = new EventEmitter();
-      mockCp.stdin = { write: jest.fn(), end: jest.fn() };
-      mockedSpawn.mockReturnValue(mockCp);
+      const mockCp = new MockChildProcess(0, 99999);
+      mockCp.stdin = { write: jest.fn(), end: jest.fn() } as unknown as null;
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
 
       const promise = sshExec("203.0.113.1", "test");
       process.nextTick(() => {

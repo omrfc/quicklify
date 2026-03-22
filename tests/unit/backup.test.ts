@@ -1,6 +1,5 @@
 import { mkdirSync, existsSync, writeFileSync, readdirSync } from "fs";
 import { spawn } from "child_process";
-import { EventEmitter } from "events";
 import inquirer from "inquirer";
 import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
@@ -62,6 +61,7 @@ jest.mock("../../src/adapters/factory", () => ({
 import ora from "ora";
 import { backupServer } from "../../src/core/backup";
 import { resolvePlatform } from "../../src/adapters/factory";
+import { MockChildProcess } from "../helpers/ssh-factories.js";
 
 const mockedOra = ora as jest.MockedFunction<typeof ora>;
 const mockedBackupServer = backupServer as jest.MockedFunction<typeof backupServer>;
@@ -98,16 +98,11 @@ const sampleServer2 = {
 };
 
 function createMockProcess(code: number = 0, stderrData: string = "") {
-  const proc = new EventEmitter() as any;
-  proc.stdout = new EventEmitter();
-  proc.stderr = new EventEmitter();
-  proc.stdin = null;
-  // Schedule events
-  setTimeout(() => {
-    if (stderrData) proc.stderr.emit("data", Buffer.from(stderrData));
-    proc.emit("close", code);
-  }, 10);
-  return proc;
+  const proc = new MockChildProcess(code, 10);
+  if (stderrData) {
+    setTimeout(() => proc.stderr.emit("data", Buffer.from(stderrData)), 5);
+  }
+  return proc as unknown as ReturnType<typeof spawn>;
 }
 
 describe("backup", () => {
@@ -123,7 +118,7 @@ describe("backup", () => {
       succeed: jest.fn().mockReturnThis(),
       fail: jest.fn().mockReturnThis(),
       stop: jest.fn().mockReturnThis(),
-    } as any);
+    } as unknown as ReturnType<typeof ora>);
   });
 
   afterEach(() => {
@@ -217,12 +212,9 @@ describe("backup", () => {
     });
 
     it("should handle spawn error event", async () => {
-      const proc = new EventEmitter() as any;
-      proc.stdout = new EventEmitter();
-      proc.stderr = new EventEmitter();
-      proc.stdin = null;
+      const proc = new MockChildProcess(0, 99999);
       setTimeout(() => proc.emit("error", new Error("ENOENT")), 10);
-      mockedSpawn.mockReturnValue(proc);
+      mockedSpawn.mockReturnValue(proc as unknown as ReturnType<typeof spawn>);
 
       const result = await scpDownload("1.2.3.4", "/tmp/file", "/local/file");
       expect(result.code).toBe(1);
@@ -245,7 +237,7 @@ describe("backup", () => {
       mockedReaddirSync.mockReturnValue([
         "2026-02-21_10-00-00-000",
         "2026-02-20_10-00-00-000",
-      ] as any);
+      ] as unknown as ReturnType<typeof mockedReaddirSync>);
 
       const result = listBackups("test-server");
       expect(result).toHaveLength(2);
@@ -259,7 +251,7 @@ describe("backup", () => {
         if (path.includes("bad") && path.includes("manifest.json")) return false;
         return true;
       });
-      mockedReaddirSync.mockReturnValue(["good-backup", "bad-backup"] as any);
+      mockedReaddirSync.mockReturnValue(["good-backup", "bad-backup"] as unknown as ReturnType<typeof mockedReaddirSync>);
 
       const result = listBackups("test-server");
       expect(result).toHaveLength(1);
@@ -394,9 +386,9 @@ describe("backup", () => {
         return path.includes("manifest.json");
       });
       mockedReaddirSync
-        .mockReturnValueOnce(["old-server"] as any) // listOrphanBackups reads BACKUPS_DIR
-        .mockReturnValueOnce(["2026-02-21_10-00-00-000"] as any); // listBackups for old-server
-      mockedInquirer.prompt.mockResolvedValue({ confirm: false } as any);
+        .mockReturnValueOnce(["old-server"] as unknown as ReturnType<typeof mockedReaddirSync>) // listOrphanBackups reads BACKUPS_DIR
+        .mockReturnValueOnce(["2026-02-21_10-00-00-000"] as unknown as ReturnType<typeof mockedReaddirSync>); // listBackups for old-server
+      mockedInquirer.prompt.mockResolvedValue({ confirm: false });
 
       await backupCommand("cleanup");
 
@@ -413,9 +405,9 @@ describe("backup", () => {
         return true;
       });
       mockedReaddirSync
-        .mockReturnValueOnce(["old-server"] as any)
-        .mockReturnValueOnce(["2026-02-21_10-00-00-000"] as any);
-      mockedInquirer.prompt.mockResolvedValue({ confirm: true } as any);
+        .mockReturnValueOnce(["old-server"] as unknown as ReturnType<typeof mockedReaddirSync>)
+        .mockReturnValueOnce(["2026-02-21_10-00-00-000"] as unknown as ReturnType<typeof mockedReaddirSync>);
+      mockedInquirer.prompt.mockResolvedValue({ confirm: true });
 
       await backupCommand("cleanup");
 

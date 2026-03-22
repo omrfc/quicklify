@@ -68,19 +68,19 @@ const MCP_TOOLS: Array<{
   toolName: string;
   handler: (params: Record<string, unknown>) => Promise<McpResponse>;
 }> = [
-  { toolName: "server_info", handler: (p) => handleServerInfo(p as any) },
-  { toolName: "server_logs", handler: (p) => handleServerLogs(p as any) },
-  { toolName: "server_manage", handler: (p) => handleServerManage(p as any) },
-  { toolName: "server_maintain", handler: (p) => handleServerMaintain(p as any) },
-  { toolName: "server_secure", handler: (p) => handleServerSecure(p as any) },
-  { toolName: "server_backup", handler: (p) => handleServerBackup(p as any) },
-  { toolName: "server_provision", handler: (p) => handleServerProvision(p as any) },
-  { toolName: "server_audit", handler: (p) => handleServerAudit(p as any) },
-  { toolName: "server_evidence", handler: (p) => handleServerEvidence(p as any) },
-  { toolName: "server_guard", handler: (p) => handleServerGuard(p as any) },
-  { toolName: "server_doctor", handler: (p) => handleServerDoctor(p as any) },
-  { toolName: "server_lock", handler: (p) => handleServerLock(p as any) },
-  { toolName: "server_fleet", handler: (p) => handleServerFleet(p as any) },
+  { toolName: "server_info", handler: (p) => handleServerInfo(p as unknown as Parameters<typeof handleServerInfo>[0]) },
+  { toolName: "server_logs", handler: (p) => handleServerLogs(p as unknown as Parameters<typeof handleServerLogs>[0]) },
+  { toolName: "server_manage", handler: (p) => handleServerManage(p as unknown as Parameters<typeof handleServerManage>[0]) },
+  { toolName: "server_maintain", handler: (p) => handleServerMaintain(p as unknown as Parameters<typeof handleServerMaintain>[0]) },
+  { toolName: "server_secure", handler: (p) => handleServerSecure(p as unknown as Parameters<typeof handleServerSecure>[0]) },
+  { toolName: "server_backup", handler: (p) => handleServerBackup(p as unknown as Parameters<typeof handleServerBackup>[0]) },
+  { toolName: "server_provision", handler: (p) => handleServerProvision(p as unknown as Parameters<typeof handleServerProvision>[0]) },
+  { toolName: "server_audit", handler: (p) => handleServerAudit(p as unknown as Parameters<typeof handleServerAudit>[0]) },
+  { toolName: "server_evidence", handler: (p) => handleServerEvidence(p as unknown as Parameters<typeof handleServerEvidence>[0]) },
+  { toolName: "server_guard", handler: (p) => handleServerGuard(p as unknown as Parameters<typeof handleServerGuard>[0]) },
+  { toolName: "server_doctor", handler: (p) => handleServerDoctor(p as unknown as Parameters<typeof handleServerDoctor>[0]) },
+  { toolName: "server_lock", handler: (p) => handleServerLock(p as unknown as Parameters<typeof handleServerLock>[0]) },
+  { toolName: "server_fleet", handler: (p) => handleServerFleet(p as unknown as Parameters<typeof handleServerFleet>[0]) },
 ];
 
 // ─── INVALID_PARAMS map ───────────────────────────────────────────────────────
@@ -175,7 +175,7 @@ describe("MCP contract — _kastell_version in success responses", () => {
     setMcpVersion("test-contract-version");
 
     // server_info action:"list" returns mcpSuccess even with empty server list
-    const response = await handleServerInfo({ action: "list" } as any);
+    const response = await handleServerInfo({ action: "list" });
 
     expect(response.isError).toBeUndefined();
     const parsed = JSON.parse(response.content[0].text) as Record<string, unknown>;

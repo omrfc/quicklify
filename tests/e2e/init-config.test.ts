@@ -88,15 +88,15 @@ describe("initCommand with --config and --template", () => {
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
-    processExitSpy = jest.spyOn(process, "exit").mockImplementation((() => {}) as any);
+    processExitSpy = jest.spyOn(process, "exit").mockImplementation((() => {}) as unknown as (code?: number) => never);
     jest.clearAllMocks();
     process.env = { ...originalEnv };
     delete process.env.HETZNER_TOKEN;
     delete process.env.DIGITALOCEAN_TOKEN;
-    global.setTimeout = ((fn: Function) => {
+    global.setTimeout = ((fn: () => void) => {
       fn();
       return 0;
-    }) as any;
+    }) as unknown as typeof setTimeout;
   });
 
   afterEach(() => {
@@ -119,7 +119,7 @@ describe("initCommand with --config and --template", () => {
       });
 
       expect(mockedAxios.post).toHaveBeenCalled();
-      const postData = mockedAxios.post.mock.calls[0][1] as any;
+      const postData = mockedAxios.post.mock.calls[0][1] as Record<string, unknown>;
       // production template: cx33 server, nbg1 region
       expect(postData.server_type).toBe("cx33");
       expect(postData.location).toBe("nbg1");
@@ -140,7 +140,7 @@ describe("initCommand with --config and --template", () => {
       });
 
       expect(mockedAxios.post).toHaveBeenCalled();
-      const postData = mockedAxios.post.mock.calls[0][1] as any;
+      const postData = mockedAxios.post.mock.calls[0][1] as Record<string, unknown>;
       // starter template: s-2vcpu-2gb, fra1
       expect(postData.size).toBe("s-2vcpu-2gb");
       expect(postData.region).toBe("fra1");
@@ -157,7 +157,7 @@ describe("initCommand with --config and --template", () => {
       });
 
       expect(mockedAxios.post).toHaveBeenCalled();
-      const postData = mockedAxios.post.mock.calls[0][1] as any;
+      const postData = mockedAxios.post.mock.calls[0][1] as Record<string, unknown>;
       expect(postData.server_type).toBe("cax11");
       expect(postData.location).toBe("nbg1");
     });
@@ -204,7 +204,7 @@ describe("initCommand with --config and --template", () => {
       });
 
       expect(mockedAxios.post).toHaveBeenCalled();
-      const postData = mockedAxios.post.mock.calls[0][1] as any;
+      const postData = mockedAxios.post.mock.calls[0][1] as Record<string, unknown>;
       expect(postData.server_type).toBe("cx43"); // CLI override
       expect(postData.location).toBe("fsn1"); // CLI override
     });
@@ -224,7 +224,7 @@ describe("initCommand with --config and --template", () => {
       });
 
       expect(mockedAxios.post).toHaveBeenCalled();
-      const postData = mockedAxios.post.mock.calls[0][1] as any;
+      const postData = mockedAxios.post.mock.calls[0][1] as Record<string, unknown>;
       expect(postData.server_type).toBe("cx33");
       expect(postData.location).toBe("nbg1");
     });
@@ -241,7 +241,7 @@ describe("initCommand with --config and --template", () => {
       });
 
       expect(mockedAxios.post).toHaveBeenCalled();
-      const postData = mockedAxios.post.mock.calls[0][1] as any;
+      const postData = mockedAxios.post.mock.calls[0][1] as Record<string, unknown>;
       expect(postData.server_type).toBe("cx33"); // production hetzner default
       expect(postData.location).toBe("nbg1");
     });
@@ -260,7 +260,7 @@ describe("initCommand with --config and --template", () => {
       });
 
       expect(mockedAxios.post).toHaveBeenCalled();
-      const postData = mockedAxios.post.mock.calls[0][1] as any;
+      const postData = mockedAxios.post.mock.calls[0][1] as Record<string, unknown>;
       expect(postData.server_type).toBe("cx43"); // CLI override
       expect(postData.location).toBe("fsn1"); // CLI override
     });
@@ -353,7 +353,7 @@ describe("initCommand with --config and --template", () => {
       });
 
       expect(mockedAxios.post).toHaveBeenCalled();
-      const postData = mockedAxios.post.mock.calls[0][1] as any;
+      const postData = mockedAxios.post.mock.calls[0][1] as Record<string, unknown>;
       expect(postData.size).toBe("s-2vcpu-2gb");
       expect(postData.region).toBe("nyc1");
     });
@@ -374,7 +374,7 @@ describe("initCommand with --config and --template", () => {
       });
 
       expect(mockedAxios.post).toHaveBeenCalled();
-      const postData = mockedAxios.post.mock.calls[0][1] as any;
+      const postData = mockedAxios.post.mock.calls[0][1] as Record<string, unknown>;
       // production template cx33, not starter cax11
       expect(postData.server_type).toBe("cx33");
     });
