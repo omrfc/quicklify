@@ -138,14 +138,9 @@ describe.each(KASTELL_RESULT_FUNCTIONS)(
       mockedAuditHistory.loadAuditHistory.mockReturnValue([]);
     });
 
-    it("returns { success: boolean } shape — never throws", async () => {
+    it("returns { success: boolean } shape when SSH fails — never throws", async () => {
       // No try/catch: if the function throws, Jest catches it and fails the test,
       // proving the "never throws" contract is broken.
-      const result = await call();
-      expect(typeof result.success).toBe("boolean");
-    });
-
-    it("returns KastellResult with success field when SSH fails", async () => {
       const result = await call();
       expect(typeof result.success).toBe("boolean");
       if (expectSuccessFalseOnSshFailure) {

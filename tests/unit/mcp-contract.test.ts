@@ -33,7 +33,6 @@ jest.mock("../../src/core/backup");
 jest.mock("../../src/utils/ssh");
 jest.mock("../../src/core/tokens");
 jest.mock("../../src/adapters/factory");
-jest.mock("../../src/utils/modeGuard");
 jest.mock("../../src/utils/providerFactory");
 jest.mock("../../src/utils/errorMapper", () => ({
   getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
@@ -148,11 +147,6 @@ describe.each(MCP_TOOLS)(
       expect(response.isError).toBe(true);
       const parsed = JSON.parse(response.content[0].text) as Record<string, unknown>;
       expect(typeof parsed.error).toBe("string");
-    });
-
-    it("response text is valid JSON (never raw string or undefined)", async () => {
-      const response = await handler({});
-      expect(() => JSON.parse(response.content[0].text)).not.toThrow();
     });
 
     it("returns isError:true or throws on invalid param types (Zod rejection)", async () => {
