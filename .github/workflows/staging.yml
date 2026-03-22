@@ -1,0 +1,63 @@
+name: Staging Server Test
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HETZNER_TOKEN: ${{ secrets.HETZNER_TOKEN }}
+      KASTELL_SAFE_MODE: 'false'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Provision staging server
+        id: provision
+        run: |
+          SERVER_NAME="staging-ci-${{ github.run_id }}"
+          echo "SERVER_NAME=$SERVER_NAME" >> $GITHUB_ENV
+          node dist/index.js init \
+            --provider hetzner \
+            --token "$HETZNER_TOKEN" \
+            --region nbg1 \
+            --size cax11 \
+            --name "$SERVER_NAME" \
+            --mode bare
+
+      - name: Wait for server ready
+        run: sleep 30
+
+      - name: Health check
+        run: node dist/index.js status "$SERVER_NAME"
+
+      - name: Security audit
+        run: node dist/index.js audit "$SERVER_NAME"
+
+      - name: Destroy staging server
+        if: always()
+        run: |
+          node dist/index.js destroy "$SERVER_NAME" --force || \
+            gh issue create \
+              --title "Staging server destroy failed (run ${{ github.run_id }})" \
+              --body "Server $SERVER_NAME may still be running. Check Hetzner dashboard and destroy manually." \
+              --label "ops,urgent"
+          # NOTE: Telegram notification via @kastelltestbot — activate when P91 ships
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
