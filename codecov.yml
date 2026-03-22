@@ -20,4 +20,3 @@ comment:
 ignore:
   - "src/index.ts"
   - "dist/**"
-  - "**/__tests__/**"

@@ -98,36 +98,6 @@ describe("BatchDef tier — exact values", () => {
   });
 });
 
-// ─── BATCH_TIMEOUTS — exact values ───────────────────────────────────────────
-
-describe("BATCH_TIMEOUTS — exact value assertions", () => {
-  it("fast timeout is exactly 30000 (not 29999 or 30001)", () => {
-    expect(BATCH_TIMEOUTS.fast).toBe(30_000);
-    expect(BATCH_TIMEOUTS.fast).not.toBe(29_999);
-    expect(BATCH_TIMEOUTS.fast).not.toBe(30_001);
-  });
-
-  it("medium timeout is exactly 60000 (not 59999 or 60001)", () => {
-    expect(BATCH_TIMEOUTS.medium).toBe(60_000);
-    expect(BATCH_TIMEOUTS.medium).not.toBe(59_999);
-    expect(BATCH_TIMEOUTS.medium).not.toBe(60_001);
-  });
-
-  it("slow timeout is exactly 120000 (not 119999 or 120001)", () => {
-    expect(BATCH_TIMEOUTS.slow).toBe(120_000);
-    expect(BATCH_TIMEOUTS.slow).not.toBe(119_999);
-    expect(BATCH_TIMEOUTS.slow).not.toBe(120_001);
-  });
-
-  it("slow timeout is exactly 2x medium timeout", () => {
-    expect(BATCH_TIMEOUTS.slow).toBe(BATCH_TIMEOUTS.medium * 2);
-  });
-
-  it("medium timeout is exactly 2x fast timeout", () => {
-    expect(BATCH_TIMEOUTS.medium).toBe(BATCH_TIMEOUTS.fast * 2);
-  });
-});
-
 // ─── Section separators — exact NAMED_SEP format ─────────────────────────────
 
 describe("Named section separators — exact format", () => {

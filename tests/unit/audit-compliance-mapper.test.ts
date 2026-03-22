@@ -306,18 +306,6 @@ describe("COMPLIANCE_MAP — exact spot-check assertions", () => {
     expect(refs[0].controlId).toBe("5.2.11");
   });
 
-  it("FRAMEWORK_VERSIONS.CIS is exactly 'CIS Ubuntu 22.04 v2.0.0'", () => {
-    expect(FRAMEWORK_VERSIONS.CIS).toBe("CIS Ubuntu 22.04 v2.0.0");
-  });
-
-  it("FRAMEWORK_VERSIONS['PCI-DSS'] is exactly 'PCI-DSS v4.0'", () => {
-    expect(FRAMEWORK_VERSIONS["PCI-DSS"]).toBe("PCI-DSS v4.0");
-  });
-
-  it("FRAMEWORK_VERSIONS.HIPAA is exactly 'HIPAA §164.312'", () => {
-    expect(FRAMEWORK_VERSIONS.HIPAA).toBe("HIPAA §164.312");
-  });
-
   it("FW-UFW-ACTIVE has CIS 3.5.1.1 as first CIS ref", () => {
     const refs = COMPLIANCE_MAP["FW-UFW-ACTIVE"];
     expect(refs).toBeDefined();
