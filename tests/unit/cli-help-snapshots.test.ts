@@ -9,14 +9,9 @@
 
 import { spawnSync } from "child_process";
 import { join } from "path";
+import { stripAnsi } from "../helpers/stripAnsi";
 
 const CLI_PATH = join(__dirname, "../../dist/index.js");
-
-/** Strip any remaining ANSI escape sequences for deterministic snapshots */
-function stripAnsi(text: string): string {
-  // eslint-disable-next-line no-control-regex
-  return text.replace(/\u001b\[[0-9;]*m/g, "");
-}
 
 /** Invoke the CLI with the given args and return the help text output */
 function getHelp(args: string[]): string {

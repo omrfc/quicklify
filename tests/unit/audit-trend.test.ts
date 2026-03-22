@@ -10,6 +10,7 @@ import {
   formatTrendJson,
 } from "../../src/core/audit/formatters/trend.js";
 import type { AuditHistoryEntry, TrendResult } from "../../src/core/audit/types.js";
+import { stripAnsi } from "../helpers/stripAnsi";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -22,12 +23,6 @@ function makeEntry(overrides: Partial<AuditHistoryEntry> = {}): AuditHistoryEntr
     categoryScores: { SSH: 80, Firewall: 60, Updates: 70 },
     ...overrides,
   };
-}
-
-/** Strip ANSI escape codes for plain-text assertions */
-function stripAnsi(str: string): string {
-  // eslint-disable-next-line no-control-regex
-  return str.replace(/\x1B\[[0-9;]*m/g, "");
 }
 
 // ─── computeTrend ─────────────────────────────────────────────────────────────
