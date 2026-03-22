@@ -843,4 +843,71 @@ describe("DigitalOceanProvider", () => {
       }
     });
   });
+
+  describe("workflow", () => {
+    describe("create→status→destroy lifecycle", () => {
+      const serverConfig = {
+        name: "workflow-droplet",
+        size: "s-2vcpu-2gb",
+        region: "nyc1",
+        cloudInit: "#!/bin/bash\necho hello",
+      };
+
+      it("should complete full lifecycle: create, poll status, destroy", async () => {
+        mockedAxios.post.mockResolvedValueOnce({
+          data: {
+            droplet: {
+              id: 88001,
+              networks: { v4: [{ type: "public", ip_address: "2.3.4.5" }] },
+              status: "new",
+            },
+          },
+        });
+        mockedAxios.get
+          .mockResolvedValueOnce({ data: { droplet: { status: "new" } } })
+          .mockResolvedValueOnce({ data: { droplet: { status: "active" } } });
+        mockedAxios.delete.mockResolvedValueOnce({});
+
+        const created = await provider.createServer(serverConfig);
+        const status1 = await provider.getServerStatus(created.id);
+        const status2 = await provider.getServerStatus(created.id);
+        await provider.destroyServer(created.id);
+
+        expect(created.ip).toBe("2.3.4.5");
+        expect(status1).toBe("new");
+        expect(status2).toBe("running");
+        expect(mockedAxios.delete).toHaveBeenCalledWith(
+          `https://api.digitalocean.com/v2/droplets/${created.id}`,
+          expect.objectContaining({
+            headers: { Authorization: "Bearer test-do-token" },
+          }),
+        );
+      });
+
+      it("should NOT call destroy when create fails", async () => {
+        mockedAxios.post.mockRejectedValueOnce({
+          response: { data: { message: "quota exceeded" } },
+        });
+
+        await expect(provider.createServer(serverConfig)).rejects.toThrow();
+        expect(mockedAxios.delete).not.toHaveBeenCalled();
+      });
+
+      it("should propagate error when destroy fails after successful create", async () => {
+        mockedAxios.post.mockResolvedValueOnce({
+          data: {
+            droplet: {
+              id: 88002,
+              networks: { v4: [{ type: "public", ip_address: "6.7.8.9" }] },
+              status: "new",
+            },
+          },
+        });
+        mockedAxios.delete.mockRejectedValueOnce(new Error("Network Error"));
+
+        const created = await provider.createServer(serverConfig);
+        await expect(provider.destroyServer(created.id)).rejects.toThrow();
+      });
+    });
+  });
 });

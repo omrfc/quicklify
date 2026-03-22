@@ -937,4 +937,71 @@ describe("HetznerProvider", () => {
       }
     });
   });
+
+  describe("workflow", () => {
+    describe("create→status→destroy lifecycle", () => {
+      const serverConfig = {
+        name: "workflow-server",
+        size: "cax11",
+        region: "nbg1",
+        cloudInit: "#!/bin/bash\necho hello",
+      };
+
+      it("should complete full lifecycle: create, poll status, destroy", async () => {
+        mockedAxios.post.mockResolvedValueOnce({
+          data: {
+            server: {
+              id: 99001,
+              public_net: { ipv4: { ip: "1.2.3.4" } },
+              status: "initializing",
+            },
+          },
+        });
+        mockedAxios.get
+          .mockResolvedValueOnce({ data: { server: { status: "initializing" } } })
+          .mockResolvedValueOnce({ data: { server: { status: "running" } } });
+        mockedAxios.delete.mockResolvedValueOnce({});
+
+        const created = await provider.createServer(serverConfig);
+        const status1 = await provider.getServerStatus(created.id);
+        const status2 = await provider.getServerStatus(created.id);
+        await provider.destroyServer(created.id);
+
+        expect(created.ip).toBe("1.2.3.4");
+        expect(status1).toBe("initializing");
+        expect(status2).toBe("running");
+        expect(mockedAxios.delete).toHaveBeenCalledWith(
+          `https://api.hetzner.cloud/v1/servers/${created.id}`,
+          expect.objectContaining({
+            headers: { Authorization: "Bearer test-api-token" },
+          }),
+        );
+      });
+
+      it("should NOT call destroy when create fails", async () => {
+        mockedAxios.post.mockRejectedValueOnce({
+          response: { data: { error: { message: "quota exceeded" } } },
+        });
+
+        await expect(provider.createServer(serverConfig)).rejects.toThrow();
+        expect(mockedAxios.delete).not.toHaveBeenCalled();
+      });
+
+      it("should propagate error when destroy fails after successful create", async () => {
+        mockedAxios.post.mockResolvedValueOnce({
+          data: {
+            server: {
+              id: 99002,
+              public_net: { ipv4: { ip: "5.6.7.8" } },
+              status: "running",
+            },
+          },
+        });
+        mockedAxios.delete.mockRejectedValueOnce(new Error("Network Error"));
+
+        const created = await provider.createServer(serverConfig);
+        await expect(provider.destroyServer(created.id)).rejects.toThrow();
+      });
+    });
+  });
 });
