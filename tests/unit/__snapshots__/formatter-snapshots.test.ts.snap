@@ -1,0 +1,97 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`formatter snapshots formatJson output matches snapshot 1`] = `
+"{
+  "serverName": "snapshot-server",
+  "serverIp": "1.2.3.4",
+  "platform": "bare",
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "auditVersion": "1.0.0",
+  "overallScore": 42,
+  "categories": [
+    {
+      "name": "SSH",
+      "score": 0,
+      "maxScore": 100,
+      "checks": [
+        {
+          "id": "SSH-PASSWORD-AUTH",
+          "category": "SSH",
+          "name": "Password Authentication",
+          "severity": "critical",
+          "passed": false,
+          "currentValue": "yes",
+          "expectedValue": "no",
+          "fixCommand": "sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && systemctl restart sshd",
+          "explain": "Password authentication allows brute-force attacks. Use SSH keys instead."
+        }
+      ]
+    },
+    {
+      "name": "Firewall",
+      "score": 100,
+      "maxScore": 100,
+      "checks": [
+        {
+          "id": "FW-UFW-ACTIVE",
+          "category": "Firewall",
+          "name": "UFW Active",
+          "severity": "critical",
+          "passed": true,
+          "currentValue": "active",
+          "expectedValue": "active"
+        }
+      ]
+    }
+  ],
+  "quickWins": [
+    {
+      "commands": [
+        "sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config",
+        "systemctl restart sshd"
+      ],
+      "currentScore": 42,
+      "projectedScore": 75,
+      "description": "Disable SSH password authentication"
+    }
+  ]
+}"
+`;
+
+exports[`formatter snapshots formatSummary output matches snapshot 1`] = `
+"Kastell Security Audit — snapshot-server (1.2.3.4)
+Overall: 42/100 ██████░░░░░░░░
+
+SSH          ░░░░░░░░░░  0/100
+Firewall     ██████████  100/100
+
+Quick wins: 1 command(s) to reach 75/100
+"
+`;
+
+exports[`formatter snapshots formatTerminal output matches snapshot 1`] = `
+"
+Kastell Security Audit
+Server: snapshot-server (1.2.3.4)
+Platform: bare | 2026-01-01T00:00:00.000Z
+
+Overall Score: 42/100 ████░░░░░░
+
+Checks: 2 total | 1 passed | 1 failed
+
+Categories
+──────────────────────────────────────────────────
+❌ SSH 0/1 (0%)
+  🔴 SSH-PASSWORD-AUTH Password Authentication [critical]
+     Fix: sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && systemctl restart sshd
+
+✅ Firewall 1/1 (100%)
+
+Quick Wins
+──────────────────────────────────────────────────
+1 command(s) to improve score from 42 to 75
+  Disable SSH password authentication
+    $ sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+    $ systemctl restart sshd
+"
+`;

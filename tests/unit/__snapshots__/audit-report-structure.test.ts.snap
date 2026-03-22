@@ -1,0 +1,114 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`audit report category structure CHECK_REGISTRY category names and order matches snapshot 1`] = `
+[
+  {
+    "name": "SSH",
+    "sectionName": "SSH",
+  },
+  {
+    "name": "Firewall",
+    "sectionName": "FIREWALL",
+  },
+  {
+    "name": "Updates",
+    "sectionName": "UPDATES",
+  },
+  {
+    "name": "Auth",
+    "sectionName": "AUTH",
+  },
+  {
+    "name": "Docker",
+    "sectionName": "DOCKER",
+  },
+  {
+    "name": "Network",
+    "sectionName": "NETWORK",
+  },
+  {
+    "name": "Filesystem",
+    "sectionName": "FILESYSTEM",
+  },
+  {
+    "name": "Logging",
+    "sectionName": "LOGGING",
+  },
+  {
+    "name": "Kernel",
+    "sectionName": "KERNEL",
+  },
+  {
+    "name": "Accounts",
+    "sectionName": "ACCOUNTS",
+  },
+  {
+    "name": "Services",
+    "sectionName": "SERVICES",
+  },
+  {
+    "name": "Boot",
+    "sectionName": "BOOT",
+  },
+  {
+    "name": "Scheduling",
+    "sectionName": "SCHEDULING",
+  },
+  {
+    "name": "Time",
+    "sectionName": "TIME",
+  },
+  {
+    "name": "Banners",
+    "sectionName": "BANNERS",
+  },
+  {
+    "name": "Crypto",
+    "sectionName": "CRYPTO",
+  },
+  {
+    "name": "File Integrity",
+    "sectionName": "FILEINTEGRITY",
+  },
+  {
+    "name": "Malware",
+    "sectionName": "MALWARE",
+  },
+  {
+    "name": "MAC",
+    "sectionName": "MAC",
+  },
+  {
+    "name": "Memory",
+    "sectionName": "MEMORY",
+  },
+  {
+    "name": "Secrets",
+    "sectionName": "SECRETS",
+  },
+  {
+    "name": "Cloud Metadata",
+    "sectionName": "CLOUDMETA",
+  },
+  {
+    "name": "Supply Chain",
+    "sectionName": "SUPPLYCHAIN",
+  },
+  {
+    "name": "Backup Hygiene",
+    "sectionName": "BACKUP",
+  },
+  {
+    "name": "Resource Limits",
+    "sectionName": "RESOURCELIMITS",
+  },
+  {
+    "name": "Incident Readiness",
+    "sectionName": "INCIDENTREADY",
+  },
+  {
+    "name": "DNS Security",
+    "sectionName": "DNS",
+  },
+]
+`;
