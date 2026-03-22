@@ -46,10 +46,10 @@ describe("maintainCommand", () => {
     consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
     jest.clearAllMocks();
     // Make setTimeout instant for tests
-    global.setTimeout = ((fn: Function) => {
+    global.setTimeout = ((fn: () => void) => {
       fn();
       return 0;
-    }) as any;
+    }) as unknown as typeof setTimeout;
   });
 
   afterEach(() => {
@@ -110,7 +110,7 @@ describe("maintainCommand", () => {
     // promptApiToken via env or prompt
     mockedConfig.findServers.mockReturnValue([sampleServer]);
     const inquirer = await import("inquirer");
-    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+    (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -128,7 +128,7 @@ describe("maintainCommand", () => {
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     const inquirer = await import("inquirer");
-    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+    (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -148,7 +148,7 @@ describe("maintainCommand", () => {
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     const inquirer = await import("inquirer");
-    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+    (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -170,7 +170,7 @@ describe("maintainCommand", () => {
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     const inquirer = await import("inquirer");
-    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+    (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -192,7 +192,7 @@ describe("maintainCommand", () => {
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     const inquirer = await import("inquirer");
-    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+    (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -213,7 +213,7 @@ describe("maintainCommand", () => {
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     const inquirer = await import("inquirer");
-    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+    (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -237,7 +237,7 @@ describe("maintainCommand", () => {
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     const inquirer = await import("inquirer");
-    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+    (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -275,7 +275,7 @@ describe("maintainCommand", () => {
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     const inquirer = await import("inquirer");
-    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+    (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -303,7 +303,7 @@ describe("maintainCommand", () => {
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     const inquirer = await import("inquirer");
-    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+    (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -328,7 +328,7 @@ describe("maintainCommand", () => {
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     const inquirer = await import("inquirer");
-    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+    (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -356,7 +356,7 @@ describe("maintainCommand", () => {
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     const inquirer = await import("inquirer");
-    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+    (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -387,7 +387,7 @@ describe("maintainCommand", () => {
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     const inquirer = await import("inquirer");
-    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+    (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -423,7 +423,7 @@ describe("maintainCommand", () => {
       mockedConfig.getServers.mockReturnValue([sampleServer, sampleServer2]);
 
       const inquirer = await import("inquirer");
-      (inquirer as any).default.prompt = jest
+      (inquirer.default as { prompt: unknown }).prompt = jest
         .fn()
         .mockResolvedValueOnce({ apiToken: "hetzner-token" })
         .mockResolvedValueOnce({ apiToken: "do-token" });
@@ -442,7 +442,7 @@ describe("maintainCommand", () => {
       mockedConfig.getServers.mockReturnValue([sampleServer]);
 
       const inquirer = await import("inquirer");
-      (inquirer as any).default.prompt = jest
+      (inquirer.default as { prompt: unknown }).prompt = jest
         .fn()
         .mockResolvedValueOnce({ apiToken: "test-token" });
 
@@ -471,7 +471,7 @@ describe("maintainCommand", () => {
       mockedConfig.getServers.mockReturnValue([sampleServer]);
 
       const inquirer = await import("inquirer");
-      (inquirer as any).default.prompt = jest
+      (inquirer.default as { prompt: unknown }).prompt = jest
         .fn()
         .mockResolvedValueOnce({ apiToken: "test-token" });
 
@@ -495,7 +495,7 @@ describe("maintainCommand", () => {
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     const inquirer = await import("inquirer");
-    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+    (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -522,7 +522,7 @@ describe("maintainCommand", () => {
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     const inquirer = await import("inquirer");
-    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+    (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -575,7 +575,7 @@ describe("maintainCommand", () => {
       mockedConfig.findServers.mockReturnValue([sampleServer]);
 
       const inquirer = await import("inquirer");
-      (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+      (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
       // Step 0: snapshot cost estimate (fails -> skipped)
       mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -594,7 +594,7 @@ describe("maintainCommand", () => {
     mockedConfig.findServers.mockReturnValue([sampleServer]);
 
     const inquirer = await import("inquirer");
-    (inquirer as any).default.prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
+    (inquirer.default as { prompt: unknown }).prompt = jest.fn().mockResolvedValueOnce({ apiToken: "test-token" });
 
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
@@ -659,10 +659,10 @@ describe("maintainServer - adapter dispatch", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    global.setTimeout = ((fn: Function) => {
+    global.setTimeout = ((fn: () => void) => {
       fn();
       return 0;
-    }) as any;
+    }) as unknown as typeof setTimeout;
   });
 
   afterEach(() => {

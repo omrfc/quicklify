@@ -1,6 +1,5 @@
 import { mkdirSync, existsSync, writeFileSync, readFileSync, readdirSync } from "fs";
 import { spawn } from "child_process";
-import { EventEmitter } from "events";
 import * as config from "../../src/utils/config";
 import * as ssh from "../../src/utils/ssh";
 import * as providerFactory from "../../src/utils/providerFactory";
@@ -34,6 +33,7 @@ import {
 } from "../../src/core/snapshot";
 import { handleServerBackup } from "../../src/mcp/tools/serverBackup";
 import type { CloudProvider } from "../../src/providers/base";
+import { MockChildProcess } from "../helpers/ssh-factories.js";
 
 jest.mock("fs", () => ({
   mkdirSync: jest.fn(),
@@ -111,26 +111,17 @@ const mockProvider: CloudProvider = {
 };
 
 function createMockProcess(code: number = 0, stderrData: string = "") {
-  const proc = new EventEmitter() as any;
-  proc.stdout = new EventEmitter();
-  proc.stderr = new EventEmitter();
-  proc.stdin = null;
-  setTimeout(() => {
-    if (stderrData) proc.stderr.emit("data", Buffer.from(stderrData));
-    proc.emit("close", code);
-  }, 10);
-  return proc;
+  const proc = new MockChildProcess(code, 10);
+  if (stderrData) {
+    setTimeout(() => proc.stderr.emit("data", Buffer.from(stderrData)), 5);
+  }
+  return proc as unknown as ReturnType<typeof spawn>;
 }
 
 function createErrorProcess(errorMessage: string) {
-  const proc = new EventEmitter() as any;
-  proc.stdout = new EventEmitter();
-  proc.stderr = new EventEmitter();
-  proc.stdin = null;
-  setTimeout(() => {
-    proc.emit("error", new Error(errorMessage));
-  }, 10);
-  return proc;
+  const proc = new MockChildProcess(0, 99999);
+  setTimeout(() => proc.emit("error", new Error(errorMessage)), 10);
+  return proc as unknown as ReturnType<typeof spawn>;
 }
 
 const originalEnv = process.env;
@@ -246,7 +237,7 @@ describe("core/backup - listBackups", () => {
       if (path.includes("manifest.json")) return true;
       return false;
     });
-    mockedReaddirSync.mockReturnValue(["2026-02-18_10-00-00-000", "2026-02-20_12-00-00-000", "2026-02-19_08-00-00-000"] as any);
+    mockedReaddirSync.mockReturnValue(["2026-02-18_10-00-00-000", "2026-02-20_12-00-00-000", "2026-02-19_08-00-00-000"] as unknown as ReturnType<typeof mockedReaddirSync>);
 
     const result = listBackups("coolify-test");
     expect(result).toEqual([
@@ -268,7 +259,7 @@ describe("core/backup - listBackups", () => {
       if (path.includes("good") && path.includes("manifest.json")) return true;
       return false;
     });
-    mockedReaddirSync.mockReturnValue(["good", "bad"] as any);
+    mockedReaddirSync.mockReturnValue(["good", "bad"] as unknown as ReturnType<typeof mockedReaddirSync>);
 
     const result = listBackups("coolify-test");
     expect(result).toEqual(["good"]);
@@ -648,7 +639,7 @@ describe("handleServerBackup - backup-list", () => {
 
   test("returns backup list with manifest details", async () => {
     mockedExistsSync.mockReturnValue(true);
-    mockedReaddirSync.mockReturnValue(["2026-02-20_12-00-00-000"] as any);
+    mockedReaddirSync.mockReturnValue(["2026-02-20_12-00-00-000"] as unknown as ReturnType<typeof mockedReaddirSync>);
     mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
 
     const result = await handleServerBackup({ action: "backup-list", server: "coolify-test" });
@@ -675,7 +666,7 @@ describe("handleServerBackup - backup-list", () => {
       if (path.includes("manifest.json")) return true;
       return false;
     });
-    mockedReaddirSync.mockReturnValue(["corrupt-backup"] as any);
+    mockedReaddirSync.mockReturnValue(["corrupt-backup"] as unknown as ReturnType<typeof mockedReaddirSync>);
     mockedReadFileSync.mockReturnValue("invalid json{{{");
 
     const result = await handleServerBackup({ action: "backup-list", server: "coolify-test" });
@@ -1057,13 +1048,13 @@ describe("handleServerBackup — malformed params", () => {
     expect(parsed.error).toBeTruthy();
   });
 
-  test("returns mcpError when server param is null (as any)", async () => {
+  test("returns mcpError when server param is null (as unknown)", async () => {
     // Arrange
     mockedConfig.getServers.mockReturnValue([sampleServer]);
     mockedConfig.findServer.mockReturnValue(undefined as never);
 
     // Act
-    const result = await handleServerBackup({ action: "backup-list", server: null as any });
+    const result = await handleServerBackup({ action: "backup-list", server: null as unknown as string });
 
     // Assert
     expect(result.isError).toBe(true);
@@ -1071,13 +1062,13 @@ describe("handleServerBackup — malformed params", () => {
     expect(parsed.error).toBeTruthy();
   });
 
-  test("returns mcpError when action param is invalid (as any)", async () => {
+  test("returns mcpError when action param is invalid (as unknown)", async () => {
     // Arrange
     mockedConfig.getServers.mockReturnValue([sampleServer]);
     mockedConfig.findServer.mockReturnValue(sampleServer as never);
 
     // Act
-    const result = await handleServerBackup({ action: "nonexistent" as any, server: "coolify-test" });
+    const result = await handleServerBackup({ action: "nonexistent" as unknown as Parameters<typeof handleServerBackup>[0]["action"], server: "coolify-test" });
 
     // Assert
     expect(result.isError).toBe(true);

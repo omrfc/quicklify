@@ -88,7 +88,7 @@ describe("initCommand with --config and --template", () => {
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
-    processExitSpy = jest.spyOn(process, "exit").mockImplementation((() => {}) as unknown as (code?: number) => never);
+    processExitSpy = jest.spyOn(process, "exit").mockImplementation((() => {}) as unknown as typeof process.exit);
     jest.clearAllMocks();
     process.env = { ...originalEnv };
     delete process.env.HETZNER_TOKEN;

@@ -89,12 +89,12 @@ describe("restoreCommand — bare mode routing", () => {
     // loadManifest is from core/backup (mocked)
     mockedCoreBackup.loadManifest.mockReturnValue(bareManifest);
     // Cast to any to satisfy the SshCommand branded type in mocks
-    mockedCoreBackup.buildStopCoolifyCommand.mockReturnValue("docker compose stop" as any);
-    mockedCoreBackup.buildStartCoolifyCommand.mockReturnValue("docker compose up -d" as any);
-    mockedCoreBackup.buildStartDbCommand.mockReturnValue("docker compose up -d postgres" as any);
-    mockedCoreBackup.buildRestoreDbCommand.mockReturnValue("gunzip psql" as any);
-    mockedCoreBackup.buildRestoreConfigCommand.mockReturnValue("tar xzf coolify-config.tar.gz" as any);
-    mockedCoreBackup.buildCleanupCommand.mockReturnValue("rm -f /tmp/*.gz" as any);
+    mockedCoreBackup.buildStopCoolifyCommand.mockReturnValue("docker compose stop" as unknown as ReturnType<typeof mockedCoreBackup.buildStopCoolifyCommand>);
+    mockedCoreBackup.buildStartCoolifyCommand.mockReturnValue("docker compose up -d" as unknown as ReturnType<typeof mockedCoreBackup.buildStartCoolifyCommand>);
+    mockedCoreBackup.buildStartDbCommand.mockReturnValue("docker compose up -d postgres" as unknown as ReturnType<typeof mockedCoreBackup.buildStartDbCommand>);
+    mockedCoreBackup.buildRestoreDbCommand.mockReturnValue("gunzip psql" as unknown as ReturnType<typeof mockedCoreBackup.buildRestoreDbCommand>);
+    mockedCoreBackup.buildRestoreConfigCommand.mockReturnValue("tar xzf coolify-config.tar.gz" as unknown as ReturnType<typeof mockedCoreBackup.buildRestoreConfigCommand>);
+    mockedCoreBackup.buildCleanupCommand.mockReturnValue("rm -f /tmp/*.gz" as unknown as ReturnType<typeof mockedCoreBackup.buildCleanupCommand>);
     mockedCoreBackup.tryRestartCoolify.mockResolvedValue(undefined);
     mockedCoreBackup.scpUpload.mockResolvedValue({ code: 0, stderr: "" });
   });
@@ -135,7 +135,7 @@ describe("restoreCommand — bare mode routing", () => {
       .fn()
       .mockResolvedValueOnce({ backup: "2026-02-28_08-00-00-000" })
       .mockResolvedValueOnce({ confirm: true })
-      .mockResolvedValueOnce({ confirmName: "bare-test" }) as any;
+      .mockResolvedValueOnce({ confirmName: "bare-test" }) as unknown as typeof mockedInquirer.prompt;
 
     await restoreCommand("1.2.3.4");
 
@@ -155,7 +155,7 @@ describe("restoreCommand — bare mode routing", () => {
     mockedInquirer.prompt = jest
       .fn()
       .mockResolvedValueOnce({ confirm: true })
-      .mockResolvedValueOnce({ confirmName: "coolify-test" }) as any;
+      .mockResolvedValueOnce({ confirmName: "coolify-test" }) as unknown as typeof mockedInquirer.prompt;
 
     // coolify path uses scpUpload from core - make it fail at first upload to short-circuit
     mockedCoreBackup.scpUpload.mockResolvedValue({ code: 1, stderr: "upload error" });
@@ -210,7 +210,7 @@ describe("restoreCommand — bare mode routing", () => {
       .fn()
       .mockResolvedValueOnce({ backup: "2026-02-28_08-00-00-000" })
       .mockResolvedValueOnce({ confirm: true })
-      .mockResolvedValueOnce({ confirmName: "bare-test" }) as any;
+      .mockResolvedValueOnce({ confirmName: "bare-test" }) as unknown as typeof mockedInquirer.prompt;
 
     await restoreCommand("1.2.3.4");
 
@@ -232,7 +232,7 @@ describe("restoreCommand — bare mode routing", () => {
       .fn()
       .mockResolvedValueOnce({ backup: "2026-02-28_08-00-00-000" })
       .mockResolvedValueOnce({ confirm: true })
-      .mockResolvedValueOnce({ confirmName: "bare-test" }) as any;
+      .mockResolvedValueOnce({ confirmName: "bare-test" }) as unknown as typeof mockedInquirer.prompt;
 
     await restoreCommand("1.2.3.4");
 

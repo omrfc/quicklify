@@ -1,6 +1,5 @@
 import { readFileSync, existsSync } from "fs";
 import { spawn } from "child_process";
-import { EventEmitter } from "events";
 import inquirer from "inquirer";
 import * as config from "../../src/utils/config";
 import * as sshUtils from "../../src/utils/ssh";
@@ -75,18 +74,15 @@ const sampleManifest = {
 };
 
 function createMockProcess(code: number = 0, stderrData: string = "") {
-  const proc = new EventEmitter() as any;
-  proc.stdout = new EventEmitter();
-  proc.stderr = new EventEmitter();
-  proc.stdin = null;
-  setTimeout(() => {
-    if (stderrData) proc.stderr.emit("data", Buffer.from(stderrData));
-    proc.emit("close", code);
-  }, 10);
-  return proc;
+  const proc = new MockChildProcess(code, 10);
+  if (stderrData) {
+    setTimeout(() => proc.stderr.emit("data", Buffer.from(stderrData)), 5);
+  }
+  return proc as unknown as ReturnType<typeof spawn>;
 }
 
 import { createMockAdapter } from "../helpers/mockAdapter.js";
+import { MockChildProcess } from "../helpers/ssh-factories.js";
 
 const defaultCoolifyAdapter = createMockAdapter({ name: "coolify" });
 const defaultDokployAdapter = createMockAdapter({ name: "dokploy" });
@@ -99,7 +95,7 @@ describe("restore", () => {
     jest.clearAllMocks();
     mockedSsh.resolveScpPath.mockReturnValue("scp");
     mockedAdapterFactory.getAdapter.mockImplementation((platform: string) =>
-      platform === "dokploy" ? defaultDokployAdapter as any : defaultCoolifyAdapter as any,
+      platform === "dokploy" ? defaultDokployAdapter : defaultCoolifyAdapter,
     );
   });
 
@@ -180,12 +176,9 @@ describe("restore", () => {
     });
 
     it("should handle spawn error event", async () => {
-      const proc = new EventEmitter() as any;
-      proc.stdout = new EventEmitter();
-      proc.stderr = new EventEmitter();
-      proc.stdin = null;
+      const proc = new MockChildProcess(0, 99999);
       setTimeout(() => proc.emit("error", new Error("ENOENT")), 10);
-      mockedSpawn.mockReturnValue(proc);
+      mockedSpawn.mockReturnValue(proc as unknown as ReturnType<typeof spawn>);
 
       const result = await scpUpload("1.2.3.4", "/local/file", "/tmp/file");
       expect(result.code).toBe(1);
@@ -289,7 +282,7 @@ describe("restore", () => {
       mockedConfig.findServers.mockReturnValue([sampleServer]);
       mockedExistsSync.mockReturnValue(true);
       mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
-      mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: false }) as any;
+      mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: false }) as unknown as typeof mockedInquirer.prompt;
 
       await restoreCommand("1.2.3.4", { backup: "my-backup" });
 
@@ -305,7 +298,7 @@ describe("restore", () => {
       mockedInquirer.prompt = jest
         .fn()
         .mockResolvedValueOnce({ confirm: true })
-        .mockResolvedValueOnce({ confirmName: "wrong-name" }) as any;
+        .mockResolvedValueOnce({ confirmName: "wrong-name" }) as unknown as typeof mockedInquirer.prompt;
 
       await restoreCommand("1.2.3.4", { backup: "my-backup" });
 
@@ -322,7 +315,7 @@ describe("restore", () => {
       mockedInquirer.prompt = jest
         .fn()
         .mockResolvedValueOnce({ backup: "2026-02-21_15-30-45-123" })
-        .mockResolvedValueOnce({ confirm: false }) as any;
+        .mockResolvedValueOnce({ confirm: false }) as unknown as typeof mockedInquirer.prompt;
 
       await restoreCommand("1.2.3.4");
 
@@ -343,9 +336,9 @@ describe("restore", () => {
         mockedInquirer.prompt = jest
           .fn()
           .mockResolvedValueOnce({ confirm: true })
-          .mockResolvedValueOnce({ confirmName: server.name }) as any;
+          .mockResolvedValueOnce({ confirmName: server.name }) as unknown as typeof mockedInquirer.prompt;
         mockedAdapterFactory.getAdapter.mockImplementation((platform: string) =>
-          platform === "dokploy" ? mockDokployAdapter as any : mockCoolifyAdapter as any,
+          platform === "dokploy" ? mockDokployAdapter : mockCoolifyAdapter,
         );
       }
 
@@ -408,7 +401,7 @@ describe("restore", () => {
 
       it("should default to coolify adapter when manifest has no platform field", async () => {
         const noPlatformManifest = { ...sampleManifest };
-        delete (noPlatformManifest as any).platform;
+        delete (noPlatformManifest as Record<string, unknown>).platform;
         setupActualRestore(noPlatformManifest);
         mockRestoreBackup.mockResolvedValue({
           success: true,
@@ -509,7 +502,7 @@ describe("restore", () => {
         }));
         mockedInquirer.prompt = jest
           .fn()
-          .mockResolvedValueOnce({ confirm: false }) as any; // cancel after warning
+          .mockResolvedValueOnce({ confirm: false }) as unknown as typeof mockedInquirer.prompt; // cancel after warning
 
         await restoreCommand("1.2.3.4", { backup: "my-backup" });
 
@@ -558,7 +551,7 @@ describe("restore", () => {
         mockedExistsSync.mockReturnValue(true);
         mockedReadFileSync.mockReturnValue(JSON.stringify(sampleManifest));
         // Cancel at first confirm
-        mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: false }) as any;
+        mockedInquirer.prompt = jest.fn().mockResolvedValue({ confirm: false }) as unknown as typeof mockedInquirer.prompt;
 
         await restoreCommand("1.2.3.4", { backup: "my-backup" });
 
