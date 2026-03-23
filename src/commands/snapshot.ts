@@ -2,7 +2,8 @@ import inquirer from "inquirer";
 import { getServers } from "../utils/config.js";
 import { resolveServer, promptApiToken, collectProviderTokens } from "../utils/serverSelect.js";
 import { logger, createSpinner } from "../utils/logger.js";
-import { createSnapshot, listSnapshots, deleteSnapshot } from "../core/snapshot.js";
+import { createSnapshot, listSnapshots, deleteSnapshot, restoreSnapshot } from "../core/snapshot.js";
+import { isSafeMode } from "../core/manage.js";
 import { createProviderWithToken } from "../utils/providerFactory.js";
 
 interface SnapshotOptions {
@@ -212,13 +213,102 @@ async function snapshotDelete(
   }
 }
 
+async function snapshotRestore(
+  query?: string,
+  options?: SnapshotOptions,
+): Promise<void> {
+  if (isSafeMode()) {
+    logger.error(
+      "Snapshot restore is blocked by SAFE_MODE. Set KASTELL_SAFE_MODE=false to allow restore operations.",
+    );
+    return;
+  }
+
+  const server = await resolveServer(query, "Select a server to restore from snapshot:");
+  if (!server) return;
+
+  const apiToken = await promptApiToken(server.provider);
+
+  const listSpinner = createSpinner("Fetching snapshots...");
+  listSpinner.start();
+
+  const listResult = await listSnapshots(server, apiToken);
+  if (listResult.error) {
+    listSpinner.fail("Failed to list snapshots");
+    logger.error(listResult.error);
+    if (listResult.hint) logger.info(listResult.hint);
+    return;
+  }
+
+  const snapshots = listResult.snapshots;
+  if (snapshots.length === 0) {
+    listSpinner.succeed("No snapshots available for restore");
+    return;
+  }
+
+  listSpinner.succeed(`${snapshots.length} snapshot(s) found`);
+
+  const { selectedId } = await inquirer.prompt([
+    {
+      type: "list",
+      name: "selectedId",
+      message: "Select a snapshot to restore:",
+      choices: snapshots.map((s) => ({
+        name: `${s.name} (${s.sizeGb.toFixed(1)} GB, ${s.costPerMonth}, ${s.createdAt})`,
+        value: s.id,
+      })),
+    },
+  ]);
+
+  if (!options?.force) {
+    const { confirm } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "confirm",
+        message: `This will restore "${server.name}" from snapshot ${selectedId}. Current data will be OVERWRITTEN. Continue?`,
+        default: false,
+      },
+    ]);
+    if (!confirm) {
+      logger.info("Restore cancelled.");
+      return;
+    }
+
+    const { confirmName } = await inquirer.prompt([
+      {
+        type: "input",
+        name: "confirmName",
+        message: `Type the server name "${server.name}" to confirm:`,
+      },
+    ]);
+    if (confirmName.trim() !== server.name) {
+      logger.error("Server name does not match. Restore cancelled.");
+      return;
+    }
+  }
+
+  const spinner = createSpinner("Restoring from snapshot...");
+  spinner.start();
+
+  const result = await restoreSnapshot(server, apiToken, selectedId);
+  if (result.success) {
+    spinner.succeed("Snapshot restore initiated");
+    logger.info("Server will be unavailable for several minutes during restore.");
+    logger.info(`Verify with: kastell health ${server.name}`);
+  } else {
+    spinner.fail("Failed to restore from snapshot");
+    if (result.error) logger.error(result.error);
+    if (result.hint) logger.info(result.hint);
+  }
+}
+
 export async function snapshotCommand(
   subcommand?: string,
   query?: string,
   options?: SnapshotOptions,
 ): Promise<void> {
   const sub = subcommand || "list";
-  const validSubcommands = ["create", "list", "delete"];
+  const validSubcommands = ["create", "list", "delete", "restore"];
 
   if (!validSubcommands.includes(sub)) {
     logger.error(
@@ -240,6 +330,9 @@ export async function snapshotCommand(
       break;
     case "delete":
       await snapshotDelete(query, options);
+      break;
+    case "restore":
+      await snapshotRestore(query, options);
       break;
   }
 }
