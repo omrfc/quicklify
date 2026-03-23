@@ -636,10 +636,18 @@ function tlsSection(): string {
   ].join("\n");
 }
 
+function httpHeadersSection(): string {
+  return [
+    NAMED_SEP("HTTPHEADERS"),
+    `command -v nginx >/dev/null 2>&1 || echo 'NGINX_NOT_INSTALLED'`,
+    `curl -sI --max-time 5 http://localhost 2>/dev/null || echo 'HTTP_NOT_RESPONDING'`,
+  ].join("\n");
+}
+
 /**
  * Build 3 tiered SSH batch commands for server auditing.
  *
- * Batch 1 (fast):   SSH, Firewall, Updates, Auth, Accounts, Boot, Scheduling, Banners, TLS Hardening — config reads (30s timeout)
+ * Batch 1 (fast):   SSH, Firewall, Updates, Auth, Accounts, Boot, Scheduling, Banners, TLS Hardening, HTTP Security Headers — config reads (30s timeout)
  * Batch 2 (medium): Docker, Network, Logging, Kernel, Services, Time, MAC, Memory,
  *                   CloudMeta, Backup, ResourceLimits, IncidentReady, DNS — active probes (60s timeout)
  * Batch 3 (slow):   Filesystem, Crypto, FileIntegrity, Malware, Secrets, SupplyChain — find commands (120s timeout)
@@ -660,6 +668,7 @@ export function buildAuditBatchCommands(platform: string): BatchDef[] {
       schedulingSection(),
       bannersSection(),
       tlsSection(),
+      httpHeadersSection(),
     ].join("\n"),
   };
 
