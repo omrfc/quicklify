@@ -619,10 +619,34 @@ function dnsSection(): string {
   ].join("\n");
 }
 
+function tlsSection(): string {
+  return [
+    NAMED_SEP("TLSHARDENING"),
+    // Nginx presence check
+    `command -v nginx >/dev/null 2>&1 || echo 'NGINX_NOT_INSTALLED'`,
+    // TLS-001: ssl_protocols
+    `nginx -T 2>/dev/null | grep -iE 'ssl_protocols' | head -5 || echo 'N/A'`,
+    // TLS-002: ssl_ciphers
+    `nginx -T 2>/dev/null | grep -iE 'ssl_ciphers' | head -5 || echo 'N/A'`,
+    // TLS-003: HSTS header
+    `nginx -T 2>/dev/null | grep -iE 'Strict-Transport-Security' | head -5 || echo 'N/A'`,
+    // TLS-004: OCSP stapling
+    `nginx -T 2>/dev/null | grep -iE 'ssl_stapling[^_]' | head -5 || echo 'N/A'`,
+    // TLS-005: cert expiry
+    `CERT=$(nginx -T 2>/dev/null | grep -iE '^\\s*ssl_certificate\\s' | head -1 | awk '{print $2}' | tr -d ';'); [ -n "$CERT" ] && [ -f "$CERT" ] && openssl x509 -checkend 2592000 -noout -in "$CERT" 2>/dev/null && echo 'CERT_VALID_30DAYS' || echo 'CERT_EXPIRING_SOON'`,
+    // TLS-006: DH param
+    `DHPEM=$(nginx -T 2>/dev/null | grep -iE 'ssl_dhparam' | head -1 | awk '{print $2}' | tr -d ';'); [ -n "$DHPEM" ] && [ -f "$DHPEM" ] && openssl dhparam -check -text -in "$DHPEM" 2>/dev/null | grep -E 'DH Parameters|bits' | head -3 || echo 'NO_DH_PARAM'`,
+    // TLS-007: TLS compression
+    `nginx -T 2>/dev/null | grep -iE 'ssl_compression' | head -3 || echo 'SSL_COMPRESSION_NOT_SET'`,
+    // TLS-008: cert chain verification
+    `CERT=$(nginx -T 2>/dev/null | grep -iE '^\\s*ssl_certificate\\s' | head -1 | awk '{print $2}' | tr -d ';'); [ -n "$CERT" ] && [ -f "$CERT" ] && openssl verify -CApath /etc/ssl/certs "$CERT" 2>/dev/null || echo 'CERT_VERIFY_NOT_POSSIBLE'`,
+  ].join("\n");
+}
+
 /**
  * Build 3 tiered SSH batch commands for server auditing.
  *
- * Batch 1 (fast):   SSH, Firewall, Updates, Auth, Accounts, Boot, Scheduling, Banners — config reads (30s timeout)
+ * Batch 1 (fast):   SSH, Firewall, Updates, Auth, Accounts, Boot, Scheduling, Banners, TLS Hardening — config reads (30s timeout)
  * Batch 2 (medium): Docker, Network, Logging, Kernel, Services, Time, MAC, Memory,
  *                   CloudMeta, Backup, ResourceLimits, IncidentReady, DNS — active probes (60s timeout)
  * Batch 3 (slow):   Filesystem, Crypto, FileIntegrity, Malware, Secrets, SupplyChain — find commands (120s timeout)
@@ -642,6 +666,7 @@ export function buildAuditBatchCommands(platform: string): BatchDef[] {
       bootSection(),
       schedulingSection(),
       bannersSection(),
+      tlsSection(),
     ].join("\n"),
   };
 
