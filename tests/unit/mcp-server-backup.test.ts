@@ -30,6 +30,7 @@ import {
   createSnapshot,
   listSnapshots,
   deleteSnapshot,
+  restoreSnapshot,
 } from "../../src/core/snapshot";
 import { handleServerBackup } from "../../src/mcp/tools/serverBackup";
 import type { CloudProvider } from "../../src/providers/base";
@@ -107,6 +108,7 @@ const mockProvider: CloudProvider = {
   createSnapshot: jest.fn(),
   listSnapshots: jest.fn(),
   deleteSnapshot: jest.fn(),
+  restoreSnapshot: jest.fn(),
   getSnapshotCostEstimate: jest.fn(),
 };
 
@@ -1089,5 +1091,37 @@ describe("handleServerBackup — malformed params", () => {
     expect(result.isError).toBe(true);
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.error).toBeTruthy();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Handler: snapshot-restore
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe("handleServerBackup - snapshot-restore", () => {
+  beforeEach(() => {
+    mockedConfig.getServers.mockReturnValue([sampleServer]);
+    mockedConfig.findServer.mockReturnValue(sampleServer);
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockProvider);
+  });
+
+  test("returns success when snapshot restored", async () => {
+    (mockProvider.restoreSnapshot as jest.Mock).mockResolvedValue(undefined);
+    mockedTokens.getProviderToken.mockReturnValue("test-token");
+
+    const result = await handleServerBackup({ action: "snapshot-restore", server: "coolify-test", snapshotId: "snap-1" });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.success).toBe(true);
+    expect(data.snapshotId).toBe("snap-1");
+    expect(data.message).toContain("unavailable");
+  });
+
+  test("requires snapshotId parameter", async () => {
+    mockedTokens.getProviderToken.mockReturnValue("test-token");
+
+    const result = await handleServerBackup({ action: "snapshot-restore", server: "coolify-test" });
+    const data = JSON.parse(result.content[0].text);
+    expect(result.isError).toBe(true);
+    expect(data.error).toContain("snapshotId is required");
   });
 });

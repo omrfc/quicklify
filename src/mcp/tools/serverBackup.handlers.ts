@@ -10,6 +10,7 @@ import {
   createSnapshot,
   listSnapshots,
   deleteSnapshot,
+  restoreSnapshot,
 } from "../../core/snapshot.js";
 import { isSafeMode } from "../../core/manage.js";
 import { isBareServer } from "../../utils/modeGuard.js";
@@ -299,6 +300,63 @@ export async function handleSnapshotDelete(
     message: "Snapshot deleted",
     suggested_actions: [
       { command: `server_backup { action: 'snapshot-list', server: '${server.name}' }`, reason: "View remaining snapshots" },
+    ],
+  });
+}
+
+export async function handleSnapshotRestore(
+  server: ServerRecord,
+  snapshotId: string | undefined,
+): Promise<McpResponse> {
+  if (isSafeMode()) {
+    return mcpError(
+      "Snapshot restore disabled in SAFE_MODE",
+      "Set KASTELL_SAFE_MODE=false to enable snapshot restore (destructive operation)",
+    );
+  }
+
+  if (server.id.startsWith("manual-")) {
+    return mcpError(
+      "Snapshots require cloud provider API. Manual servers don't have provider IDs.",
+      "Manual servers cannot manage cloud snapshots.",
+    );
+  }
+
+  if (!snapshotId) {
+    return mcpError(
+      "snapshotId is required for snapshot-restore",
+      "Use snapshot-list to see available snapshots",
+      [{ command: `server_backup { action: 'snapshot-list', server: '${server.name}' }`, reason: "List snapshots" }],
+    );
+  }
+
+  const tokenResult = requireProviderToken(server.provider);
+  if ("error" in tokenResult) return tokenResult.error;
+
+  const result = await restoreSnapshot(server, tokenResult.token, snapshotId);
+
+  if (!result.success) {
+    return {
+      content: [{ type: "text", text: JSON.stringify({
+        server: server.name,
+        ip: server.ip,
+        snapshotId,
+        error: result.error,
+        ...(result.hint ? { hint: result.hint } : {}),
+      }) }],
+      isError: true,
+    };
+  }
+
+  return mcpSuccess({
+    success: true,
+    server: server.name,
+    ip: server.ip,
+    snapshotId,
+    message: "Snapshot restore initiated. Server will be unavailable for several minutes.",
+    suggested_actions: [
+      { command: `server_info { action: 'health', server: '${server.name}' }`, reason: "Check server status after restore" },
+      { command: `server_backup { action: 'snapshot-list', server: '${server.name}' }`, reason: "View snapshots" },
     ],
   });
 }

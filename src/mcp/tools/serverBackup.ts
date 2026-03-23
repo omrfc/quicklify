@@ -13,14 +13,15 @@ import {
   handleSnapshotCreate,
   handleSnapshotList,
   handleSnapshotDelete,
+  handleSnapshotRestore,
 } from "./serverBackup.handlers.js";
 
 export const serverBackupSchema = {
   action: z.enum([
     "backup-create", "backup-list", "backup-restore",
-    "snapshot-create", "snapshot-list", "snapshot-delete",
+    "snapshot-create", "snapshot-list", "snapshot-delete", "snapshot-restore",
   ]).describe(
-    "Backup: 'backup-create' dumps Coolify DB+config via SSH (or system config for bare servers), 'backup-list' shows local backups, 'backup-restore' restores (SAFE_MODE blocks). Snapshot: 'snapshot-create'/'snapshot-list'/'snapshot-delete' manage cloud snapshots (requires API token).",
+    "Backup: 'backup-create' dumps Coolify DB+config via SSH (or system config for bare servers), 'backup-list' shows local backups, 'backup-restore' restores (SAFE_MODE blocks). Snapshot: 'snapshot-create'/'snapshot-list'/'snapshot-delete'/'snapshot-restore' manage cloud snapshots (requires API token). snapshot-restore restores server disk from a cloud snapshot (SAFE_MODE blocks, destructive).",
   ),
   server: z.string().optional().describe(
     "Server name or IP. Auto-selected if only one server exists.",
@@ -29,7 +30,7 @@ export const serverBackupSchema = {
     "Backup timestamp folder name (required for backup-restore).",
   ),
   snapshotId: z.string().optional().describe(
-    "Cloud snapshot ID (required for snapshot-delete).",
+    "Cloud snapshot ID (required for snapshot-delete and snapshot-restore).",
   ),
 };
 
@@ -70,6 +71,7 @@ export async function handleServerBackup(params: {
       case "snapshot-create": return handleSnapshotCreate(server);
       case "snapshot-list":   return handleSnapshotList(server);
       case "snapshot-delete": return handleSnapshotDelete(server, params.snapshotId);
+      case "snapshot-restore": return handleSnapshotRestore(server, params.snapshotId);
       default: {
         return mcpError(`Unknown action: ${params.action as string}`);
       }

@@ -37,6 +37,7 @@ import {
   handleSnapshotCreate,
   handleSnapshotList,
   handleSnapshotDelete,
+  handleSnapshotRestore,
 } from "../../src/mcp/tools/serverBackup.handlers";
 import type { ServerRecord } from "../../src/types/index";
 
@@ -442,5 +443,83 @@ describe("handleSnapshotDelete", () => {
     expect(result.isError).toBe(true);
     const payload = JSON.parse(result.content[0].text);
     expect(payload.error).toBe("Snapshot not found");
+  });
+});
+
+// ─── handleSnapshotRestore ────────────────────────────────────────────────────
+
+describe("handleSnapshotRestore", () => {
+  it("returns error when safe mode is active", async () => {
+    mockedManage.isSafeMode.mockReturnValue(true);
+
+    const result = await handleSnapshotRestore(mockServer, "snap-1");
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload.error).toMatch(/Snapshot restore disabled in SAFE_MODE/i);
+  });
+
+  it("returns error for manual server (no provider ID)", async () => {
+    mockedManage.isSafeMode.mockReturnValue(false);
+
+    const result = await handleSnapshotRestore(mockManualServer, "snap-1");
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload.error).toMatch(/manual/i);
+  });
+
+  it("returns error when snapshotId is missing with suggested_actions pointing to snapshot-list", async () => {
+    mockedManage.isSafeMode.mockReturnValue(false);
+
+    const result = await handleSnapshotRestore(mockServer, undefined);
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload.error).toMatch(/snapshotId is required for snapshot-restore/i);
+    expect(payload.suggested_actions).toBeDefined();
+    expect(JSON.stringify(payload.suggested_actions)).toContain("snapshot-list");
+  });
+
+  it("returns error when provider token is missing", async () => {
+    mockedManage.isSafeMode.mockReturnValue(false);
+    mockedMcpUtils.requireProviderToken.mockReturnValue({
+      error: {
+        content: [{ type: "text", text: JSON.stringify({ error: "No token" }) }],
+        isError: true,
+      },
+    });
+
+    const result = await handleSnapshotRestore(mockServer, "snap-1");
+
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns mcpSuccess with success:true when core restoreSnapshot succeeds", async () => {
+    mockedManage.isSafeMode.mockReturnValue(false);
+    mockedMcpUtils.requireProviderToken.mockReturnValue({ token: "test-token" });
+    mockedSnapshot.restoreSnapshot.mockResolvedValue({ success: true });
+
+    const result = await handleSnapshotRestore(mockServer, "snap-1");
+
+    expect(result.isError).toBeUndefined();
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload.success).toBe(true);
+    expect(payload.server).toBe(mockServer.name);
+    expect(payload.snapshotId).toBe("snap-1");
+    expect(payload.message).toContain("unavailable");
+  });
+
+  it("returns isError:true when core restoreSnapshot fails", async () => {
+    mockedManage.isSafeMode.mockReturnValue(false);
+    mockedMcpUtils.requireProviderToken.mockReturnValue({ token: "test-token" });
+    mockedSnapshot.restoreSnapshot.mockResolvedValue({ success: false, error: "API error", hint: "Check token" });
+
+    const result = await handleSnapshotRestore(mockServer, "snap-1");
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload.error).toBe("API error");
+    expect(payload.hint).toBe("Check token");
   });
 });
