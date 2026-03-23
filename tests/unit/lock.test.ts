@@ -1203,104 +1203,87 @@ describe("applyLock cronAccess step (P82)", () => {
 // ─── buildSshFineTuningCommand (P87) ─────────────────────────────────────────
 
 describe("buildSshFineTuningCommand (P87)", () => {
+  const cmd = buildSshFineTuningCommand();
+
   it("backs up sshd_config to bak-finetune", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("sshd_config.bak-finetune");
   });
 
   it("sets ClientAliveInterval 300", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("ClientAliveInterval");
     expect(cmd).toContain("300");
   });
 
   it("sets ClientAliveCountMax 3", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("ClientAliveCountMax");
     expect(cmd).toContain("3");
   });
 
   it("sets LoginGraceTime 60", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("LoginGraceTime");
     expect(cmd).toContain("60");
   });
 
   it("sets AllowAgentForwarding no", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("AllowAgentForwarding");
   });
 
   it("sets X11Forwarding no", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("X11Forwarding");
   });
 
   it("sets MaxStartups 10:30:60", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("MaxStartups");
     expect(cmd).toContain("10:30:60");
   });
 
   it("sets StrictModes yes", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("StrictModes");
   });
 
   it("sets PermitUserEnvironment no", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("PermitUserEnvironment");
   });
 
   it("sets LogLevel VERBOSE", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("LogLevel");
     expect(cmd).toContain("VERBOSE");
   });
 
   it("sets UseDNS no", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("UseDNS");
   });
 
   it("sets PrintMotd no", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("PrintMotd");
   });
 
   it("sets IgnoreRhosts yes", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("IgnoreRhosts");
   });
 
   it("sets HostbasedAuthentication no", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("HostbasedAuthentication");
   });
 
   it("sets MaxSessions 10", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("MaxSessions");
     expect(cmd).toContain("10");
   });
 
   it("sets PermitEmptyPasswords no", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("PermitEmptyPasswords");
   });
 
   it("includes sshd -t rollback gate", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("sshd -t");
   });
 
   it("restarts sshd on success", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toMatch(/systemctl restart ssh/);
   });
 
   it("uses grep-sed-or-append for idempotency", () => {
-    const cmd = buildSshFineTuningCommand();
     expect(cmd).toContain("grep -qE");
   });
 });
@@ -1308,8 +1291,9 @@ describe("buildSshFineTuningCommand (P87)", () => {
 // ─── buildLoginBannersCommand /etc/motd (P87) ────────────────────────────────
 
 describe("buildLoginBannersCommand /etc/motd (P87)", () => {
+  const cmd = buildLoginBannersCommand();
+
   it("writes to /etc/motd", () => {
-    const cmd = buildLoginBannersCommand();
     expect(cmd).toContain("/etc/motd");
   });
 });
@@ -1317,14 +1301,14 @@ describe("buildLoginBannersCommand /etc/motd (P87)", () => {
 // ─── buildCronAccessCommand at.allow (P87) ───────────────────────────────────
 
 describe("buildCronAccessCommand at.allow (P87)", () => {
+  const cmd = buildCronAccessCommand();
+
   it("creates /etc/at.allow with root", () => {
-    const cmd = buildCronAccessCommand();
     expect(cmd).toContain("at.allow");
     expect(cmd).toContain("root");
   });
 
   it("sets 600 permissions on at.allow", () => {
-    const cmd = buildCronAccessCommand();
     expect(cmd).toContain("chmod 600 /etc/at.allow");
   });
 });
@@ -1332,38 +1316,34 @@ describe("buildCronAccessCommand at.allow (P87)", () => {
 // ─── buildLoginDefsCommand (P87) ─────────────────────────────────────────────
 
 describe("buildLoginDefsCommand (P87)", () => {
+  const cmd = buildLoginDefsCommand();
+
   it("sets PASS_MIN_DAYS 1 in login.defs", () => {
-    const cmd = buildLoginDefsCommand();
     expect(cmd).toContain("PASS_MIN_DAYS");
     expect(cmd).toContain("1");
   });
 
   it("sets PASS_WARN_AGE 7 in login.defs", () => {
-    const cmd = buildLoginDefsCommand();
     expect(cmd).toContain("PASS_WARN_AGE");
     expect(cmd).toContain("7");
   });
 
   it("sets ENCRYPT_METHOD SHA512", () => {
-    const cmd = buildLoginDefsCommand();
     expect(cmd).toContain("ENCRYPT_METHOD");
     expect(cmd).toContain("SHA512");
   });
 
   it("sets UMASK 027", () => {
-    const cmd = buildLoginDefsCommand();
     expect(cmd).toContain("UMASK");
     expect(cmd).toContain("027");
   });
 
   it("sets INACTIVE=30 in /etc/default/useradd", () => {
-    const cmd = buildLoginDefsCommand();
     expect(cmd).toContain("INACTIVE");
     expect(cmd).toContain("/etc/default/useradd");
   });
 
   it("uses idempotent grep-sed-or-append", () => {
-    const cmd = buildLoginDefsCommand();
     expect(cmd).toContain("grep -qE");
   });
 });
@@ -1371,28 +1351,25 @@ describe("buildLoginDefsCommand (P87)", () => {
 // ─── buildFaillockCommand (P87) ──────────────────────────────────────────────
 
 describe("buildFaillockCommand (P87)", () => {
+  const cmd = buildFaillockCommand();
+
   it("writes deny = 5 to faillock.conf", () => {
-    const cmd = buildFaillockCommand();
     expect(cmd).toContain("deny = 5");
   });
 
   it("writes unlock_time = 900", () => {
-    const cmd = buildFaillockCommand();
     expect(cmd).toContain("unlock_time = 900");
   });
 
   it("writes fail_interval = 900", () => {
-    const cmd = buildFaillockCommand();
     expect(cmd).toContain("fail_interval = 900");
   });
 
   it("creates /etc/security directory", () => {
-    const cmd = buildFaillockCommand();
     expect(cmd).toContain("mkdir -p /etc/security");
   });
 
   it("calls pam-auth-update with faillock", () => {
-    const cmd = buildFaillockCommand();
     expect(cmd).toContain("pam-auth-update");
   });
 });
@@ -1400,33 +1377,29 @@ describe("buildFaillockCommand (P87)", () => {
 // ─── buildSudoHardeningCommand (P87) ─────────────────────────────────────────
 
 describe("buildSudoHardeningCommand (P87)", () => {
+  const cmd = buildSudoHardeningCommand();
+
   it("creates kastell-logging in sudoers.d", () => {
-    const cmd = buildSudoHardeningCommand();
     expect(cmd).toContain("kastell-logging");
   });
 
   it("sets Defaults log_output", () => {
-    const cmd = buildSudoHardeningCommand();
     expect(cmd).toContain("log_output");
   });
 
   it("creates kastell-requiretty", () => {
-    const cmd = buildSudoHardeningCommand();
     expect(cmd).toContain("kastell-requiretty");
   });
 
   it("sets Defaults requiretty", () => {
-    const cmd = buildSudoHardeningCommand();
     expect(cmd).toContain("requiretty");
   });
 
   it("sets chmod 440 on sudoers.d files", () => {
-    const cmd = buildSudoHardeningCommand();
     expect(cmd).toContain("chmod 440");
   });
 
   it("skips if already present via grep", () => {
-    const cmd = buildSudoHardeningCommand();
     expect(cmd).toContain("grep -qr");
   });
 });
