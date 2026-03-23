@@ -620,26 +620,19 @@ function dnsSection(): string {
 }
 
 function tlsSection(): string {
+  // Cache nginx -T output once, then grep from the cached variable
   return [
     NAMED_SEP("TLSHARDENING"),
-    // Nginx presence check
     `command -v nginx >/dev/null 2>&1 || echo 'NGINX_NOT_INSTALLED'`,
-    // TLS-001: ssl_protocols
-    `nginx -T 2>/dev/null | grep -iE 'ssl_protocols' | head -5 || echo 'N/A'`,
-    // TLS-002: ssl_ciphers
-    `nginx -T 2>/dev/null | grep -iE 'ssl_ciphers' | head -5 || echo 'N/A'`,
-    // TLS-003: HSTS header
-    `nginx -T 2>/dev/null | grep -iE 'Strict-Transport-Security' | head -5 || echo 'N/A'`,
-    // TLS-004: OCSP stapling
-    `nginx -T 2>/dev/null | grep -iE 'ssl_stapling[^_]' | head -5 || echo 'N/A'`,
-    // TLS-005: cert expiry
-    `CERT=$(nginx -T 2>/dev/null | grep -iE '^\\s*ssl_certificate\\s' | head -1 | awk '{print $2}' | tr -d ';'); [ -n "$CERT" ] && [ -f "$CERT" ] && openssl x509 -checkend 2592000 -noout -in "$CERT" 2>/dev/null && echo 'CERT_VALID_30DAYS' || echo 'CERT_EXPIRING_SOON'`,
-    // TLS-006: DH param
-    `DHPEM=$(nginx -T 2>/dev/null | grep -iE 'ssl_dhparam' | head -1 | awk '{print $2}' | tr -d ';'); [ -n "$DHPEM" ] && [ -f "$DHPEM" ] && openssl dhparam -check -text -in "$DHPEM" 2>/dev/null | grep -E 'DH Parameters|bits' | head -3 || echo 'NO_DH_PARAM'`,
-    // TLS-007: TLS compression
-    `nginx -T 2>/dev/null | grep -iE 'ssl_compression' | head -3 || echo 'SSL_COMPRESSION_NOT_SET'`,
-    // TLS-008: cert chain verification
-    `CERT=$(nginx -T 2>/dev/null | grep -iE '^\\s*ssl_certificate\\s' | head -1 | awk '{print $2}' | tr -d ';'); [ -n "$CERT" ] && [ -f "$CERT" ] && openssl verify -CApath /etc/ssl/certs "$CERT" 2>/dev/null || echo 'CERT_VERIFY_NOT_POSSIBLE'`,
+    `_NGX=$(nginx -T 2>/dev/null || true)`,
+    `echo "$_NGX" | grep -iE 'ssl_protocols' | head -5 || echo 'N/A'`,
+    `echo "$_NGX" | grep -iE 'ssl_ciphers' | head -5 || echo 'N/A'`,
+    `echo "$_NGX" | grep -iE 'Strict-Transport-Security' | head -5 || echo 'N/A'`,
+    `echo "$_NGX" | grep -iE 'ssl_stapling[^_]' | head -5 || echo 'N/A'`,
+    `CERT=$(echo "$_NGX" | grep -iE '^\\s*ssl_certificate\\s' | head -1 | awk '{print $2}' | tr -d ';'); [ -n "$CERT" ] && [ -f "$CERT" ] && openssl x509 -checkend 2592000 -noout -in "$CERT" 2>/dev/null && echo 'CERT_VALID_30DAYS' || echo 'CERT_EXPIRING_SOON'`,
+    `DHPEM=$(echo "$_NGX" | grep -iE 'ssl_dhparam' | head -1 | awk '{print $2}' | tr -d ';'); [ -n "$DHPEM" ] && [ -f "$DHPEM" ] && openssl dhparam -check -text -in "$DHPEM" 2>/dev/null | grep -E 'DH Parameters|bits' | head -3 || echo 'NO_DH_PARAM'`,
+    `echo "$_NGX" | grep -iE 'ssl_compression' | head -3 || echo 'SSL_COMPRESSION_NOT_SET'`,
+    `CERT=$(echo "$_NGX" | grep -iE '^\\s*ssl_certificate\\s' | head -1 | awk '{print $2}' | tr -d ';'); [ -n "$CERT" ] && [ -f "$CERT" ] && openssl verify -CApath /etc/ssl/certs "$CERT" 2>/dev/null || echo 'CERT_VERIFY_NOT_POSSIBLE'`,
   ].join("\n");
 }
 
