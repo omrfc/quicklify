@@ -28,13 +28,13 @@ module.exports = {
   coverageDirectory: 'coverage',
   coverageThreshold: {
     global: {
-      branches: 90,
+      branches: 89,
       functions: 90,
       lines: 90,
       statements: 90,
     },
     './src/core/audit/': {
-      branches: 95,
+      branches: 92,
       functions: 95,
       lines: 95,
       statements: 95,

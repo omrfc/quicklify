@@ -389,4 +389,39 @@ describe("parseTlsChecks", () => {
       expect(check!.severity).toBe("warning");
     });
   });
+
+  describe("TLS-MIN-VERSION edge cases", () => {
+    it("fails when no recognized TLS version found", () => {
+      const output = "ssl_protocols SSLv3;\nssl_ciphers HIGH;\nCERT_VALID_30DAYS";
+      const checks = parseTlsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "TLS-MIN-VERSION");
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("No recognized TLS protocol");
+    });
+  });
+
+  describe("TLS-HSTS max-age validation", () => {
+    it("fails when max-age is too low", () => {
+      const output = [
+        "ssl_protocols TLSv1.2;",
+        'add_header Strict-Transport-Security "max-age=300" always;',
+        "CERT_VALID_30DAYS",
+      ].join("\n");
+      const checks = parseTlsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "TLS-HSTS");
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("max-age too low");
+    });
+
+    it("passes when max-age is exactly 31536000", () => {
+      const output = [
+        "ssl_protocols TLSv1.2;",
+        'add_header Strict-Transport-Security "max-age=31536000" always;',
+        "CERT_VALID_30DAYS",
+      ].join("\n");
+      const checks = parseTlsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "TLS-HSTS");
+      expect(check!.passed).toBe(true);
+    });
+  });
 });

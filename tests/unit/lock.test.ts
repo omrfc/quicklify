@@ -821,6 +821,17 @@ describe("applyLock", () => {
       // Only key check called (1 call)
       expect(mockedSsh.sshExec).toHaveBeenCalledTimes(1);
     });
+
+    it("returns error when SSH key check throws", async () => {
+      mockedAudit.runAudit.mockResolvedValue(makeAuditResult(30));
+      mockedSsh.sshExec.mockRejectedValueOnce(new Error("Connection refused"));
+
+      const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("SSH key check failed");
+      expect(result.error).toContain("Connection refused");
+    });
   });
 
   describe("platform awareness", () => {

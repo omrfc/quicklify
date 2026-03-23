@@ -146,13 +146,46 @@ describe("withFileLock", () => {
   describe("nonEEXISTError", () => {
     it("should throw non-EEXIST mkdirSync errors immediately", async () => {
       const permError = Object.assign(new Error("EPERM"), { code: "EPERM" });
-      mockedFs.mkdirSync.mockImplementation(() => { throw permError; });
+      let callCount = 0;
+      mockedFs.mkdirSync.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return undefined; // parent dir
+        throw permError;
+      });
 
       const fn = jest.fn();
 
       await expect(withFileLock("/path/to/file.json", fn)).rejects.toThrow("EPERM");
-      expect(mockedFs.mkdirSync).toHaveBeenCalledTimes(1);
       expect(fn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("edge cases", () => {
+    it("handles rmdirSync failure on lock release (best effort)", async () => {
+      mockedFs.mkdirSync.mockReturnValue(undefined);
+      mockedFs.rmdirSync.mockImplementation(() => { throw new Error("ENOENT"); });
+
+      const fn = jest.fn().mockReturnValue("ok");
+      const result = await withFileLock("/path/to/file.json", fn);
+
+      expect(result).toBe("ok");
+    });
+
+    it("handles statSync failure during stale check (lock released between checks)", async () => {
+      const eexistError = Object.assign(new Error("EEXIST"), { code: "EEXIST" });
+      mockedFs.mkdirSync
+        .mockReturnValueOnce(undefined) // parent dir
+        .mockImplementationOnce(() => { throw eexistError; }) // lock attempt
+        .mockReturnValueOnce(undefined); // retry succeeds
+      mockedFs.statSync.mockImplementation(() => { throw new Error("ENOENT"); });
+      mockedFs.rmdirSync.mockReturnValue(undefined);
+
+      const fn = jest.fn().mockReturnValue("recovered");
+      const promise = withFileLock("/path/to/file.json", fn);
+      await jest.advanceTimersByTimeAsync(200);
+      const result = await promise;
+
+      expect(result).toBe("recovered");
     });
   });
 });
