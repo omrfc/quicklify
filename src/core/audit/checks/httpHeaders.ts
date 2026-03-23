@@ -16,6 +16,8 @@ interface HttpHeaderCheckDef {
   explain: string;
 }
 
+const CATEGORY = "HTTP Security Headers";
+
 const HTTP_HEADER_CHECKS: HttpHeaderCheckDef[] = [
   {
     id: "HDR-001",
@@ -115,7 +117,7 @@ const HTTP_HEADER_CHECKS: HttpHeaderCheckDef[] = [
 function makeNginxSkippedChecks(): AuditCheck[] {
   return HTTP_HEADER_CHECKS.map((def) => ({
     id: def.id,
-    category: "HTTP Security Headers",
+    category: CATEGORY,
     name: def.name,
     severity: "info" as const,
     passed: true,
@@ -145,7 +147,7 @@ export const parseHttpHeadersChecks: CheckParser = (
     const { passed, currentValue } = def.check(sectionOutput);
     return {
       id: def.id,
-      category: "HTTP Security Headers",
+      category: CATEGORY,
       name: def.name,
       severity: def.severity,
       passed,
