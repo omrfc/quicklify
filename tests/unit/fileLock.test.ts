@@ -24,6 +24,9 @@ describe("withFileLock", () => {
       const result = await withFileLock("/path/to/file.json", fn);
 
       expect(result).toBe("result");
+      // First call: ensure parent directory exists
+      expect(mockedFs.mkdirSync).toHaveBeenCalledWith("/path/to", { recursive: true });
+      // Second call: create lock directory
       expect(mockedFs.mkdirSync).toHaveBeenCalledWith("/path/to/file.json.lock");
       expect(fn).toHaveBeenCalledTimes(1);
       expect(mockedFs.rmdirSync).toHaveBeenCalledWith("/path/to/file.json.lock");
@@ -44,8 +47,9 @@ describe("withFileLock", () => {
     it("should remove stale lock older than 30s and re-acquire", async () => {
       const eexistError = Object.assign(new Error("EEXIST"), { code: "EEXIST" });
       mockedFs.mkdirSync
-        .mockImplementationOnce(() => { throw eexistError; })
-        .mockReturnValueOnce(undefined);
+        .mockReturnValueOnce(undefined) // parent dir (recursive)
+        .mockImplementationOnce(() => { throw eexistError; }) // lock attempt 1
+        .mockReturnValueOnce(undefined); // lock attempt 2 (after stale removal)
       mockedFs.statSync.mockReturnValue({
         mtimeMs: Date.now() - 35_000, // 35s ago = stale
       } as unknown as fs.Stats);
@@ -64,8 +68,9 @@ describe("withFileLock", () => {
     it("should retry up to 10 times with 200ms delay when lock exists", async () => {
       const eexistError = Object.assign(new Error("EEXIST"), { code: "EEXIST" });
 
-      // Fail 3 times with EEXIST, then succeed
+      // First call: parent dir (recursive), then fail 3 times with EEXIST, then succeed
       mockedFs.mkdirSync
+        .mockReturnValueOnce(undefined) // parent dir (recursive)
         .mockImplementationOnce(() => { throw eexistError; })
         .mockImplementationOnce(() => { throw eexistError; })
         .mockImplementationOnce(() => { throw eexistError; })
@@ -87,14 +92,19 @@ describe("withFileLock", () => {
 
       const result = await promise;
       expect(result).toBe("got-it");
-      expect(mockedFs.mkdirSync).toHaveBeenCalledTimes(4);
+      expect(mockedFs.mkdirSync).toHaveBeenCalledTimes(5); // 1 parent + 3 EEXIST + 1 success
     });
   });
 
   describe("lockExhausted", () => {
     it("should throw after 10 failed retries", async () => {
       const eexistError = Object.assign(new Error("EEXIST"), { code: "EEXIST" });
-      mockedFs.mkdirSync.mockImplementation(() => { throw eexistError; });
+      let callCount = 0;
+      mockedFs.mkdirSync.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return undefined; // parent dir (recursive)
+        throw eexistError;
+      });
       // Return current fake time so lock is never stale
       mockedFs.statSync.mockImplementation(() => ({
         mtimeMs: Date.now(),

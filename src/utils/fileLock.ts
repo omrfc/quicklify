@@ -1,4 +1,5 @@
 import { mkdirSync, rmdirSync, statSync } from "fs";
+import { dirname } from "path";
 
 const STALE_THRESHOLD_MS = 30_000; // 30s
 
@@ -9,6 +10,9 @@ export async function withFileLock<T>(
   const lockDir = filePath + ".lock";
   const maxRetries = 10;
   const retryDelay = 200;
+
+  // Ensure parent directory exists (CI runners may not have ~/.kastell/)
+  mkdirSync(dirname(lockDir), { recursive: true });
 
   for (let i = 0; i < maxRetries; i++) {
     try {
