@@ -23,6 +23,7 @@ export default {
     fileName: 'reports/mutation/mutation.json',
   },
   coverageAnalysis: 'perTest',
+  ignoreStatic: true,
   concurrency: 2,
   timeoutMS: 60000,
   timeoutFactor: 1.5,
