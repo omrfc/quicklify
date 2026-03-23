@@ -24,6 +24,12 @@ export interface SnapshotDeleteResult {
   hint?: string;
 }
 
+export interface SnapshotRestoreResult {
+  success: boolean;
+  error?: string;
+  hint?: string;
+}
+
 // ─── Async Wrappers ──────────────────────────────────────────────────────────
 
 export async function createSnapshot(
@@ -81,6 +87,25 @@ export async function deleteSnapshot(
   try {
     const provider = createProviderWithToken(server.provider, apiToken);
     await provider.deleteSnapshot(snapshotId);
+    return { success: true };
+  } catch (error: unknown) {
+    const hint = mapProviderError(error, server.provider);
+    return {
+      success: false,
+      error: getErrorMessage(error),
+      ...(hint ? { hint } : {}),
+    };
+  }
+}
+
+export async function restoreSnapshot(
+  server: ServerRecord,
+  apiToken: string,
+  snapshotId: string,
+): Promise<SnapshotRestoreResult> {
+  try {
+    const provider = createProviderWithToken(server.provider, apiToken);
+    await provider.restoreSnapshot(server.id, snapshotId);
     return { success: true };
   } catch (error: unknown) {
     const hint = mapProviderError(error, server.provider);

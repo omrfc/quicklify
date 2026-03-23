@@ -1,8 +1,10 @@
 import inquirer from "inquirer";
 import * as config from "../../src/utils/config";
+import * as errorMapper from "../../src/utils/errorMapper";
 import * as serverSelect from "../../src/utils/serverSelect";
 import * as providerFactory from "../../src/utils/providerFactory";
 import { snapshotCommand } from "../../src/commands/snapshot";
+import { restoreSnapshot } from "../../src/core/snapshot";
 
 jest.mock("inquirer");
 jest.mock("../../src/utils/config");
@@ -335,5 +337,110 @@ describe("snapshotCommand", () => {
 
       expect(mockProvider.listSnapshots).toHaveBeenCalled();
     });
+  });
+});
+
+describe("restoreSnapshot", () => {
+  const server = {
+    id: "server-456",
+    name: "test-server",
+    provider: "hetzner",
+    ip: "1.2.3.4",
+    region: "nbg1",
+    size: "cax11",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    mode: "coolify" as const,
+  };
+  const apiToken = "test-api-token";
+  const snapshotId = "snap-789";
+
+  const mockRestoreProvider = {
+    name: "hetzner",
+    displayName: "Hetzner Cloud",
+    validateToken: jest.fn(),
+    getRegions: jest.fn(),
+    getServerSizes: jest.fn(),
+    getAvailableLocations: jest.fn(),
+    getAvailableServerTypes: jest.fn(),
+    uploadSshKey: jest.fn(),
+    createServer: jest.fn(),
+    getServerStatus: jest.fn(),
+    getServerDetails: jest.fn(),
+    destroyServer: jest.fn(),
+    rebootServer: jest.fn(),
+    createSnapshot: jest.fn(),
+    listSnapshots: jest.fn(),
+    deleteSnapshot: jest.fn(),
+    restoreSnapshot: jest.fn(),
+    getSnapshotCostEstimate: jest.fn(),
+  };
+
+  let getErrorMessageSpy: jest.SpyInstance;
+  let mapProviderErrorSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedProviderFactory.createProviderWithToken.mockReturnValue(mockRestoreProvider);
+    getErrorMessageSpy = jest.spyOn(errorMapper, "getErrorMessage").mockReturnValue("provider error");
+    mapProviderErrorSpy = jest.spyOn(errorMapper, "mapProviderError").mockReturnValue(undefined as unknown as string);
+  });
+
+  afterEach(() => {
+    getErrorMessageSpy.mockRestore();
+    mapProviderErrorSpy.mockRestore();
+  });
+
+  it("returns { success: true } when provider.restoreSnapshot resolves", async () => {
+    mockRestoreProvider.restoreSnapshot.mockResolvedValue(undefined);
+
+    const result = await restoreSnapshot(server, apiToken, snapshotId);
+
+    expect(result).toEqual({ success: true });
+  });
+
+  it("returns { success: false, error, hint } when provider.restoreSnapshot rejects with hint", async () => {
+    const err = new Error("rebuild failed");
+    mockRestoreProvider.restoreSnapshot.mockRejectedValue(err);
+    getErrorMessageSpy.mockReturnValue("rebuild failed");
+    mapProviderErrorSpy.mockReturnValue("Check your snapshot ID");
+
+    const result = await restoreSnapshot(server, apiToken, snapshotId);
+
+    expect(result).toEqual({
+      success: false,
+      error: "rebuild failed",
+      hint: "Check your snapshot ID",
+    });
+  });
+
+  it("returns { success: false, error } without hint when mapProviderError returns undefined", async () => {
+    const err = new Error("network error");
+    mockRestoreProvider.restoreSnapshot.mockRejectedValue(err);
+    getErrorMessageSpy.mockReturnValue("network error");
+    mapProviderErrorSpy.mockReturnValue(undefined as unknown as string);
+
+    const result = await restoreSnapshot(server, apiToken, snapshotId);
+
+    expect(result).toEqual({ success: false, error: "network error" });
+    expect(result).not.toHaveProperty("hint");
+  });
+
+  it("calls createProviderWithToken with correct provider and token", async () => {
+    mockRestoreProvider.restoreSnapshot.mockResolvedValue(undefined);
+
+    await restoreSnapshot(server, apiToken, snapshotId);
+
+    expect(mockedProviderFactory.createProviderWithToken).toHaveBeenCalledWith(
+      server.provider,
+      apiToken,
+    );
+  });
+
+  it("calls provider.restoreSnapshot with server.id and snapshotId", async () => {
+    mockRestoreProvider.restoreSnapshot.mockResolvedValue(undefined);
+
+    await restoreSnapshot(server, apiToken, snapshotId);
+
+    expect(mockRestoreProvider.restoreSnapshot).toHaveBeenCalledWith(server.id, snapshotId);
   });
 });
