@@ -253,6 +253,87 @@ describe("destroyCommand", () => {
     expect(mockedInquirer.prompt).toHaveBeenCalledTimes(3);
   });
 
+  // ---- --force flag tests ----
+
+  it("should skip both confirmations when --force is set", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedCoreManage.destroyCloudServer.mockResolvedValue(destroySuccessResult);
+
+    await destroyCommand("1.2.3.4", { force: true });
+
+    expect(mockedInquirer.prompt).not.toHaveBeenCalled();
+    expect(mockedCoreManage.destroyCloudServer).toHaveBeenCalledWith("coolify-test");
+  });
+
+  it("should skip backup cleanup prompt when --force is set and backups exist", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedCoreManage.destroyCloudServer.mockResolvedValue(destroySuccessResult);
+    mockedCoreBackup.listBackups.mockReturnValue(["2026-02-21_15-30-45-123"]);
+
+    await destroyCommand("1.2.3.4", { force: true });
+
+    // Only the backup info message is shown, no prompt asked
+    expect(mockedCoreBackup.cleanupServerBackups).not.toHaveBeenCalled();
+  });
+
+  it("should force-remove from local config when cloud deletion fails with --force", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedCoreManage.destroyCloudServer.mockResolvedValue({
+      success: false,
+      server: sampleServer,
+      cloudDeleted: false,
+      localRemoved: false,
+      error: "API Error",
+    });
+    mockedCoreManage.removeServerRecord.mockResolvedValue({
+      success: true,
+      server: sampleServer,
+    });
+
+    await destroyCommand("1.2.3.4", { force: true });
+
+    expect(mockedCoreManage.removeServerRecord).toHaveBeenCalledWith("coolify-test");
+    expect(mockedInquirer.prompt).not.toHaveBeenCalled();
+  });
+
+  it("should show error with hint when cloud deletion fails and result has hint", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ confirm: true })
+      .mockResolvedValueOnce({ confirmName: "coolify-test" })
+      .mockResolvedValueOnce({ removeLocal: false });
+    mockedCoreManage.destroyCloudServer.mockResolvedValue({
+      success: false,
+      server: sampleServer,
+      cloudDeleted: false,
+      localRemoved: false,
+      error: "API Timeout",
+      hint: "Try again later",
+    });
+
+    await destroyCommand("1.2.3.4");
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("API Timeout");
+    expect(output).toContain("Try again later");
+  });
+
+  it("should handle cleanup failure gracefully", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ confirm: true })
+      .mockResolvedValueOnce({ confirmName: "coolify-test" })
+      .mockResolvedValueOnce({ cleanBackups: true });
+    mockedCoreManage.destroyCloudServer.mockResolvedValue(destroySuccessResult);
+    mockedCoreBackup.listBackups.mockReturnValue(["2026-02-21_15-30-45-123"]);
+    mockedCoreBackup.cleanupServerBackups.mockReturnValue({ removed: false, path: "/mock/path" });
+
+    await destroyCommand("1.2.3.4");
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Failed to remove backups");
+  });
+
   // ---- DX-01: --dry-run support ----
 
   it("should show dry-run preview without calling destroyCloudServer or prompts", async () => {

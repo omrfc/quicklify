@@ -696,6 +696,76 @@ describe("firewall", () => {
       expect(output).toContain("No rules configured");
     });
 
+    it("should remove Coolify port with --force (skip confirmation)", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+
+      await firewallCommand("remove", "1.2.3.4", { port: "8000", force: true });
+
+      // inquirer.prompt should NOT have been called
+      expect(mockedSsh.sshExec).toHaveBeenCalledWith("1.2.3.4", "ufw delete allow 8000/tcp");
+    });
+
+    it("should show warning from remove result when present", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec.mockResolvedValue({
+        code: 0,
+        stdout: "Rule deleted (v4)\nRule deleted (v6)",
+        stderr: "",
+      });
+
+      await firewallCommand("remove", "1.2.3.4", { port: "3000" });
+
+      // Should succeed (port removed)
+      expect(mockedSsh.sshExec).toHaveBeenCalled();
+    });
+
+    it("should show hint from add failure when present", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "permission denied" });
+
+      await firewallCommand("add", "1.2.3.4", { port: "3000" });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Failed to add rule");
+    });
+
+    it("should show hint from remove failure when present", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "permission denied" });
+
+      await firewallCommand("remove", "1.2.3.4", { port: "3000" });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Failed to remove rule");
+    });
+
+    it("should show hint from list failure when present", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "connection error" });
+
+      await firewallCommand("list", "1.2.3.4");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Failed to get firewall status");
+    });
+
+    it("should show hint from status check failure when present", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedConfig.findServers.mockReturnValue([sampleServer]);
+      mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "timeout" });
+
+      await firewallCommand("status", "1.2.3.4");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Failed to get firewall status");
+    });
+
     it("should remove Coolify port when confirmed", async () => {
       mockedSsh.checkSshAvailable.mockReturnValue(true);
       mockedConfig.findServers.mockReturnValue([sampleServer]);

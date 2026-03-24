@@ -293,6 +293,7 @@ async function promptSnapshot(): Promise<string[] | null> {
   const sub = await promptList("Snapshot action:", [
     { name: "List snapshots", value: "list" },
     { name: "Create a snapshot", value: "create" },
+    { name: "Restore from snapshot", value: "restore" },
     { name: "Delete a snapshot", value: "delete" },
   ]);
   if (!sub) return null;
@@ -347,10 +348,20 @@ async function promptDoctor(): Promise<string[] | null> {
   const mode = await promptList("Doctor mode:", [
     { name: "Fresh data via SSH (accurate)", value: "fresh" },
     { name: "Use cached metrics (fast)", value: "cached" },
+    { name: "Interactive fix mode", value: "fix" },
   ]);
   if (!mode) return null;
   const args = ["doctor"];
   if (mode === "fresh") args.push("--fresh");
+  if (mode === "fix") {
+    args.push("--fix");
+    const dryRun = await promptList("Fix mode:", [
+      { name: "Execute fixes interactively", value: "live" },
+      { name: "Dry run (show commands only)", value: "dry-run" },
+    ]);
+    if (!dryRun) return null;
+    if (dryRun === "dry-run") args.push("--dry-run");
+  }
   return args;
 }
 
@@ -424,11 +435,39 @@ async function promptImport(): Promise<string[] | null> {
 async function promptAudit(): Promise<string[] | null> {
   const mode = await promptList("Audit mode:", [
     { name: "Run full audit", value: "run" },
+    { name: "Run with --explain (show fixes)", value: "explain" },
+    { name: "Compare two snapshots (diff)", value: "diff" },
+    { name: "Interactive fix mode", value: "fix" },
     { name: "List all checks (no scan)", value: "list-checks" },
     { name: "Run with compliance profile", value: "profile" },
     { name: "Compliance framework report", value: "compliance" },
   ]);
   if (!mode) return null;
+
+  if (mode === "explain") return ["audit", "--explain"];
+
+  if (mode === "diff") {
+    const { diffRef } = await inquirer.prompt([
+      {
+        type: "input",
+        name: "diffRef",
+        message: "Diff reference (e.g. pre-upgrade:latest or pre-upgrade:post-upgrade):",
+        validate: (v: string) => (v.includes(":") ? true : "Format: before:after"),
+      },
+    ]);
+    return ["audit", "--diff", diffRef];
+  }
+
+  if (mode === "fix") {
+    const dryRun = await promptList("Fix mode:", [
+      { name: "Execute fixes interactively", value: "live" },
+      { name: "Dry run (show commands only)", value: "dry-run" },
+    ]);
+    if (!dryRun) return null;
+    const args = ["audit", "--fix"];
+    if (dryRun === "dry-run") args.push("--dry-run");
+    return args;
+  }
 
   if (mode === "list-checks") return ["audit", "--list-checks"];
 

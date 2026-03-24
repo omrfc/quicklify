@@ -419,6 +419,155 @@ describe("backup", () => {
     });
   });
 
+  // ---- list subcommand tests ----
+
+  describe("backupCommand list subcommand", () => {
+    it("should show warning when no servers registered", async () => {
+      mockedConfig.getServers.mockReturnValue([]);
+
+      await backupCommand("list");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("No servers registered");
+    });
+
+    it("should show no backups message when servers have no backups", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+      mockedExistsSync.mockReturnValue(false); // no backup dir
+
+      await backupCommand("list");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("No backups found for any server");
+    });
+
+    it("should list backups per server when backups exist", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+      mockedExistsSync.mockImplementation((p) => {
+        const path = String(p);
+        if (path.includes("manifest.json")) return true;
+        return true;
+      });
+      mockedReaddirSync.mockReturnValue(["2026-03-01_00-00-00-000"] as unknown as ReturnType<typeof mockedReaddirSync>);
+
+      await backupCommand("list");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("coolify-test");
+      expect(output).toContain("2026-03-01_00-00-00-000");
+    });
+  });
+
+  // ---- cleanup with --force flag ----
+
+  describe("backupCommand cleanup with --force", () => {
+    it("should skip confirmation prompt when --force is set", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+      mockedExistsSync.mockImplementation((p) => {
+        const path = String(p);
+        if (path.includes("old-server")) return true;
+        return true;
+      });
+      mockedReaddirSync
+        .mockReturnValueOnce(["old-server"] as unknown as ReturnType<typeof mockedReaddirSync>)
+        .mockReturnValueOnce(["2026-02-21_10-00-00-000"] as unknown as ReturnType<typeof mockedReaddirSync>);
+
+      await backupCommand("cleanup", { force: true });
+
+      // inquirer.prompt should NOT have been called
+      expect(mockedInquirer.prompt).not.toHaveBeenCalled();
+      // rmSync should have been called for cleanup
+      const { rmSync } = require("fs");
+      expect(rmSync).toHaveBeenCalled();
+    });
+  });
+
+  // ---- schedule option tests ----
+
+  describe("backupCommand schedule option", () => {
+    it("should show error when SSH not available for schedule", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(false);
+
+      await backupCommand("test-server", { schedule: "list" });
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("SSH client not found");
+    });
+
+    it("should return when no server found for schedule", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedServerSelect.resolveServer.mockResolvedValue(undefined);
+
+      await backupCommand("nonexistent", { schedule: "list" });
+
+      expect(mockedServerSelect.resolveServer).toHaveBeenCalled();
+    });
+  });
+
+  // ---- backup success with platform info ----
+
+  describe("backupCommand success with platform info", () => {
+    it("should display provider and platform info when manifest has platform", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+      mockedResolvePlatform.mockReturnValue("coolify");
+      mockedBackupServer.mockResolvedValue({
+        success: true,
+        backupPath: "/backups/coolify-test/2026-01-01",
+        manifest: {
+          serverName: "coolify-test",
+          provider: "hetzner",
+          timestamp: "2026-01-01_00-00-00-000",
+          coolifyVersion: "4.0.0",
+          files: ["coolify-backup.sql.gz", "coolify-config.tar.gz"],
+          platform: "coolify",
+        },
+      });
+
+      await backupCommand("1.2.3.4");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Provider: hetzner");
+      expect(output).toContain("Platform: coolify");
+    });
+
+    it("should not display platform info when resolvePlatform returns undefined", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedServerSelect.resolveServer.mockResolvedValue({ ...sampleServer, mode: "bare" as const });
+      mockedResolvePlatform.mockReturnValue(undefined);
+      mockedBackupServer.mockResolvedValue({
+        success: true,
+        backupPath: "/backups/bare-test/2026-01-01",
+        manifest: {
+          serverName: "bare-test",
+          provider: "hetzner",
+          timestamp: "2026-01-01_00-00-00-000",
+          coolifyVersion: "unknown",
+          files: ["bare-config.tar.gz"],
+        },
+      });
+
+      await backupCommand("1.2.3.4");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).not.toContain("Platform:");
+    });
+
+    it("should show backup error without hint when error has no hint", async () => {
+      mockedSsh.checkSshAvailable.mockReturnValue(true);
+      mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+      mockedBackupServer.mockResolvedValue({
+        success: false,
+        error: "Database dump failed",
+      });
+
+      await backupCommand("1.2.3.4");
+
+      const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+      expect(output).toContain("Database dump failed");
+    });
+  });
+
   // ---- --all mode tests ----
 
   describe("backupCommand --all mode", () => {

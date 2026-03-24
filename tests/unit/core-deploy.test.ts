@@ -101,6 +101,72 @@ function createMockProvider(overrides: Partial<CloudProvider> = {}): CloudProvid
 }
 
 // ============================================================
+// describe: uploadSshKeyToProvider
+// ============================================================
+
+import { uploadSshKeyToProvider } from "../../src/core/deploy";
+
+const { findLocalSshKey, generateSshKey } = jest.requireMock("../../src/utils/sshKey") as {
+  findLocalSshKey: jest.Mock;
+  generateSshKey: jest.Mock;
+};
+
+describe("uploadSshKeyToProvider", () => {
+  let consoleSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    consoleSpy = jest.spyOn(console, "log").mockImplementation();
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  it("should upload existing SSH key and return key ID array", async () => {
+    findLocalSshKey.mockReturnValue("ssh-ed25519 AAAA...");
+    const provider = createMockProvider();
+
+    const result = await uploadSshKeyToProvider(provider);
+
+    expect(result).toEqual(["key-id-1"]);
+    expect(generateSshKey).not.toHaveBeenCalled();
+  });
+
+  it("should generate SSH key when none found and upload it", async () => {
+    findLocalSshKey.mockReturnValue(null);
+    generateSshKey.mockReturnValue("ssh-ed25519 GENERATED...");
+    const provider = createMockProvider();
+
+    const result = await uploadSshKeyToProvider(provider);
+
+    expect(generateSshKey).toHaveBeenCalled();
+    expect(result).toEqual(["key-id-1"]);
+  });
+
+  it("should return empty array when key generation fails", async () => {
+    findLocalSshKey.mockReturnValue(null);
+    generateSshKey.mockReturnValue(null);
+    const provider = createMockProvider();
+
+    const result = await uploadSshKeyToProvider(provider);
+
+    expect(result).toEqual([]);
+  });
+
+  it("should return empty array when SSH key upload fails", async () => {
+    findLocalSshKey.mockReturnValue("ssh-ed25519 AAAA...");
+    const provider = createMockProvider({
+      uploadSshKey: jest.fn().mockRejectedValue(new Error("upload failed")),
+    });
+
+    const result = await uploadSshKeyToProvider(provider);
+
+    expect(result).toEqual([]);
+  });
+});
+
+// ============================================================
 // describe: coolify mode
 // ============================================================
 
@@ -408,6 +474,119 @@ describe("deployServer — KastellResult return type", () => {
     const result = await deployServer("hetzner", provider, "nbg1", "cax11", "test-srv", false, false, "dokploy");
 
     expect(result.data!.platform).toBe("dokploy");
+  });
+
+  it("should call firewallSetup and secureSetup for bare mode when fullSetup=true and valid IP", async () => {
+    const provider = createMockProvider();
+
+    await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", true, false, "bare");
+
+    expect(firewallSetup).toHaveBeenCalled();
+    expect(secureSetup).toHaveBeenCalled();
+  });
+
+  it("should skip fullSetup for bare mode when IP is invalid (0.0.0.0)", async () => {
+    jest.useFakeTimers();
+    const provider = createMockProvider({
+      createServer: jest.fn().mockResolvedValue({ id: "999", ip: "0.0.0.0", status: "running" }),
+      getServerDetails: jest.fn().mockResolvedValue({ ip: "0.0.0.0" }),
+    });
+
+    const deployPromise = deployServer("hetzner", provider, "nbg1", "cax11", "my-server", true, false, "bare");
+    await jest.runAllTimersAsync();
+    const result = await deployPromise;
+    jest.useRealTimers();
+
+    expect(result.success).toBe(true);
+    expect(firewallSetup).not.toHaveBeenCalled();
+    expect(secureSetup).not.toHaveBeenCalled();
+  });
+
+  it("should handle firewallSetup exception in bare fullSetup gracefully", async () => {
+    firewallSetup.mockRejectedValueOnce(new Error("firewall error"));
+    const provider = createMockProvider();
+
+    const result = await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", true, false, "bare");
+
+    expect(result.success).toBe(true);
+  });
+
+  it("should handle secureSetup exception in bare fullSetup gracefully", async () => {
+    secureSetup.mockRejectedValueOnce(new Error("secure error"));
+    const provider = createMockProvider();
+
+    const result = await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", true, false, "bare");
+
+    expect(result.success).toBe(true);
+  });
+
+  it("should handle cloud-init status non-zero exit code gracefully", async () => {
+    sshExec.mockResolvedValue({ code: 1, stdout: "", stderr: "cloud-init error" });
+    const provider = createMockProvider();
+
+    const result = await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", false, false, "bare");
+
+    expect(result.success).toBe(true);
+  });
+
+  it("should handle cloud-init status SSH exception gracefully", async () => {
+    sshExec
+      .mockResolvedValueOnce({ code: 0, stdout: "ok", stderr: "" }) // ssh echo ok
+      .mockRejectedValueOnce(new Error("cloud-init check failed")); // cloud-init status --wait
+    const provider = createMockProvider();
+
+    const result = await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", false, false, "bare");
+
+    expect(result.success).toBe(true);
+  });
+
+  it("should show onboarding steps without fullSetup for bare mode", async () => {
+    const provider = createMockProvider();
+
+    await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", false, false, "bare");
+
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Secure your server");
+    expect(output).toContain("kastell firewall setup");
+  });
+
+  it("should show onboarding steps without fullSetup for coolify mode", async () => {
+    const provider = createMockProvider();
+
+    await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", false, false);
+
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Secure your server");
+    expect(output).toContain("kastell backup");
+  });
+
+  it("should show abbreviated onboarding steps with fullSetup for coolify mode", async () => {
+    const provider = createMockProvider();
+
+    await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", true, false);
+
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("domain");
+    expect(output).not.toContain("Secure your server");
+  });
+
+  it("should handle firewallSetup exception in coolify fullSetup gracefully", async () => {
+    firewallSetup.mockRejectedValueOnce(new Error("firewall error"));
+    const provider = createMockProvider();
+
+    const result = await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", true, false);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("should show warning when Coolify not ready", async () => {
+    waitForCoolify.mockResolvedValue(false);
+    const provider = createMockProvider();
+
+    await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", false, false);
+
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("did not respond yet");
   });
 
   it("should not call process.exit on failure — returns error result instead", async () => {

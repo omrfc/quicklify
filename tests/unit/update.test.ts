@@ -153,6 +153,82 @@ describe("updateCommand", () => {
     );
   });
 
+  it("should skip confirmation and proceed when --force is set", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+    mockedCoreUpdate.updateServer.mockResolvedValue({ success: true, output: "Done" });
+
+    await updateCommand("1.2.3.4", { force: true });
+
+    expect(mockedInquirer.prompt).not.toHaveBeenCalled();
+    expect(mockedCoreUpdate.updateServer).toHaveBeenCalled();
+    expect(mockedLogger.logger.success).toHaveBeenCalledWith(
+      expect.stringContaining("update completed"),
+    );
+  });
+
+  it("should show error when no platform detected for server", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedAdapterFactory.resolvePlatform.mockReturnValue(undefined);
+
+    await updateCommand("1.2.3.4");
+
+    expect(mockedLogger.logger.error).toHaveBeenCalledWith(
+      expect.stringContaining("No platform detected"),
+    );
+    expect(mockedCoreUpdate.updateServer).not.toHaveBeenCalled();
+  });
+
+  it("should skip API token prompt for manually added servers", async () => {
+    const manualServer = { ...sampleServer, id: "manual-123" };
+    mockedServerSelect.resolveServer.mockResolvedValue(manualServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedCoreUpdate.updateServer.mockResolvedValue({ success: true });
+
+    await updateCommand("1.2.3.4");
+
+    expect(mockedServerSelect.promptApiToken).not.toHaveBeenCalled();
+    expect(mockedCoreUpdate.updateServer).toHaveBeenCalledWith(
+      manualServer,
+      "",
+      "coolify",
+    );
+  });
+
+  it("should show hint when updateServer returns failure with hint", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+    mockedCoreUpdate.updateServer.mockResolvedValue({
+      success: false,
+      error: "SSH timeout",
+      hint: "Check server network",
+    });
+
+    await updateCommand("1.2.3.4");
+
+    expect(mockedLogger.logger.info).toHaveBeenCalledWith("Check server network");
+  });
+
+  it("should show output when updateServer returns output", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedServerSelect.promptApiToken.mockResolvedValue("test-token");
+    mockedCoreUpdate.updateServer.mockResolvedValue({ success: true, output: "Update log output" });
+
+    await updateCommand("1.2.3.4");
+
+    expect(consoleSpy).toHaveBeenCalledWith("Update log output");
+  });
+
+  it("should provide SSH install hints when SSH not available", async () => {
+    mockedSsh.checkSshAvailable.mockReturnValue(false);
+    await updateCommand();
+    expect(mockedLogger.logger.info).toHaveBeenCalledWith(
+      expect.stringContaining("Windows"),
+    );
+  });
+
   // ---- DX-01: --dry-run support ----
 
   it("should show dry-run preview without calling core updateServer", async () => {
@@ -366,6 +442,77 @@ describe("updateCommand", () => {
       await updateCommand(undefined, { all: true });
 
       expect(mockedCoreUpdate.updateServer).toHaveBeenCalled();
+    });
+
+    it("should skip --force confirmation in --all mode", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+      mockedServerSelect.collectProviderTokens.mockResolvedValue(new Map([["hetzner", "h-token"]]));
+      mockedCoreUpdate.updateServer.mockResolvedValue({ success: true, output: "OK" });
+
+      await updateCommand(undefined, { all: true, force: true });
+
+      expect(mockedInquirer.prompt).not.toHaveBeenCalled();
+      expect(mockedCoreUpdate.updateServer).toHaveBeenCalled();
+    });
+
+    it("should skip servers with no platform detected in --all mode", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+      mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+      mockedServerSelect.collectProviderTokens.mockResolvedValue(new Map([["hetzner", "h-token"]]));
+      mockedAdapterFactory.resolvePlatform.mockReturnValue(undefined);
+
+      await updateCommand(undefined, { all: true });
+
+      expect(mockedLogger.logger.warning).toHaveBeenCalledWith(
+        expect.stringContaining("no platform detected"),
+      );
+      expect(mockedCoreUpdate.updateServer).not.toHaveBeenCalled();
+    });
+
+    it("should show hint when updateServer fails with hint in --all mode", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+      mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+      mockedServerSelect.collectProviderTokens.mockResolvedValue(new Map([["hetzner", "h-token"]]));
+      mockedCoreUpdate.updateServer.mockResolvedValue({
+        success: false,
+        error: "SSH down",
+        hint: "Check firewall",
+        displayName: "Coolify",
+      });
+
+      await updateCommand(undefined, { all: true });
+
+      expect(mockedLogger.logger.info).toHaveBeenCalledWith("Check firewall");
+    });
+
+    it("should skip bare servers and warn in dry-run --all mode", async () => {
+      const bareServer = {
+        ...sampleServer,
+        id: "bare-123",
+        name: "bare-test",
+        ip: "9.9.9.9",
+        mode: "bare" as const,
+      };
+      mockedConfig.getServers.mockReturnValue([bareServer]);
+      mockedModeGuard.isBareServer.mockReturnValue(true);
+
+      await updateCommand(undefined, { all: true, dryRun: true });
+
+      expect(mockedLogger.logger.warning).toHaveBeenCalledWith(
+        expect.stringContaining("bare"),
+      );
+    });
+
+    it("should skip servers with no platform in dry-run --all mode", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer]);
+      mockedModeGuard.isBareServer.mockReturnValue(false);
+      mockedAdapterFactory.resolvePlatform.mockReturnValue(undefined);
+
+      await updateCommand(undefined, { all: true, dryRun: true });
+
+      expect(mockedLogger.logger.warning).toHaveBeenCalledWith(
+        expect.stringContaining("no platform detected"),
+      );
     });
 
     it("should skip bare servers and warn in --all mode", async () => {

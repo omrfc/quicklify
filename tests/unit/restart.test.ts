@@ -134,6 +134,58 @@ describe("restartCommand", () => {
     expect(mockedCoreStatus.getCloudServerStatus).not.toHaveBeenCalled();
   });
 
+  it("should skip confirmation when --force is set", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedCoreManage.rebootServer.mockResolvedValue({ success: true, server: sampleServer });
+    mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
+
+    await restartCommand("1.2.3.4", { force: true });
+
+    expect(mockedInquirer.prompt).not.toHaveBeenCalled();
+    expect(mockedCoreManage.rebootServer).toHaveBeenCalledWith("coolify-test");
+  });
+
+  it("should handle reboot error with hint", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedCoreManage.rebootServer.mockResolvedValue({
+      success: false,
+      server: sampleServer,
+      error: "Provider API down",
+      hint: "Check provider status page",
+    });
+
+    await restartCommand("1.2.3.4");
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Check provider status page");
+  });
+
+  it("should handle getCloudServerStatus exception during polling gracefully", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedCoreManage.rebootServer.mockResolvedValue({ success: true, server: sampleServer });
+    // All polling attempts throw
+    mockedCoreStatus.getCloudServerStatus.mockRejectedValue(new Error("network error"));
+
+    await restartCommand("1.2.3.4");
+
+    const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
+    expect(output).toContain("may still be rebooting");
+  });
+
+  it("should use null token when getProviderToken returns null", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(sampleServer);
+    mockedInquirer.prompt.mockResolvedValueOnce({ confirm: true });
+    mockedCoreManage.rebootServer.mockResolvedValue({ success: true, server: sampleServer });
+    mockedCoreTokens.getProviderToken.mockReturnValue(undefined);
+    mockedCoreStatus.getCloudServerStatus.mockResolvedValue("running");
+
+    await restartCommand("1.2.3.4");
+
+    expect(mockedCoreStatus.getCloudServerStatus).toHaveBeenCalledWith(sampleServer, "");
+  });
+
   // ---- DX-01: --dry-run support ----
 
   it("should show dry-run preview without rebooting or prompts", async () => {

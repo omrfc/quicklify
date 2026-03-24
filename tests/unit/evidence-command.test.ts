@@ -270,6 +270,59 @@ describe("evidenceCommand", () => {
     );
   });
 
+  it("uses server.mode when server.platform is not set", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(makeServer({ platform: undefined, mode: "bare" }) as never);
+    mockedEvidence.collectEvidence.mockResolvedValue(makeResult() as never);
+
+    await evidenceCommand("prod-server", { lines: "500" });
+
+    expect(mockedEvidence.collectEvidence).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      "bare",
+      expect.any(Object),
+    );
+  });
+
+  it("falls back to 'bare' when neither platform nor mode is set", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(makeServer({ platform: undefined, mode: undefined }) as never);
+    mockedEvidence.collectEvidence.mockResolvedValue(makeResult() as never);
+
+    await evidenceCommand("prod-server", { lines: "500" });
+
+    expect(mockedEvidence.collectEvidence).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      "bare",
+      expect.any(Object),
+    );
+  });
+
+  it("falls back to 500 lines when --lines is non-numeric", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(makeServer() as never);
+    mockedEvidence.collectEvidence.mockResolvedValue(makeResult() as never);
+
+    await evidenceCommand("prod-server", { lines: "abc" });
+
+    expect(mockedEvidence.collectEvidence).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({ lines: 500 }),
+    );
+  });
+
+  it("calls spinner.fail with default message when error is undefined", async () => {
+    mockedServerSelect.resolveServer.mockResolvedValue(makeServer() as never);
+    mockedEvidence.collectEvidence.mockResolvedValue({ success: false as const } as never);
+
+    await evidenceCommand("prod-server", { lines: "500" });
+
+    const spinner = getSpinner();
+    expect(spinner.fail).toHaveBeenCalledWith("Evidence collection failed");
+    expect(process.exitCode).toBe(1);
+  });
+
   it("passes --force option to collectEvidence", async () => {
     mockedServerSelect.resolveServer.mockResolvedValue(makeServer() as never);
     mockedEvidence.collectEvidence.mockResolvedValue(makeResult() as never);
