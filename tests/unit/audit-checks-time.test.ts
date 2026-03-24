@@ -127,4 +127,105 @@ describe("parseTimeChecks", () => {
       expect(c.currentValue).toBe("Unable to determine");
     });
   });
+
+  describe("TIME-NTP-ACTIVE — chrony active branch", () => {
+    it("passes when 'active' and 'chrony' are both present", () => {
+      const output = "chrony is active\nsome other text";
+      const checks = parseTimeChecks(output, "bare");
+      const check = checks.find((c) => c.id === "TIME-NTP-ACTIVE");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when 'active' is present but no NTP service name", () => {
+      const output = "some active process running\nno time service here";
+      const checks = parseTimeChecks(output, "bare");
+      const check = checks.find((c) => c.id === "TIME-NTP-ACTIVE");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("TIME-TIMEZONE-SET — no timezone branch", () => {
+    it("fails when no timezone indicators are present", () => {
+      const output = "NTP synchronized: no\nsome info";
+      const checks = parseTimeChecks(output, "bare");
+      const check = checks.find((c) => c.id === "TIME-TIMEZONE-SET");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("not configured");
+    });
+  });
+
+  describe("TIME-HWCLOCK-SYNC — no timestamp branch", () => {
+    it("fails when no timestamp pattern is found in output", () => {
+      const output = "N/A\nno timestamp available";
+      const checks = parseTimeChecks(output, "bare");
+      const check = checks.find((c) => c.id === "TIME-HWCLOCK-SYNC");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("not accessible");
+    });
+  });
+
+  describe("TIME-DRIFT-CHECK — high drift branch", () => {
+    it("fails when clock drift exceeds 1 second", () => {
+      const output = "System time     : 2.500000000 seconds slow of NTP time";
+      const checks = parseTimeChecks(output, "bare");
+      const check = checks.find((c) => c.id === "TIME-DRIFT-CHECK");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("2.500");
+    });
+
+    it("falls back to NTP sync check when chronyc data absent, fails when not synced", () => {
+      const output = "NTP synchronized: no\nsome text";
+      const checks = parseTimeChecks(output, "bare");
+      const check = checks.find((c) => c.id === "TIME-DRIFT-CHECK");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("drift unknown");
+    });
+
+    it("falls back to NTP sync check when chronyc data absent, passes when synced", () => {
+      const output = "NTP synchronized: yes\nsome text without system time drift";
+      const checks = parseTimeChecks(output, "bare");
+      const check = checks.find((c) => c.id === "TIME-DRIFT-CHECK");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+      expect(check!.currentValue).toContain("drift not measurable");
+    });
+  });
+
+  describe("TIME-NTP-PEERS-CONFIGURED — insufficient peers branch", () => {
+    it("fails when fewer than 2 NTP peers and no chrony reference", () => {
+      const output = "no peers or reference here";
+      const checks = parseTimeChecks(output, "bare");
+      const check = checks.find((c) => c.id === "TIME-NTP-PEERS-CONFIGURED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("Fewer than 2");
+    });
+  });
+
+  describe("TIME-CHRONY-SOURCES — no source branch", () => {
+    it("fails when no NTP source indicators are present", () => {
+      const output = "no chrony or ntp info here";
+      const checks = parseTimeChecks(output, "bare");
+      const check = checks.find((c) => c.id === "TIME-CHRONY-SOURCES");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("No NTP source");
+    });
+  });
+
+  describe("TIME-SYNCHRONIZED — System clock synchronized variant", () => {
+    it("passes with 'System clock synchronized: yes' instead of 'NTP synchronized'", () => {
+      const output = "System clock synchronized: yes\nother text";
+      const checks = parseTimeChecks(output, "bare");
+      const check = checks.find((c) => c.id === "TIME-SYNCHRONIZED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+  });
 });

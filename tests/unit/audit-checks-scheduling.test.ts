@@ -144,4 +144,161 @@ describe("parseSchedulingChecks", () => {
       expect(c.currentValue).toBe("Unable to determine");
     });
   });
+
+  describe("SCHED-CRON-DENY — missing branch", () => {
+    it("fails when MISSING appears before cron.deny", () => {
+      const output = "MISSING cron.deny";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-CRON-DENY");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+
+    it("fails when cron.deny is not mentioned at all", () => {
+      const output = "some unrelated output";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-CRON-DENY");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("SCHED-AT-ACCESS-CONTROL — missing branch", () => {
+    it("fails when at.allow MISSING", () => {
+      const output = "at.allow MISSING";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-AT-ACCESS-CONTROL");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("SCHED-AT-DENY — missing branch", () => {
+    it("fails when MISSING appears before at.deny", () => {
+      const output = "MISSING at.deny";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-AT-DENY");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+
+    it("fails when at.deny is not mentioned at all", () => {
+      const output = "some unrelated output";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-AT-DENY");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("SCHED-CRONTAB-PERMS — 644 owner root branch", () => {
+    it("passes with 644 root permissions", () => {
+      const output = "644 root root /etc/crontab";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-CRONTAB-PERMS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails with 777 permissions", () => {
+      const output = "777 root root /etc/crontab";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-CRONTAB-PERMS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+
+    it("fails when unable to parse permissions", () => {
+      const output = "no crontab permissions info";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-CRONTAB-PERMS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("Unable to read");
+    });
+  });
+
+  describe("SCHED-CRON-D-PERMS — alternative permissions", () => {
+    it("passes with 750 root permissions", () => {
+      const output = "750 root root /etc/cron.d";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-CRON-D-PERMS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("passes with 755 root permissions", () => {
+      const output = "755 root root /etc/cron.d";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-CRON-D-PERMS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when unable to parse permissions", () => {
+      const output = "no cron.d permissions info";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-CRON-D-PERMS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("Unable to read");
+    });
+  });
+
+  describe("SCHED-CRON-DAILY-PERMS — alternative permissions", () => {
+    it("passes with 750 root permissions", () => {
+      const output = "750 root root /etc/cron.daily";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-CRON-DAILY-PERMS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when unable to parse permissions", () => {
+      const output = "no cron.daily permissions info";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-CRON-DAILY-PERMS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("Unable to read");
+    });
+  });
+
+  describe("SCHED-CRON-D-FILE-COUNT — no standalone numbers branch", () => {
+    it("fails when no standalone numbers are found in output", () => {
+      const output = "cron.d contains various files but no count line";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-CRON-D-FILE-COUNT");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("Unable to determine");
+    });
+  });
+
+  describe("SCHED-CRONTAB-OWNER — edge cases", () => {
+    it("fails when permissions > 600 even with root owner", () => {
+      const output = "644 root root /etc/crontab";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-CRONTAB-OWNER");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+
+    it("fails when owner is not root", () => {
+      const output = "600 nobody root /etc/crontab";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-CRONTAB-OWNER");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+
+    it("fails when unable to parse ownership", () => {
+      const output = "no crontab ownership info";
+      const checks = parseSchedulingChecks(output, "bare");
+      const check = checks.find((c) => c.id === "SCHED-CRONTAB-OWNER");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("Unable to read");
+    });
+  });
 });

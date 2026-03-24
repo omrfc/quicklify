@@ -1415,6 +1415,140 @@ describe("buildSudoHardeningCommand (P87)", () => {
   });
 });
 
+// ─── applyLock — all steps fail (branch coverage) ────────────────────────────
+
+describe("applyLock — every non-critical step fails", () => {
+  it("populates stepErrors for all 24 steps when every sshExec after key-check rejects", async () => {
+    // Arrange: pre-audit succeeds, key check returns 2 keys, then ALL steps throw
+    mockedAudit.runAudit.mockResolvedValue(makeAuditResult(50));
+    mockedSsh.sshExec
+      .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" }) // key check OK
+      .mockRejectedValue(new Error("step failed")); // all remaining steps fail
+
+    // Act
+    const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+
+    // Assert: SSH hardening failed => success = false
+    expect(result.success).toBe(false);
+    expect(result.steps.sshHardening).toBe(false);
+    expect(result.steps.fail2ban).toBe(false);
+    expect(result.steps.banners).toBe(false);
+    expect(result.steps.accountLock).toBe(false);
+    expect(result.steps.sshCipher).toBe(false);
+    expect(result.steps.ufw).toBe(false);
+    expect(result.steps.cloudMeta).toBe(false); // skipped because UFW failed
+    expect(result.steps.dns).toBe(false);
+    expect(result.steps.sysctl).toBe(false);
+    expect(result.steps.unattendedUpgrades).toBe(false);
+    expect(result.steps.aptValidation).toBe(false);
+    expect(result.steps.resourceLimits).toBe(false);
+    expect(result.steps.serviceDisable).toBe(false);
+    expect(result.steps.backupPermissions).toBe(false);
+    expect(result.steps.pwquality).toBe(false);
+    expect(result.steps.dockerHardening).toBe(false);
+    expect(result.steps.auditd).toBe(false);
+    expect(result.steps.logRetention).toBe(false);
+    expect(result.steps.aide).toBe(false);
+    expect(result.steps.cronAccess).toBe(false);
+    expect(result.steps.sshFineTuning).toBe(false);
+    expect(result.steps.loginDefs).toBe(false);
+    expect(result.steps.faillock).toBe(false);
+    expect(result.steps.sudoHardening).toBe(false);
+
+    // stepErrors populated for every step
+    expect(result.stepErrors?.sshHardening).toBeDefined();
+    expect(result.stepErrors?.fail2ban).toBeDefined();
+    expect(result.stepErrors?.banners).toBeDefined();
+    expect(result.stepErrors?.accountLock).toBeDefined();
+    expect(result.stepErrors?.sshCipher).toBeDefined();
+    expect(result.stepErrors?.ufw).toBeDefined();
+    expect(result.stepErrors?.cloudMeta).toBe("UFW required");
+    expect(result.stepErrors?.dns).toBeDefined();
+    expect(result.stepErrors?.sysctl).toBeDefined();
+    expect(result.stepErrors?.unattendedUpgrades).toBeDefined();
+    expect(result.stepErrors?.aptValidation).toBeDefined();
+    expect(result.stepErrors?.resourceLimits).toBeDefined();
+    expect(result.stepErrors?.serviceDisable).toBeDefined();
+    expect(result.stepErrors?.backupPermissions).toBeDefined();
+    expect(result.stepErrors?.pwquality).toBeDefined();
+    expect(result.stepErrors?.dockerHardening).toBeDefined();
+    expect(result.stepErrors?.auditd).toBeDefined();
+    expect(result.stepErrors?.logRetention).toBeDefined();
+    expect(result.stepErrors?.aide).toBeDefined();
+    expect(result.stepErrors?.cronAccess).toBeDefined();
+    expect(result.stepErrors?.sshFineTuning).toBeDefined();
+    expect(result.stepErrors?.loginDefs).toBeDefined();
+    expect(result.stepErrors?.faillock).toBeDefined();
+    expect(result.stepErrors?.sudoHardening).toBeDefined();
+  });
+
+  it("covers cloudMeta error branch when UFW succeeds but cloudMeta fails", async () => {
+    // Arrange: key-check OK, SSH OK, fail2ban OK, banners OK, accountLock OK, sshCipher OK, UFW OK, cloudMeta FAIL
+    mockedAudit.runAudit.mockResolvedValue(makeAuditResult(50));
+    mockedSsh.sshExec
+      .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" }) // key check
+      .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // SSH hardening
+      .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // fail2ban
+      .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // banners
+      .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // accountLock
+      .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // sshCipher
+      .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // UFW
+      .mockRejectedValueOnce(new Error("cloud metadata block failed")) // cloudMeta FAIL
+      .mockResolvedValue({ code: 0, stdout: "", stderr: "" }); // all remaining steps OK
+
+    // Act
+    const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+
+    // Assert: UFW OK, cloudMeta failed with error message (not "UFW required")
+    expect(result.steps.ufw).toBe(true);
+    expect(result.steps.cloudMeta).toBe(false);
+    expect(result.stepErrors?.cloudMeta).toContain("cloud metadata block failed");
+  });
+
+  it("returns NaN key count as zero keys (abort path)", async () => {
+    // Arrange: key check returns non-numeric output
+    mockedAudit.runAudit.mockResolvedValue(makeAuditResult(30));
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "not-a-number", stderr: "" });
+
+    // Act
+    const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+
+    // Assert
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("No SSH keys found");
+  });
+
+  it("handles pre-audit returning success=false (no score)", async () => {
+    // Arrange: audit returns success but no data
+    mockedAudit.runAudit
+      .mockResolvedValueOnce({ success: false, error: "audit error" } as any) // pre-audit
+      .mockResolvedValueOnce(makeAuditResult(70)); // post-audit
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "2", stderr: "" });
+
+    // Act
+    const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+
+    // Assert: scoreBefore should be undefined since pre-audit failed
+    expect(result.scoreBefore).toBeUndefined();
+    expect(result.scoreAfter).toBe(70);
+  });
+
+  it("handles post-audit throwing (non-fatal)", async () => {
+    // Arrange: pre-audit OK, post-audit throws
+    mockedAudit.runAudit
+      .mockResolvedValueOnce(makeAuditResult(45))
+      .mockRejectedValueOnce(new Error("post-audit failed"));
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "2", stderr: "" });
+
+    // Act
+    const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+
+    // Assert: scoreBefore set, scoreAfter undefined
+    expect(result.scoreBefore).toBe(45);
+    expect(result.scoreAfter).toBeUndefined();
+  });
+});
+
 // ─── applyLock P87 steps ─────────────────────────────────────────────────────
 
 describe("applyLock P87 steps", () => {

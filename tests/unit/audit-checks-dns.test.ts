@@ -215,5 +215,99 @@ describe("parseDnsChecks", () => {
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
     });
+
+    it("fails when no search line exists", () => {
+      const output = "nameserver 8.8.8.8\nsome other stuff";
+      const checks = parseDnsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "DNS-SEARCH-DOMAIN-SET");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("DNS-DNSSEC-ENABLED — fallthrough branch", () => {
+    it("fails with indeterminate message when neither ENABLED nor DISABLED present", () => {
+      const output = "some random output without dnssec markers";
+      const checks = parseDnsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "DNS-DNSSEC-ENABLED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("could not be determined");
+    });
+  });
+
+  describe("DNS-DOH-DOT-AVAILABLE — fallthrough branch", () => {
+    it("fails with indeterminate message when neither installed nor not_installed", () => {
+      const output = "some random output";
+      const checks = parseDnsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "DNS-DOH-DOT-AVAILABLE");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("could not be determined");
+    });
+  });
+
+  describe("DNS-RESOLV-IMMUTABLE — fallthrough branch", () => {
+    it("fails with indeterminate message when neither immutable nor mutable", () => {
+      const output = "some random output";
+      const checks = parseDnsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "DNS-RESOLV-IMMUTABLE");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("could not be determined");
+    });
+  });
+
+  describe("DNS-NAMESERVER-CONFIGURED — fallthrough branch", () => {
+    it("fails with indeterminate message when neither configured nor not_configured", () => {
+      const output = "some random output";
+      const checks = parseDnsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "DNS-NAMESERVER-CONFIGURED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("could not be determined");
+    });
+  });
+
+  describe("DNS-MULTIPLE-NAMESERVERS — single nameserver branch", () => {
+    it("fails when only 1 nameserver is configured", () => {
+      const output = "1";
+      const checks = parseDnsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "DNS-MULTIPLE-NAMESERVERS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("single point of failure");
+    });
+  });
+
+  describe("DNS-RESOLV-NOT-LOCALHOST-ONLY — localhost only branch", () => {
+    it("fails when only raw localhost nameservers are present (no managed resolver)", () => {
+      const output = "nameserver 127.0.0.1\nnameserver ::1";
+      const checks = parseDnsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "DNS-RESOLV-NOT-LOCALHOST-ONLY");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("raw localhost");
+    });
+
+    it("fails when no nameserver entries found", () => {
+      const output = "some output without nameserver lines";
+      const checks = parseDnsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "DNS-RESOLV-NOT-LOCALHOST-ONLY");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("No nameserver entries");
+    });
+  });
+
+  describe("DNS-LOCAL-RESOLVER-ACTIVE — inactive fallthrough", () => {
+    it("fails when output does not contain 'active' as standalone word", () => {
+      const output = "some output without active keyword";
+      const checks = parseDnsChecks(output, "bare");
+      const check = checks.find((c) => c.id === "DNS-LOCAL-RESOLVER-ACTIVE");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toContain("inactive");
+    });
   });
 });

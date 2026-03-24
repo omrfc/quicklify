@@ -244,4 +244,66 @@ describe("formatComplianceReport", () => {
     // PCI-DSS framework should not appear when only CIS requested
     expect(output).not.toContain("PCI-DSS v4.0");
   });
+
+  it("shows all frameworks when frameworks array is empty", () => {
+    const cat = makeCategory("Mixed", [
+      makeCheck("CIS-A", true, [CIS_L1_REF]),
+      makeCheck("PCI-A", false, [PCI_REF]),
+    ]);
+    const result = makeResult([cat]);
+    const output = formatComplianceReport(result, []);
+    expect(output).toContain("CIS Ubuntu");
+    expect(output).toContain("PCI-DSS v4.0");
+  });
+
+  it("uses singular 'check' when a passing control has exactly 1 check", () => {
+    const cat = makeCategory("SSH", [
+      makeCheck("SSH-SINGLE", true, [{ ...CIS_L1_REF, controlId: "9.9.9" }]),
+    ]);
+    const result = makeResult([cat]);
+    const output = formatComplianceReport(result, ["CIS"]);
+    // Should contain "(1 check)" not "(1 checks)"
+    expect(output).toMatch(/1 check\)/);
+  });
+
+  it("uses plural 'checks' when a passing control has multiple checks", () => {
+    const cat = makeCategory("SSH", [
+      makeCheck("SSH-A", true, [{ ...CIS_L1_REF, controlId: "9.9.9" }]),
+      makeCheck("SSH-B", true, [{ ...CIS_L1_REF, controlId: "9.9.9" }]),
+    ]);
+    const result = makeResult([cat]);
+    const output = formatComplianceReport(result, ["CIS"]);
+    expect(output).toMatch(/2 checks\)/);
+  });
+
+  it("omits Failing Controls section when all controls pass", () => {
+    const cat = makeCategory("SSH", [
+      makeCheck("SSH-A", true, [CIS_L1_REF]),
+    ]);
+    const result = makeResult([cat]);
+    const output = formatComplianceReport(result, ["CIS"]);
+    expect(output).not.toContain("Failing Controls");
+    expect(output).toContain("Passing Controls");
+  });
+
+  it("shows [partial] note on failing controls with partial coverage", () => {
+    const cat = makeCategory("FW", [
+      makeCheck("FW-A", false, [{ ...CIS_L1_REF, controlId: "5.5.5", coverage: "partial" }]),
+    ]);
+    const result = makeResult([cat]);
+    const output = formatComplianceReport(result, ["CIS"]);
+    expect(output).toContain("Failing Controls");
+    expect(output).toContain("[partial]");
+  });
+
+  it("shows PASS/FAIL icons for individual checks under failing controls", () => {
+    const cat = makeCategory("SSH", [
+      makeCheck("SSH-PASS", true, [{ ...CIS_L1_REF, controlId: "5.2.8" }]),
+      makeCheck("SSH-FAIL", false, [{ ...CIS_L1_REF, controlId: "5.2.8" }]),
+    ]);
+    const result = makeResult([cat]);
+    const output = formatComplianceReport(result, ["CIS"]);
+    expect(output).toContain("PASS");
+    expect(output).toContain("FAIL");
+  });
 });

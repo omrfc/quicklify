@@ -103,6 +103,15 @@ describe("parseMemoryChecks", () => {
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
     });
+
+    it("fails when vm.overcommit_memory is not found in output", () => {
+      const output = "some unrelated output\nno overcommit here";
+      const checks = parseMemoryChecks(output, "bare");
+      const check = checks.find((c) => c.id === "MEM-OVERCOMMIT-POLICY");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toBe("vm.overcommit_memory not found");
+    });
   });
 
   describe("MEM-NO-ZOMBIE-EXCESS", () => {
@@ -119,6 +128,15 @@ describe("parseMemoryChecks", () => {
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
     });
+
+    it("fails when zombie count is not determinable", () => {
+      const output = "no numeric lines here\njust text";
+      const checks = parseMemoryChecks(output, "bare");
+      const check = checks.find((c) => c.id === "MEM-NO-ZOMBIE-EXCESS");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toBe("Zombie count not determinable");
+    });
   });
 
   describe("MEM-CORE-DUMP-RESTRICTED", () => {
@@ -134,6 +152,15 @@ describe("parseMemoryChecks", () => {
       const check = checks.find((c) => c.id === "MEM-CORE-DUMP-RESTRICTED");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
+    });
+
+    it("fails when fs.suid_dumpable is not found in output", () => {
+      const output = "no suid dumpable info here";
+      const checks = parseMemoryChecks(output, "bare");
+      const check = checks.find((c) => c.id === "MEM-CORE-DUMP-RESTRICTED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toBe("fs.suid_dumpable not found");
     });
   });
 
@@ -162,6 +189,44 @@ describe("parseMemoryChecks", () => {
       expect(check).toBeDefined();
       expect(check!.passed).toBe(true);
     });
+
+    it("fails when open files limit is not found in output", () => {
+      const output = "no ulimit info here\njust text";
+      const checks = parseMemoryChecks(output, "bare");
+      const check = checks.find((c) => c.id === "MEM-ULIMIT-NOFILE");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toBe("Open files limit not found in ulimit output");
+    });
+
+    it("fails when open files limit is -1 (unlimited variant)", () => {
+      const output = validOutput.replace(
+        "open files                      (-n) 1024",
+        "open files                      (-n) -1",
+      );
+      const checks = parseMemoryChecks(output, "bare");
+      const check = checks.find((c) => c.id === "MEM-ULIMIT-NOFILE");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+    });
+  });
+
+  describe("MEM-OOM-KILL-POLICY", () => {
+    it("passes when vm.oom_kill_allocating_task is present", () => {
+      const checks = parseMemoryChecks(validOutput, "bare");
+      const check = checks.find((c) => c.id === "MEM-OOM-KILL-POLICY");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+    });
+
+    it("fails when vm.oom_kill_allocating_task is not found", () => {
+      const output = "no oom kill info here";
+      const checks = parseMemoryChecks(output, "bare");
+      const check = checks.find((c) => c.id === "MEM-OOM-KILL-POLICY");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toBe("vm.oom_kill_allocating_task not found");
+    });
   });
 
   describe("MEM-HUGEPAGES-CONFIG", () => {
@@ -173,11 +238,21 @@ describe("parseMemoryChecks", () => {
     });
 
     it("fails when transparent_hugepage not found", () => {
-      const output = validOutput.replace("[always] madvise never", "N/A");
+      const output = validOutput.replace("[always] madvise never", "something_else");
       const checks = parseMemoryChecks(output, "bare");
       const check = checks.find((c) => c.id === "MEM-HUGEPAGES-CONFIG");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toBe("Transparent hugepages not configured");
+    });
+
+    it("passes with content-only (no bracket notation) — madvise keyword present", () => {
+      const output = validOutput.replace("[always] madvise never", "madvise");
+      const checks = parseMemoryChecks(output, "bare");
+      const check = checks.find((c) => c.id === "MEM-HUGEPAGES-CONFIG");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+      expect(check!.currentValue).toBe("Transparent hugepages configured");
     });
   });
 
@@ -197,6 +272,15 @@ describe("parseMemoryChecks", () => {
       expect(check).toBeDefined();
       expect(check!.passed).toBe(false);
     });
+
+    it("fails when pid_max value is not found in output", () => {
+      const output = "no pid max here\njust text lines";
+      const checks = parseMemoryChecks(output, "bare");
+      const check = checks.find((c) => c.id === "MEM-PID-MAX-REASONABLE");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toBe("pid_max value not found");
+    });
   });
 
   describe("MEM-SWAP-ENCRYPTED", () => {
@@ -206,6 +290,24 @@ describe("parseMemoryChecks", () => {
       expect(check).toBeDefined();
       expect(check!.passed).toBe(true);
     });
+
+    it("passes when swap is on encrypted volume", () => {
+      const output = validOutput.replace("NO_SWAP", "/dev/dm-0 partition crypto");
+      const checks = parseMemoryChecks(output, "bare");
+      const check = checks.find((c) => c.id === "MEM-SWAP-ENCRYPTED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+      expect(check!.currentValue).toBe("Swap on encrypted volume");
+    });
+
+    it("fails when unencrypted swap detected", () => {
+      const output = validOutput.replace("NO_SWAP", "/dev/sda2 partition");
+      const checks = parseMemoryChecks(output, "bare");
+      const check = checks.find((c) => c.id === "MEM-SWAP-ENCRYPTED");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toBe("Unencrypted swap detected");
+    });
   });
 
   describe("MEM-SWAPPINESS-REASONABLE", () => {
@@ -214,6 +316,27 @@ describe("parseMemoryChecks", () => {
       const check = checks.find((c) => c.id === "MEM-SWAPPINESS-REASONABLE");
       expect(check).toBeDefined();
       expect(check!.passed).toBe(true);
+    });
+
+    it("fails when vm.swappiness is not found", () => {
+      const output = "no swappiness value\njust text lines";
+      const checks = parseMemoryChecks(output, "bare");
+      const check = checks.find((c) => c.id === "MEM-SWAPPINESS-REASONABLE");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toBe("vm.swappiness not found");
+    });
+
+    it("fails when vm.swappiness is > 60", () => {
+      // The swappiness parser picks the first standalone number 0-200.
+      // In the full output, "0" (zombie count) comes first, so we need
+      // an isolated output where the only standalone number is > 60.
+      const output = "80";
+      const checks = parseMemoryChecks(output, "bare");
+      const check = checks.find((c) => c.id === "MEM-SWAPPINESS-REASONABLE");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toMatch(/high/i);
     });
   });
 
@@ -233,6 +356,15 @@ describe("parseMemoryChecks", () => {
       expect(check).toBeDefined();
       expect(check!.passed).toBe(true);
     });
+
+    it("passes when transparent hugepages config is not available", () => {
+      const output = "no hugepage info here\njust text";
+      const checks = parseMemoryChecks(output, "bare");
+      const check = checks.find((c) => c.id === "MEM-HUGEPAGES-NOT-EXCESSIVE");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(true);
+      expect(check!.currentValue).toBe("Transparent hugepages configuration not available");
+    });
   });
 
   describe("MEM-MAX-MAP-COUNT", () => {
@@ -251,6 +383,15 @@ describe("parseMemoryChecks", () => {
       const check = checks.find((c) => c.id === "MEM-MAX-MAP-COUNT");
       expect(check!.passed).toBe(false);
       expect(check!.currentValue).toMatch(/below minimum/);
+    });
+
+    it("fails when vm.max_map_count is not determinable", () => {
+      const output = "no max map count here\njust text";
+      const checks = parseMemoryChecks(output, "bare");
+      const check = checks.find((c) => c.id === "MEM-MAX-MAP-COUNT");
+      expect(check).toBeDefined();
+      expect(check!.passed).toBe(false);
+      expect(check!.currentValue).toBe("vm.max_map_count not determinable");
     });
   });
 });
