@@ -61,22 +61,26 @@ function findTests(dir) {
 }
 const testCount = findTests(path.join(root, 'src'));
 
-// Check which files have matching tests
-function hasTestFor(name) {
-  function search(dir) {
-    if (!fs.existsSync(dir)) return false;
+// Pre-index all test file contents once (avoids N+1 file reads)
+const testIndex = new Set();
+function indexTests(dir) {
+  try {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) { if (search(full)) return true; }
+      if (entry.isDirectory()) indexTests(full);
       else if (entry.name.endsWith('.test.ts')) {
         const content = fs.readFileSync(full, 'utf8');
-        if (content.includes(name)) return true;
+        // Extract referenced module names from imports and test descriptions
+        for (const match of content.matchAll(/['\"]([^'\"]*audit[^'\"]*)['\"]|from\s+['\"]([^'\"]+)['\"]/g)) {
+          const ref = match[1] || match[2] || '';
+          ref.split('/').forEach(part => testIndex.add(part.replace('.js', '').replace('.ts', '')));
+        }
       }
     }
-    return false;
-  }
-  return search(path.join(root, 'src'));
+  } catch {}
 }
+indexTests(path.join(root, 'src'));
+function hasTestFor(name) { return testIndex.has(name); }
 
 console.log('=== Audit Check Coverage ===');
 console.log('Project: ' + root);
