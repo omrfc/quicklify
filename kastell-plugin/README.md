@@ -6,7 +6,7 @@ Autonomous server security and infrastructure management for Claude Code.
 
 The Kastell plugin bundles 13 MCP tools, 4 skills, 1 agent, and 5 hooks that give Claude Code
 full control over your self-hosted server infrastructure. Use it to provision cloud servers,
-run 413-check security audits across 27 categories, apply 19-step hardening, manage backups,
+run 448-check security audits across 27 categories, apply 24-step hardening, manage backups,
 and operate entire fleets — all from natural language in Claude Code.
 
 Supported providers: Hetzner Cloud, DigitalOcean, Vultr, Linode.
@@ -68,11 +68,11 @@ automatically via the bundled `.mcp.json` configuration.
 | server_secure | SSH hardening, firewall management, and domain configuration |
 | server_backup | Create backups and manage cloud snapshots |
 | server_provision | Provision new cloud servers on Hetzner, DigitalOcean, Vultr, or Linode |
-| server_audit | Run the full 413-check security audit across 27 categories |
+| server_audit | Run the full 448-check security audit across 27 categories |
 | server_evidence | Collect forensic evidence packages from servers |
 | server_guard | Manage the autonomous security monitoring daemon |
 | server_doctor | Proactive health analysis with remediation recommendations |
-| server_lock | Apply the 19-step production hardening sequence |
+| server_lock | Apply the 24-step production hardening sequence |
 | server_fleet | Fleet-wide health and security posture overview |
 
 ## Quick Start

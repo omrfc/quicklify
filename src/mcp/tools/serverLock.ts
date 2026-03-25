@@ -64,7 +64,7 @@ export async function handleServerLock(params: {
     const platform: Platform | undefined =
       platformStr === "coolify" || platformStr === "dokploy" ? platformStr : undefined;
 
-    await mcpLog(mcpServer, `Starting 19-step hardening on ${server.name}`);
+    await mcpLog(mcpServer, `Starting 24-step hardening on ${server.name}`);
 
     const result = await applyLock(server.ip, server.name, platform, {
       production,

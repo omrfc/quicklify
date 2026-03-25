@@ -36,8 +36,8 @@ Tool routing:
 - server_info: read-only queries (list, status, health, sizes)
 - server_provision: creates new billable cloud resources (requires SAFE_MODE=false)
 - server_manage: register existing servers (add), unregister (remove), permanently delete (destroy - requires SAFE_MODE=false)
-- server_lock: one-shot 19-step production hardening (SSH + fail2ban + UFW + sysctl + auditd + AIDE + Docker)
-- server_audit: 413-check security scan, 27 categories, CIS/PCI-DSS/HIPAA compliance filtering
+- server_lock: one-shot 24-step production hardening (SSH + fail2ban + UFW + sysctl + auditd + AIDE + Docker)
+- server_audit: 448-check security scan, 27 categories, CIS/PCI-DSS/HIPAA compliance filtering
 - server_secure: granular security (SSH hardening, firewall rules, domain/SSL)
 - server_backup: backup/restore + VPS snapshots
 - server_maintain: platform updates, restarts, full maintenance cycle
@@ -160,7 +160,7 @@ Bare servers: use service 'system' or 'docker' for logs (not 'coolify'). server_
 
   server.registerTool("server_audit", {
     description:
-      "Run a security audit on a Kastell-managed server. Scans 27 categories (SSH, Firewall, Updates, Auth, Docker, Network, Filesystem, Logging, Kernel, Accounts, Services, Boot, Scheduling, Time, Banners, Crypto, File Integrity, Malware, MAC, Memory, Secrets, Cloud Metadata, Supply Chain, Backup Hygiene, Resource Limits, Incident Readiness, DNS Security) with 413 checks. Returns overall score (0-100), per-category scores, and actionable quick wins. Formats: 'summary' (compact text for AI consumption), 'json' (full AuditResult), 'score' (number only). Supports compliance framework filtering: cis-level1, cis-level2, pci-dss, hipaa. Requires SSH access to target server. For predictive health trends (disk trending, swap, stale packages), use server_doctor instead.",
+      "Run a security audit on a Kastell-managed server. Scans 27 categories (SSH, Firewall, Updates, Auth, Docker, Network, Filesystem, Logging, Kernel, Accounts, Services, Boot, Scheduling, Time, Banners, Crypto, File Integrity, Malware, MAC, Memory, Secrets, Cloud Metadata, Supply Chain, Backup Hygiene, Resource Limits, Incident Readiness, DNS Security) with 448 checks. Returns overall score (0-100), per-category scores, and actionable quick wins. Formats: 'summary' (compact text for AI consumption), 'json' (full AuditResult), 'score' (number only). Supports compliance framework filtering: cis-level1, cis-level2, pci-dss, hipaa. Requires SSH access to target server. For predictive health trends (disk trending, swap, stale packages), use server_doctor instead.",
     inputSchema: serverAuditSchema,
     annotations: {
       title: "Server Security Audit",

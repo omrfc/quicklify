@@ -171,7 +171,7 @@ kastell audit my-server --compliance cis # Filter by compliance framework (cis-l
 
 ### Security Hardening
 ```bash
-kastell lock my-server                        # 19-step production hardening (SSH + UFW + sysctl + auditd + AIDE + Docker)
+kastell lock my-server                        # 24-step production hardening (SSH + UFW + sysctl + auditd + AIDE + Docker)
 kastell lock my-server --dry-run              # Preview hardening steps without applying
 ```
 
@@ -326,7 +326,7 @@ Available tools:
 | `server_evidence` | collect | Collect forensic evidence package with checksums |
 | `server_guard` | start, stop, status | Manage autonomous security monitoring daemon |
 | `server_doctor` | diagnose | Proactive health analysis with remediation commands |
-| `server_lock` | harden | 19-step production hardening (SSH, UFW, sysctl, auditd, AIDE, Docker) |
+| `server_lock` | harden | 24-step production hardening (SSH, UFW, sysctl, auditd, AIDE, Docker) |
 | `server_fleet` | overview | Fleet-wide health and security posture dashboard |
 
 > All destructive operations (destroy, restore, snapshot-delete, provision, restart, maintain, snapshot-create) require `SAFE_MODE=false` to execute.
