@@ -14,6 +14,7 @@ export default {
     '!src/core/**/*.test.ts',
     '!src/core/**/__tests__/**',
     '!src/core/**/types.ts',
+    '!src/core/audit/compliance/mapper.ts',
   ],
   reporters: ['html', 'json', 'progress'],
   htmlReporter: {

@@ -1,0 +1,143 @@
+name: Mutation Testing
+
+on:
+  # Nightly incremental — cache güncel kalır, 7 gün expire olmaz
+  schedule:
+    - cron: '23 2 * * *'  # 02:23 UTC (05:23 TR) her gece
+  # Her push'ta incremental — sadece değişen mutantlar
+  push:
+    branches: [main]
+    paths:
+      - 'src/core/**/*.ts'
+      - 'tests/**/*.test.ts'
+      - 'stryker.config.mjs'
+      - 'jest.stryker.cjs'
+  # Manuel tetikleme
+  workflow_dispatch:
+    inputs:
+      concurrency:
+        description: 'Stryker concurrency (default: 4)'
+        required: false
+        default: '4'
+
+# Aynı branch'te aynı anda birden fazla mutation run engelle
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutate:
+    name: Stryker Incremental
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6h — cache varsa ~15dk, yoksa kısmi ilerleme kaydedip sonraki gece devam eder
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # nightly source change check için
+
+      - name: Check for source changes (nightly skip)
+        if: github.event_name == 'schedule'
+        id: changes
+        run: |
+          CHANGED=$(git log --since="25 hours ago" --name-only --pretty=format: -- src/core/ tests/ stryker.config.mjs jest.stryker.cjs | head -1)
+          echo "has_changes=$([[ -n "$CHANGED" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js
+        if: github.event_name != 'schedule' || steps.changes.outputs.has_changes == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: github.event_name != 'schedule' || steps.changes.outputs.has_changes == 'true'
+        run: npm ci
+
+      - name: Build
+        if: github.event_name != 'schedule' || steps.changes.outputs.has_changes == 'true'
+        run: npx tsc
+
+      - name: Ensure Stryker directory exists
+        if: github.event_name != 'schedule' || steps.changes.outputs.has_changes == 'true'
+        run: mkdir -p .stryker-tmp
+
+      - name: Restore Stryker cache
+        if: github.event_name != 'schedule' || steps.changes.outputs.has_changes == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: .stryker-tmp/incremental.json
+          key: stryker-${{ github.ref }}-${{ hashFiles('src/**/*.ts', 'tests/**/*.ts', 'stryker.config.mjs', 'jest.stryker.cjs') }}
+          restore-keys: |
+            stryker-${{ github.ref }}-
+            stryker-refs/heads/main-
+
+      # Backup: Stryker crash/OOM olursa bozuk cache kaydetmeyi önle
+      - name: Backup restored cache (pre-run safety)
+        if: github.event_name != 'schedule' || steps.changes.outputs.has_changes == 'true'
+        run: |
+          if [ -f .stryker-tmp/incremental.json ]; then
+            cp .stryker-tmp/incremental.json .stryker-tmp/incremental.backup.json
+            echo "Cache backed up ($(wc -c < .stryker-tmp/incremental.backup.json) bytes)"
+          else
+            echo "No cache to backup — first run"
+          fi
+
+      - name: Run Stryker (incremental)
+        id: stryker
+        if: github.event_name != 'schedule' || steps.changes.outputs.has_changes == 'true'
+        run: |
+          CONCURRENCY="${{ github.event.inputs.concurrency || '4' }}"
+          if ! [[ "$CONCURRENCY" =~ ^[0-9]+$ ]]; then
+            echo "Invalid concurrency value: $CONCURRENCY"
+            exit 1
+          fi
+          node --max-old-space-size=4096 node_modules/.bin/stryker run --concurrency "$CONCURRENCY"
+        env:
+          NODE_OPTIONS: '--experimental-vm-modules'
+
+      # Stryker crash olursa backup'tan restore et — bozuk cache kaydetmeyi önle
+      - name: Restore backup if Stryker crashed
+        if: failure() && steps.stryker.outcome == 'failure' && (github.event_name != 'schedule' || steps.changes.outputs.has_changes == 'true')
+        run: |
+          if [ -f .stryker-tmp/incremental.backup.json ]; then
+            # Bozuk dosya kontrolü: JSON parse edilebilir mi?
+            if node -e "JSON.parse(require('fs').readFileSync('.stryker-tmp/incremental.json','utf8'))" 2>/dev/null; then
+              echo "Cache file is valid JSON — keeping updated version"
+            else
+              echo "Cache file corrupted — restoring from backup"
+              cp .stryker-tmp/incremental.backup.json .stryker-tmp/incremental.json
+            fi
+          fi
+
+      # Save with hashFiles + run_id — GitHub cache is immutable (same key can't be overwritten).
+      # hashFiles keeps semantic meaning, run_id ensures uniqueness.
+      # restore-keys prefix matching finds the latest entry.
+      - name: Save Stryker cache
+        if: always() && (github.event_name != 'schedule' || steps.changes.outputs.has_changes == 'true')
+        uses: actions/cache/save@v4
+        with:
+          path: .stryker-tmp/incremental.json
+          key: stryker-${{ github.ref }}-${{ hashFiles('src/**/*.ts', 'tests/**/*.ts', 'stryker.config.mjs', 'jest.stryker.cjs') }}-${{ github.run_id }}
+
+      - name: Upload mutation report
+        if: always() && (github.event_name != 'schedule' || steps.changes.outputs.has_changes == 'true')
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: |
+            reports/mutation/mutation.html
+            reports/mutation/mutation.json
+          retention-days: 30
+
+      - name: Upload incremental cache (CI→Lokal sync için)
+        if: always() && (github.event_name != 'schedule' || steps.changes.outputs.has_changes == 'true')
+        uses: actions/upload-artifact@v4
+        with:
+          name: stryker-incremental
+          path: .stryker-tmp/incremental.json
+          retention-days: 7
+
+      - name: Skip notification (no changes)
+        if: github.event_name == 'schedule' && steps.changes.outputs.has_changes != 'true'
+        run: echo "No source changes in last 25 hours — skipping mutation run"

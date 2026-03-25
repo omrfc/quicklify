@@ -23,7 +23,7 @@
     "test": "jest --config jest.config.cjs",
     "test:watch": "jest --config jest.config.cjs --watch",
     "test:coverage": "jest --config jest.config.cjs --coverage",
-    "test:mutate": "stryker run",
+    "test:mutate": "cp .stryker-tmp/incremental.json .stryker-tmp/incremental.backup.json 2>/dev/null; stryker run",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write \"src/**/*.ts\"",

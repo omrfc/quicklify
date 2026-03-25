@@ -1647,3 +1647,417 @@ describe("parseDockerChecks — privileged port match parsing", () => {
     expect(check!.passed).toBe(true);
   });
 });
+
+// ─── Mutation killer: skipped check IDs exact order on bare ──────────────────
+
+describe("parseDockerChecks — mutation killer: skipped check IDs on bare", () => {
+  it("returns ALL 32 skipped check IDs in exact defined order when Docker not installed (bare)", () => {
+    const checks = parseDockerChecks("N/A", "bare");
+    const expectedIds = [
+      "DCK-NO-TCP-SOCKET",
+      "DCK-NO-PRIVILEGED",
+      "DCK-VERSION-CURRENT",
+      "DCK-USER-NAMESPACE",
+      "DCK-NO-HOST-NETWORK",
+      "DCK-LOGGING-DRIVER",
+      "DCK-LIVE-RESTORE",
+      "DCK-NO-NEW-PRIVILEGES",
+      "DCK-ICC-DISABLED",
+      "DCK-TLS-VERIFY",
+      "DCK-SOCKET-PERMS",
+      "DCK-NO-ROOT-CONTAINERS",
+      "DCK-READ-ONLY-ROOTFS",
+      "DCK-LOG-MAX-SIZE",
+      "DCK-DEFAULT-ULIMITS",
+      "DCK-SECCOMP-ENABLED",
+      "DCK-CONTENT-TRUST",
+      "DCK-NO-SENSITIVE-MOUNTS",
+      "DCK-APPARMOR-PROFILE",
+      "DCK-NO-PRIVILEGED-PORTS",
+      "DCK-NETWORK-DISABLED",
+      "DCK-LOG-DRIVER-CONFIGURED",
+      "DCK-ROOTLESS-MODE",
+      "DCK-NO-HOST-NETWORK-INSPECT",
+      "DCK-HEALTH-CHECK",
+      "DCK-BRIDGE-NFCALL",
+      "DCK-NO-INSECURE-REGISTRY",
+      "DCK-NO-EXPERIMENTAL",
+      "DCK-AUTH-PLUGIN",
+      "DCK-REGISTRY-CERTS",
+      "DCK-SWARM-INACTIVE",
+      "DCK-PID-MODE",
+    ];
+    expect(checks.map((c) => c.id)).toEqual(expectedIds);
+  });
+
+  it("returns same 32 IDs in same order for coolify platform (N/A)", () => {
+    const bareChecks = parseDockerChecks("N/A", "bare");
+    const coolifyChecks = parseDockerChecks("N/A", "coolify");
+    expect(coolifyChecks.map((c) => c.id)).toEqual(bareChecks.map((c) => c.id));
+  });
+
+  it("returns same 32 IDs in same order for dokploy platform (N/A)", () => {
+    const bareChecks = parseDockerChecks("N/A", "bare");
+    const dokployChecks = parseDockerChecks("N/A", "dokploy");
+    expect(dokployChecks.map((c) => c.id)).toEqual(bareChecks.map((c) => c.id));
+  });
+
+  it("returns same 32 IDs in same order for empty string input", () => {
+    const bareChecks = parseDockerChecks("N/A", "bare");
+    const emptyChecks = parseDockerChecks("", "bare");
+    expect(emptyChecks.map((c) => c.id)).toEqual(bareChecks.map((c) => c.id));
+  });
+});
+
+// ─── Mutation killer: skipped check currentValue and explain ─────────────────
+
+describe("parseDockerChecks — mutation killer: skipped check currentValue/explain", () => {
+  it("every skipped check on bare has currentValue exactly 'Docker not installed'", () => {
+    const checks = parseDockerChecks("N/A", "bare");
+    checks.forEach((c) => {
+      expect(c.currentValue).toBe("Docker not installed");
+    });
+  });
+
+  it("every skipped check on bare has explain containing 'not installed'", () => {
+    const checks = parseDockerChecks("N/A", "bare");
+    checks.forEach((c) => {
+      expect(c.explain).toContain("not installed");
+    });
+  });
+
+  it("bare skipped checks have explain exactly 'Docker is not installed on this server. Checks skipped.'", () => {
+    const checks = parseDockerChecks("N/A", "bare");
+    checks.forEach((c) => {
+      expect(c.explain).toBe("Docker is not installed on this server. Checks skipped.");
+    });
+  });
+
+  it("coolify skipped checks have explain exactly 'Docker is expected on this platform but was not found.'", () => {
+    const checks = parseDockerChecks("N/A", "coolify");
+    checks.forEach((c) => {
+      expect(c.explain).toBe("Docker is expected on this platform but was not found.");
+    });
+  });
+
+  it("dokploy skipped checks have explain exactly 'Docker is expected on this platform but was not found.'", () => {
+    const checks = parseDockerChecks("N/A", "dokploy");
+    checks.forEach((c) => {
+      expect(c.explain).toBe("Docker is expected on this platform but was not found.");
+    });
+  });
+
+  it("every skipped check has expectedValue exactly 'Docker installed and configured securely'", () => {
+    const checks = parseDockerChecks("N/A", "bare");
+    checks.forEach((c) => {
+      expect(c.expectedValue).toBe("Docker installed and configured securely");
+    });
+  });
+
+  it("every skipped check has fixCommand containing 'get.docker.com'", () => {
+    const checks = parseDockerChecks("N/A", "bare");
+    checks.forEach((c) => {
+      expect(c.fixCommand).toContain("get.docker.com");
+    });
+  });
+
+  it("every skipped check has name matching its definition (not empty)", () => {
+    const checks = parseDockerChecks("N/A", "bare");
+    checks.forEach((c) => {
+      expect(c.name.length).toBeGreaterThan(0);
+    });
+  });
+});
+
+// ─── Mutation killer: version boundary 23.x vs 24.x ─────────────────────────
+
+describe("parseDockerChecks — mutation killer: version boundary", () => {
+  const makeVersionOutput = (version: string): string => [
+    `{"Hosts":["unix:///var/run/docker.sock"],"ServerVersion":"${version}","SecurityOptions":[],"LoggingDriver":"json-file"}`,
+    "---DAEMON_JSON---",
+    "{}",
+    "---END_DAEMON_JSON---",
+    "N/A",
+    "N/A",
+    "N/A",
+  ].join("\n");
+
+  it("version 23.0.0 fails (major < 24)", () => {
+    const checks = parseDockerChecks(makeVersionOutput("23.0.0"), "bare");
+    const check = checks.find((c) => c.id === "DCK-VERSION-CURRENT");
+    expect(check!.passed).toBe(false);
+    expect(check!.currentValue).toBe("Docker 23.0.0");
+  });
+
+  it("version 23.9.9 fails (major 23 still < 24)", () => {
+    const checks = parseDockerChecks(makeVersionOutput("23.9.9"), "bare");
+    const check = checks.find((c) => c.id === "DCK-VERSION-CURRENT");
+    expect(check!.passed).toBe(false);
+    expect(check!.currentValue).toBe("Docker 23.9.9");
+  });
+
+  it("version 24.0.0 passes (major == 24, boundary)", () => {
+    const checks = parseDockerChecks(makeVersionOutput("24.0.0"), "bare");
+    const check = checks.find((c) => c.id === "DCK-VERSION-CURRENT");
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toBe("Docker 24.0.0");
+  });
+
+  it("version 24.0.7 passes (major 24)", () => {
+    const checks = parseDockerChecks(makeVersionOutput("24.0.7"), "bare");
+    const check = checks.find((c) => c.id === "DCK-VERSION-CURRENT");
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toBe("Docker 24.0.7");
+  });
+
+  it("version 25.0.0 passes (major > 24)", () => {
+    const checks = parseDockerChecks(makeVersionOutput("25.0.0"), "bare");
+    const check = checks.find((c) => c.id === "DCK-VERSION-CURRENT");
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toBe("Docker 25.0.0");
+  });
+
+  it("version 1.13.1 fails (very old major)", () => {
+    const checks = parseDockerChecks(makeVersionOutput("1.13.1"), "bare");
+    const check = checks.find((c) => c.id === "DCK-VERSION-CURRENT");
+    expect(check!.passed).toBe(false);
+    expect(check!.currentValue).toBe("Docker 1.13.1");
+  });
+
+  it("version 0.0.1 fails (zero major)", () => {
+    const checks = parseDockerChecks(makeVersionOutput("0.0.1"), "bare");
+    const check = checks.find((c) => c.id === "DCK-VERSION-CURRENT");
+    expect(check!.passed).toBe(false);
+    expect(check!.currentValue).toBe("Docker 0.0.1");
+  });
+
+  it("version missing (undefined ServerVersion) results in 'Docker unknown' and fails", () => {
+    const noVersionOutput = [
+      '{"Hosts":["unix:///var/run/docker.sock"],"SecurityOptions":[],"LoggingDriver":"json-file"}',
+      "---DAEMON_JSON---",
+      "{}",
+      "---END_DAEMON_JSON---",
+      "N/A",
+    ].join("\n");
+    const checks = parseDockerChecks(noVersionOutput, "bare");
+    const check = checks.find((c) => c.id === "DCK-VERSION-CURRENT");
+    expect(check!.passed).toBe(false);
+    expect(check!.currentValue).toBe("Docker unknown");
+  });
+
+  it("expectedValue is always 'Docker 24.0+' regardless of version", () => {
+    for (const ver of ["20.10.7", "23.0.0", "24.0.0", "25.0.0"]) {
+      const checks = parseDockerChecks(makeVersionOutput(ver), "bare");
+      const check = checks.find((c) => c.id === "DCK-VERSION-CURRENT");
+      expect(check!.expectedValue).toBe("Docker 24.0+");
+    }
+  });
+});
+
+// ─── Mutation killer: currentValue exact strings for secure output ────────────
+
+describe("parseDockerChecks — mutation killer: currentValue exact strings (secure)", () => {
+  // Use secureDockerOutput which is defined at module scope
+  let checks: ReturnType<typeof parseDockerChecks>;
+
+  beforeAll(() => {
+    checks = parseDockerChecks(secureDockerOutput, "bare");
+  });
+
+  it("DCK-NO-TCP-SOCKET currentValue is exactly 'Unix socket only'", () => {
+    const check = checks.find((c) => c.id === "DCK-NO-TCP-SOCKET");
+    expect(check!.currentValue).toBe("Unix socket only");
+  });
+
+  it("DCK-NO-PRIVILEGED currentValue is exactly 'No privileged containers'", () => {
+    const check = checks.find((c) => c.id === "DCK-NO-PRIVILEGED");
+    expect(check!.currentValue).toBe("No privileged containers");
+  });
+
+  it("DCK-VERSION-CURRENT currentValue is exactly 'Docker 24.0.7'", () => {
+    const check = checks.find((c) => c.id === "DCK-VERSION-CURRENT");
+    expect(check!.currentValue).toBe("Docker 24.0.7");
+  });
+
+  it("DCK-USER-NAMESPACE currentValue is exactly 'User namespace remapping enabled'", () => {
+    const check = checks.find((c) => c.id === "DCK-USER-NAMESPACE");
+    expect(check!.currentValue).toBe("User namespace remapping enabled");
+  });
+
+  it("DCK-NO-HOST-NETWORK currentValue is exactly 'No host network containers'", () => {
+    const check = checks.find((c) => c.id === "DCK-NO-HOST-NETWORK");
+    expect(check!.currentValue).toBe("No host network containers");
+  });
+
+  it("DCK-LOGGING-DRIVER currentValue is exactly 'Logging driver: json-file'", () => {
+    const check = checks.find((c) => c.id === "DCK-LOGGING-DRIVER");
+    expect(check!.currentValue).toBe("Logging driver: json-file");
+  });
+
+  it("DCK-LIVE-RESTORE currentValue is exactly 'live-restore: true'", () => {
+    const check = checks.find((c) => c.id === "DCK-LIVE-RESTORE");
+    expect(check!.currentValue).toBe("live-restore: true");
+  });
+
+  it("DCK-NO-NEW-PRIVILEGES currentValue is exactly 'no-new-privileges not set as default' (secure fixture lacks it)", () => {
+    // Note: secureDockerOutput daemon.json does not include "no-new-privileges":true
+    // and SecurityOptions does not include "no-new-privileges"
+    const check = checks.find((c) => c.id === "DCK-NO-NEW-PRIVILEGES");
+    expect(check!.currentValue).toBe("no-new-privileges not set as default");
+  });
+
+  it("DCK-ICC-DISABLED currentValue is exactly 'ICC disabled'", () => {
+    const check = checks.find((c) => c.id === "DCK-ICC-DISABLED");
+    expect(check!.currentValue).toBe("ICC disabled");
+  });
+
+  it("DCK-TLS-VERIFY currentValue is exactly 'No TCP socket exposed'", () => {
+    const check = checks.find((c) => c.id === "DCK-TLS-VERIFY");
+    expect(check!.currentValue).toBe("No TCP socket exposed");
+  });
+
+  it("DCK-SOCKET-PERMS currentValue is exactly '660 root docker'", () => {
+    const check = checks.find((c) => c.id === "DCK-SOCKET-PERMS");
+    expect(check!.currentValue).toBe("660 root docker");
+  });
+
+  it("DCK-NO-ROOT-CONTAINERS currentValue is exactly 'Containers running as non-root'", () => {
+    const check = checks.find((c) => c.id === "DCK-NO-ROOT-CONTAINERS");
+    expect(check!.currentValue).toBe("Containers running as non-root");
+  });
+
+  it("DCK-READ-ONLY-ROOTFS currentValue is exactly 'Containers use read-only root filesystem'", () => {
+    const check = checks.find((c) => c.id === "DCK-READ-ONLY-ROOTFS");
+    expect(check!.currentValue).toBe("Containers use read-only root filesystem");
+  });
+
+  it("DCK-LOG-MAX-SIZE currentValue is exactly 'log max-size configured'", () => {
+    const check = checks.find((c) => c.id === "DCK-LOG-MAX-SIZE");
+    expect(check!.currentValue).toBe("log max-size configured");
+  });
+
+  it("DCK-DEFAULT-ULIMITS currentValue is exactly 'default-ulimits configured'", () => {
+    const check = checks.find((c) => c.id === "DCK-DEFAULT-ULIMITS");
+    expect(check!.currentValue).toBe("default-ulimits configured");
+  });
+
+  it("DCK-SECCOMP-ENABLED currentValue is exactly 'seccomp profile applied'", () => {
+    const check = checks.find((c) => c.id === "DCK-SECCOMP-ENABLED");
+    expect(check!.currentValue).toBe("seccomp profile applied");
+  });
+
+  it("DCK-CONTENT-TRUST currentValue is exactly 'DOCKER_CONTENT_TRUST=1'", () => {
+    const check = checks.find((c) => c.id === "DCK-CONTENT-TRUST");
+    expect(check!.currentValue).toBe("DOCKER_CONTENT_TRUST=1");
+  });
+
+  it("DCK-NO-SENSITIVE-MOUNTS currentValue is exactly 'No privileged containers detected'", () => {
+    const check = checks.find((c) => c.id === "DCK-NO-SENSITIVE-MOUNTS");
+    expect(check!.currentValue).toBe("No privileged containers detected");
+  });
+
+  it("DCK-APPARMOR-PROFILE currentValue is exactly 'AppArmor profile applied'", () => {
+    const check = checks.find((c) => c.id === "DCK-APPARMOR-PROFILE");
+    expect(check!.currentValue).toBe("AppArmor profile applied");
+  });
+
+  it("DCK-NO-PRIVILEGED-PORTS currentValue is exactly 'No privileged port bindings'", () => {
+    const check = checks.find((c) => c.id === "DCK-NO-PRIVILEGED-PORTS");
+    expect(check!.currentValue).toBe("No privileged port bindings");
+  });
+
+  it("DCK-NETWORK-DISABLED currentValue is exactly 'Custom user-defined network(s) found'", () => {
+    const check = checks.find((c) => c.id === "DCK-NETWORK-DISABLED");
+    expect(check!.currentValue).toBe("Custom user-defined network(s) found");
+  });
+
+  it("DCK-BRIDGE-NFCALL currentValue is exactly 'ICC not enabled on default bridge'", () => {
+    const check = checks.find((c) => c.id === "DCK-BRIDGE-NFCALL");
+    expect(check!.currentValue).toBe("ICC not enabled on default bridge");
+  });
+
+  it("DCK-NO-INSECURE-REGISTRY currentValue is exactly 'No custom insecure registries'", () => {
+    const check = checks.find((c) => c.id === "DCK-NO-INSECURE-REGISTRY");
+    expect(check!.currentValue).toBe("No custom insecure registries");
+  });
+
+  it("DCK-SWARM-INACTIVE currentValue is exactly 'Swarm state: inactive'", () => {
+    const check = checks.find((c) => c.id === "DCK-SWARM-INACTIVE");
+    expect(check!.currentValue).toBe("Swarm state: inactive");
+  });
+
+  it("DCK-NO-EXPERIMENTAL currentValue is exactly 'Experimental features disabled'", () => {
+    const check = checks.find((c) => c.id === "DCK-NO-EXPERIMENTAL");
+    expect(check!.currentValue).toBe("Experimental features disabled");
+  });
+});
+
+// ─── Mutation killer: currentValue exact strings for insecure output ──────────
+
+describe("parseDockerChecks — mutation killer: currentValue exact strings (insecure)", () => {
+  let checks: ReturnType<typeof parseDockerChecks>;
+
+  beforeAll(() => {
+    checks = parseDockerChecks(insecureDockerOutput, "bare");
+  });
+
+  it("DCK-NO-TCP-SOCKET currentValue contains the TCP socket address", () => {
+    const check = checks.find((c) => c.id === "DCK-NO-TCP-SOCKET");
+    expect(check!.currentValue).toBe("TCP socket found: tcp://0.0.0.0:2375");
+  });
+
+  it("DCK-NO-PRIVILEGED currentValue is exactly 'Privileged container(s) detected'", () => {
+    const check = checks.find((c) => c.id === "DCK-NO-PRIVILEGED");
+    expect(check!.currentValue).toBe("Privileged container(s) detected");
+  });
+
+  it("DCK-VERSION-CURRENT currentValue is exactly 'Docker 20.10.7'", () => {
+    const check = checks.find((c) => c.id === "DCK-VERSION-CURRENT");
+    expect(check!.currentValue).toBe("Docker 20.10.7");
+  });
+
+  it("DCK-USER-NAMESPACE currentValue is exactly 'User namespace not configured'", () => {
+    const check = checks.find((c) => c.id === "DCK-USER-NAMESPACE");
+    expect(check!.currentValue).toBe("User namespace not configured");
+  });
+
+  it("DCK-LOGGING-DRIVER currentValue is exactly 'Logging driver: none'", () => {
+    const check = checks.find((c) => c.id === "DCK-LOGGING-DRIVER");
+    expect(check!.currentValue).toBe("Logging driver: none");
+  });
+
+  it("DCK-LIVE-RESTORE currentValue is exactly 'live-restore not configured'", () => {
+    const check = checks.find((c) => c.id === "DCK-LIVE-RESTORE");
+    expect(check!.currentValue).toBe("live-restore not configured");
+  });
+
+  it("DCK-NO-NEW-PRIVILEGES currentValue is exactly 'no-new-privileges not set as default'", () => {
+    const check = checks.find((c) => c.id === "DCK-NO-NEW-PRIVILEGES");
+    expect(check!.currentValue).toBe("no-new-privileges not set as default");
+  });
+
+  it("DCK-ICC-DISABLED currentValue is exactly 'ICC not disabled (containers can communicate freely)'", () => {
+    const check = checks.find((c) => c.id === "DCK-ICC-DISABLED");
+    expect(check!.currentValue).toBe("ICC not disabled (containers can communicate freely)");
+  });
+
+  it("DCK-TLS-VERIFY currentValue is exactly 'TCP socket exposed without TLS verification'", () => {
+    const check = checks.find((c) => c.id === "DCK-TLS-VERIFY");
+    expect(check!.currentValue).toBe("TCP socket exposed without TLS verification");
+  });
+
+  it("DCK-CONTENT-TRUST currentValue is exactly 'Content trust not enabled'", () => {
+    const check = checks.find((c) => c.id === "DCK-CONTENT-TRUST");
+    expect(check!.currentValue).toBe("Content trust not enabled");
+  });
+
+  it("DCK-LOG-MAX-SIZE currentValue is exactly 'No log max-size configured'", () => {
+    const check = checks.find((c) => c.id === "DCK-LOG-MAX-SIZE");
+    expect(check!.currentValue).toBe("No log max-size configured");
+  });
+
+  it("DCK-DEFAULT-ULIMITS currentValue is exactly 'No default ulimits in daemon.json'", () => {
+    const check = checks.find((c) => c.id === "DCK-DEFAULT-ULIMITS");
+    expect(check!.currentValue).toBe("No default ulimits in daemon.json");
+  });
+});

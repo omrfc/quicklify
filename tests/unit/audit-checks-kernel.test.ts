@@ -290,4 +290,494 @@ describe("parseKernelChecks", () => {
     expect(check).toBeDefined();
     expect(check!.passed).toBe(false);
   });
+
+  // ─── MUTATION-KILLER TESTS ───────────────────────────────────────
+
+  it("ID array assertion — all 31 check IDs in exact order", () => {
+    const checks = parseKernelChecks(secureOutput, "bare");
+    const ids = checks.map((c: { id: string }) => c.id);
+    expect(ids).toEqual([
+      "KRN-ASLR-ENABLED",
+      "KRN-CORE-DUMPS-RESTRICTED",
+      "KRN-NETWORK-HARDENING",
+      "KRN-KERNEL-VERSION",
+      "KRN-DMESG-RESTRICTED",
+      "KRN-PTRACE-SCOPE",
+      "KRN-KPTR-RESTRICT",
+      "KRN-PERF-PARANOID",
+      "KRN-SYN-COOKIES",
+      "KRN-IP-FORWARD-DISABLED",
+      "KRN-RP-FILTER",
+      "KRN-TCP-TIMESTAMPS",
+      "KRN-ICMP-BROADCAST",
+      "KRN-ACCEPT-REDIRECTS-V6",
+      "KRN-BPF-UNPRIVILEGED",
+      "KRN-MODULES-DISABLED",
+      "KRN-IP-FORWARD-V6",
+      "KRN-SEND-REDIRECTS",
+      "KRN-SECURE-REDIRECTS",
+      "KRN-SYSRQ-DISABLED",
+      "KRN-CORE-PATTERN-SAFE",
+      "KRN-PANIC-ON-OOPS",
+      "KRN-NMI-WATCHDOG-DISABLED",
+      "KRN-UNPRIVILEGED-USERNS",
+      "KRN-EXEC-SHIELD",
+      "KRN-MODULE-BLACKLIST",
+      "KRN-PANIC-REBOOT",
+      "KRN-SYSCTL-HARDENED",
+      "KRN-COREDUMP-SYSTEMD",
+      "KRN-LOCKDOWN-MODE",
+      "KRN-BPF-JIT-HARDEN",
+    ]);
+  });
+
+  it("N/A blanket assertion — all checks have Unable to determine and passed=false", () => {
+    const checks = parseKernelChecks("N/A", "bare");
+    expect(checks).toHaveLength(31);
+    for (const check of checks) {
+      expect(check.passed).toBe(false);
+      expect(check.currentValue).toBe("Unable to determine");
+    }
+  });
+
+  it("empty string blanket assertion — all checks have passed=false", () => {
+    const checks = parseKernelChecks("", "bare");
+    expect(checks).toHaveLength(31);
+    for (const check of checks) {
+      expect(check.passed).toBe(false);
+      expect(check.currentValue).toBe("Unable to determine");
+    }
+  });
+
+  it("currentValue exact strings for sysctl-based checks from secureOutput", () => {
+    const checks = parseKernelChecks(secureOutput, "bare");
+    const byId = (id: string) => checks.find((c: { id: string }) => c.id === id)!;
+
+    expect(byId("KRN-ASLR-ENABLED").currentValue).toBe("kernel.randomize_va_space = 2");
+    expect(byId("KRN-CORE-DUMPS-RESTRICTED").currentValue).toBe("kernel.core_uses_pid = 1");
+    expect(byId("KRN-NETWORK-HARDENING").currentValue).toBe(
+      "accept_redirects=0, accept_source_route=0, log_martians=1"
+    );
+    expect(byId("KRN-DMESG-RESTRICTED").currentValue).toBe("kernel.dmesg_restrict = 1");
+    expect(byId("KRN-PTRACE-SCOPE").currentValue).toBe("kernel.yama.ptrace_scope = 1");
+    expect(byId("KRN-KPTR-RESTRICT").currentValue).toBe("kernel.kptr_restrict = 1");
+    expect(byId("KRN-PERF-PARANOID").currentValue).toBe("kernel.perf_event_paranoid = 2");
+    expect(byId("KRN-SYN-COOKIES").currentValue).toBe("net.ipv4.tcp_syncookies = 1");
+    expect(byId("KRN-IP-FORWARD-DISABLED").currentValue).toBe("net.ipv4.ip_forward = 0");
+    expect(byId("KRN-RP-FILTER").currentValue).toBe("net.ipv4.conf.all.rp_filter = 2");
+    expect(byId("KRN-TCP-TIMESTAMPS").currentValue).toBe("net.ipv4.tcp_timestamps = 0");
+    expect(byId("KRN-ICMP-BROADCAST").currentValue).toBe("net.ipv4.icmp_echo_ignore_broadcasts = 1");
+    expect(byId("KRN-ACCEPT-REDIRECTS-V6").currentValue).toBe("net.ipv6.conf.all.accept_redirects = 0");
+    expect(byId("KRN-BPF-UNPRIVILEGED").currentValue).toBe("kernel.unprivileged_bpf_disabled = 1");
+    expect(byId("KRN-MODULES-DISABLED").currentValue).toBe("kernel.modules_disabled = 0");
+    expect(byId("KRN-IP-FORWARD-V6").currentValue).toBe("net.ipv6.conf.all.forwarding = 0");
+    expect(byId("KRN-SEND-REDIRECTS").currentValue).toBe("net.ipv4.conf.all.send_redirects = 0");
+    expect(byId("KRN-SECURE-REDIRECTS").currentValue).toBe("net.ipv4.conf.all.secure_redirects = 0");
+    expect(byId("KRN-SYSRQ-DISABLED").currentValue).toBe("kernel.sysrq = 0");
+    expect(byId("KRN-CORE-PATTERN-SAFE").currentValue).toBe("kernel.core_pattern = core");
+    expect(byId("KRN-PANIC-ON-OOPS").currentValue).toBe("kernel.panic_on_oops = 1");
+    expect(byId("KRN-NMI-WATCHDOG-DISABLED").currentValue).toBe("kernel.nmi_watchdog = 0");
+    expect(byId("KRN-UNPRIVILEGED-USERNS").currentValue).toBe("kernel.unprivileged_userns_clone = 0");
+    expect(byId("KRN-BPF-JIT-HARDEN").currentValue).toBe("net.core.bpf_jit_harden = 1");
+  });
+
+  it("secureOutput — all 31 checks pass except KRN-MODULES-DISABLED", () => {
+    const checks = parseKernelChecks(secureOutput, "bare");
+    for (const check of checks) {
+      if (check.id === "KRN-MODULES-DISABLED") {
+        // secureOutput has kernel.modules_disabled = 0 which fails (expects 1)
+        expect(check.passed).toBe(false);
+      } else {
+        expect(check.passed).toBe(true);
+      }
+    }
+  });
+
+  // ─── BOUNDARY: KRN-PTRACE-SCOPE (>= 1) ──────────────────────────
+
+  it("KRN-PTRACE-SCOPE boundary: 0 fails (below threshold)", () => {
+    const checks = parseKernelChecks("kernel.yama.ptrace_scope = 0", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-PTRACE-SCOPE")!;
+    expect(check.passed).toBe(false);
+    expect(check.currentValue).toBe("kernel.yama.ptrace_scope = 0");
+  });
+
+  it("KRN-PTRACE-SCOPE boundary: 1 passes (exactly at threshold)", () => {
+    const checks = parseKernelChecks("kernel.yama.ptrace_scope = 1", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-PTRACE-SCOPE")!;
+    expect(check.passed).toBe(true);
+    expect(check.currentValue).toBe("kernel.yama.ptrace_scope = 1");
+  });
+
+  it("KRN-PTRACE-SCOPE boundary: 2 passes (above threshold)", () => {
+    const checks = parseKernelChecks("kernel.yama.ptrace_scope = 2", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-PTRACE-SCOPE")!;
+    expect(check.passed).toBe(true);
+    expect(check.currentValue).toBe("kernel.yama.ptrace_scope = 2");
+  });
+
+  it("KRN-PTRACE-SCOPE boundary: 3 passes (maximum lockdown)", () => {
+    const checks = parseKernelChecks("kernel.yama.ptrace_scope = 3", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-PTRACE-SCOPE")!;
+    expect(check.passed).toBe(true);
+  });
+
+  // ─── BOUNDARY: KRN-KPTR-RESTRICT (>= 1) ─────────────────────────
+
+  it("KRN-KPTR-RESTRICT boundary: 0 fails (below threshold)", () => {
+    const checks = parseKernelChecks("kernel.kptr_restrict = 0", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-KPTR-RESTRICT")!;
+    expect(check.passed).toBe(false);
+    expect(check.currentValue).toBe("kernel.kptr_restrict = 0");
+  });
+
+  it("KRN-KPTR-RESTRICT boundary: 1 passes (exactly at threshold)", () => {
+    const checks = parseKernelChecks("kernel.kptr_restrict = 1", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-KPTR-RESTRICT")!;
+    expect(check.passed).toBe(true);
+    expect(check.currentValue).toBe("kernel.kptr_restrict = 1");
+  });
+
+  it("KRN-KPTR-RESTRICT boundary: 2 passes (above threshold)", () => {
+    const checks = parseKernelChecks("kernel.kptr_restrict = 2", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-KPTR-RESTRICT")!;
+    expect(check.passed).toBe(true);
+    expect(check.currentValue).toBe("kernel.kptr_restrict = 2");
+  });
+
+  // ─── BOUNDARY: KRN-PERF-PARANOID (>= 2) ─────────────────────────
+
+  it("KRN-PERF-PARANOID boundary: 1 fails (below threshold)", () => {
+    const checks = parseKernelChecks("kernel.perf_event_paranoid = 1", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-PERF-PARANOID")!;
+    expect(check.passed).toBe(false);
+    expect(check.currentValue).toBe("kernel.perf_event_paranoid = 1");
+  });
+
+  it("KRN-PERF-PARANOID boundary: 2 passes (exactly at threshold)", () => {
+    const checks = parseKernelChecks("kernel.perf_event_paranoid = 2", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-PERF-PARANOID")!;
+    expect(check.passed).toBe(true);
+    expect(check.currentValue).toBe("kernel.perf_event_paranoid = 2");
+  });
+
+  it("KRN-PERF-PARANOID boundary: 3 passes (above threshold)", () => {
+    const checks = parseKernelChecks("kernel.perf_event_paranoid = 3", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-PERF-PARANOID")!;
+    expect(check.passed).toBe(true);
+  });
+
+  it("KRN-PERF-PARANOID boundary: 0 fails (well below threshold)", () => {
+    const checks = parseKernelChecks("kernel.perf_event_paranoid = 0", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-PERF-PARANOID")!;
+    expect(check.passed).toBe(false);
+  });
+
+  // ─── BOUNDARY: KRN-SYSRQ-DISABLED (<= 1) ────────────────────────
+
+  it("KRN-SYSRQ-DISABLED boundary: 0 passes (fully disabled)", () => {
+    const checks = parseKernelChecks("kernel.sysrq = 0", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-SYSRQ-DISABLED")!;
+    expect(check.passed).toBe(true);
+    expect(check.currentValue).toBe("kernel.sysrq = 0");
+  });
+
+  it("KRN-SYSRQ-DISABLED boundary: 1 passes (restricted)", () => {
+    const checks = parseKernelChecks("kernel.sysrq = 1", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-SYSRQ-DISABLED")!;
+    expect(check.passed).toBe(true);
+    expect(check.currentValue).toBe("kernel.sysrq = 1");
+  });
+
+  it("KRN-SYSRQ-DISABLED boundary: 2 fails (above threshold)", () => {
+    const checks = parseKernelChecks("kernel.sysrq = 2", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-SYSRQ-DISABLED")!;
+    expect(check.passed).toBe(false);
+    expect(check.currentValue).toBe("kernel.sysrq = 2");
+  });
+
+  it("KRN-SYSRQ-DISABLED boundary: 176 fails (bitmask value)", () => {
+    const checks = parseKernelChecks("kernel.sysrq = 176", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-SYSRQ-DISABLED")!;
+    expect(check.passed).toBe(false);
+  });
+
+  // ─── BOUNDARY: KRN-PANIC-REBOOT (> 0) ───────────────────────────
+
+  it("KRN-PANIC-REBOOT boundary: 0 fails (no auto-reboot)", () => {
+    const checks = parseKernelChecks("kernel.panic = 0\n5.15.0\nN/A\n0\n0", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-PANIC-REBOOT")!;
+    expect(check.passed).toBe(false);
+    expect(check.currentValue).toBe("kernel.panic = 0");
+  });
+
+  it("KRN-PANIC-REBOOT boundary: 1 passes (minimal reboot timeout)", () => {
+    const checks = parseKernelChecks("kernel.panic = 1\n5.15.0\nN/A\n0\n0", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-PANIC-REBOOT")!;
+    expect(check.passed).toBe(true);
+    expect(check.currentValue).toBe("kernel.panic = 1");
+  });
+
+  // ─── BOUNDARY: KRN-RP-FILTER (>= 1) ─────────────────────────────
+
+  it("KRN-RP-FILTER boundary: 0 fails, 1 passes, 2 passes", () => {
+    const fail = parseKernelChecks("net.ipv4.conf.all.rp_filter = 0", "bare")
+      .find((c: { id: string }) => c.id === "KRN-RP-FILTER")!;
+    expect(fail.passed).toBe(false);
+
+    const pass1 = parseKernelChecks("net.ipv4.conf.all.rp_filter = 1", "bare")
+      .find((c: { id: string }) => c.id === "KRN-RP-FILTER")!;
+    expect(pass1.passed).toBe(true);
+
+    const pass2 = parseKernelChecks("net.ipv4.conf.all.rp_filter = 2", "bare")
+      .find((c: { id: string }) => c.id === "KRN-RP-FILTER")!;
+    expect(pass2.passed).toBe(true);
+  });
+
+  // ─── BOUNDARY: KRN-BPF-JIT-HARDEN (>= 1) ───────────────────────
+
+  it("KRN-BPF-JIT-HARDEN boundary: 0 fails, 1 passes, 2 passes", () => {
+    const fail = parseKernelChecks("net.core.bpf_jit_harden = 0", "bare")
+      .find((c: { id: string }) => c.id === "KRN-BPF-JIT-HARDEN")!;
+    expect(fail.passed).toBe(false);
+
+    const pass1 = parseKernelChecks("net.core.bpf_jit_harden = 1", "bare")
+      .find((c: { id: string }) => c.id === "KRN-BPF-JIT-HARDEN")!;
+    expect(pass1.passed).toBe(true);
+
+    const pass2 = parseKernelChecks("net.core.bpf_jit_harden = 2", "bare")
+      .find((c: { id: string }) => c.id === "KRN-BPF-JIT-HARDEN")!;
+    expect(pass2.passed).toBe(true);
+  });
+
+  // ─── EXEC-SHIELD special logic (null OR "1" passes) ─────────────
+
+  it("KRN-EXEC-SHIELD passes when exec_shield is absent (null — modern kernel)", () => {
+    const checks = parseKernelChecks("kernel.randomize_va_space = 2", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-EXEC-SHIELD")!;
+    expect(check.passed).toBe(true);
+    expect(check.currentValue).toBe("Not present (modern kernel uses hardware NX bit)");
+  });
+
+  it("KRN-EXEC-SHIELD passes when exec_shield = 1", () => {
+    const checks = parseKernelChecks("kernel.exec_shield = 1", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-EXEC-SHIELD")!;
+    expect(check.passed).toBe(true);
+    expect(check.currentValue).toBe("kernel.exec_shield = 1");
+  });
+
+  it("KRN-EXEC-SHIELD fails when exec_shield = 0", () => {
+    const checks = parseKernelChecks("kernel.exec_shield = 0", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-EXEC-SHIELD")!;
+    expect(check.passed).toBe(false);
+    expect(check.currentValue).toBe("kernel.exec_shield = 0");
+  });
+
+  // ─── CORE-PATTERN-SAFE pipe detection ────────────────────────────
+
+  it("KRN-CORE-PATTERN-SAFE fails when core_pattern starts with |", () => {
+    const checks = parseKernelChecks("kernel.core_pattern = |/usr/share/apport/apport", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-CORE-PATTERN-SAFE")!;
+    expect(check.passed).toBe(false);
+    expect(check.currentValue).toContain("|");
+  });
+
+  it("KRN-CORE-PATTERN-SAFE passes when core_pattern is a file path", () => {
+    const checks = parseKernelChecks("kernel.core_pattern = /tmp/cores/core.%e.%p", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-CORE-PATTERN-SAFE")!;
+    expect(check.passed).toBe(true);
+  });
+
+  // ─── COREDUMP-SYSTEMD OR logic (Storage=none OR ProcessSizeMax=0) ──
+
+  it("KRN-COREDUMP-SYSTEMD passes with ProcessSizeMax=0 even without Storage=none", () => {
+    const output = [
+      "kernel.randomize_va_space = 2",
+      "5.15.0-91-generic",
+      "N/A",
+      "0",
+      "0",
+      "Storage=external\nProcessSizeMax=0",
+      "[none] integrity confidentiality",
+    ].join("\n");
+    const checks = parseKernelChecks(output, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-COREDUMP-SYSTEMD")!;
+    expect(check.passed).toBe(true);
+    expect(check.currentValue).toContain("ProcessSizeMax=0");
+  });
+
+  it("KRN-COREDUMP-SYSTEMD currentValue includes both Storage and ProcessSizeMax", () => {
+    const checks = parseKernelChecks(secureOutput, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-COREDUMP-SYSTEMD")!;
+    expect(check.currentValue).toBe("Storage=none, ProcessSizeMax=0");
+  });
+
+  // ─── LOCKDOWN-MODE [confidentiality] also passes ─────────────────
+
+  it("KRN-LOCKDOWN-MODE passes with [confidentiality]", () => {
+    const output = [
+      "kernel.randomize_va_space = 2",
+      "5.15.0-91-generic",
+      "N/A",
+      "0",
+      "0",
+      "Storage=none",
+      "none integrity [confidentiality]",
+    ].join("\n");
+    const checks = parseKernelChecks(output, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-LOCKDOWN-MODE")!;
+    expect(check.passed).toBe(true);
+  });
+
+  // ─── MODULE-BLACKLIST count parsing ──────────────────────────────
+
+  it("KRN-MODULE-BLACKLIST fails when count > 0", () => {
+    const output = [
+      "kernel.randomize_va_space = 2",
+      "5.15.0-91-generic",
+      "apparmor",
+      "2",
+      "3",
+      "Storage=none",
+      "[integrity]",
+    ].join("\n");
+    const checks = parseKernelChecks(output, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-MODULE-BLACKLIST")!;
+    expect(check.passed).toBe(false);
+    expect(check.currentValue).toContain("2");
+  });
+
+  // ─── SEVERITY assertions for key checks ──────────────────────────
+
+  it("severity assignments are correct for critical/warning/info checks", () => {
+    const checks = parseKernelChecks(secureOutput, "bare");
+    const byId = (id: string) => checks.find((c: { id: string }) => c.id === id)!;
+
+    // critical
+    expect(byId("KRN-ASLR-ENABLED").severity).toBe("critical");
+
+    // warning
+    expect(byId("KRN-CORE-DUMPS-RESTRICTED").severity).toBe("warning");
+    expect(byId("KRN-NETWORK-HARDENING").severity).toBe("warning");
+    expect(byId("KRN-PTRACE-SCOPE").severity).toBe("warning");
+    expect(byId("KRN-KPTR-RESTRICT").severity).toBe("warning");
+    expect(byId("KRN-SYN-COOKIES").severity).toBe("warning");
+    expect(byId("KRN-IP-FORWARD-DISABLED").severity).toBe("warning");
+    expect(byId("KRN-RP-FILTER").severity).toBe("warning");
+    expect(byId("KRN-ICMP-BROADCAST").severity).toBe("warning");
+    expect(byId("KRN-ACCEPT-REDIRECTS-V6").severity).toBe("warning");
+    expect(byId("KRN-BPF-UNPRIVILEGED").severity).toBe("warning");
+    expect(byId("KRN-IP-FORWARD-V6").severity).toBe("warning");
+    expect(byId("KRN-SEND-REDIRECTS").severity).toBe("warning");
+    expect(byId("KRN-SECURE-REDIRECTS").severity).toBe("warning");
+    expect(byId("KRN-SYSRQ-DISABLED").severity).toBe("warning");
+    expect(byId("KRN-CORE-PATTERN-SAFE").severity).toBe("warning");
+    expect(byId("KRN-UNPRIVILEGED-USERNS").severity).toBe("warning");
+    expect(byId("KRN-BPF-JIT-HARDEN").severity).toBe("warning");
+
+    // info
+    expect(byId("KRN-KERNEL-VERSION").severity).toBe("info");
+    expect(byId("KRN-DMESG-RESTRICTED").severity).toBe("info");
+    expect(byId("KRN-PERF-PARANOID").severity).toBe("info");
+    expect(byId("KRN-TCP-TIMESTAMPS").severity).toBe("info");
+    expect(byId("KRN-MODULES-DISABLED").severity).toBe("info");
+    expect(byId("KRN-PANIC-ON-OOPS").severity).toBe("info");
+    expect(byId("KRN-NMI-WATCHDOG-DISABLED").severity).toBe("info");
+    expect(byId("KRN-EXEC-SHIELD").severity).toBe("info");
+    expect(byId("KRN-MODULE-BLACKLIST").severity).toBe("info");
+    expect(byId("KRN-PANIC-REBOOT").severity).toBe("info");
+    expect(byId("KRN-SYSCTL-HARDENED").severity).toBe("info");
+    expect(byId("KRN-COREDUMP-SYSTEMD").severity).toBe("info");
+    expect(byId("KRN-LOCKDOWN-MODE").severity).toBe("info");
+  });
+
+  // ─── KERNEL-VERSION currentValue format ──────────────────────────
+
+  it("KRN-KERNEL-VERSION currentValue includes Kernel prefix", () => {
+    const checks = parseKernelChecks(secureOutput, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-KERNEL-VERSION")!;
+    expect(check.passed).toBe(true);
+    expect(check.currentValue).toBe("Kernel 5.15.0-91-generic");
+  });
+
+  // ─── UNPRIVILEGED-USERNS null sysctl ─────────────────────────────
+
+  it("KRN-UNPRIVILEGED-USERNS fails when sysctl key not present", () => {
+    const checks = parseKernelChecks("kernel.randomize_va_space = 2", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-UNPRIVILEGED-USERNS")!;
+    expect(check.passed).toBe(false);
+    expect(check.currentValue).toBe("Sysctl key not available (may not be supported on this kernel)");
+  });
+
+  it("KRN-UNPRIVILEGED-USERNS fails when value is 1", () => {
+    const checks = parseKernelChecks("kernel.unprivileged_userns_clone = 1", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-UNPRIVILEGED-USERNS")!;
+    expect(check.passed).toBe(false);
+    expect(check.currentValue).toBe("kernel.unprivileged_userns_clone = 1");
+  });
+
+  // ─── SYSCTL-HARDENED count parsing ───────────────────────────────
+
+  it("KRN-SYSCTL-HARDENED fails when sysctl.d count is 0", () => {
+    // blacklistCount=0 is on first "0" line, sysctlDirCount=0 needs a second separate "0" line
+    // The parser skips identical lines, so we use distinct values
+    const output = [
+      "kernel.randomize_va_space = 2",
+      "5.15.0-91-generic",
+      "apparmor",
+      "1",
+      "0",
+      "Storage=none",
+      "[integrity]",
+    ].join("\n");
+    const checks = parseKernelChecks(output, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-SYSCTL-HARDENED")!;
+    expect(check.passed).toBe(false);
+    expect(check.currentValue).toContain("0");
+  });
+
+  // ─── ASLR boundary (exact string comparison = "2") ──────────────
+
+  it("KRN-ASLR-ENABLED fails when ASLR=1 (partial)", () => {
+    const checks = parseKernelChecks("kernel.randomize_va_space = 1", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-ASLR-ENABLED")!;
+    expect(check.passed).toBe(false);
+    expect(check.currentValue).toBe("kernel.randomize_va_space = 1");
+  });
+
+  it("KRN-ASLR-ENABLED passes only when ASLR=2 (full)", () => {
+    const checks = parseKernelChecks("kernel.randomize_va_space = 2", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-ASLR-ENABLED")!;
+    expect(check.passed).toBe(true);
+  });
+
+  // ─── CORE-DUMPS-RESTRICTED OR logic ──────────────────────────────
+
+  it("KRN-CORE-DUMPS-RESTRICTED passes with fs.suid_dumpable=0", () => {
+    const checks = parseKernelChecks("fs.suid_dumpable = 0", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-CORE-DUMPS-RESTRICTED")!;
+    expect(check.passed).toBe(true);
+    expect(check.currentValue).toBe("fs.suid_dumpable = 0");
+  });
+
+  it("KRN-CORE-DUMPS-RESTRICTED fails with fs.suid_dumpable=2 and no core_uses_pid", () => {
+    const checks = parseKernelChecks("fs.suid_dumpable = 2", "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-CORE-DUMPS-RESTRICTED")!;
+    expect(check.passed).toBe(false);
+    expect(check.currentValue).toBe("fs.suid_dumpable = 2");
+  });
+
+  // ─── NETWORK-HARDENING partial failure ───────────────────────────
+
+  it("KRN-NETWORK-HARDENING fails when only 2 of 3 sysctls are correct", () => {
+    const output = [
+      "net.ipv4.conf.all.accept_redirects = 0",
+      "net.ipv4.conf.all.accept_source_route = 0",
+      "net.ipv4.conf.all.log_martians = 0",
+    ].join("\n");
+    const checks = parseKernelChecks(output, "bare");
+    const check = checks.find((c: { id: string }) => c.id === "KRN-NETWORK-HARDENING")!;
+    expect(check.passed).toBe(false);
+    expect(check.currentValue).toContain("log_martians=0");
+  });
 });

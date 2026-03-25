@@ -241,4 +241,225 @@ describe("parseAuthChecks", () => {
     expect(check).toBeDefined();
     expect(check!.passed).toBe(false);
   });
+
+  // ──────────────────────────────────────────────────────────
+  // Mutation-killer tests
+  // ──────────────────────────────────────────────────────────
+
+  describe("ID array assertion — exact order from secure output", () => {
+    it("should return all 22 check IDs in exact declaration order", () => {
+      const checks = parseAuthChecks(secureOutput, "bare");
+      const ids = checks.map((c) => c.id);
+      expect(ids).toEqual([
+        "AUTH-NO-NOPASSWD-ALL",
+        "AUTH-PASSWORD-AGING",
+        "AUTH-NO-EMPTY-PASSWORDS",
+        "AUTH-ROOT-LOGIN-RESTRICTED",
+        "AUTH-PWD-QUALITY",
+        "AUTH-FAILLOCK-CONFIGURED",
+        "AUTH-SHADOW-PERMISSIONS",
+        "AUTH-SUDO-LOG",
+        "AUTH-SUDO-REQUIRETTY",
+        "AUTH-NO-UID0-DUPS",
+        "AUTH-PASS-MIN-DAYS",
+        "AUTH-PASS-WARN-AGE",
+        "AUTH-INACTIVE-LOCK",
+        "AUTH-SUDO-WHEEL-ONLY",
+        "AUTH-MFA-PRESENT",
+        "AUTH-SU-RESTRICTED",
+        "AUTH-PASS-MAX-DAYS-SET",
+        "AUTH-GSHADOW-PERMISSIONS",
+        "AUTH-PWQUALITY-CONFIGURED",
+        "AUTH-UMASK-LOGIN-DEFS",
+        "AUTH-SHA512-HASH",
+        "AUTH-PWQUALITY-MINLEN",
+      ]);
+    });
+  });
+
+  describe("N/A blanket assertion — all checks fail with Unable to determine", () => {
+    it.each(["N/A", "", "  ", " N/A "])("input %j → all 22 checks fail with Unable to determine", (input) => {
+      const checks = parseAuthChecks(input, "bare");
+      expect(checks).toHaveLength(22);
+      for (const check of checks) {
+        expect(check.passed).toBe(false);
+        expect(check.currentValue).toBe("Unable to determine");
+      }
+    });
+  });
+
+  describe("AUTH-PASS-MIN-DAYS boundary — passes at >= 1", () => {
+    const mkOutput = (val: number) => `PASS_MIN_DAYS\t${val}`;
+    const findCheck = (output: string) =>
+      parseAuthChecks(output, "bare").find((c) => c.id === "AUTH-PASS-MIN-DAYS")!;
+
+    it("PASS_MIN_DAYS=0 → fail (boundary: below threshold)", () => {
+      const check = findCheck(mkOutput(0));
+      expect(check.passed).toBe(false);
+      expect(check.currentValue).toBe("PASS_MIN_DAYS = 0");
+    });
+
+    it("PASS_MIN_DAYS=1 → pass (boundary: exact threshold)", () => {
+      const check = findCheck(mkOutput(1));
+      expect(check.passed).toBe(true);
+      expect(check.currentValue).toBe("PASS_MIN_DAYS = 1");
+    });
+
+    it("PASS_MIN_DAYS=2 → pass (above threshold)", () => {
+      const check = findCheck(mkOutput(2));
+      expect(check.passed).toBe(true);
+    });
+  });
+
+  describe("AUTH-PASS-WARN-AGE boundary — passes at >= 7", () => {
+    const mkOutput = (val: number) => `PASS_WARN_AGE\t${val}`;
+    const findCheck = (output: string) =>
+      parseAuthChecks(output, "bare").find((c) => c.id === "AUTH-PASS-WARN-AGE")!;
+
+    it("PASS_WARN_AGE=6 → fail (boundary: below threshold)", () => {
+      const check = findCheck(mkOutput(6));
+      expect(check.passed).toBe(false);
+      expect(check.currentValue).toBe("PASS_WARN_AGE = 6");
+    });
+
+    it("PASS_WARN_AGE=7 → pass (boundary: exact threshold)", () => {
+      const check = findCheck(mkOutput(7));
+      expect(check.passed).toBe(true);
+      expect(check.currentValue).toBe("PASS_WARN_AGE = 7");
+    });
+
+    it("PASS_WARN_AGE=8 → pass (above threshold)", () => {
+      const check = findCheck(mkOutput(8));
+      expect(check.passed).toBe(true);
+    });
+  });
+
+  describe("AUTH-INACTIVE-LOCK boundary — passes at 0..90 inclusive", () => {
+    const mkOutput = (val: number) => `INACTIVE=${val}`;
+    const findCheck = (output: string) =>
+      parseAuthChecks(output, "bare").find((c) => c.id === "AUTH-INACTIVE-LOCK")!;
+
+    it("INACTIVE=0 → pass (boundary: lower inclusive)", () => {
+      const check = findCheck(mkOutput(0));
+      expect(check.passed).toBe(true);
+      expect(check.currentValue).toBe("INACTIVE = 0 days");
+    });
+
+    it("INACTIVE=90 → pass (boundary: upper inclusive)", () => {
+      const check = findCheck(mkOutput(90));
+      expect(check.passed).toBe(true);
+      expect(check.currentValue).toBe("INACTIVE = 90 days");
+    });
+
+    it("INACTIVE=91 → fail (boundary: above upper limit)", () => {
+      const check = findCheck(mkOutput(91));
+      expect(check.passed).toBe(false);
+      expect(check.currentValue).toBe("INACTIVE = 91 days");
+    });
+
+    it("INACTIVE not present → fail", () => {
+      const check = findCheck("some unrelated text");
+      expect(check.passed).toBe(false);
+      expect(check.currentValue).toBe("INACTIVE not configured");
+    });
+  });
+
+  describe("AUTH-PASS-MAX-DAYS-SET boundary — passes at > 0 and <= 365", () => {
+    const mkOutput = (val: number) => `PASS_MAX_DAYS\t${val}`;
+    const findCheck = (output: string) =>
+      parseAuthChecks(output, "bare").find((c) => c.id === "AUTH-PASS-MAX-DAYS-SET")!;
+
+    it("PASS_MAX_DAYS=0 → fail (boundary: zero not allowed)", () => {
+      const check = findCheck(mkOutput(0));
+      expect(check.passed).toBe(false);
+      expect(check.currentValue).toBe("PASS_MAX_DAYS = 0");
+    });
+
+    it("PASS_MAX_DAYS=1 → pass (boundary: minimum valid)", () => {
+      const check = findCheck(mkOutput(1));
+      expect(check.passed).toBe(true);
+      expect(check.currentValue).toBe("PASS_MAX_DAYS = 1");
+    });
+
+    it("PASS_MAX_DAYS=365 → pass (boundary: upper inclusive)", () => {
+      const check = findCheck(mkOutput(365));
+      expect(check.passed).toBe(true);
+      expect(check.currentValue).toBe("PASS_MAX_DAYS = 365");
+    });
+
+    it("PASS_MAX_DAYS=366 → fail (boundary: above upper limit)", () => {
+      const check = findCheck(mkOutput(366));
+      expect(check.passed).toBe(false);
+      expect(check.currentValue).toBe("PASS_MAX_DAYS = 366");
+    });
+
+    it("PASS_MAX_DAYS not present → fail", () => {
+      const check = findCheck("some unrelated text");
+      expect(check.passed).toBe(false);
+      expect(check.currentValue).toBe("PASS_MAX_DAYS not configured");
+    });
+  });
+
+  describe("AUTH-PWQUALITY-MINLEN boundary — passes at >= 12", () => {
+    const mkOutput = (val: number) => `minlen = ${val}`;
+    const findCheck = (output: string) =>
+      parseAuthChecks(output, "bare").find((c) => c.id === "AUTH-PWQUALITY-MINLEN")!;
+
+    it("minlen=11 → fail (boundary: below threshold)", () => {
+      const check = findCheck(mkOutput(11));
+      expect(check.passed).toBe(false);
+      expect(check.currentValue).toBe("minlen = 11");
+    });
+
+    it("minlen=12 → pass (boundary: exact threshold)", () => {
+      const check = findCheck(mkOutput(12));
+      expect(check.passed).toBe(true);
+      expect(check.currentValue).toBe("minlen = 12");
+    });
+
+    it("minlen=13 → pass (above threshold)", () => {
+      const check = findCheck(mkOutput(13));
+      expect(check.passed).toBe(true);
+    });
+  });
+
+  describe("AUTH-SHADOW-PERMISSIONS — 000/600/640 pass, 644 fail", () => {
+    const findCheck = (output: string) =>
+      parseAuthChecks(output, "bare").find((c) => c.id === "AUTH-SHADOW-PERMISSIONS")!;
+
+    it("mode 000 → pass", () => {
+      const check = findCheck("000");
+      expect(check.passed).toBe(true);
+      expect(check.currentValue).toBe("Mode: 000");
+    });
+
+    it("mode 600 → pass", () => {
+      const check = findCheck("600");
+      expect(check.passed).toBe(true);
+      expect(check.currentValue).toBe("Mode: 600");
+    });
+
+    it("mode 640 → pass", () => {
+      const check = findCheck("640");
+      expect(check.passed).toBe(true);
+      expect(check.currentValue).toBe("Mode: 640");
+    });
+
+    it("mode 644 → fail (world-readable)", () => {
+      const check = findCheck("644");
+      expect(check.passed).toBe(false);
+      expect(check.currentValue).toBe("Unable to determine /etc/shadow permissions");
+    });
+
+    it("mode 755 → fail (not in allowed set)", () => {
+      const check = findCheck("755");
+      expect(check.passed).toBe(false);
+    });
+
+    it("no permission value → fail", () => {
+      const check = findCheck("some random text");
+      expect(check.passed).toBe(false);
+      expect(check.currentValue).toBe("Unable to determine /etc/shadow permissions");
+    });
+  });
 });
