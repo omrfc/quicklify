@@ -19,6 +19,11 @@ on:
         description: 'Stryker concurrency (default: 4)'
         required: false
         default: '4'
+      seed:
+        description: 'Seed cache from release asset (skip Stryker run)'
+        required: false
+        type: boolean
+        default: false
 
 # Aynı branch'te aynı anda birden fazla mutation run engelle
 concurrency:
@@ -61,6 +66,33 @@ jobs:
       - name: Ensure Stryker directory exists
         if: github.event_name != 'schedule' || steps.changes.outputs.has_changes == 'true'
         run: mkdir -p .stryker-tmp
+
+      # Seed mode: release asset'ten cache indir, Stryker çalıştırma
+      - name: Seed cache from release asset
+        if: github.event.inputs.seed == 'true'
+        run: |
+          echo "Downloading incremental.json from latest release..."
+          gh release download --pattern "incremental.json" --dir .stryker-tmp/ --clobber || {
+            echo "ERROR: incremental.json not found in latest release."
+            echo "Upload it first: gh release upload v1.14.0 .stryker-tmp/incremental.json"
+            exit 1
+          }
+          echo "Downloaded $(wc -c < .stryker-tmp/incremental.json) bytes"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Save seed cache and exit
+        if: github.event.inputs.seed == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .stryker-tmp/incremental.json
+          key: stryker-${{ github.ref }}-seed-${{ github.run_id }}
+
+      - name: Seed complete
+        if: github.event.inputs.seed == 'true'
+        run: |
+          echo "Cache seeded successfully. Next mutation run will use this cache."
+          exit 0
 
       - name: Restore Stryker cache
         if: github.event_name != 'schedule' || steps.changes.outputs.has_changes == 'true'
