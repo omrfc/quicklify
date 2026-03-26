@@ -4,7 +4,7 @@
  * wtmp/btmp accessibility, and logrotate configuration into 8 security checks.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 
 interface IncidentReadyCheckDef {
   id: string;
@@ -12,7 +12,8 @@ interface IncidentReadyCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -32,6 +33,7 @@ const INCIDENT_CHECKS: IncidentReadyCheckDef[] = [
     },
     expectedValue: "auditd package is installed on the system",
     fixCommand: "apt-get install -y auditd || yum install -y audit",
+    safeToAutoFix: "SAFE",
     explain:
       "auditd is the Linux Audit daemon that records security-relevant events such as file access, system calls, and authentication attempts. Without it, forensic investigation after an incident has no kernel-level audit trail.",
   },
@@ -50,6 +52,7 @@ const INCIDENT_CHECKS: IncidentReadyCheckDef[] = [
     },
     expectedValue: "auditd service is active (running)",
     fixCommand: "systemctl enable --now auditd",
+    safeToAutoFix: "GUARDED",
     explain:
       "Installing auditd without running it provides no protection. The auditd service must be active to collect audit events in real time, enabling detection of unauthorized access or configuration changes.",
   },
@@ -78,6 +81,7 @@ const INCIDENT_CHECKS: IncidentReadyCheckDef[] = [
     },
     expectedValue: "auditctl -l shows -w /etc/passwd rule",
     fixCommand: "auditctl -w /etc/passwd -p wa -k identity && echo '-w /etc/passwd -p wa -k identity' >> /etc/audit/rules.d/kastell.rules",
+    safeToAutoFix: "SAFE",
     explain:
       "An audit rule watching /etc/passwd detects unauthorized user account modifications. Without this rule, an attacker can add backdoor accounts or modify existing ones without leaving any kernel-level audit evidence.",
   },
@@ -107,6 +111,7 @@ const INCIDENT_CHECKS: IncidentReadyCheckDef[] = [
     },
     expectedValue: "auditctl -l shows rule for /etc/sudoers or /var/log/sudo.log",
     fixCommand: "auditctl -w /etc/sudoers -p wa -k sudoers && echo '-w /etc/sudoers -p wa -k sudoers' >> /etc/audit/rules.d/kastell.rules",
+    safeToAutoFix: "SAFE",
     explain:
       "Auditing sudoers configuration changes ensures any privilege escalation modifications are recorded. Combined with /etc/passwd monitoring, this forms a baseline identity and access audit trail.",
   },
@@ -127,6 +132,7 @@ const INCIDENT_CHECKS: IncidentReadyCheckDef[] = [
     },
     expectedValue: "At least one of rsyslog, vector, fluent-bit, or promtail is active",
     fixCommand: "apt-get install -y rsyslog && systemctl enable --now rsyslog",
+    safeToAutoFix: "GUARDED",
     explain:
       "Log forwarding to a remote SIEM or log aggregator ensures that audit logs survive a system compromise. An attacker with root access can delete local logs; remote forwarding preserves the evidence.",
   },
@@ -145,6 +151,7 @@ const INCIDENT_CHECKS: IncidentReadyCheckDef[] = [
     },
     expectedValue: "last command returns login history (wtmp is readable and intact)",
     fixCommand: "touch /var/log/wtmp && chmod 664 /var/log/wtmp && chown root:utmp /var/log/wtmp",
+    safeToAutoFix: "SAFE",
     explain:
       "The wtmp file records all login and logout events. During incident response, last command output is the first step to understanding who has accessed the system and when. An inaccessible wtmp impedes forensics.",
   },
@@ -163,6 +170,7 @@ const INCIDENT_CHECKS: IncidentReadyCheckDef[] = [
     },
     expectedValue: "lastb command returns failed login history (btmp is readable)",
     fixCommand: "touch /var/log/btmp && chmod 600 /var/log/btmp && chown root:utmp /var/log/btmp",
+    safeToAutoFix: "SAFE",
     explain:
       "The btmp file records failed login attempts, which is critical evidence of brute force or credential stuffing attacks. Without it, failed authentication attempts leave no persistent record on the system.",
   },
@@ -181,6 +189,7 @@ const INCIDENT_CHECKS: IncidentReadyCheckDef[] = [
     },
     expectedValue: "logrotate configuration for wtmp and btmp exists",
     fixCommand: "# Ensure /etc/logrotate.d/wtmp exists with monthly rotation and compress",
+    safeToAutoFix: "GUARDED",
     explain:
       "Log rotation for wtmp and btmp prevents unbounded growth that could fill the filesystem. Properly rotated and compressed logs also make historical login analysis feasible during incident investigation.",
   },
@@ -200,6 +209,7 @@ const INCIDENT_CHECKS: IncidentReadyCheckDef[] = [
     },
     expectedValue: "/var/log/wtmp file exists",
     fixCommand: "touch /var/log/wtmp && chmod 664 /var/log/wtmp && chown root:utmp /var/log/wtmp",
+    safeToAutoFix: "SAFE",
     explain:
       "wtmp records all login/logout events; its absence prevents forensic analysis of unauthorized access.",
   },
@@ -219,6 +229,7 @@ const INCIDENT_CHECKS: IncidentReadyCheckDef[] = [
     },
     expectedValue: "/var/log/btmp file exists",
     fixCommand: "touch /var/log/btmp && chmod 600 /var/log/btmp && chown root:utmp /var/log/btmp",
+    safeToAutoFix: "SAFE",
     explain:
       "btmp records failed login attempts; its absence prevents detection of brute-force attack patterns.",
   },
@@ -239,6 +250,7 @@ const INCIDENT_CHECKS: IncidentReadyCheckDef[] = [
     },
     expectedValue: "At least one forensic tool (volatility3, dc3dd) is installed",
     fixCommand: "apt install dc3dd — install forensic imaging tool for incident response",
+    safeToAutoFix: "SAFE",
     explain:
       "Having forensic tools pre-installed enables rapid incident response without contaminating the compromised system with new package installations.",
   },
@@ -261,6 +273,7 @@ const INCIDENT_CHECKS: IncidentReadyCheckDef[] = [
     },
     expectedValue: "At least 1 recently archived log file in /var/log",
     fixCommand: "logrotate -f /etc/logrotate.conf — verify log rotation is working",
+    safeToAutoFix: "SAFE",
     explain:
       "Archived logs provide forensic evidence for incident investigation; absence indicates log rotation failure or evidence tampering.",
   },
@@ -286,7 +299,8 @@ export const parseIncidentReadyChecks: CheckParser = (
         passed: false,
         currentValue: "Unable to determine",
         expectedValue: def.expectedValue,
-        fixCommand: def.fixCommand,
+        fixCommand: def.fixCommand,
+        safeToAutoFix: def.safeToAutoFix,
         explain: def.explain,
       };
     }
@@ -299,7 +313,8 @@ export const parseIncidentReadyChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

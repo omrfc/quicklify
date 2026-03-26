@@ -4,7 +4,7 @@
  * and nameserver configuration into 4 security checks.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 
 interface DnsCheckDef {
   id: string;
@@ -12,7 +12,8 @@ interface DnsCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -32,6 +33,7 @@ const DNS_CHECKS: DnsCheckDef[] = [
     },
     expectedValue: "DNSSEC=yes in systemd-resolved config or resolv.conf has edns0/trust-ad",
     fixCommand: "# For systemd-resolved: set DNSSEC=yes in /etc/systemd/resolved.conf then systemctl restart systemd-resolved",
+    safeToAutoFix: "GUARDED",
     explain:
       "DNSSEC validation prevents DNS cache poisoning and man-in-the-middle attacks by verifying cryptographic signatures on DNS responses. Without it, DNS responses can be spoofed to redirect traffic to malicious servers.",
   },
@@ -52,6 +54,7 @@ const DNS_CHECKS: DnsCheckDef[] = [
     },
     expectedValue: "stubby or dnscrypt-proxy is installed on the system",
     fixCommand: "apt-get install -y stubby || apt-get install -y dnscrypt-proxy",
+    safeToAutoFix: "SAFE",
     explain:
       "DNS over HTTPS (DoH) and DNS over TLS (DoT) encrypt DNS queries preventing network-level DNS interception and manipulation. Installing a DoH/DoT resolver protects DNS traffic from passive surveillance and active tampering.",
   },
@@ -70,6 +73,7 @@ const DNS_CHECKS: DnsCheckDef[] = [
     },
     expectedValue: "/etc/resolv.conf has chattr +i flag or is a symlink to /run/systemd/resolve/stub-resolv.conf",
     fixCommand: "# Preferred: ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf\n# Alternative: chattr +i /etc/resolv.conf",
+    safeToAutoFix: "GUARDED",
     explain:
       "An unprotected /etc/resolv.conf can be overwritten by DHCP clients, network managers, or malicious processes to redirect all DNS queries to an attacker-controlled resolver, enabling DNS hijacking without any kernel compromise.",
   },
@@ -90,6 +94,7 @@ const DNS_CHECKS: DnsCheckDef[] = [
     },
     expectedValue: "At least one nameserver line present in /etc/resolv.conf",
     fixCommand: "echo 'nameserver 1.1.1.1' >> /etc/resolv.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "A nameserver must be configured in /etc/resolv.conf for the system to perform DNS lookups. Without it, domain name resolution fails entirely, breaking all network services that rely on hostnames rather than IP addresses.",
   },
@@ -114,6 +119,7 @@ const DNS_CHECKS: DnsCheckDef[] = [
     },
     expectedValue: "At least 2 nameservers in /etc/resolv.conf for redundancy",
     fixCommand: "echo 'nameserver 8.8.8.8' >> /etc/resolv.conf  # Add secondary DNS",
+    safeToAutoFix: "SAFE",
     explain:
       "A single DNS nameserver creates a single point of failure; multiple servers ensure DNS resolution survives outages.",
   },
@@ -144,6 +150,7 @@ const DNS_CHECKS: DnsCheckDef[] = [
     },
     expectedValue: "At least one nameserver is external or uses systemd-resolved (127.0.0.53)",
     fixCommand: "echo 'nameserver 1.1.1.1' >> /etc/resolv.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "DNS resolution relying solely on localhost without a running resolver causes total DNS failure.",
   },
@@ -161,6 +168,7 @@ const DNS_CHECKS: DnsCheckDef[] = [
     },
     expectedValue: "systemd-resolved service is active",
     fixCommand: "systemctl enable --now systemd-resolved",
+    safeToAutoFix: "GUARDED",
     explain:
       "A local DNS resolver provides caching, DNSSEC validation, and protection against DNS cache poisoning from upstream resolvers.",
   },
@@ -180,6 +188,7 @@ const DNS_CHECKS: DnsCheckDef[] = [
     },
     expectedValue: "A search domain is configured in /etc/resolv.conf",
     fixCommand: "echo 'search example.com' >> /etc/resolv.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "A configured search domain prevents DNS queries from leaking internal hostnames to external resolvers.",
   },
@@ -205,7 +214,8 @@ export const parseDnsChecks: CheckParser = (
         passed: false,
         currentValue: "Unable to determine",
         expectedValue: def.expectedValue,
-        fixCommand: def.fixCommand,
+        fixCommand: def.fixCommand,
+        safeToAutoFix: def.safeToAutoFix,
         explain: def.explain,
       };
     }
@@ -218,7 +228,8 @@ export const parseDnsChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

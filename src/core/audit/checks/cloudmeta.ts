@@ -6,7 +6,7 @@
  * cloud-init log credential exposure, and IMDSv2 enforcement.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 
 interface CloudMetaCheckDef {
   id: string;
@@ -14,7 +14,8 @@ interface CloudMetaCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -37,6 +38,7 @@ const CLOUDMETA_CHECKS: CloudMetaCheckDef[] = [
     expectedValue: "Metadata endpoint blocked via iptables/cloud security group",
     fixCommand:
       "iptables -A OUTPUT -d 169.254.169.254 -m owner ! --uid-owner root -j DROP && iptables-save > /etc/iptables/rules.v4",
+    safeToAutoFix: "SAFE",
     explain:
       "The cloud IMDS (Instance Metadata Service) at 169.254.169.254 exposes IAM credentials, SSH keys, and instance identity tokens. If accessible to all processes, any compromised application can steal cloud credentials. Block with iptables for all non-root processes.",
   },
@@ -61,6 +63,7 @@ const CLOUDMETA_CHECKS: CloudMetaCheckDef[] = [
     expectedValue: "Cloud-init logs do not contain plaintext passwords or tokens",
     fixCommand:
       "# Rotate any credentials that appeared in cloud-init logs, then: sudo truncate -s 0 /var/log/cloud-init.log /var/log/cloud-init-output.log",
+    safeToAutoFix: "GUARDED",
     explain:
       "Cloud-init logs (/var/log/cloud-init.log) can persist bootstrap credentials passed as user-data or config-drive scripts. If user-data included passwords or tokens, they may be readable in these logs by any user with log access.",
   },
@@ -82,6 +85,7 @@ const CLOUDMETA_CHECKS: CloudMetaCheckDef[] = [
     expectedValue: "IMDSv2 session-token API responds (PUT /latest/api/token)",
     fixCommand:
       "# For AWS EC2: aws ec2 modify-instance-metadata-options --instance-id $(curl -s http://169.254.169.254/latest/meta-data/instance-id) --http-tokens required",
+    safeToAutoFix: "GUARDED",
     explain:
       "AWS IMDSv1 is vulnerable to SSRF attacks — any application-level SSRF can fetch IAM role credentials from the metadata service. IMDSv2 requires a session token obtained via a PUT request, which SSRF cannot perform due to HTTP redirect restrictions.",
   },
@@ -104,6 +108,7 @@ const CLOUDMETA_CHECKS: CloudMetaCheckDef[] = [
     expectedValue: "Cloud-init user data does not embed secrets as environment variables",
     fixCommand:
       "# Replace cloud-init secret injection with cloud provider secrets manager (AWS Secrets Manager, GCP Secret Manager, Azure Key Vault)",
+    safeToAutoFix: "GUARDED",
     explain:
       "Embedding secrets directly in cloud-init user data stores them in the instance metadata at /user-data, readable by any process that can access the IMDS endpoint. Use a secrets manager and fetch credentials at runtime instead.",
   },
@@ -126,6 +131,7 @@ const CLOUDMETA_CHECKS: CloudMetaCheckDef[] = [
     expectedValue: "iptables or cloud security group restricts metadata endpoint by UID/process",
     fixCommand:
       "iptables -I OUTPUT -d 169.254.169.254 -m owner ! --uid-owner root -j DROP",
+    safeToAutoFix: "SAFE",
     explain:
       "Even with IMDSv2 enabled, restricting metadata endpoint access by process UID using iptables provides defense-in-depth. This prevents compromised non-root services from enumerating instance metadata or acquiring temporary credentials.",
   },
@@ -148,6 +154,7 @@ const CLOUDMETA_CHECKS: CloudMetaCheckDef[] = [
     },
     expectedValue: "IMDS endpoint blocked or IMDSv2 token endpoint is available",
     fixCommand: "# AWS: aws ec2 modify-instance-metadata-options --http-tokens required --instance-id INSTANCE_ID",
+    safeToAutoFix: "GUARDED",
     explain:
       "IMDSv1 is vulnerable to SSRF attacks; restricting to IMDSv2 requires token-based authentication for metadata access.",
   },
@@ -181,7 +188,8 @@ export const parseCloudMetaChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

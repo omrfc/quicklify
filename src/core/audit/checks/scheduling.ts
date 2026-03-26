@@ -3,7 +3,7 @@
  * Checks cron/at access control and directory permissions.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 
 interface SchedulingCheckDef {
   id: string;
@@ -11,7 +11,8 @@ interface SchedulingCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -30,6 +31,7 @@ const SCHEDULING_CHECKS: SchedulingCheckDef[] = [
     },
     expectedValue: "/etc/cron.allow exists (whitelist approach)",
     fixCommand: "echo root > /etc/cron.allow && chmod 600 /etc/cron.allow",
+    safeToAutoFix: "SAFE",
     explain:
       "Using cron.allow restricts cron access to explicitly listed users, following the principle of least privilege.",
   },
@@ -46,6 +48,7 @@ const SCHEDULING_CHECKS: SchedulingCheckDef[] = [
     },
     expectedValue: "/etc/cron.deny exists as fallback access control",
     fixCommand: "touch /etc/cron.deny && chmod 600 /etc/cron.deny",
+    safeToAutoFix: "SAFE",
     explain:
       "The cron.deny file provides a secondary layer of access control by explicitly blocking specific users from cron.",
   },
@@ -62,6 +65,7 @@ const SCHEDULING_CHECKS: SchedulingCheckDef[] = [
     },
     expectedValue: "/etc/at.allow exists (whitelist approach)",
     fixCommand: "echo root > /etc/at.allow && chmod 600 /etc/at.allow",
+    safeToAutoFix: "SAFE",
     explain:
       "Using at.allow restricts the 'at' scheduler to explicitly listed users, preventing unauthorized job scheduling.",
   },
@@ -78,6 +82,7 @@ const SCHEDULING_CHECKS: SchedulingCheckDef[] = [
     },
     expectedValue: "/etc/at.deny exists as fallback access control",
     fixCommand: "touch /etc/at.deny && chmod 600 /etc/at.deny",
+    safeToAutoFix: "SAFE",
     explain:
       "The at.deny file blocks specific users from scheduling one-time jobs, complementing at.allow.",
   },
@@ -97,6 +102,7 @@ const SCHEDULING_CHECKS: SchedulingCheckDef[] = [
     },
     expectedValue: "No world-writable cron directories",
     fixCommand: "chmod o-w /etc/cron.d /etc/cron.daily /etc/cron.weekly /etc/cron.monthly /etc/cron.hourly",
+    safeToAutoFix: "SAFE",
     explain:
       "World-writable cron directories allow any user to inject scheduled tasks, enabling privilege escalation.",
   },
@@ -118,6 +124,7 @@ const SCHEDULING_CHECKS: SchedulingCheckDef[] = [
     },
     expectedValue: "/etc/crontab permissions 600 or 644, owned by root",
     fixCommand: "chmod 600 /etc/crontab && chown root:root /etc/crontab",
+    safeToAutoFix: "SAFE",
     explain:
       "The system crontab must be restricted to root to prevent unauthorized modification of scheduled tasks.",
   },
@@ -138,6 +145,7 @@ const SCHEDULING_CHECKS: SchedulingCheckDef[] = [
     },
     expectedValue: "/etc/cron.d permissions 700 or 750, owned by root",
     fixCommand: "chmod 700 /etc/cron.d && chown root:root /etc/cron.d",
+    safeToAutoFix: "SAFE",
     explain:
       "The cron.d directory holds additional crontab files and should be restricted to prevent unauthorized job additions.",
   },
@@ -158,6 +166,7 @@ const SCHEDULING_CHECKS: SchedulingCheckDef[] = [
     },
     expectedValue: "/etc/cron.daily permissions 700 or 750, owned by root",
     fixCommand: "chmod 700 /etc/cron.daily && chown root:root /etc/cron.daily",
+    safeToAutoFix: "SAFE",
     explain:
       "Daily cron scripts directory should be restricted to prevent injection of persistent malicious scripts.",
   },
@@ -182,6 +191,7 @@ const SCHEDULING_CHECKS: SchedulingCheckDef[] = [
     },
     expectedValue: "/etc/crontab owned by root with permissions <= 600",
     fixCommand: "chown root:root /etc/crontab && chmod 600 /etc/crontab",
+    safeToAutoFix: "SAFE",
     explain:
       "Non-root owned or world-writable crontab files allow privilege escalation through scheduled job injection.",
   },
@@ -201,6 +211,7 @@ const SCHEDULING_CHECKS: SchedulingCheckDef[] = [
     },
     expectedValue: "No world-writable entries in /etc/cron.d, /etc/cron.daily, etc.",
     fixCommand: "chmod -R o-w /etc/cron.d /etc/cron.daily /etc/cron.weekly /etc/cron.monthly",
+    safeToAutoFix: "SAFE",
     explain:
       "World-writable cron directories allow any user to inject scheduled tasks for privilege escalation.",
   },
@@ -223,6 +234,7 @@ const SCHEDULING_CHECKS: SchedulingCheckDef[] = [
     },
     expectedValue: "15 or fewer files in /etc/cron.d/",
     fixCommand: "ls /etc/cron.d/ — review and remove unnecessary scheduled tasks",
+    safeToAutoFix: "SAFE",
     explain:
       "Excessive cron.d files indicate unmanaged scheduled tasks that may run with elevated privileges.",
   },
@@ -244,6 +256,7 @@ const SCHEDULING_CHECKS: SchedulingCheckDef[] = [
     },
     expectedValue: "No world-readable files in /var/spool/cron/crontabs/",
     fixCommand: "chmod 600 /var/spool/cron/crontabs/*",
+    safeToAutoFix: "SAFE",
     explain:
       "World-readable crontab files expose scheduled task details including credentials and internal paths to all local users.",
   },
@@ -269,7 +282,8 @@ export const parseSchedulingChecks: CheckParser = (
         passed: false,
         currentValue: "Unable to determine",
         expectedValue: def.expectedValue,
-        fixCommand: def.fixCommand,
+        fixCommand: def.fixCommand,
+        safeToAutoFix: def.safeToAutoFix,
         explain: def.explain,
       };
     }
@@ -282,7 +296,8 @@ export const parseSchedulingChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

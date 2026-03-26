@@ -4,7 +4,7 @@
  * kernel support into 7 security checks.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 
 interface MACCheckDef {
   id: string;
@@ -12,7 +12,8 @@ interface MACCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -33,6 +34,7 @@ const MAC_CHECKS: MACCheckDef[] = [
     },
     expectedValue: "apparmor or selinux present in /sys/kernel/security/lsm",
     fixCommand: "apt install apparmor apparmor-utils -y && systemctl enable apparmor && systemctl start apparmor",
+    safeToAutoFix: "SAFE",
     explain:
       "A mandatory access control system (AppArmor or SELinux) enforces security policies that restrict what programs can do, limiting the impact of exploited vulnerabilities.",
   },
@@ -51,6 +53,7 @@ const MAC_CHECKS: MACCheckDef[] = [
     },
     expectedValue: "systemctl is-active apparmor == active",
     fixCommand: "systemctl enable apparmor && systemctl start apparmor",
+    safeToAutoFix: "SAFE",
     explain:
       "AppArmor must be running to enforce security profiles. A stopped AppArmor service provides no MAC protection even if profiles are defined.",
   },
@@ -71,6 +74,7 @@ const MAC_CHECKS: MACCheckDef[] = [
     },
     expectedValue: "At least 1 profile in AppArmor enforce mode",
     fixCommand: "aa-enforce /etc/apparmor.d/* # Enable enforce mode for all AppArmor profiles",
+    safeToAutoFix: "SAFE",
     explain:
       "AppArmor profiles in enforce mode actively block policy violations. Profiles only in complain mode log violations without blocking them, providing weaker protection.",
   },
@@ -94,6 +98,7 @@ const MAC_CHECKS: MACCheckDef[] = [
     },
     expectedValue: "Unconfined process count is low (< 50)",
     fixCommand: "aa-genprof <process> # Generate an AppArmor profile for unconfined processes",
+    safeToAutoFix: "SAFE",
     explain:
       "Processes running without an AppArmor profile (unconfined) have unrestricted access. A high count of unconfined processes indicates incomplete MAC coverage.",
   },
@@ -115,6 +120,7 @@ const MAC_CHECKS: MACCheckDef[] = [
     },
     expectedValue: "SELinux Enforcing or not installed (AppArmor system)",
     fixCommand: "setenforce 1 && sed -i 's/SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config",
+    safeToAutoFix: "SAFE",
     explain:
       "SELinux in Enforcing mode actively blocks policy violations. Permissive mode only logs violations without blocking them. On AppArmor systems (Ubuntu), SELinux absence is expected and not a finding.",
   },
@@ -136,6 +142,7 @@ const MAC_CHECKS: MACCheckDef[] = [
     },
     expectedValue: "SELINUX=enforcing in /etc/selinux/config, or config not present",
     fixCommand: "sed -i 's/SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config && reboot",
+    safeToAutoFix: "SAFE",
     explain:
       "The SELinux config file sets the mode that persists across reboots. Without SELINUX=enforcing in the config, a reboot can revert SELinux to permissive or disabled mode.",
   },
@@ -156,6 +163,7 @@ const MAC_CHECKS: MACCheckDef[] = [
     },
     expectedValue: "Seccomp field in /proc/self/status > 0",
     fixCommand: "# Seccomp is a kernel feature — upgrade kernel or enable CONFIG_SECCOMP",
+    safeToAutoFix: "GUARDED",
     explain:
       "Seccomp (secure computing mode) restricts the system calls available to processes, limiting the attack surface if a process is compromised.",
   },
@@ -197,6 +205,7 @@ const MAC_CHECKS: MACCheckDef[] = [
     },
     expectedValue: "At least 1 AppArmor profile in enforce mode",
     fixCommand: "aa-enforce /etc/apparmor.d/*  # Enable enforce mode for all AppArmor profiles",
+    safeToAutoFix: "SAFE",
     explain:
       "AppArmor profiles in enforce mode actively restrict application behavior; complain mode only logs violations.",
   },
@@ -220,6 +229,7 @@ const MAC_CHECKS: MACCheckDef[] = [
     },
     expectedValue: "Fewer than 10 unconfined processes",
     fixCommand: "aa-genprof <process>  # Generate AppArmor profile for unconfined processes",
+    safeToAutoFix: "SAFE",
     explain:
       "Unconfined processes run without AppArmor restrictions; minimizing them reduces the attack surface.",
   },
@@ -246,6 +256,7 @@ const MAC_CHECKS: MACCheckDef[] = [
     },
     expectedValue: "Seccomp value 1 (strict) or 2 (filter), not 0",
     fixCommand: "# Seccomp is a kernel feature — ensure CONFIG_SECCOMP and CONFIG_SECCOMP_FILTER are enabled",
+    safeToAutoFix: "GUARDED",
     explain:
       "Seccomp system call filtering restricts which syscalls processes can use, reducing kernel attack surface.",
   },
@@ -271,7 +282,8 @@ export const parseMACChecks: CheckParser = (
         passed: false,
         currentValue: "Unable to determine",
         expectedValue: def.expectedValue,
-        fixCommand: def.fixCommand,
+        fixCommand: def.fixCommand,
+        safeToAutoFix: def.safeToAutoFix,
         explain: def.explain,
       };
     }
@@ -284,7 +296,8 @@ export const parseMACChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

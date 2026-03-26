@@ -4,7 +4,7 @@
  * auditd installation/status, and audit rules into 8 security checks.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 
 interface FileIntegrityCheckDef {
   id: string;
@@ -12,7 +12,8 @@ interface FileIntegrityCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -30,6 +31,7 @@ const FILEINTEGRITY_CHECKS: FileIntegrityCheckDef[] = [
     },
     expectedValue: "AIDE (Advanced Intrusion Detection Environment) installed",
     fixCommand: "apt install aide -y && aideinit && mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db",
+    safeToAutoFix: "SAFE",
     explain: "AIDE monitors file integrity by comparing file hashes against a known-good baseline, detecting unauthorized changes to critical system files.",
   },
   {
@@ -45,6 +47,7 @@ const FILEINTEGRITY_CHECKS: FileIntegrityCheckDef[] = [
     },
     expectedValue: "Tripwire installed (alternative file integrity monitor)",
     fixCommand: "apt install tripwire -y && tripwire --init",
+    safeToAutoFix: "SAFE",
     explain: "Tripwire is an alternative file integrity monitoring tool. Either AIDE or Tripwire provides file integrity monitoring capability.",
   },
   {
@@ -60,6 +63,7 @@ const FILEINTEGRITY_CHECKS: FileIntegrityCheckDef[] = [
     },
     expectedValue: "AIDE database file exists at /var/lib/aide/aide.db or aide.db.gz",
     fixCommand: "aideinit && mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db",
+    safeToAutoFix: "SAFE",
     explain: "The AIDE database stores file integrity baselines. Without it, AIDE cannot detect unauthorized changes even if installed.",
   },
   {
@@ -76,6 +80,7 @@ const FILEINTEGRITY_CHECKS: FileIntegrityCheckDef[] = [
     },
     expectedValue: "Cron job for AIDE scheduled check exists",
     fixCommand: "echo '0 3 * * * root /usr/sbin/aide --check' > /etc/cron.d/aide && chmod 644 /etc/cron.d/aide",
+    safeToAutoFix: "SAFE",
     explain: "AIDE must run on a schedule to continuously detect unauthorized changes. A missing cron job means integrity violations may go undetected.",
   },
   {
@@ -91,6 +96,7 @@ const FILEINTEGRITY_CHECKS: FileIntegrityCheckDef[] = [
     },
     expectedValue: "auditd (Linux Audit daemon) installed",
     fixCommand: "apt install auditd audispd-plugins -y && systemctl enable auditd && systemctl start auditd",
+    safeToAutoFix: "SAFE",
     explain: "auditd provides comprehensive audit logging for system calls and file access, essential for detecting and investigating security incidents.",
   },
   {
@@ -106,6 +112,7 @@ const FILEINTEGRITY_CHECKS: FileIntegrityCheckDef[] = [
     },
     expectedValue: "auditd service is active and running",
     fixCommand: "systemctl enable auditd && systemctl start auditd",
+    safeToAutoFix: "SAFE",
     explain: "An installed but inactive auditd provides no security monitoring. auditd must be running to capture audit events.",
   },
   {
@@ -121,6 +128,7 @@ const FILEINTEGRITY_CHECKS: FileIntegrityCheckDef[] = [
     },
     expectedValue: "auditctl rule watching /etc/passwd for changes",
     fixCommand: "echo '-w /etc/passwd -p wa -k identity' >> /etc/audit/rules.d/kastell.rules && augenrules --load",
+    safeToAutoFix: "SAFE",
     explain: "Auditing changes to /etc/passwd detects unauthorized account creation, modification, or deletion events.",
   },
   {
@@ -136,6 +144,7 @@ const FILEINTEGRITY_CHECKS: FileIntegrityCheckDef[] = [
     },
     expectedValue: "auditctl rule watching /etc/shadow for changes",
     fixCommand: "echo '-w /etc/shadow -p wa -k identity' >> /etc/audit/rules.d/kastell.rules && augenrules --load",
+    safeToAutoFix: "SAFE",
     explain: "Auditing /etc/shadow detects unauthorized password changes or credential manipulation that could indicate a compromise.",
   },
   {
@@ -164,6 +173,7 @@ const FILEINTEGRITY_CHECKS: FileIntegrityCheckDef[] = [
     },
     expectedValue: "AIDE database updated within the last 30 days",
     fixCommand: "aide --update && mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db",
+    safeToAutoFix: "SAFE",
     explain: "A stale AIDE database fails to detect recent unauthorized file modifications.",
   },
   {
@@ -185,6 +195,7 @@ const FILEINTEGRITY_CHECKS: FileIntegrityCheckDef[] = [
     },
     expectedValue: "auditctl rules exist for /etc/passwd, /etc/shadow, or /etc/sudoers",
     fixCommand: "auditctl -w /etc/passwd -p wa -k identity && auditctl -w /etc/shadow -p wa -k identity && auditctl -w /etc/sudoers -p wa -k sudoers",
+    safeToAutoFix: "SAFE",
     explain: "Monitoring changes to /etc/passwd, /etc/shadow, and /etc/sudoers detects unauthorized privilege modifications.",
   },
 ];
@@ -209,7 +220,8 @@ export const parseFileIntegrityChecks: CheckParser = (
         passed: false,
         currentValue: "Unable to determine",
         expectedValue: def.expectedValue,
-        fixCommand: def.fixCommand,
+        fixCommand: def.fixCommand,
+        safeToAutoFix: def.safeToAutoFix,
         explain: def.explain,
       };
     }
@@ -222,7 +234,8 @@ export const parseFileIntegrityChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

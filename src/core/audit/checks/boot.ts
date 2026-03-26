@@ -3,7 +3,7 @@
  * Checks bootloader hardening, secure boot, and kernel boot parameters.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 
 interface BootCheckDef {
   id: string;
@@ -11,7 +11,8 @@ interface BootCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
   vpsIrrelevant?: boolean;
 }
@@ -35,6 +36,7 @@ const BOOT_CHECKS: BootCheckDef[] = [
     },
     expectedValue: "grub.cfg permissions 400 or 600, owned root:root",
     fixCommand: "chmod 600 /boot/grub/grub.cfg && chown root:root /boot/grub/grub.cfg",
+    safeToAutoFix: "SAFE",
     explain:
       "A world-readable bootloader config can reveal kernel parameters and system configuration to local attackers.",
   },
@@ -52,6 +54,7 @@ const BOOT_CHECKS: BootCheckDef[] = [
     },
     expectedValue: "GRUB password configured to prevent unauthorized boot changes",
     fixCommand: "grub2-mkpasswd-pbkdf2 # Then add to /etc/grub.d/40_custom",
+    safeToAutoFix: "SAFE",
     explain:
       "Without a GRUB password, anyone with physical or console access can modify boot parameters to gain root access.",
   },
@@ -72,6 +75,7 @@ const BOOT_CHECKS: BootCheckDef[] = [
     },
     expectedValue: "Secure Boot enabled (where hardware supports it)",
     fixCommand: "mokutil --enable-validation # Requires reboot and BIOS/UEFI access",
+    safeToAutoFix: "SAFE",
     explain:
       "Secure Boot prevents loading unsigned kernel modules and bootloaders, protecting against rootkit installation.",
   },
@@ -91,6 +95,7 @@ const BOOT_CHECKS: BootCheckDef[] = [
     expectedValue: "apparmor=1 or security= present in /proc/cmdline",
     fixCommand:
       "Edit GRUB_CMDLINE_LINUX in /etc/default/grub to include 'apparmor=1 security=apparmor' && update-grub",
+    safeToAutoFix: "GUARDED",
     explain:
       "Kernel boot parameters should enable mandatory access control frameworks to enforce security policies.",
   },
@@ -113,6 +118,7 @@ const BOOT_CHECKS: BootCheckDef[] = [
     },
     expectedValue: "/etc/grub.d not accessible by others (e.g., 700 or 750)",
     fixCommand: "chmod 700 /etc/grub.d",
+    safeToAutoFix: "SAFE",
     explain:
       "The GRUB configuration directory contains scripts that run at boot — restricting access prevents unauthorized boot modifications.",
   },
@@ -138,6 +144,7 @@ const BOOT_CHECKS: BootCheckDef[] = [
     expectedValue: "/boot mounted with nosuid and nodev options",
     fixCommand:
       "Edit /etc/fstab: add nosuid,nodev options for /boot partition",
+    safeToAutoFix: "GUARDED",
     explain:
       "Restrictive mount options on /boot prevent execution of setuid binaries and device files from the boot partition.",
   },
@@ -158,6 +165,7 @@ const BOOT_CHECKS: BootCheckDef[] = [
     expectedValue: "sulogin configured for single-user mode",
     fixCommand:
       "systemctl edit rescue.service # Add ExecStart=-/usr/lib/systemd/systemd-sulogin-shell rescue",
+    safeToAutoFix: "SAFE",
     explain:
       "Without authentication in single-user mode, anyone with console access gets a root shell without a password.",
   },
@@ -178,6 +186,7 @@ const BOOT_CHECKS: BootCheckDef[] = [
     expectedValue: "kernel.modules_disabled = 1 (after boot)",
     fixCommand:
       "echo 'kernel.modules_disabled=1' >> /etc/sysctl.d/99-hardening.conf && sysctl -p",
+    safeToAutoFix: "SAFE",
     explain:
       "Restricting kernel module loading after boot prevents attackers from loading rootkit kernel modules at runtime.",
   },
@@ -195,6 +204,7 @@ const BOOT_CHECKS: BootCheckDef[] = [
     },
     expectedValue: "System uses UEFI boot mode",
     fixCommand: "# UEFI vs BIOS is a hardware/firmware setting — configure via BIOS setup",
+    safeToAutoFix: "GUARDED",
     explain:
       "UEFI boot supports Secure Boot which verifies bootloader integrity, preventing boot-level rootkits.",
   },
@@ -215,6 +225,7 @@ const BOOT_CHECKS: BootCheckDef[] = [
     expectedValue: "sulogin reference found in rescue.service or emergency.service",
     fixCommand:
       "systemctl edit rescue.service  # Add ExecStart=-/usr/lib/systemd/systemd-sulogin-shell rescue",
+    safeToAutoFix: "SAFE",
     explain:
       "Without authentication on rescue mode, physical or console access grants immediate root shell.",
   },
@@ -239,6 +250,7 @@ const BOOT_CHECKS: BootCheckDef[] = [
     },
     expectedValue: "GRUB superuser and password_pbkdf2 entries configured",
     fixCommand: "Configure GRUB superuser: grub-mkpasswd-pbkdf2 && update-grub",
+    safeToAutoFix: "GUARDED",
     explain:
       "GRUB superuser authentication prevents unauthorized kernel parameter modification at boot time, blocking single-user mode attacks.",
   },
@@ -266,7 +278,8 @@ export const parseBootChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
       ...(def.vpsIrrelevant !== undefined && { vpsIrrelevant: def.vpsIrrelevant }),
     };

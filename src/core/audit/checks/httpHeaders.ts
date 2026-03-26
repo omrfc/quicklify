@@ -4,7 +4,7 @@
  * If Nginx is not installed or HTTP is not responding, returns info-level skipped checks (score-neutral).
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 import { makeSkippedChecks } from "./shared/skipChecks.js";
 
 interface HttpHeaderCheckDef {
@@ -13,7 +13,8 @@ interface HttpHeaderCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -35,6 +36,7 @@ const HTTP_HEADER_CHECKS: HttpHeaderCheckDef[] = [
     },
     expectedValue: "X-Frame-Options header or CSP frame-ancestors directive present",
     fixCommand: 'add_header X-Frame-Options "SAMEORIGIN" always;\nnginx -t && systemctl reload nginx',
+    safeToAutoFix: "GUARDED",
     explain:
       "X-Frame-Options or CSP frame-ancestors prevents clickjacking attacks by restricting which sites can embed your pages in iframes. Without this header, attackers can overlay invisible iframes on legitimate sites to hijack user clicks and steal credentials or trigger unintended actions.",
   },
@@ -49,6 +51,7 @@ const HTTP_HEADER_CHECKS: HttpHeaderCheckDef[] = [
     },
     expectedValue: "X-Content-Type-Options: nosniff header present",
     fixCommand: 'add_header X-Content-Type-Options "nosniff" always;\nnginx -t && systemctl reload nginx',
+    safeToAutoFix: "GUARDED",
     explain:
       "X-Content-Type-Options: nosniff prevents browsers from MIME-type sniffing, which can turn non-executable MIME types into executable content. Without this header, attackers can exploit MIME confusion to execute malicious scripts disguised as harmless file types like images or stylesheets.",
   },
@@ -63,6 +66,7 @@ const HTTP_HEADER_CHECKS: HttpHeaderCheckDef[] = [
     },
     expectedValue: "Referrer-Policy header present (e.g. strict-origin-when-cross-origin)",
     fixCommand: 'add_header Referrer-Policy "strict-origin-when-cross-origin" always;\nnginx -t && systemctl reload nginx',
+    safeToAutoFix: "GUARDED",
     explain:
       "Referrer-Policy controls how much URL information the browser sends when navigating away from your site. Without this header, full URLs including query parameters, tokens, and internal paths may leak to third-party sites via the Referer header, potentially exposing sensitive data.",
   },
@@ -78,6 +82,7 @@ const HTTP_HEADER_CHECKS: HttpHeaderCheckDef[] = [
     expectedValue: "Permissions-Policy header present (restricts browser features)",
     fixCommand:
       'add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;\nnginx -t && systemctl reload nginx',
+    safeToAutoFix: "GUARDED",
     explain:
       "Permissions-Policy restricts which browser features (camera, microphone, geolocation, payment) can be used by your site and embedded iframes. Without this header, malicious scripts or third-party iframes can silently access sensitive device APIs to record audio, track location, or initiate payments.",
   },
@@ -95,6 +100,7 @@ const HTTP_HEADER_CHECKS: HttpHeaderCheckDef[] = [
     expectedValue: "No Access-Control-Allow-Origin: * wildcard (use specific origins)",
     fixCommand:
       'add_header Access-Control-Allow-Origin "https://yourdomain.com" always;\nnginx -t && systemctl reload nginx',
+    safeToAutoFix: "GUARDED",
     explain:
       "Access-Control-Allow-Origin: * allows any website to make cross-origin requests to your server and read the responses. This enables credential theft, data exfiltration, and CSRF attacks from any malicious site. Always specify exact allowed origins instead of using the wildcard.",
   },
@@ -110,6 +116,7 @@ const HTTP_HEADER_CHECKS: HttpHeaderCheckDef[] = [
     expectedValue: "Content-Security-Policy header present (defense against XSS)",
     fixCommand:
       "add_header Content-Security-Policy \"default-src 'self'\" always;\nnginx -t && systemctl reload nginx",
+    safeToAutoFix: "GUARDED",
     explain:
       "Content-Security-Policy (CSP) is the primary defense against cross-site scripting (XSS) attacks. It restricts which sources can load scripts, styles, images, and other resources. Without CSP, any injected script tag or inline JavaScript can execute with full access to session cookies, DOM, and user data.",
   },
@@ -140,7 +147,8 @@ export const parseHttpHeadersChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

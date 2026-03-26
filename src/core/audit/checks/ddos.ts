@@ -35,6 +35,7 @@ export const parseDdosChecks: CheckParser = (sectionOutput: string, platform: st
     expectedValue: "net.ipv4.tcp_max_syn_backlog >= 2048",
     fixCommand:
       "sysctl -w net.ipv4.tcp_max_syn_backlog=2048 && echo 'net.ipv4.tcp_max_syn_backlog=2048' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "A larger SYN backlog queue allows the server to handle more simultaneous half-open TCP connections, reducing the risk of SYN flood attacks overwhelming the connection queue. The default value (128) is too small for production servers under load.",
   };
@@ -55,6 +56,7 @@ export const parseDdosChecks: CheckParser = (sectionOutput: string, platform: st
     expectedValue: "net.ipv4.tcp_synack_retries <= 3",
     fixCommand:
       "sysctl -w net.ipv4.tcp_synack_retries=3 && echo 'net.ipv4.tcp_synack_retries=3' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "Limiting SYNACK retries reduces the time the server holds incomplete connection state during a SYN flood. The default (5) means up to 3 minutes of connection state per half-open session. Reducing to 3 cuts this to about 45 seconds.",
   };
@@ -75,6 +77,7 @@ export const parseDdosChecks: CheckParser = (sectionOutput: string, platform: st
     expectedValue: "net.ipv4.tcp_fin_timeout <= 30",
     fixCommand:
       "sysctl -w net.ipv4.tcp_fin_timeout=15 && echo 'net.ipv4.tcp_fin_timeout=15' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "The FIN timeout controls how long the kernel waits before freeing resources after a connection closes. The default (60s) allows an attacker to exhaust connection state with rapid connection teardown. Reducing to 15-30s reclaims resources faster.",
   };
@@ -97,6 +100,7 @@ export const parseDdosChecks: CheckParser = (sectionOutput: string, platform: st
       : "net.ipv4.tcp_tw_reuse = 1",
     fixCommand:
       "sysctl -w net.ipv4.tcp_tw_reuse=1 && echo 'net.ipv4.tcp_tw_reuse=1' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: isPlatform
       ? "TCP TIME_WAIT reuse is not enforced on Docker/Coolify platforms because Docker NAT can cause issues when sockets are reused too aggressively."
       : "Enabling TIME_WAIT socket reuse allows the server to recycle connections in TIME_WAIT state, reducing the number of sockets held open and improving throughput under connection-heavy DDoS conditions.",
@@ -118,6 +122,7 @@ export const parseDdosChecks: CheckParser = (sectionOutput: string, platform: st
     expectedValue: "net.ipv4.icmp_ratelimit <= 1000",
     fixCommand:
       "sysctl -w net.ipv4.icmp_ratelimit=1000 && echo 'net.ipv4.icmp_ratelimit=1000' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "ICMP rate limiting caps how many ICMP messages the kernel generates per second (in jiffies). Lower values prevent the server from being used as a DDoS reflector and reduce CPU overhead from processing ICMP flood responses.",
   };
@@ -138,6 +143,7 @@ export const parseDdosChecks: CheckParser = (sectionOutput: string, platform: st
     expectedValue: "net.ipv4.icmp_ignore_bogus_error_responses = 1",
     fixCommand:
       "sysctl -w net.ipv4.icmp_ignore_bogus_error_responses=1 && echo 'net.ipv4.icmp_ignore_bogus_error_responses=1' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "Some routers send bogus ICMP error responses. Without this setting, the kernel logs each one, wasting I/O and disk space. Enabling this suppresses logging of these known-bogus packets.",
   };
@@ -158,6 +164,7 @@ export const parseDdosChecks: CheckParser = (sectionOutput: string, platform: st
     expectedValue: "net.core.somaxconn >= 1024",
     fixCommand:
       "sysctl -w net.core.somaxconn=65535 && echo 'net.core.somaxconn=65535' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "somaxconn sets the maximum number of pending connections that can be queued before they are dropped. The default (128) is insufficient for high-traffic servers. Under a connection flood, a small backlog causes new connections to be silently dropped.",
   };
@@ -178,6 +185,7 @@ export const parseDdosChecks: CheckParser = (sectionOutput: string, platform: st
     expectedValue: "net.ipv4.tcp_syn_retries <= 3",
     fixCommand:
       "sysctl -w net.ipv4.tcp_syn_retries=3 && echo 'net.ipv4.tcp_syn_retries=3' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "Limiting SYN retries reduces the time wasted on unanswered outbound connection attempts and mitigates resource exhaustion from connections to unresponsive hosts.",
   };

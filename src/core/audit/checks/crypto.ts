@@ -4,7 +4,7 @@
  * and certificate expiry data into 10 security checks.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 import { WEAK_CIPHERS, WEAK_MACS, WEAK_KEX } from "../../../constants.js";
 
 interface CryptoCheckDef {
@@ -13,7 +13,8 @@ interface CryptoCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -31,6 +32,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "OpenSSL is installed",
     fixCommand: "apt install openssl -y",
+    safeToAutoFix: "SAFE",
     explain: "OpenSSL provides the cryptographic library used by most services for TLS and certificate operations.",
   },
   {
@@ -51,6 +53,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "No arcfour, 3des-cbc, blowfish-cbc, or cast128-cbc ciphers",
     fixCommand: "sed -i '/^Ciphers/d' /etc/ssh/sshd_config && echo 'Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr' >> /etc/ssh/sshd_config && systemctl restart sshd",
+    safeToAutoFix: "GUARDED",
     explain: "Weak SSH ciphers (arcfour, 3DES, Blowfish) are vulnerable to known cryptographic attacks including SWEET32 and related attacks.",
   },
   {
@@ -71,6 +74,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "No hmac-md5, hmac-sha1-96, or umac-64 MACs",
     fixCommand: "sed -i '/^MACs/d' /etc/ssh/sshd_config && echo 'MACs hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com' >> /etc/ssh/sshd_config && systemctl restart sshd",
+    safeToAutoFix: "GUARDED",
     explain: "Weak SSH MACs like HMAC-MD5 and HMAC-SHA1-96 provide insufficient integrity protection and are vulnerable to collision attacks.",
   },
   {
@@ -91,6 +95,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "No diffie-hellman-group1-sha1 or diffie-hellman-group14-sha1",
     fixCommand: "sed -i '/^KexAlgorithms/d' /etc/ssh/sshd_config && echo 'KexAlgorithms curve25519-sha256,ecdh-sha2-nistp521,ecdh-sha2-nistp384,ecdh-sha2-nistp256' >> /etc/ssh/sshd_config && systemctl restart sshd",
+    safeToAutoFix: "GUARDED",
     explain: "Weak Diffie-Hellman group1 and group14 key exchanges are susceptible to Logjam attack, allowing MitM decryption of SSH sessions.",
   },
   {
@@ -106,6 +111,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "ssh_host_ed25519_key exists in /etc/ssh/",
     fixCommand: "ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N '' && systemctl restart sshd",
+    safeToAutoFix: "GUARDED",
     explain: "ED25519 host keys use modern elliptic curve cryptography offering stronger security and better performance than RSA keys.",
   },
   {
@@ -121,6 +127,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "At least one LUKS-encrypted disk volume present",
     fixCommand: "cryptsetup luksFormat /dev/sdX # Encrypt disk partition with LUKS (DESTRUCTIVE — backup data first)",
+    safeToAutoFix: "SAFE",
     explain: "LUKS disk encryption protects data at rest against physical theft or unauthorized access to storage media.",
   },
   {
@@ -145,6 +152,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "MinProtocol = TLSv1.2 or TLSv1.3 in /etc/ssl/openssl.cnf",
     fixCommand: "grep -q 'MinProtocol' /etc/ssl/openssl.cnf && sed -i 's/MinProtocol.*/MinProtocol = TLSv1.2/' /etc/ssl/openssl.cnf || echo 'MinProtocol = TLSv1.2' >> /etc/ssl/openssl.cnf",
+    safeToAutoFix: "SAFE",
     explain: "Setting a minimum TLS protocol version prevents clients from negotiating insecure TLS 1.0 or 1.1 connections.",
   },
   {
@@ -180,6 +188,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "TLS certificate enddate is in the future",
     fixCommand: "certbot renew # Renew Let's Encrypt certificate, or replace with valid certificate",
+    safeToAutoFix: "SAFE",
     explain: "Expired TLS certificates cause browser warnings and trust errors, disrupting service and indicating poor certificate lifecycle management.",
   },
   {
@@ -196,6 +205,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "SSLv3 not enabled in openssl.cnf",
     fixCommand: "grep -q 'Protocol' /etc/ssl/openssl.cnf && sed -i '/SSLv3/d' /etc/ssl/openssl.cnf",
+    safeToAutoFix: "SAFE",
     explain: "SSLv3 is vulnerable to the POODLE attack which allows an attacker to decrypt encrypted communications in an active MitM scenario.",
   },
   {
@@ -220,6 +230,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "OpenSSL 3.x or 1.1.x (not 1.0.x or older)",
     fixCommand: "apt update && apt install --only-upgrade openssl -y",
+    safeToAutoFix: "SAFE",
     explain: "OpenSSL 1.0.x and earlier have known vulnerabilities including Heartbleed (1.0.1) and lack modern cipher support.",
   },
   {
@@ -235,6 +246,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "No ssh_host_dsa_key present in /etc/ssh/",
     fixCommand: "rm -f /etc/ssh/ssh_host_dsa_key* && ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ''",
+    safeToAutoFix: "SAFE",
     explain: "DSA host keys use fixed 1024-bit key length which is cryptographically weak by modern standards.",
   },
   {
@@ -265,6 +277,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "All SSH host private keys have mode 600 or 640",
     fixCommand: "chmod 600 /etc/ssh/ssh_host_*_key",
+    safeToAutoFix: "SAFE",
     explain: "World-readable SSH host private keys allow any local user to impersonate the server.",
   },
   {
@@ -299,6 +312,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "Fewer than 5 NULL/RC4/DES/MD5 cipher references",
     fixCommand: "Update /etc/ssl/openssl.cnf MinProtocol and CipherString to disable weak algorithms",
+    safeToAutoFix: "GUARDED",
     explain: "Weak ciphers in the OpenSSL configuration can be exploited through protocol downgrade attacks.",
   },
   {
@@ -319,6 +333,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "MinProtocol = TLSv1.2 or TLSv1.3",
     fixCommand: "Add 'MinProtocol = TLSv1.2' to /etc/ssl/openssl.cnf [system_default_sect]",
+    safeToAutoFix: "GUARDED",
     explain: "TLS versions below 1.2 have known cryptographic weaknesses and are deprecated by NIST and PCI-DSS.",
   },
   {
@@ -334,6 +349,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "LUKS disk encryption presence checked",
     fixCommand: "# Verify: cryptsetup luksDump /dev/sdX | grep 'Key Slot'",
+    safeToAutoFix: "GUARDED",
     explain: "LUKS disk encryption protects data at rest; key size should be >= 256 bits for strong protection.",
   },
   {
@@ -357,6 +373,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "DH parameters >= 2048 bits or using system defaults",
     fixCommand: "openssl dhparam -out /etc/ssl/dhparams.pem 4096",
+    safeToAutoFix: "SAFE",
     explain: "DH parameters smaller than 2048 bits are vulnerable to Logjam attacks that allow passive TLS decryption.",
   },
   {
@@ -382,6 +399,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "No world-readable .key files in /etc/ssl/ or /etc/pki/",
     fixCommand: "find /etc/ssl/ /etc/pki/ -name '*.key' -perm -o+r -exec chmod 600 {} \\;",
+    safeToAutoFix: "SAFE",
     explain: "World-readable TLS private keys allow any local user to impersonate the server or decrypt intercepted traffic.",
   },
   {
@@ -416,6 +434,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "CA certificate store has at least 1 certificate",
     fixCommand: "apt install ca-certificates && update-ca-certificates",
+    safeToAutoFix: "SAFE",
     explain: "A populated CA certificate store is required for TLS verification; empty stores cause all HTTPS connections to fail or bypass validation.",
   },
   {
@@ -442,6 +461,7 @@ const CRYPTO_CHECKS: CryptoCheckDef[] = [
     },
     expectedValue: "ssl_protocols uses only TLSv1.2 and TLSv1.3",
     fixCommand: "ssl_protocols TLSv1.2 TLSv1.3; in nginx.conf",
+    safeToAutoFix: "SAFE",
     explain: "TLSv1.0 and TLSv1.1 have known vulnerabilities (POODLE, BEAST) and are deprecated by all major browsers.",
   },
 ];
@@ -466,7 +486,8 @@ export const parseCryptoChecks: CheckParser = (
         passed: false,
         currentValue: "Unable to determine",
         expectedValue: def.expectedValue,
-        fixCommand: def.fixCommand,
+        fixCommand: def.fixCommand,
+        safeToAutoFix: def.safeToAutoFix,
         explain: def.explain,
       };
     }
@@ -479,7 +500,8 @@ export const parseCryptoChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

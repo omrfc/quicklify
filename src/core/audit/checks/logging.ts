@@ -36,6 +36,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         : "No active logging service found",
     expectedValue: "rsyslog or journald active",
     fixCommand: "systemctl enable --now rsyslog || systemctl enable --now systemd-journald",
+    safeToAutoFix: "GUARDED",
     explain: "System logging is essential for security monitoring and incident investigation.",
   };
 
@@ -57,6 +58,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
           : "Unable to determine",
     expectedValue: "/var/log/auth.log or /var/log/secure exists",
     fixCommand: "systemctl restart rsyslog",
+    safeToAutoFix: "GUARDED",
     explain: "Authentication logs record login attempts and are critical for detecting brute-force attacks.",
   };
 
@@ -76,6 +78,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         : "Log rotation not detected",
     expectedValue: "logrotate configured",
     fixCommand: "apt install -y logrotate && logrotate -d /etc/logrotate.conf",
+    safeToAutoFix: "SAFE",
     explain: "Log rotation prevents disk exhaustion from growing log files.",
   };
 
@@ -95,6 +98,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         : "No remote logging detected",
     expectedValue: "Remote log forwarding configured",
     fixCommand: "echo '*.* @@logserver:514' >> /etc/rsyslog.conf && systemctl restart rsyslog",
+    safeToAutoFix: "GUARDED",
     explain: "Remote logging preserves evidence even if the server is compromised.",
   };
 
@@ -113,6 +117,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         : "auditd not detected",
     expectedValue: "auditd running for detailed system auditing",
     fixCommand: "apt install -y auditd && systemctl enable --now auditd",
+    safeToAutoFix: "GUARDED",
     explain: "The audit daemon provides detailed system call auditing for compliance and forensics.",
   };
 
@@ -134,6 +139,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         : "auditd service not active",
     expectedValue: "auditd service running",
     fixCommand: "systemctl enable --now auditd",
+    safeToAutoFix: "GUARDED",
     explain: "The audit daemon must be running to capture system call and file access events for compliance.",
   };
 
@@ -152,6 +158,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         : "No login event audit rules found",
     expectedValue: "auditctl rules monitoring login events",
     fixCommand: "auditctl -w /var/log/lastlog -p wa -k logins && auditctl -w /var/run/utmp -p wa -k session",
+    safeToAutoFix: "SAFE",
     explain: "Auditing login events enables detection of unauthorized access and session manipulation.",
   };
 
@@ -170,6 +177,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         : "No sudo audit rules found",
     expectedValue: "auditctl rules monitoring sudoers and sudo binary",
     fixCommand: "auditctl -w /etc/sudoers -p wa -k privilege && auditctl -w /usr/bin/sudo -p x -k privilege",
+    safeToAutoFix: "SAFE",
     explain: "Auditing sudo usage tracks privilege escalation attempts and detects sudoers tampering.",
   };
 
@@ -188,6 +196,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         : "No file integrity audit rules found",
     expectedValue: "auditctl rules monitoring /etc/passwd and /etc/shadow",
     fixCommand: "auditctl -w /etc/passwd -p wa -k identity && auditctl -w /etc/shadow -p wa -k identity",
+    safeToAutoFix: "SAFE",
     explain: "Monitoring critical authentication files detects unauthorized modifications to user accounts.",
   };
 
@@ -210,6 +219,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         : "Unable to determine /var/log permissions",
     expectedValue: "/var/log mode 750 or 700 (last digit 0)",
     fixCommand: "chmod 750 /var/log",
+    safeToAutoFix: "SAFE",
     explain: "Restricting /var/log access prevents unprivileged users from reading system and application logs.",
   };
 
@@ -228,6 +238,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         : "No centralized logging tool (vector, promtail, fluent-bit) detected",
     expectedValue: "vector, promtail, or fluent-bit installed",
     fixCommand: "apt install -y vector  # or install promtail/fluent-bit per vendor instructions",
+    safeToAutoFix: "SAFE",
     explain: "Centralized logging ensures log aggregation off the server, preserving evidence if the server is compromised.",
   };
 
@@ -246,6 +257,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         : "journald persistent storage not configured",
     expectedValue: "Storage=persistent in /etc/systemd/journald.conf",
     fixCommand: "sed -i 's/#\\?Storage=.*/Storage=persistent/' /etc/systemd/journald.conf && systemctl restart systemd-journald",
+    safeToAutoFix: "GUARDED",
     explain: "Persistent journald storage retains logs across reboots, critical for post-incident forensics.",
   };
 
@@ -278,6 +290,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         : "World-readable log count not determinable",
     expectedValue: "Fewer than 5 world-readable log files in /var/log",
     fixCommand: "find /var/log -maxdepth 1 -perm -o+r -type f -exec chmod o-r {} \\;",
+    safeToAutoFix: "SAFE",
     explain:
       "World-readable log files may expose sensitive authentication attempts, IP addresses, and system information.",
   };
@@ -297,6 +310,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         : "No remote syslog forwarding found",
     expectedValue: "At least one @host or @@host forwarding line in rsyslog config",
     fixCommand: "echo '*.* @@logserver:514' >> /etc/rsyslog.conf && systemctl restart rsyslog",
+    safeToAutoFix: "GUARDED",
     explain:
       "Remote syslog forwarding ensures logs survive even if the host is compromised or destroyed.",
   };
@@ -317,6 +331,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         : "logrotate not active",
     expectedValue: "logrotate.timer active or /etc/cron.daily/logrotate exists",
     fixCommand: "apt install -y logrotate && systemctl enable logrotate.timer",
+    safeToAutoFix: "SAFE",
     explain:
       "Without logrotate, log files grow unbounded causing disk exhaustion and potential denial of service.",
   };
@@ -347,6 +362,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         : "Watch rule count not determinable",
     expectedValue: "At least 5 auditctl file watch rules configured",
     fixCommand: "auditctl -w /etc/passwd -p wa -k identity && auditctl -w /etc/shadow -p wa -k identity",
+    safeToAutoFix: "SAFE",
     explain: "Audit file watches detect unauthorized modifications to critical system files, providing tamper evidence.",
   };
 
@@ -371,6 +387,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
           : "auditd space or file rotation actions not configured",
     expectedValue: "space_left_action and max_log_file_action set to non-ignore values",
     fixCommand: "sed -i 's/^space_left_action.*/space_left_action = syslog/' /etc/audit/auditd.conf",
+    safeToAutoFix: "SAFE",
     explain: "Configuring auditd space and rotation actions ensures audit logs are not silently discarded when disk fills, preventing evidence destruction.",
   };
 
@@ -390,6 +407,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
     expectedValue: "auditctl rules monitoring time change events (adjtimex, settimeofday)",
     fixCommand:
       "auditctl -a always,exit -F arch=b64 -S adjtimex -S settimeofday -S clock_settime -k time-change",
+    safeToAutoFix: "SAFE",
     explain:
       "Auditing time changes detects tampering with system clocks that could be used to falsify log timestamps.",
   };
@@ -410,6 +428,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
     expectedValue: "auditctl rules monitoring hostname and domain name changes",
     fixCommand:
       "auditctl -a always,exit -F arch=b64 -S sethostname -S setdomainname -k network-change",
+    safeToAutoFix: "SAFE",
     explain:
       "Auditing network configuration changes detects unauthorized hostname or domain modifications that could indicate compromise.",
   };
@@ -430,6 +449,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
     expectedValue: "auditctl rules monitoring kernel module loading and unloading",
     fixCommand:
       "auditctl -a always,exit -F arch=b64 -S init_module -S delete_module -S finit_module -k kernel-module",
+    safeToAutoFix: "SAFE",
     explain:
       "Auditing kernel module events detects loading of potentially malicious kernel modules like rootkits.",
   };

@@ -3,7 +3,7 @@
  * Checks login banners, MOTD, SSH banner, and OS info disclosure.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 
 interface BannersCheckDef {
   id: string;
@@ -11,7 +11,8 @@ interface BannersCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -36,6 +37,7 @@ const BANNERS_CHECKS: BannersCheckDef[] = [
     expectedValue: "/etc/issue contains a warning banner",
     fixCommand:
       "echo 'Authorized access only. All activity is monitored and logged.' > /etc/issue",
+    safeToAutoFix: "SAFE",
     explain:
       "A login banner provides legal notice to potential intruders, which may be required for prosecution in some jurisdictions.",
   },
@@ -57,6 +59,7 @@ const BANNERS_CHECKS: BannersCheckDef[] = [
     expectedValue: "/etc/issue.net contains a network login banner",
     fixCommand:
       "echo 'Authorized access only. All activity is monitored and logged.' > /etc/issue.net",
+    safeToAutoFix: "SAFE",
     explain:
       "The issue.net file provides a pre-login banner for network services like SSH, serving as a legal deterrent.",
   },
@@ -76,6 +79,7 @@ const BANNERS_CHECKS: BannersCheckDef[] = [
     expectedValue: "/etc/motd contains a message for authenticated users",
     fixCommand:
       "echo 'This system is for authorized use only.' > /etc/motd",
+    safeToAutoFix: "SAFE",
     explain:
       "The message of the day is shown after login and can remind users of security policies and acceptable use.",
   },
@@ -99,6 +103,7 @@ const BANNERS_CHECKS: BannersCheckDef[] = [
     expectedValue: "SSH Banner points to a file (e.g., /etc/issue.net)",
     fixCommand:
       "echo 'Banner /etc/issue.net' >> /etc/ssh/sshd_config && systemctl restart sshd",
+    safeToAutoFix: "GUARDED",
     explain:
       "An SSH banner displays a warning message before authentication, providing legal notice and deterring unauthorized access.",
   },
@@ -120,6 +125,7 @@ const BANNERS_CHECKS: BannersCheckDef[] = [
     expectedValue: "No OS version info in /etc/issue or /etc/issue.net",
     fixCommand:
       "echo 'Authorized access only.' > /etc/issue && echo 'Authorized access only.' > /etc/issue.net",
+    safeToAutoFix: "SAFE",
     explain:
       "OS version disclosure in banners helps attackers identify specific vulnerabilities for the server's distribution and version.",
   },
@@ -147,6 +153,7 @@ const BANNERS_CHECKS: BannersCheckDef[] = [
     },
     expectedValue: "/etc/issue.net has a warning banner without OS version identifiers",
     fixCommand: "echo 'Authorized users only. All activity may be monitored.' > /etc/issue.net",
+    safeToAutoFix: "SAFE",
     explain:
       "A network login banner provides legal notice to unauthorized users and is required by many compliance frameworks.",
   },
@@ -172,7 +179,8 @@ export const parseBannersChecks: CheckParser = (
         passed: false,
         currentValue: "Unable to determine",
         expectedValue: def.expectedValue,
-        fixCommand: def.fixCommand,
+        fixCommand: def.fixCommand,
+        safeToAutoFix: def.safeToAutoFix,
         explain: def.explain,
       };
     }
@@ -185,7 +193,8 @@ export const parseBannersChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

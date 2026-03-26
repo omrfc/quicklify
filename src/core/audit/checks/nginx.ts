@@ -5,7 +5,7 @@
  * Detects Caddy/Traefik as alternative reverse proxies and reports in skip message.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 import { makeSkippedChecks } from "./shared/skipChecks.js";
 
 const CATEGORY = "WAF & Reverse Proxy";
@@ -16,7 +16,8 @@ interface NgxCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -36,6 +37,7 @@ const NGX_CHECKS: NgxCheckDef[] = [
     },
     expectedValue: "server_tokens off",
     fixCommand: "Add 'server_tokens off;' to nginx.conf http block",
+    safeToAutoFix: "GUARDED",
     explain:
       "Hiding Nginx version information prevents attackers from targeting known vulnerabilities for a specific version. The server_tokens directive controls whether Nginx sends its version number in the Server HTTP response header and on error pages.",
   },
@@ -51,6 +53,7 @@ const NGX_CHECKS: NgxCheckDef[] = [
     },
     expectedValue: "ssl_protocols directive present",
     fixCommand: "Add 'ssl_protocols TLSv1.2 TLSv1.3;' to nginx.conf http or server block",
+    safeToAutoFix: "GUARDED",
     explain:
       "Explicitly configuring ssl_protocols ensures only modern TLS versions are accepted. Without explicit configuration, Nginx may accept outdated protocols depending on the compiled defaults.",
   },
@@ -67,6 +70,7 @@ const NGX_CHECKS: NgxCheckDef[] = [
     expectedValue: "Rate limiting configured (limit_req_zone or limit_req)",
     fixCommand:
       "Add rate limiting: limit_req_zone $binary_remote_addr zone=one:10m rate=10r/s; and limit_req zone=one burst=20 nodelay; in appropriate blocks",
+    safeToAutoFix: "GUARDED",
     explain:
       "Rate limiting protects against brute-force attacks and resource exhaustion by restricting the number of requests per client. Without rate limiting, a single client can overwhelm the server.",
   },
@@ -83,6 +87,7 @@ const NGX_CHECKS: NgxCheckDef[] = [
     expectedValue: "gzip directive configured",
     fixCommand:
       "Add 'gzip on; gzip_types text/plain text/css application/json application/javascript;' to nginx.conf http block",
+    safeToAutoFix: "GUARDED",
     explain:
       "Configuring gzip compression reduces bandwidth usage and improves page load times. Note: gzip on dynamic content with HTTPS can be vulnerable to BREACH attacks. Consider limiting gzip_types to static assets only.",
   },
@@ -98,6 +103,7 @@ const NGX_CHECKS: NgxCheckDef[] = [
     },
     expectedValue: "client_max_body_size directive present",
     fixCommand: "Add 'client_max_body_size 10m;' (adjust value) to nginx.conf http or server block",
+    safeToAutoFix: "GUARDED",
     explain:
       "Setting client_max_body_size limits the maximum request body size, preventing large file uploads that could exhaust server resources or be used in denial-of-service attacks. Nginx default is 1MB, which may be too permissive or too restrictive depending on application needs.",
   },
@@ -114,6 +120,7 @@ const NGX_CHECKS: NgxCheckDef[] = [
     expectedValue: "Server header suppression configured",
     fixCommand:
       "Install headers-more module and add 'more_clear_headers Server;' or use 'proxy_hide_header Server;' to suppress the Server response header",
+    safeToAutoFix: "SAFE",
     explain:
       "Suppressing the Server response header reduces information disclosure. While server_tokens off hides the version, the Server header still reveals Nginx is in use. Full suppression requires the headers-more module or proxy_hide_header directive.",
   },
@@ -132,6 +139,7 @@ const NGX_CHECKS: NgxCheckDef[] = [
     },
     expectedValue: "access_log enabled (not off)",
     fixCommand: "Ensure 'access_log' is configured in nginx.conf and not set to 'off'",
+    safeToAutoFix: "GUARDED",
     explain:
       "Access logs are essential for incident investigation, traffic analysis, and compliance. Disabling access logging creates blind spots in security monitoring and makes forensic analysis impossible after an incident.",
   },
@@ -148,6 +156,7 @@ const NGX_CHECKS: NgxCheckDef[] = [
     expectedValue: "error_log directive present",
     fixCommand:
       "Ensure 'error_log' is configured in nginx.conf (e.g., 'error_log /var/log/nginx/error.log warn;')",
+    safeToAutoFix: "GUARDED",
     explain:
       "Error logs capture server-side issues, misconfigurations, and upstream failures. They are critical for troubleshooting and detecting attacks that cause 4xx/5xx errors.",
   },
@@ -169,6 +178,7 @@ const WAF_CHECK: NgxCheckDef = {
   expectedValue: "WAF detection (informational)",
   fixCommand:
     "# Install ModSecurity for Nginx:\napt-get install -y libnginx-mod-http-modsecurity\n# Enable in nginx.conf: modsecurity on; modsecurity_rules_file /etc/nginx/modsecurity/main.conf;",
+  safeToAutoFix: "GUARDED",
   explain:
     "A Web Application Firewall (WAF) like ModSecurity or Coraza provides runtime protection against common web attacks (SQL injection, XSS, etc.). PCI-DSS v4.0 Requirement 6.4.2 requires a WAF for public-facing web applications. This check detects WAF presence — it does not penalize absence.",
 };
@@ -203,7 +213,8 @@ export const parseNginxChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

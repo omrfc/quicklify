@@ -59,6 +59,7 @@ function makeDockerSkippedChecks(severity: "info" | "warning"): AuditCheck[] {
     currentValue: message,
     expectedValue: "Docker installed and configured securely",
     fixCommand: "curl -fsSL https://get.docker.com -o /tmp/get-docker.sh && sh /tmp/get-docker.sh && rm -f /tmp/get-docker.sh",
+    safeToAutoFix: "FORBIDDEN",
     explain: severity === "info"
       ? "Docker is not installed on this server. Checks skipped."
       : "Docker is expected on this platform but was not found.",
@@ -104,6 +105,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     currentValue: hasTcpSocket ? `TCP socket found: ${hosts.filter((h: string) => h.startsWith("tcp://")).join(", ")}` : "Unix socket only",
     expectedValue: "No TCP socket (unix:// only)",
     fixCommand: 'Edit /etc/docker/daemon.json to remove "hosts" TCP entries && systemctl restart docker',
+    safeToAutoFix: "FORBIDDEN",
     explain: "Exposing Docker daemon via TCP allows remote unauthenticated access to the host.",
   };
 
@@ -118,6 +120,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     currentValue: hasPrivileged ? "Privileged container(s) detected" : "No privileged containers",
     expectedValue: "No privileged containers",
     fixCommand: "docker ps --format '{{.Names}}' | xargs -I{} docker inspect {} --format '{{.HostConfig.Privileged}}'",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Privileged containers have full host access, defeating container isolation.",
   };
 
@@ -134,6 +137,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     currentValue: `Docker ${version}`,
     expectedValue: "Docker 24.0+",
     fixCommand: "curl -fsSL https://get.docker.com -o /tmp/get-docker.sh && sh /tmp/get-docker.sh && rm -f /tmp/get-docker.sh",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Older Docker versions may have unpatched security vulnerabilities.",
   };
 
@@ -150,6 +154,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     currentValue: hasUserns ? "User namespace remapping enabled" : "User namespace not configured",
     expectedValue: "User namespace remapping or rootless mode",
     fixCommand: 'echo \'{"userns-remap":"default"}\' > /etc/docker/daemon.json && systemctl restart docker',
+    safeToAutoFix: "FORBIDDEN",
     explain: "User namespace remapping prevents container root from being host root.",
   };
 
@@ -164,6 +169,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     currentValue: hasHostNetwork ? "Host network container(s) detected" : "No host network containers",
     expectedValue: "No containers using host network",
     fixCommand: "Review containers using host network: docker ps --format '{{.Names}} {{.Networks}}'",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Host network mode bypasses Docker network isolation.",
   };
 
@@ -179,6 +185,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     currentValue: `Logging driver: ${loggingDriver}`,
     expectedValue: "Logging driver configured (not none)",
     fixCommand: 'echo \'{"log-driver":"json-file","log-opts":{"max-size":"10m","max-file":"3"}}\' > /etc/docker/daemon.json && systemctl restart docker',
+    safeToAutoFix: "FORBIDDEN",
     explain: "Container logs are essential for incident investigation and monitoring.",
   };
 
@@ -210,6 +217,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     currentValue: liveRestoreEnabled ? "live-restore: true" : "live-restore not configured",
     expectedValue: "live-restore: true in daemon.json",
     fixCommand: "jq '. + {\"live-restore\":true}' /etc/docker/daemon.json > /tmp/d.json && mv /tmp/d.json /etc/docker/daemon.json && systemctl reload docker",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Live restore keeps containers running during Docker daemon restarts, reducing service disruption.",
   };
 
@@ -226,6 +234,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     currentValue: noNewPrivilegesDefault ? "no-new-privileges configured" : "no-new-privileges not set as default",
     expectedValue: "no-new-privileges: true in daemon.json",
     fixCommand: "jq '. + {\"no-new-privileges\":true}' /etc/docker/daemon.json > /tmp/d.json && mv /tmp/d.json /etc/docker/daemon.json && systemctl restart docker",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Preventing privilege escalation by default stops containers from gaining elevated host privileges.",
   };
 
@@ -242,6 +251,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     currentValue: iccDisabled ? "ICC disabled" : "ICC not disabled (containers can communicate freely)",
     expectedValue: "icc: false in daemon.json",
     fixCommand: "jq '. + {\"icc\":false}' /etc/docker/daemon.json > /tmp/d.json && mv /tmp/d.json /etc/docker/daemon.json && systemctl restart docker",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Disabling ICC enforces network isolation between containers, limiting lateral movement if one is compromised.",
   };
 
@@ -260,6 +270,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
       : "No TCP socket exposed",
     expectedValue: "No TCP socket, or TLS verification enabled",
     fixCommand: 'Edit /etc/docker/daemon.json: add "tls":true,"tlsverify":true with cert paths && systemctl restart docker',
+    safeToAutoFix: "FORBIDDEN",
     explain: "Docker TCP socket without TLS allows unauthenticated remote access with full host control.",
   };
 
@@ -275,6 +286,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     currentValue: sockStatLine.trim() || "Socket stat not available",
     expectedValue: "660 root docker",
     fixCommand: "chown root:docker /var/run/docker.sock && chmod 660 /var/run/docker.sock",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Incorrect docker.sock permissions may allow unauthorized users to control Docker.",
   };
 
@@ -295,6 +307,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
         : "Containers running as non-root",
     expectedValue: "No running containers using root user",
     fixCommand: "Add USER <non-root-user> to your Dockerfile",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Containers running as root can escalate to host root if container isolation breaks.",
   };
 
@@ -315,6 +328,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
         : "Some containers have writable root filesystem",
     expectedValue: "Containers using read-only root filesystem",
     fixCommand: "docker run --read-only ... (or in compose: read_only: true)",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Read-only root filesystem prevents attackers from writing malicious files to container storage.",
   };
 
@@ -331,6 +345,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     currentValue: logMaxSize ? "log max-size configured" : "No log max-size configured",
     expectedValue: "log-opts max-size set to prevent disk exhaustion",
     fixCommand: "jq '. + {\"log-driver\":\"json-file\",\"log-opts\":{\"max-size\":\"10m\",\"max-file\":\"3\"}}' /etc/docker/daemon.json > /tmp/d.json && mv /tmp/d.json /etc/docker/daemon.json && systemctl restart docker",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Unbounded container logs can fill disk space and cause denial of service.",
   };
 
@@ -345,6 +360,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     currentValue: hasDefaultUlimits ? "default-ulimits configured" : "No default ulimits in daemon.json",
     expectedValue: "default-ulimits set in daemon.json",
     fixCommand: "jq '. + {\"default-ulimits\":{\"nofile\":{\"Name\":\"nofile\",\"Hard\":64000,\"Soft\":64000}}}' /etc/docker/daemon.json > /tmp/d.json && mv /tmp/d.json /etc/docker/daemon.json && systemctl restart docker",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Default ulimits protect the host from container resource exhaustion attacks.",
   };
 
@@ -365,6 +381,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
         : "No seccomp profile in container SecurityOpt",
     expectedValue: "seccomp profile applied to running containers",
     fixCommand: "docker run --security-opt seccomp=/etc/docker/seccomp-profile.json ...",
+    safeToAutoFix: "FORBIDDEN",
     explain: "seccomp profiles restrict system calls available to containers, reducing the attack surface.",
   };
 
@@ -379,6 +396,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
     currentValue: contentTrustEnabled ? "DOCKER_CONTENT_TRUST=1" : "Content trust not enabled",
     expectedValue: "DOCKER_CONTENT_TRUST=1 environment variable set",
     fixCommand: "export DOCKER_CONTENT_TRUST=1 (add to /etc/environment or shell profile)",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Content trust ensures only signed images are pulled, preventing supply chain attacks.",
   };
 
@@ -399,6 +417,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
         : "No privileged containers detected",
     expectedValue: "No containers with Privileged=true",
     fixCommand: "Remove --privileged flag from container run configuration",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Privileged containers have access to all host devices and can mount sensitive filesystems.",
   };
 
@@ -418,6 +437,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
         : "No AppArmor profile in container SecurityOpt",
     expectedValue: "AppArmor profile applied to running containers",
     fixCommand: "docker run --security-opt apparmor=docker-default ...",
+    safeToAutoFix: "FORBIDDEN",
     explain: "AppArmor profiles restrict container file system access and capabilities via MAC enforcement.",
   };
 
@@ -442,6 +462,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
         : `Containers binding privileged ports: ${privilegedPorts.join(", ")}`,
     expectedValue: "No containers binding ports < 1024 (except 80/443)",
     fixCommand: "Use ports >= 1024 and configure a reverse proxy for standard ports",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Containers binding privileged ports may require extra capabilities, increasing attack surface.",
   };
 
@@ -470,6 +491,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
         : "Only default networks (bridge/host/none) detected",
     expectedValue: "At least one user-defined network configured",
     fixCommand: "docker network create app-network  # Create a user-defined network for containers",
+    safeToAutoFix: "FORBIDDEN",
     explain:
       "Default bridge network provides no isolation between containers; user-defined networks enable proper segmentation.",
   };
@@ -487,6 +509,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
       : `Logging driver: ${dck22LogDriver}`,
     expectedValue: "LoggingDriver is not 'none'",
     fixCommand: "jq '. + {\"log-driver\":\"json-file\"}' /etc/docker/daemon.json > /tmp/d.json && mv /tmp/d.json /etc/docker/daemon.json && systemctl restart docker",
+    safeToAutoFix: "FORBIDDEN",
     explain:
       "Disabling container logging prevents forensic analysis and audit trail of container activity.",
   };
@@ -507,6 +530,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
         : "Docker running as root daemon",
     expectedValue: "Rootless Docker mode (optional enhancement)",
     fixCommand: "# See: https://docs.docker.com/engine/security/rootless/ — dockerd-rootless-setuptool.sh install",
+    safeToAutoFix: "FORBIDDEN",
     explain:
       "Rootless Docker eliminates the daemon running as root, significantly reducing the blast radius of container escapes.",
   };
@@ -528,6 +552,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
           : "No containers using host network mode",
     expectedValue: "No running containers with NetworkMode=host",
     fixCommand: "Review containers: docker ps --format '{{.Names}} {{.Networks}}'",
+    safeToAutoFix: "FORBIDDEN",
     explain:
       "Host network mode bypasses Docker network isolation, exposing all host ports to the container.",
   };
@@ -550,6 +575,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
           : "No health checks found in running containers",
     expectedValue: "Running containers have HEALTHCHECK defined",
     fixCommand: "# Add HEALTHCHECK to Dockerfile: HEALTHCHECK --interval=30s --timeout=3s CMD curl -f http://localhost/ || exit 1",
+    safeToAutoFix: "FORBIDDEN",
     explain:
       "Health checks enable automatic container restart on failure, improving service availability and security posture.",
   };
@@ -580,6 +606,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
         : "ICC not enabled on default bridge",
     expectedValue: "com.docker.network.bridge.enable_icc = false",
     fixCommand: "echo '{\"icc\": false}' > /etc/docker/daemon.json && systemctl restart docker",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Inter-container communication on the default bridge allows any container to communicate with any other, enabling lateral movement.",
   };
 
@@ -604,6 +631,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
         : "No custom insecure registries",
     expectedValue: "No insecure registries beyond 127.0.0.0/8",
     fixCommand: "Remove --insecure-registry from /etc/docker/daemon.json and restart docker",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Insecure registries allow image pulls over unencrypted HTTP, enabling man-in-the-middle image tampering.",
   };
 
@@ -628,6 +656,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
         : "Experimental features disabled",
     expectedValue: "ExperimentalBuild = false",
     fixCommand: 'Remove "experimental": true from /etc/docker/daemon.json',
+    safeToAutoFix: "FORBIDDEN",
     explain: "Experimental features are not production-hardened and may contain unpatched vulnerabilities.",
   };
 
@@ -652,6 +681,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
         : "None configured",
     expectedValue: "At least one authorization plugin active",
     fixCommand: "Configure an authorization plugin in /etc/docker/daemon.json (e.g., open-policy-agent)",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Docker authorization plugins enforce fine-grained access control on API requests, preventing unauthorized container operations.",
   };
 
@@ -672,6 +702,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
         : "No registry TLS certificates configured",
     expectedValue: "/etc/docker/certs.d/ exists with registry cert subdirectories",
     fixCommand: "mkdir -p /etc/docker/certs.d/registry.example.com && cp ca.crt /etc/docker/certs.d/registry.example.com/",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Registry TLS certificates enable verification of private registry identity, preventing image pulls from impersonated registries.",
   };
 
@@ -693,6 +724,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
         : `Swarm state: ${swarmState}`,
     expectedValue: "Swarm mode inactive (if not intentionally used)",
     fixCommand: "docker swarm leave --force (if swarm not intentionally used)",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Docker Swarm mode opens additional network ports and management APIs; disable if not actively used.",
   };
 
@@ -714,6 +746,7 @@ export const parseDockerChecks: CheckParser = (sectionOutput: string, platform: 
           : "No containers using host PID namespace",
     expectedValue: "No containers with PidMode=host",
     fixCommand: "docker run --pid=private ... (do not use --pid=host)",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Sharing the host PID namespace gives containers visibility into all host processes, enabling process injection and credential theft.",
   };
 

@@ -8,7 +8,7 @@
  * which are covered in memory.ts.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 
 interface ResourceLimitsCheckDef {
   id: string;
@@ -16,7 +16,8 @@ interface ResourceLimitsCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -36,6 +37,7 @@ const RLIMIT_CHECKS: ResourceLimitsCheckDef[] = [
     },
     expectedValue: "/sys/fs/cgroup/cgroup.controllers exists (cgroups v2 unified hierarchy)",
     fixCommand: "# Ensure cgroup_no_v1=all in kernel cmdline or use systemd-cgroupsv2 migration",
+    safeToAutoFix: "GUARDED",
     explain:
       "cgroups v2 (unified hierarchy) provides superior resource isolation and control compared to cgroups v1. Its absence means container runtimes and systemd cannot enforce per-process CPU/memory limits reliably.",
   },
@@ -65,6 +67,7 @@ const RLIMIT_CHECKS: ResourceLimitsCheckDef[] = [
     },
     expectedValue: "nproc soft limit is a finite numeric value < 65536",
     fixCommand: "echo '* soft nproc 4096' >> /etc/security/limits.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "An unlimited nproc soft limit allows a single user to fork unlimited processes, enabling fork bomb attacks that exhaust the process table and cause system-wide denial of service.",
   },
@@ -94,6 +97,7 @@ const RLIMIT_CHECKS: ResourceLimitsCheckDef[] = [
     },
     expectedValue: "nproc hard limit is explicitly set to a numeric value",
     fixCommand: "echo '* hard nproc 8192' >> /etc/security/limits.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "A hard nproc limit provides an upper bound that even privileged users cannot exceed without root intervention. Without it, soft limits can be trivially bypassed by any user process.",
   },
@@ -118,6 +122,7 @@ const RLIMIT_CHECKS: ResourceLimitsCheckDef[] = [
     },
     expectedValue: "kernel.threads-max is set in sysctl configuration",
     fixCommand: "sysctl -w kernel.threads-max=32768 && echo 'kernel.threads-max=32768' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "kernel.threads-max sets the system-wide maximum number of threads. Having it explicitly configured prevents an unbounded thread count that could exhaust kernel resources.",
   },
@@ -136,6 +141,7 @@ const RLIMIT_CHECKS: ResourceLimitsCheckDef[] = [
     },
     expectedValue: "nproc entries present in /etc/security/limits.conf or limits.d/",
     fixCommand: "echo '* soft nproc 4096\n* hard nproc 8192' >> /etc/security/limits.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "Explicit nproc entries in /etc/security/limits.conf enforce process limits for PAM-authenticated sessions. Without them, default system limits apply which may be unlimited depending on the OS version.",
   },
@@ -154,6 +160,7 @@ const RLIMIT_CHECKS: ResourceLimitsCheckDef[] = [
     },
     expectedValue: "maxlogins entry present in /etc/security/limits.conf",
     fixCommand: "echo '* hard maxlogins 10' >> /etc/security/limits.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "Setting maxlogins in /etc/security/limits.conf limits concurrent login sessions per user. This prevents a single compromised account from holding many simultaneous sessions for parallel attack operations.",
   },
@@ -183,6 +190,7 @@ const RLIMIT_CHECKS: ResourceLimitsCheckDef[] = [
     },
     expectedValue: "At least one active limit entry in /etc/security/limits.conf",
     fixCommand: "echo '* soft nproc 4096\n* hard nproc 8192' >> /etc/security/limits.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "Configured resource limits in limits.conf prevent individual users from exhausting system resources in denial-of-service scenarios.",
   },
@@ -207,6 +215,7 @@ const RLIMIT_CHECKS: ResourceLimitsCheckDef[] = [
     },
     expectedValue: "nproc limit set and < 10000",
     fixCommand: "echo '* hard nproc 4096' >> /etc/security/limits.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "Without nproc limits, a single user can exhaust all process slots via fork bombs, causing system-wide denial of service.",
   },
@@ -232,7 +241,8 @@ export const parseResourceLimitsChecks: CheckParser = (
         passed: false,
         currentValue: "Unable to determine",
         expectedValue: def.expectedValue,
-        fixCommand: def.fixCommand,
+        fixCommand: def.fixCommand,
+        safeToAutoFix: def.safeToAutoFix,
         explain: def.explain,
       };
     }
@@ -245,7 +255,8 @@ export const parseResourceLimitsChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

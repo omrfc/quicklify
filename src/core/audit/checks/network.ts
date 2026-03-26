@@ -62,6 +62,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "No DNS resolver found",
     expectedValue: "DNS resolver configured",
     fixCommand: "echo 'nameserver 1.1.1.1' >> /etc/resolv.conf",
+    safeToAutoFix: "SAFE",
     explain: "DNS resolution is required for package updates and security operations.",
   };
 
@@ -81,6 +82,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "NTP status unknown",
     expectedValue: "NTP synchronized",
     fixCommand: "timedatectl set-ntp true",
+    safeToAutoFix: "SAFE",
     explain: "Time sync is critical for TLS certificates, logging accuracy, and security audit trails.",
   };
 
@@ -101,6 +103,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "Unable to determine",
     expectedValue: isPlatform ? "Enabled (required for Docker)" : "Disabled (net.ipv4.ip_forward = 0)",
     fixCommand: "sysctl -w net.ipv4.ip_forward=0 && echo 'net.ipv4.ip_forward=0' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain: isPlatform
       ? "IP forwarding is required for Docker networking on this platform."
       : "IP forwarding should be disabled unless the server is a router or runs Docker.",
@@ -121,6 +124,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "Unable to determine",
     expectedValue: "net.ipv4.tcp_syncookies = 1",
     fixCommand: "sysctl -w net.ipv4.tcp_syncookies=1 && echo 'net.ipv4.tcp_syncookies=1' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain: "SYN cookies protect against SYN flood denial-of-service attacks.",
   };
 
@@ -139,6 +143,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "/etc/hosts.allow not found",
     expectedValue: "/etc/hosts.allow configured",
     fixCommand: "echo 'sshd: ALL' > /etc/hosts.allow",
+    safeToAutoFix: "SAFE",
     explain: "TCP Wrappers hosts.allow defines allowed hosts for network services, providing an additional access control layer.",
   };
 
@@ -157,6 +162,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "/etc/hosts.deny missing or no default deny",
     expectedValue: "/etc/hosts.deny contains ALL : ALL",
     fixCommand: "echo 'ALL: ALL' >> /etc/hosts.deny",
+    safeToAutoFix: "SAFE",
     explain: "A default deny rule in hosts.deny blocks all TCP wrapper-controlled services unless explicitly allowed.",
   };
 
@@ -175,6 +181,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "Unable to determine",
     expectedValue: "net.ipv6.conf.all.disable_ipv6 = 1",
     fixCommand: "sysctl -w net.ipv6.conf.all.disable_ipv6=1 && echo 'net.ipv6.conf.all.disable_ipv6=1' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain: "Disabling IPv6 if not in use reduces attack surface and avoids misconfigured IPv6 stack vulnerabilities.",
   };
 
@@ -193,6 +200,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "Unable to determine",
     expectedValue: "net.ipv4.conf.all.send_redirects = 0",
     fixCommand: "sysctl -w net.ipv4.conf.all.send_redirects=0 && echo 'net.ipv4.conf.all.send_redirects=0' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain: "Sending ICMP redirects is only needed for routers and can be exploited to redirect traffic on endpoints.",
   };
 
@@ -211,6 +219,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "Unable to determine",
     expectedValue: "net.ipv4.conf.all.secure_redirects = 0",
     fixCommand: "sysctl -w net.ipv4.conf.all.secure_redirects=0 && echo 'net.ipv4.conf.all.secure_redirects=0' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain: "Secure ICMP redirects from gateways can still be exploited to manipulate routing on non-router systems.",
   };
 
@@ -229,6 +238,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "Unable to determine",
     expectedValue: "net.ipv6.conf.all.accept_source_route = 0",
     fixCommand: "sysctl -w net.ipv6.conf.all.accept_source_route=0 && echo 'net.ipv6.conf.all.accept_source_route=0' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain: "IPv6 source routing allows an attacker to specify the path a packet should take, enabling traffic interception.",
   };
 
@@ -247,6 +257,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "Unable to determine",
     expectedValue: "net.ipv4.conf.all.log_martians = 1",
     fixCommand: "sysctl -w net.ipv4.conf.all.log_martians=1 && echo 'net.ipv4.conf.all.log_martians=1' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain: "Logging martian packets helps detect spoofed or malformed packets that indicate network anomalies.",
   };
 
@@ -265,6 +276,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "Management port(s) exposed on 0.0.0.0",
     expectedValue: "Ports 8080, 8443, 9000, 3000 not exposed on 0.0.0.0",
     fixCommand: "ufw deny 8080/tcp && ufw deny 8443/tcp && ufw deny 9000/tcp && ufw deny 3000/tcp",
+    safeToAutoFix: "SAFE",
     explain: "Management and development ports exposed publicly are frequent targets for exploitation and unauthorized access.",
   };
 
@@ -307,6 +319,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "No unexpected mail ports open",
     expectedValue: "Ports 25, 110, 143 not listening (unless mail server)",
     fixCommand: "systemctl stop postfix sendmail dovecot 2>/dev/null; ufw deny 25/tcp && ufw deny 110/tcp && ufw deny 143/tcp",
+    safeToAutoFix: "SAFE",
     explain: "Open mail service ports on a non-mail server indicate unnecessary services that increase attack surface.",
   };
 
@@ -324,6 +337,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
       : `${listeningCount} listening TCP services detected`,
     expectedValue: "Fewer than 20 listening TCP services",
     fixCommand: "# Review: ss -tlnp — close unnecessary ports or restrict with firewall: ufw deny PORT",
+    safeToAutoFix: "GUARDED",
     explain: "Excessive listening services indicate poor service hygiene and increase the network attack surface.",
   };
 
@@ -344,6 +358,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "No promiscuous mode interfaces",
     expectedValue: "No network interfaces in PROMISC mode",
     fixCommand: "ip link set <interface> promisc off  # Replace <interface> with interface name",
+    safeToAutoFix: "SAFE",
     explain: "Promiscuous mode interfaces capture all network traffic, potentially indicating network sniffing malware.",
   };
 
@@ -362,6 +377,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "Unable to determine",
     expectedValue: "net.ipv4.conf.all.arp_announce = 2",
     fixCommand: "sysctl -w net.ipv4.conf.all.arp_announce=2 && echo 'net.ipv4.conf.all.arp_announce = 2' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "Setting arp_announce=2 prevents ARP spoofing by ensuring source addresses in ARP replies match the interface address.",
   };
 
@@ -381,6 +397,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "Unable to determine",
     expectedValue: "net.ipv4.conf.all.arp_ignore >= 1",
     fixCommand: "sysctl -w net.ipv4.conf.all.arp_ignore=1 && echo 'net.ipv4.conf.all.arp_ignore = 1' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "Setting arp_ignore=1 prevents ARP cache poisoning by only responding to requests targeting the receiving interface's address.",
   };
 
@@ -403,6 +420,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "No active rules in /etc/hosts.allow",
     expectedValue: "At least one active access control rule in /etc/hosts.allow",
     fixCommand: "echo 'sshd: 10.0.0.0/8' >> /etc/hosts.allow && echo 'ALL: ALL' >> /etc/hosts.deny",
+    safeToAutoFix: "SAFE",
     explain: "TCP wrappers provide an additional layer of access control for network services beyond firewall rules.",
   };
 
@@ -434,6 +452,7 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "Port count not determinable",
     expectedValue: "20 or fewer listening TCP ports",
     fixCommand: "ss -tlnp — review and close unnecessary listening ports",
+    safeToAutoFix: "SAFE",
     explain: "Excessive listening ports indicate unnecessary services, each representing a potential attack vector.",
   };
 

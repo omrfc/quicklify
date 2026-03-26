@@ -30,6 +30,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "No NOPASSWD: ALL rules found",
     expectedValue: "No NOPASSWD: ALL in sudoers",
     fixCommand: "visudo  # Remove NOPASSWD: ALL entries",
+    safeToAutoFix: "SAFE",
     explain: "NOPASSWD: ALL allows any sudo command without password, defeating privilege separation.",
   };
 
@@ -49,6 +50,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "Password aging not configured",
     expectedValue: "PASS_MAX_DAYS configured",
     fixCommand: "sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS 90/' /etc/login.defs",
+    safeToAutoFix: "SAFE",
     explain: "Password aging forces periodic credential rotation, limiting exposure from compromised passwords.",
   };
 
@@ -107,6 +109,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "Root direct login restricted",
     expectedValue: "Root direct login disabled or key-only",
     fixCommand: "passwd -l root",
+    safeToAutoFix: "SAFE",
     explain: "Disabling direct root login forces use of sudo, providing an audit trail.",
   };
 
@@ -125,6 +128,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "No password quality module found",
     expectedValue: "pam_pwquality or pam_cracklib configured",
     fixCommand: "apt install -y libpam-pwquality && pam-auth-update",
+    safeToAutoFix: "SAFE",
     explain: "Password quality modules enforce complexity requirements, preventing weak passwords.",
   };
 
@@ -145,6 +149,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "No account lockout module found in PAM config",
     expectedValue: "pam_faillock or pam_tally2 in PAM config",
     fixCommand: "apt install -y libpam-modules && pam-auth-update  # enable faillock",
+    safeToAutoFix: "SAFE",
     explain: "Account lockout after failed logins prevents brute-force password attacks.",
   };
 
@@ -165,6 +170,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "Unable to determine /etc/shadow permissions",
     expectedValue: "/etc/shadow mode 640 or stricter (000 or 600)",
     fixCommand: "chmod 640 /etc/shadow && chown root:shadow /etc/shadow",
+    safeToAutoFix: "SAFE",
     explain: "/etc/shadow stores hashed passwords; world-readable access enables offline password cracking.",
   };
 
@@ -183,6 +189,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "Sudo logging not configured",
     expectedValue: "Defaults log_output or Defaults syslog in sudoers",
     fixCommand: "echo 'Defaults log_output' >> /etc/sudoers.d/kastell-logging",
+    safeToAutoFix: "SAFE",
     explain: "Sudo command logging provides an audit trail for privileged operations.",
   };
 
@@ -201,6 +208,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "requiretty not configured in sudoers",
     expectedValue: "Defaults requiretty in sudoers",
     fixCommand: "echo 'Defaults requiretty' >> /etc/sudoers.d/kastell-requiretty",
+    safeToAutoFix: "SAFE",
     explain: "requiretty prevents sudo from being run from non-interactive shell sessions like cron or scripts.",
   };
 
@@ -221,6 +229,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "Multiple accounts with UID 0 detected",
     expectedValue: "Only root account has UID 0",
     fixCommand: "awk -F: '($3 == 0) {print $1}' /etc/passwd  # review and remove duplicates",
+    safeToAutoFix: "SAFE",
     explain: "Multiple UID 0 accounts create hidden backdoor root accounts that bypass normal access controls.",
   };
 
@@ -240,6 +249,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "PASS_MIN_DAYS not configured",
     expectedValue: "PASS_MIN_DAYS >= 1",
     fixCommand: "sed -i 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS 1/' /etc/login.defs",
+    safeToAutoFix: "SAFE",
     explain: "Setting a minimum password age prevents users from immediately reverting to old passwords.",
   };
 
@@ -259,6 +269,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "PASS_WARN_AGE not configured",
     expectedValue: "PASS_WARN_AGE >= 7",
     fixCommand: "sed -i 's/^PASS_WARN_AGE.*/PASS_WARN_AGE 7/' /etc/login.defs",
+    safeToAutoFix: "SAFE",
     explain: "Password expiry warnings give users time to change credentials before they expire.",
   };
 
@@ -279,6 +290,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "INACTIVE not configured",
     expectedValue: "INACTIVE set to a value between 0 and 90",
     fixCommand: "sed -i 's/^#\\?INACTIVE.*/INACTIVE=30/' /etc/default/useradd",
+    safeToAutoFix: "SAFE",
     explain: "Automatically disabling inactive accounts reduces the attack surface from stale credentials.",
   };
 
@@ -301,6 +313,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "No sudo group members found",
     expectedValue: "3 or fewer accounts in sudo group",
     fixCommand: "gpasswd -d username sudo  # remove unnecessary sudo members",
+    safeToAutoFix: "SAFE",
     explain: "Limiting sudo group membership to essential accounts reduces privilege escalation exposure.",
   };
 
@@ -319,6 +332,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "No MFA package installed",
     expectedValue: "libpam-google-authenticator or libpam-oath installed",
     fixCommand: "apt install -y libpam-google-authenticator  # then configure per-user with google-authenticator",
+    safeToAutoFix: "SAFE",
     explain: "Multi-factor authentication significantly reduces account compromise risk from stolen passwords.",
   };
 
@@ -337,6 +351,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "pam_wheel not found in /etc/pam.d/su",
     expectedValue: "pam_wheel configured in /etc/pam.d/su",
     fixCommand: "echo 'auth required pam_wheel.so use_uid' >> /etc/pam.d/su",
+    safeToAutoFix: "SAFE",
     explain: "Restricting su to the wheel group prevents unprivileged users from attempting root password guesses.",
   };
 
@@ -356,6 +371,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "PASS_MAX_DAYS not configured",
     expectedValue: "PASS_MAX_DAYS > 0 and <= 365",
     fixCommand: "sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS 90/' /etc/login.defs",
+    safeToAutoFix: "SAFE",
     explain: "Password maximum age ensures credentials are rotated periodically, limiting exposure from compromised passwords.",
   };
 
@@ -379,6 +395,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "Unable to determine /etc/gshadow permissions",
     expectedValue: "/etc/gshadow mode 640 or stricter (000 or 600)",
     fixCommand: "chmod 640 /etc/gshadow && chown root:shadow /etc/gshadow",
+    safeToAutoFix: "SAFE",
     explain: "World-readable /etc/gshadow exposes group password hashes to local attackers.",
   };
 
@@ -398,6 +415,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "No password quality module in /etc/pam.d/",
     expectedValue: "pam_pwquality or pam_cracklib in /etc/pam.d/",
     fixCommand: "apt install libpam-pwquality && echo 'password requisite pam_pwquality.so retry=3 minlen=12' >> /etc/pam.d/common-password",
+    safeToAutoFix: "SAFE",
     explain: "PAM password quality modules enforce minimum complexity requirements, preventing trivially guessable passwords.",
   };
 
@@ -418,6 +436,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "UMASK not set in /etc/login.defs",
     expectedValue: "UMASK 027 or 022 in /etc/login.defs",
     fixCommand: "sed -i 's/^UMASK.*/UMASK 027/' /etc/login.defs",
+    safeToAutoFix: "SAFE",
     explain: "Default UMASK in login.defs controls file permissions for newly created user files, preventing world-readable defaults.",
   };
 
@@ -438,6 +457,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "ENCRYPT_METHOD not configured",
     expectedValue: "ENCRYPT_METHOD SHA512 or YESCRYPT",
     fixCommand: "sed -i 's/^ENCRYPT_METHOD.*/ENCRYPT_METHOD SHA512/' /etc/login.defs",
+    safeToAutoFix: "SAFE",
     explain: "SHA512 or yescrypt password hashing is computationally expensive, making offline brute-force attacks significantly harder.",
   };
 
@@ -458,6 +478,7 @@ export const parseAuthChecks: CheckParser = (sectionOutput: string, _platform: s
         : "minlen not configured in pwquality.conf",
     expectedValue: "minlen >= 12 in /etc/security/pwquality.conf",
     fixCommand: "echo 'minlen = 14' >> /etc/security/pwquality.conf",
+    safeToAutoFix: "SAFE",
     explain: "Minimum password length of 12+ characters exponentially increases brute-force difficulty.",
   };
 

@@ -5,7 +5,7 @@
  * AWS credential files, Docker env files, and npm token exposure.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 
 interface SecretsCheckDef {
   id: string;
@@ -13,7 +13,8 @@ interface SecretsCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -37,6 +38,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     expectedValue: ".env files not world-readable (mode 600 or 640)",
     fixCommand:
       "find /etc /home /opt /srv /var/www -maxdepth 3 -name '.env' -perm -o+r -exec chmod 600 {} \\; && chown root:root $(find /etc -maxdepth 3 -name '.env' 2>/dev/null)",
+    safeToAutoFix: "SAFE",
     explain:
       "World-readable .env files expose API keys, database credentials, and service secrets to any local user on the system. Attackers who obtain local code execution can read these files without privilege escalation.",
   },
@@ -71,6 +73,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     },
     expectedValue: "SSH private keys have permissions 400 or 600",
     fixCommand: "find /home /root -maxdepth 4 \\( -name 'id_rsa' -o -name 'id_ed25519' -o -name 'id_ecdsa' -o -name 'id_dsa' -o -name '*.pem' \\) -exec chmod 600 {} \\;",
+    safeToAutoFix: "SAFE",
     explain:
       "SSH private keys with permissions wider than 600 can be read by other users on the system, allowing impersonation and unauthorized access to remote hosts. SSH itself will refuse to use keys that are too permissive.",
   },
@@ -94,6 +97,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     expectedValue: "No credentials embedded in .git/config URL fields",
     fixCommand:
       "git credential-store --file ~/.git-credentials && git config --global credential.helper store",
+    safeToAutoFix: "SAFE",
     explain:
       "Tokens or passwords embedded in .git/config remote URLs (e.g., https://user:TOKEN@github.com/...) are stored in plaintext and readable by anyone with filesystem access to the repo directory.",
   },
@@ -120,6 +124,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     expectedValue: "No plaintext password= or token= entries in /etc/*.conf",
     fixCommand:
       "# Review files containing plaintext credentials and replace with vault/env-var references or restrict permissions: chmod 640 /etc/affected.conf && chown root:service-group /etc/affected.conf",
+    safeToAutoFix: "GUARDED",
     explain:
       "Config files in /etc containing plaintext passwords or tokens are readable by system services and privileged users. Credentials should be stored in a secrets manager or environment-specific vault, not in world-accessible config files.",
   },
@@ -141,6 +146,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     expectedValue: ".env files in home directories are not world-readable",
     fixCommand:
       "find /home -maxdepth 3 -name '.env' -exec chmod 600 {} \\;",
+    safeToAutoFix: "SAFE",
     explain:
       "Application .env files in user home directories may contain database passwords, API keys, and service tokens. Without proper permissions, these are readable by any local user on a shared system.",
   },
@@ -162,6 +168,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     expectedValue: "Private key files (.pem, id_*, etc.) not world-readable",
     fixCommand:
       "find /home /root /etc /opt -maxdepth 4 \\( -name '*.pem' -o -name '*.key' -o -name 'id_rsa' -o -name 'id_ed25519' \\) -perm -o+r -exec chmod 600 {} \\;",
+    safeToAutoFix: "SAFE",
     explain:
       "World-readable private keys (TLS keys, SSH keys, service keys) allow any local user to decrypt traffic, forge signatures, or authenticate as the key owner. This is a direct secret exfiltration risk.",
   },
@@ -183,6 +190,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     expectedValue: "~/.aws/credentials has mode 600 and is not world-readable",
     fixCommand:
       "find /home /root -maxdepth 3 -path '*/.aws/credentials' -exec chmod 600 {} \\;",
+    safeToAutoFix: "SAFE",
     explain:
       "AWS credentials files (~/.aws/credentials) containing access keys must not be world-readable. Exposure allows any local user to enumerate and access cloud resources, potentially leading to data exfiltration or infrastructure compromise.",
   },
@@ -204,6 +212,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     expectedValue: "Docker Compose .env files have mode 600 or 640",
     fixCommand:
       "find /home /opt /srv /var/www -maxdepth 4 -name 'docker.env' -o -name '.env' -path '*/docker*' -exec chmod 640 {} \\;",
+    safeToAutoFix: "SAFE",
     explain:
       "Docker Compose .env files frequently contain database passwords, service tokens, and encryption keys injected as container environment variables. World-readable access exposes all application secrets to local users.",
   },
@@ -225,6 +234,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     expectedValue: ".npmrc files with auth tokens have mode 600",
     fixCommand:
       "find /home /root -maxdepth 3 -name '.npmrc' -exec chmod 600 {} \\;",
+    safeToAutoFix: "SAFE",
     explain:
       "npm auth tokens in .npmrc files grant access to private npm registries and package publishing. World-readable .npmrc files expose these tokens to any local user, enabling package hijacking or credential theft.",
   },
@@ -247,6 +257,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     expectedValue: "authorized_keys files have mode 600 or 644 (not group/world-writable)",
     fixCommand:
       "find /home /root -maxdepth 4 -name 'authorized_keys' -exec chmod 644 {} \\;",
+    safeToAutoFix: "SAFE",
     explain:
       "Group or world-writable authorized_keys files can be modified by unprivileged users to insert their own public key, granting them passwordless SSH access to the account. SSH enforces strict permission checks on this file.",
   },
@@ -266,6 +277,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     },
     expectedValue: ".bash_history files are not world-readable",
     fixCommand: "find /home -name '.bash_history' -exec chmod 600 {} \\;",
+    safeToAutoFix: "SAFE",
     explain:
       "World-readable bash history files expose previously typed commands including passwords and API tokens.",
   },
@@ -291,6 +303,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     },
     expectedValue: "AllowAgentForwarding is 'no' in sshd configuration",
     fixCommand: "Add 'AllowAgentForwarding no' to /etc/ssh/sshd_config && systemctl restart sshd",
+    safeToAutoFix: "GUARDED",
     explain:
       "SSH agent forwarding exposes the user's authentication agent to the remote server, enabling key hijacking.",
   },
@@ -325,6 +338,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     },
     expectedValue: "AWS credential files have mode 600 or stricter",
     fixCommand: "chmod 600 ~/.aws/credentials",
+    safeToAutoFix: "SAFE",
     explain:
       "AWS credential files with excessive permissions allow local users to steal cloud access keys for lateral movement.",
   },
@@ -361,6 +375,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     },
     expectedValue: "No exposed .kube directories or kubeconfig has mode 600",
     fixCommand: "chmod 600 ~/.kube/config",
+    safeToAutoFix: "SAFE",
     explain:
       "Exposed kubeconfig files contain cluster credentials that allow full Kubernetes cluster compromise.",
   },
@@ -380,6 +395,7 @@ const SECRETS_CHECKS: SecretsCheckDef[] = [
     },
     expectedValue: "No API_KEY/SECRET_KEY/TOKEN/PASSWORD exports in .bashrc or .profile",
     fixCommand: "Remove credential exports from shell RC files; use a secrets manager or .env files with proper permissions",
+    safeToAutoFix: "GUARDED",
     explain:
       "Credentials hardcoded in shell RC files are exposed to any process running as that user and persist in shell history.",
   },
@@ -405,7 +421,8 @@ export const parseSecretsChecks: CheckParser = (
         passed: false,
         currentValue: "Unable to determine",
         expectedValue: def.expectedValue,
-        fixCommand: def.fixCommand,
+        fixCommand: def.fixCommand,
+        safeToAutoFix: def.safeToAutoFix,
         explain: def.explain,
       };
     }
@@ -418,7 +435,8 @@ export const parseSecretsChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

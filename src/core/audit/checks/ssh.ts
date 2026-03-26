@@ -283,6 +283,7 @@ export const parseSSHChecks: CheckParser = (sectionOutput: string, _platform: st
         currentValue: "Unable to determine",
         expectedValue: def.expectedValue,
         fixCommand: def.fixCommand,
+        safeToAutoFix: "FORBIDDEN" as const,
         explain: def.explain,
       };
     }
@@ -297,6 +298,7 @@ export const parseSSHChecks: CheckParser = (sectionOutput: string, _platform: st
       currentValue: found,
       expectedValue: def.expectedValue,
       fixCommand: def.fixCommand,
+      safeToAutoFix: "FORBIDDEN" as const,
       explain: def.explain,
     };
   });

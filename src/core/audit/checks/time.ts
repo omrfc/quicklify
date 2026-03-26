@@ -3,7 +3,7 @@
  * Checks NTP service, clock sync, timezone, and hardware clock.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 
 interface TimeCheckDef {
   id: string;
@@ -11,7 +11,8 @@ interface TimeCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -32,6 +33,7 @@ const TIME_CHECKS: TimeCheckDef[] = [
     },
     expectedValue: "ntp, chrony, or systemd-timesyncd is active",
     fixCommand: "timedatectl set-ntp true && systemctl enable --now systemd-timesyncd",
+    safeToAutoFix: "GUARDED",
     explain:
       "Time synchronization is critical for TLS certificate validation, log correlation, and security audit accuracy.",
   },
@@ -50,6 +52,7 @@ const TIME_CHECKS: TimeCheckDef[] = [
     },
     expectedValue: "NTP synchronized: yes",
     fixCommand: "timedatectl set-ntp true && systemctl restart systemd-timesyncd",
+    safeToAutoFix: "GUARDED",
     explain:
       "An unsynchronized clock causes TLS failures, incorrect log timestamps, and authentication token expiry issues.",
   },
@@ -70,6 +73,7 @@ const TIME_CHECKS: TimeCheckDef[] = [
     },
     expectedValue: "Timezone explicitly set (not blank)",
     fixCommand: "timedatectl set-timezone UTC",
+    safeToAutoFix: "SAFE",
     explain:
       "A configured timezone ensures consistent log timestamps across the infrastructure for incident correlation.",
   },
@@ -90,6 +94,7 @@ const TIME_CHECKS: TimeCheckDef[] = [
     },
     expectedValue: "hwclock returns a valid timestamp",
     fixCommand: "hwclock --systohc # Sync hardware clock from system clock",
+    safeToAutoFix: "SAFE",
     explain:
       "Hardware clock synchronization ensures the system maintains correct time across reboots.",
   },
@@ -112,6 +117,7 @@ const TIME_CHECKS: TimeCheckDef[] = [
     },
     expectedValue: "Chrony or NTP shows valid time source reference",
     fixCommand: "echo 'server pool.ntp.org iburst' >> /etc/chrony/chrony.conf && systemctl restart chrony",
+    safeToAutoFix: "GUARDED",
     explain:
       "A configured NTP source ensures the server synchronizes time from trusted upstream servers.",
   },
@@ -142,6 +148,7 @@ const TIME_CHECKS: TimeCheckDef[] = [
     },
     expectedValue: "Clock drift less than 1 second",
     fixCommand: "chronyc makestep # Force immediate time correction",
+    safeToAutoFix: "SAFE",
     explain:
       "Excessive clock drift causes Kerberos authentication failures, TLS errors, and unreliable security event timestamps.",
   },
@@ -163,6 +170,7 @@ const TIME_CHECKS: TimeCheckDef[] = [
     },
     expectedValue: "At least 2 NTP peer sources configured for redundancy",
     fixCommand: "# Add additional NTP servers to /etc/ntp.conf or /etc/chrony/chrony.conf",
+    safeToAutoFix: "GUARDED",
     explain:
       "Multiple NTP sources provide redundancy and protect against time manipulation from a single compromised server.",
   },
@@ -183,6 +191,7 @@ const TIME_CHECKS: TimeCheckDef[] = [
     },
     expectedValue: "timedatectl shows 'System clock synchronized: yes'",
     fixCommand: "timedatectl set-ntp true && systemctl restart systemd-timesyncd",
+    safeToAutoFix: "GUARDED",
     explain:
       "Clock drift causes TLS certificate validation failures, log correlation errors, and authentication token expiry issues.",
   },
@@ -200,6 +209,7 @@ const TIME_CHECKS: TimeCheckDef[] = [
     },
     expectedValue: "timedatectl show reports NTPSynchronized=yes",
     fixCommand: "timedatectl set-ntp true",
+    safeToAutoFix: "SAFE",
     explain:
       "Accurate time synchronization is critical for log correlation, certificate validation, and forensic timeline reconstruction.",
   },
@@ -225,7 +235,8 @@ export const parseTimeChecks: CheckParser = (
         passed: false,
         currentValue: "Unable to determine",
         expectedValue: def.expectedValue,
-        fixCommand: def.fixCommand,
+        fixCommand: def.fixCommand,
+        safeToAutoFix: def.safeToAutoFix,
         explain: def.explain,
       };
     }
@@ -238,7 +249,8 @@ export const parseTimeChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

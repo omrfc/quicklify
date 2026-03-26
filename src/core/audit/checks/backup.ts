@@ -4,7 +4,7 @@
  * tool installation, cron job existence, and /var/backups into 6 security checks.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 
 interface BackupCheckDef {
   id: string;
@@ -12,7 +12,8 @@ interface BackupCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -32,6 +33,7 @@ const BACKUP_CHECKS: BackupCheckDef[] = [
     },
     expectedValue: "Kastell backup exists in /root/.kastell/backups/ and is < 30 days old",
     fixCommand: "kastell backup create",
+    safeToAutoFix: "SAFE",
     explain:
       "A recent backup in /root/.kastell/backups/ confirms that server configuration and data are being backed up regularly. Without a recent backup, data loss after a failure or compromise cannot be recovered.",
   },
@@ -59,6 +61,7 @@ const BACKUP_CHECKS: BackupCheckDef[] = [
     },
     expectedValue: "Backup files have 600 or 640 permissions owned by root",
     fixCommand: "chmod 600 /root/.kastell/backups/* && chown root:root /root/.kastell/backups/*",
+    safeToAutoFix: "SAFE",
     explain:
       "Backup files may contain sensitive configuration, credentials, or database dumps. Restricting permissions to 600/640 owned by root prevents other users from reading or modifying backup data.",
   },
@@ -77,6 +80,7 @@ const BACKUP_CHECKS: BackupCheckDef[] = [
     },
     expectedValue: "Backup scripts are not world-writable (no o+w permission)",
     fixCommand: "chmod o-w /etc/cron.daily/backup* /usr/local/bin/backup* 2>/dev/null || true",
+    safeToAutoFix: "SAFE",
     explain:
       "World-writable backup scripts allow any local user to inject arbitrary code that runs as root during scheduled backups, providing an easy privilege escalation vector.",
   },
@@ -96,6 +100,7 @@ const BACKUP_CHECKS: BackupCheckDef[] = [
     },
     expectedValue: "At least one of rsync, borg, or restic is installed",
     fixCommand: "apt-get install -y rsync || yum install -y rsync",
+    safeToAutoFix: "SAFE",
     explain:
       "A dedicated backup tool (rsync, borg, or restic) enables reliable, incremental, and verifiable backups. Its absence suggests backups may not be performed or rely on ad-hoc scripts with limited reliability.",
   },
@@ -114,6 +119,7 @@ const BACKUP_CHECKS: BackupCheckDef[] = [
     },
     expectedValue: "A cron job for periodic backups exists in crontab or cron.daily",
     fixCommand: "echo '0 2 * * * root /usr/bin/rsync -a /etc /root/.kastell/backups/' >> /etc/crontab",
+    safeToAutoFix: "SAFE",
     explain:
       "A scheduled cron backup job ensures backups run automatically without manual intervention. Without it, backups depend on manual execution and are likely to be missed.",
   },
@@ -132,6 +138,7 @@ const BACKUP_CHECKS: BackupCheckDef[] = [
     },
     expectedValue: "/var/backups exists and contains files",
     fixCommand: "mkdir -p /var/backups && dpkg --get-selections > /var/backups/packages.list",
+    safeToAutoFix: "SAFE",
     explain:
       "/var/backups is the standard system backup location on Debian/Ubuntu systems. Its presence with content indicates system configuration and package state are being preserved for recovery purposes.",
   },
@@ -153,6 +160,7 @@ const BACKUP_CHECKS: BackupCheckDef[] = [
     },
     expectedValue: "Backup files use .enc or .gpg encryption",
     fixCommand: "# Encrypt existing backups: gpg --symmetric --cipher-algo AES256 backup.tar.gz",
+    safeToAutoFix: "GUARDED",
     explain:
       "Unencrypted backup files expose sensitive data if backup storage is compromised.",
   },
@@ -175,6 +183,7 @@ const BACKUP_CHECKS: BackupCheckDef[] = [
     },
     expectedValue: "At least one of rsync, borg, or restic is installed",
     fixCommand: "apt-get install -y rsync  # or: apt-get install -y restic",
+    safeToAutoFix: "SAFE",
     explain:
       "A proper backup tool enables automated, incremental, and encrypted backups essential for disaster recovery.",
   },
@@ -200,7 +209,8 @@ export const parseBackupChecks: CheckParser = (
         passed: false,
         currentValue: "Unable to determine",
         expectedValue: def.expectedValue,
-        fixCommand: def.fixCommand,
+        fixCommand: def.fixCommand,
+        safeToAutoFix: def.safeToAutoFix,
         explain: def.explain,
       };
     }
@@ -213,7 +223,8 @@ export const parseBackupChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

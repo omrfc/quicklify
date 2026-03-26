@@ -3,7 +3,7 @@
  * Parses /etc/passwd, /etc/shadow, and home directory data into 15 security checks.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 
 interface AccountsCheckDef {
   id: string;
@@ -11,7 +11,8 @@ interface AccountsCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -38,6 +39,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     expectedValue: "Only root has UID 0",
     fixCommand:
       "awk -F: '($3 == 0 && $1 != \"root\") {print $1}' /etc/passwd # Review and remove extra UID 0 accounts",
+    safeToAutoFix: "SAFE",
     explain:
       "Multiple accounts with UID 0 grant full root access, making privilege control and audit trails impossible.",
   },
@@ -58,6 +60,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "No accounts with empty passwords",
     fixCommand: "passwd -l <username> # Lock accounts with empty passwords",
+    safeToAutoFix: "SAFE",
     explain:
       "Accounts with empty password hashes allow login without any credentials, providing trivial unauthorized access.",
   },
@@ -74,6 +77,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "No .rhosts files present",
     fixCommand: "find / -name .rhosts -delete 2>/dev/null",
+    safeToAutoFix: "SAFE",
     explain:
       "The .rhosts file allows remote login without password authentication, bypassing all security controls.",
   },
@@ -91,6 +95,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "No /etc/hosts.equiv file",
     fixCommand: "rm -f /etc/hosts.equiv",
+    safeToAutoFix: "SAFE",
     explain:
       "The hosts.equiv file grants trust relationships between hosts, allowing passwordless remote access.",
   },
@@ -107,6 +112,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "No .netrc files present",
     fixCommand: "find / -name .netrc -delete 2>/dev/null",
+    safeToAutoFix: "SAFE",
     explain:
       "The .netrc file stores plaintext credentials for FTP and other services, risking credential exposure.",
   },
@@ -124,6 +130,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "No .forward files present",
     fixCommand: "find / -name .forward -delete 2>/dev/null",
+    safeToAutoFix: "SAFE",
     explain:
       "The .forward file can redirect mail to external addresses, potentially leaking sensitive information.",
   },
@@ -149,6 +156,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     expectedValue: "System accounts use /usr/sbin/nologin or /bin/false",
     fixCommand:
       "usermod -s /usr/sbin/nologin <username> # Set nologin shell for system accounts",
+    safeToAutoFix: "SAFE",
     explain:
       "System accounts with interactive shells can be exploited if compromised, providing a login vector.",
   },
@@ -170,6 +178,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "/root not accessible by others (e.g., 700 or 750)",
     fixCommand: "chmod 700 /root",
+    safeToAutoFix: "SAFE",
     explain:
       "A world-readable root home directory may expose sensitive configuration files and credentials.",
   },
@@ -191,6 +200,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "No duplicate UIDs in /etc/passwd",
     fixCommand: "awk -F: '{print $3}' /etc/passwd | sort | uniq -d # Find and resolve duplicate UIDs",
+    safeToAutoFix: "SAFE",
     explain:
       "Duplicate UIDs cause file ownership confusion, making it impossible to correctly attribute actions to users.",
   },
@@ -218,6 +228,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "Each /home/username is owned by username",
     fixCommand: "chown -R username:username /home/username # Fix ownership for each user",
+    safeToAutoFix: "SAFE",
     explain:
       "Mismatched home directory ownership can allow other users to access private files and configurations.",
   },
@@ -238,6 +249,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "/etc/shadow accessible only by root (permissions 640 or 600)",
     fixCommand: "chmod 640 /etc/shadow && chown root:shadow /etc/shadow",
+    safeToAutoFix: "SAFE",
     explain:
       "The /etc/shadow file contains password hashes and must be restricted to prevent offline password cracking.",
   },
@@ -258,6 +270,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     expectedValue: "PASS_MAX_DAYS <= 365",
     fixCommand:
       "sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS 365/' /etc/login.defs",
+    safeToAutoFix: "SAFE",
     explain:
       "Password maximum age ensures credentials are rotated periodically, limiting the window of exposure for compromised passwords.",
   },
@@ -278,6 +291,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     expectedValue: "PASS_MIN_DAYS > 0",
     fixCommand:
       "sed -i 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS 1/' /etc/login.defs",
+    safeToAutoFix: "SAFE",
     explain:
       "Password minimum age prevents users from immediately changing back to an old password after a forced change.",
   },
@@ -297,6 +311,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "Inactive accounts are automatically locked",
     fixCommand: "useradd -D -f 30 # Lock accounts after 30 days of inactivity",
+    safeToAutoFix: "SAFE",
     explain:
       "Automatically locking inactive accounts reduces the attack surface by disabling unused credentials.",
   },
@@ -316,6 +331,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "UMASK 027 or 077",
     fixCommand: "sed -i 's/^UMASK.*/UMASK 027/' /etc/login.defs",
+    safeToAutoFix: "SAFE",
     explain:
       "A restrictive default umask ensures newly created files are not world-readable, protecting sensitive data by default.",
   },
@@ -349,6 +365,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "No users with login shells and missing home directories",
     fixCommand: "# Review: awk -F: '($7 ~ /bash|sh|zsh/) {print $1,$6,$7}' /etc/passwd | while read u h s; do [ -d \"$h\" ] || echo \"Missing home: $u\"; done",
+    safeToAutoFix: "GUARDED",
     explain:
       "Users with valid login shells but missing home directories may indicate misconfigured or orphaned accounts.",
   },
@@ -377,6 +394,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "Fewer than 5 accounts inactive for 90+ days",
     fixCommand: "# Review: lastlog -b 90 | grep -v 'Never logged in' — lock dormant accounts with: usermod -L USERNAME",
+    safeToAutoFix: "GUARDED",
     explain:
       "Dormant accounts with valid credentials are targets for brute force and credential reuse attacks.",
   },
@@ -412,6 +430,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "Fewer than 50 user accounts on a VPS",
     fixCommand: "# Review: cat /etc/passwd | wc -l — remove unnecessary accounts with: userdel USERNAME",
+    safeToAutoFix: "GUARDED",
     explain:
       "Excessive user accounts on a VPS indicate poor account hygiene and increase the attack surface.",
   },
@@ -439,6 +458,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "No home directories with world-write permission",
     fixCommand: "find /home -maxdepth 1 -mindepth 1 -type d -perm /o+w -exec chmod o-w {} \\;",
+    safeToAutoFix: "SAFE",
     explain:
       "World-writable home directories allow any user to plant malicious files like .bashrc or .ssh/authorized_keys.",
   },
@@ -464,6 +484,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "UID_MIN >= 1000 and UID_MAX >= 60000 in /etc/login.defs",
     fixCommand: "Verify UID_MIN=1000 and UID_MAX=60000 in /etc/login.defs",
+    safeToAutoFix: "GUARDED",
     explain:
       "Standard UID ranges prevent accidental overlap between system and user accounts, which can lead to privilege confusion.",
   },
@@ -498,6 +519,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "10 or fewer accounts with interactive login shells",
     fixCommand: "Review accounts with login shells: awk -F: '($7 != \"/usr/sbin/nologin\" && $7 != \"/bin/false\") {print $1, $7}' /etc/passwd",
+    safeToAutoFix: "GUARDED",
     explain:
       "Excessive accounts with login shells increase the attack surface for brute-force and credential stuffing attacks.",
   },
@@ -527,6 +549,7 @@ const ACCOUNTS_CHECKS: AccountsCheckDef[] = [
     },
     expectedValue: "No duplicate GIDs in /etc/group",
     fixCommand: "awk -F: '{print $3}' /etc/group | sort | uniq -d -- resolve duplicate GIDs",
+    safeToAutoFix: "SAFE",
     explain:
       "Duplicate GIDs can cause files to be accessible by unintended groups, breaking the principle of least privilege.",
   },
@@ -552,7 +575,8 @@ export const parseAccountsChecks: CheckParser = (
         passed: false,
         currentValue: "Unable to determine",
         expectedValue: def.expectedValue,
-        fixCommand: def.fixCommand,
+        fixCommand: def.fixCommand,
+        safeToAutoFix: def.safeToAutoFix,
         explain: def.explain,
       };
     }
@@ -565,7 +589,8 @@ export const parseAccountsChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

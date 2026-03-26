@@ -36,6 +36,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     currentValue: isNA ? "Unable to determine" : isActive ? "active" : "inactive",
     expectedValue: "active",
     fixCommand: "ufw enable",
+    safeToAutoFix: "FORBIDDEN",
     explain: "A firewall is the first line of defense against unauthorized network access.",
   };
 
@@ -50,6 +51,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     currentValue: isNA ? "Unable to determine" : denyIncoming ? "deny (incoming)" : "not set to deny",
     expectedValue: "deny (incoming)",
     fixCommand: "ufw default deny incoming",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Default deny ensures only explicitly allowed traffic reaches the server.",
   };
 
@@ -64,6 +66,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     currentValue: isNA ? "Unable to determine" : hasSSHRule ? "SSH port allowed" : "SSH port not in rules",
     expectedValue: "SSH port (22) explicitly allowed",
     fixCommand: "ufw allow 22/tcp",
+    safeToAutoFix: "FORBIDDEN",
     explain: "SSH port should be explicitly allowed to prevent lockout when firewall is active.",
   };
 
@@ -89,6 +92,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     currentValue: isNA ? "Unable to determine" : hasWideOpen ? "Wide-open rule found on non-standard port" : "No wide-open rules",
     expectedValue: "No 0.0.0.0/0 rules on non-standard ports",
     fixCommand: "ufw status numbered && ufw delete <rule_number>",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Wide-open rules on database or service ports expose them to the entire internet.",
   };
 
@@ -103,6 +107,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     currentValue: isNA ? "Unable to determine" : ipv6Enabled ? "IPv6 rules present" : "IPv6 status unknown",
     expectedValue: "IPv6 firewall rules configured",
     fixCommand: "sed -i 's/IPV6=no/IPV6=yes/' /etc/default/ufw && ufw reload",
+    safeToAutoFix: "FORBIDDEN",
     explain: "IPv6 firewall rules prevent bypassing security through IPv6 connections.",
   };
 
@@ -118,6 +123,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     currentValue: nftSection ? "nftables ruleset present" : "nftables not detected",
     expectedValue: "nftables available as modern firewall",
     fixCommand: "apt install -y nftables && systemctl enable --now nftables",
+    safeToAutoFix: "FORBIDDEN",
     explain: "nftables is the modern replacement for iptables with improved performance and maintainability.",
   };
 
@@ -132,6 +138,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     currentValue: hasFail2banJails ? "fail2ban running with jails" : "fail2ban not active",
     expectedValue: "fail2ban running with at least one jail",
     fixCommand: "apt install -y fail2ban && systemctl enable --now fail2ban",
+    safeToAutoFix: "FORBIDDEN",
     explain: "fail2ban blocks brute-force attacks by banning IPs with repeated failed logins.",
   };
 
@@ -147,6 +154,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     currentValue: isNA ? "Unable to determine" : `iptables line count: ${iptablesCount}`,
     expectedValue: "More than 8 iptables lines (non-empty chains)",
     fixCommand: "iptables -A INPUT -j DROP",
+    safeToAutoFix: "FORBIDDEN",
     explain: "An iptables ruleset with only default chains (< 8 lines) provides no real protection.",
   };
 
@@ -162,6 +170,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     currentValue: isNA ? "Unable to determine" : inputPolicyLine.trim() || "No INPUT policy found",
     expectedValue: "Chain INPUT (policy DROP) or (policy REJECT)",
     fixCommand: "iptables -P INPUT DROP",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Setting iptables INPUT default policy to DROP ensures all inbound traffic is denied unless explicitly allowed.",
   };
 
@@ -176,6 +185,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     currentValue: hasRejectRules ? "REJECT rules present" : "No REJECT rules found (DROP-only)",
     expectedValue: "REJECT preferred for user-facing services",
     fixCommand: "iptables -A INPUT -j REJECT --reject-with icmp-port-unreachable",
+    safeToAutoFix: "FORBIDDEN",
     explain: "REJECT informs the client the port is closed, which is preferable for user-facing services.",
   };
 
@@ -191,6 +201,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     currentValue: isNA ? "Unable to determine" : hasRestrictedOutput ? "OUTPUT chain restricted" : "OUTPUT chain not restricted",
     expectedValue: "Consider restricting outbound traffic",
     fixCommand: "iptables -P OUTPUT DROP && iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Restricting outbound traffic limits damage from compromised services attempting to exfiltrate data.",
   };
 
@@ -205,6 +216,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
     currentValue: hasRateLimit ? "Rate limiting rules found" : "No rate limiting rules",
     expectedValue: "iptables rate limiting rules configured",
     fixCommand: "iptables -A INPUT -p tcp --dport 22 -m limit --limit 3/minute --limit-burst 3 -j ACCEPT",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Rate limiting rules protect against brute-force and DoS attacks by throttling connection attempts.",
   };
 
@@ -222,6 +234,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
       : forwardPolicyLine.trim() || "No FORWARD policy found",
     expectedValue: "Chain FORWARD (policy DROP) or (policy REJECT)",
     fixCommand: "iptables -P FORWARD DROP",
+    safeToAutoFix: "FORBIDDEN",
     explain:
       "FORWARD chain default ACCEPT allows unintended traffic routing through the host, potentially bypassing network segmentation.",
   };
@@ -243,6 +256,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
         : `ip6tables INPUT rules: ${ipv6RuleCount}`,
     expectedValue: "IPv6 disabled or ip6tables has rules (> 3 lines)",
     fixCommand: "ip6tables -P INPUT DROP && ip6tables -P FORWARD DROP && ip6tables -P OUTPUT ACCEPT",
+    safeToAutoFix: "FORBIDDEN",
     explain:
       "Unfiltered IPv6 traffic can bypass IPv4 firewall rules on dual-stack systems.",
   };
@@ -262,6 +276,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
         : "No unrestricted ACCEPT all rule found",
     expectedValue: "No 'ACCEPT all -- 0.0.0.0/0 0.0.0.0/0' rule without restrictions",
     fixCommand: "iptables -D INPUT -j ACCEPT  # Remove and replace with specific allow rules",
+    safeToAutoFix: "FORBIDDEN",
     explain:
       "A wildcard ACCEPT rule in the INPUT chain bypasses all other security rules, effectively disabling the firewall.",
   };
@@ -281,6 +296,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
         : "Connection tracking not available",
     expectedValue: "nf_conntrack_max >= 65536",
     fixCommand: "echo 262144 > /proc/sys/net/netfilter/nf_conntrack_max && echo 'net.netfilter.nf_conntrack_max = 262144' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Low connection tracking limits cause packet drops under load, which can be exploited for denial-of-service.",
   };
 
@@ -299,6 +315,7 @@ export const parseFirewallChecks: CheckParser = (sectionOutput: string, _platfor
         : "LOG rule count not determinable",
     expectedValue: "At least 1 LOG rule in iptables for forensic evidence",
     fixCommand: "iptables -A INPUT -j LOG --log-prefix \"iptables-dropped: \" --log-level 4",
+    safeToAutoFix: "FORBIDDEN",
     explain: "Logging dropped firewall packets provides forensic evidence of attack attempts and helps identify malicious traffic patterns.",
   };
 

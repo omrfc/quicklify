@@ -4,7 +4,7 @@
  * core dump restrictions, and process limits into 7 security checks.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 
 interface MemoryCheckDef {
   id: string;
@@ -12,7 +12,8 @@ interface MemoryCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -40,6 +41,7 @@ const MEMORY_CHECKS: MemoryCheckDef[] = [
     },
     expectedValue: "vm.overcommit_memory = 0 or 2 (not 1)",
     fixCommand: "sysctl -w vm.overcommit_memory=2 && echo 'vm.overcommit_memory=2' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "vm.overcommit_memory=1 (always overcommit) allows any memory allocation regardless of available memory, increasing OOM kill risk and potential denial-of-service conditions.",
   },
@@ -74,6 +76,7 @@ const MEMORY_CHECKS: MemoryCheckDef[] = [
     },
     expectedValue: "Zombie process count < 10",
     fixCommand: "# Kill zombie parent processes: kill -s SIGCHLD <parent_pid>",
+    safeToAutoFix: "GUARDED",
     explain:
       "Excessive zombie processes indicate a parent process is not properly reaping children, suggesting a software fault. Large numbers can exhaust process table entries causing system-wide failures.",
   },
@@ -97,6 +100,7 @@ const MEMORY_CHECKS: MemoryCheckDef[] = [
     },
     expectedValue: "fs.suid_dumpable = 0",
     fixCommand: "sysctl -w fs.suid_dumpable=0 && echo 'fs.suid_dumpable=0' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "fs.suid_dumpable=0 prevents SUID/SGID programs from generating core dumps, protecting against leaking privileged process memory (credentials, keys) to disk.",
   },
@@ -117,6 +121,7 @@ const MEMORY_CHECKS: MemoryCheckDef[] = [
     },
     expectedValue: "vm.oom_kill_allocating_task has any configured value",
     fixCommand: "sysctl -w vm.oom_kill_allocating_task=1 && echo 'vm.oom_kill_allocating_task=1' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "The OOM killer policy controls which process is terminated when memory runs out. Having it explicitly configured ensures predictable behavior during memory pressure events.",
   },
@@ -143,6 +148,7 @@ const MEMORY_CHECKS: MemoryCheckDef[] = [
     },
     expectedValue: "Transparent hugepages setting present in /sys/kernel/mm/transparent_hugepage/enabled",
     fixCommand: "echo madvise > /sys/kernel/mm/transparent_hugepage/enabled",
+    safeToAutoFix: "SAFE",
     explain:
       "Transparent hugepages configuration affects memory management performance and fragmentation. Having it explicitly configured is a sign of deliberate memory tuning.",
   },
@@ -167,6 +173,7 @@ const MEMORY_CHECKS: MemoryCheckDef[] = [
     },
     expectedValue: "pid_max > 4096 (configured for adequate process capacity)",
     fixCommand: "sysctl -w kernel.pid_max=32768 && echo 'kernel.pid_max=32768' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "The pid_max value limits how many processes can run simultaneously. Values above 4096 indicate the system is configured for normal multi-process operation.",
   },
@@ -192,6 +199,7 @@ const MEMORY_CHECKS: MemoryCheckDef[] = [
     },
     expectedValue: "ulimit open files is a finite numeric value (not unlimited)",
     fixCommand: "echo '* soft nofile 65536\n* hard nofile 65536' >> /etc/security/limits.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "An unlimited open files ulimit allows a single process to consume all available file descriptors, potentially causing denial-of-service by exhausting system resources.",
   },
@@ -218,6 +226,7 @@ const MEMORY_CHECKS: MemoryCheckDef[] = [
     },
     expectedValue: "No swap, or swap on encrypted volume",
     fixCommand: "# See: cryptsetup luksFormat /dev/sdX && mkswap /dev/mapper/swap — or disable swap: swapoff -a",
+    safeToAutoFix: "GUARDED",
     explain:
       "Unencrypted swap can contain sensitive data like passwords and encryption keys that persist after power loss.",
   },
@@ -253,6 +262,7 @@ const MEMORY_CHECKS: MemoryCheckDef[] = [
     },
     expectedValue: "vm.swappiness <= 60",
     fixCommand: "sysctl -w vm.swappiness=10 && echo 'vm.swappiness=10' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "High swappiness increases the chance of sensitive memory pages being written to potentially unencrypted swap.",
   },
@@ -277,6 +287,7 @@ const MEMORY_CHECKS: MemoryCheckDef[] = [
     },
     expectedValue: "Transparent hugepages set to 'madvise' or 'never', not 'always'",
     fixCommand: "echo madvise > /sys/kernel/mm/transparent_hugepage/enabled",
+    safeToAutoFix: "SAFE",
     explain:
       "Transparent hugepages set to 'always' can cause memory fragmentation and latency spikes; 'madvise' gives application control.",
   },
@@ -314,6 +325,7 @@ const MEMORY_CHECKS: MemoryCheckDef[] = [
     },
     expectedValue: "vm.max_map_count >= 65530 (default minimum)",
     fixCommand: "sysctl -w vm.max_map_count=65530",
+    safeToAutoFix: "SAFE",
     explain:
       "A max_map_count below the default minimum indicates misconfiguration that can cause application crashes.",
   },
@@ -339,7 +351,8 @@ export const parseMemoryChecks: CheckParser = (
         passed: false,
         currentValue: "Unable to determine",
         expectedValue: def.expectedValue,
-        fixCommand: def.fixCommand,
+        fixCommand: def.fixCommand,
+        safeToAutoFix: def.safeToAutoFix,
         explain: def.explain,
       };
     }
@@ -352,7 +365,8 @@ export const parseMemoryChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

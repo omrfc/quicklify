@@ -39,6 +39,7 @@ export const parseUpdatesChecks: CheckParser = (sectionOutput: string, _platform
         : "No security updates pending",
     expectedValue: "0 security updates",
     fixCommand: "apt update && apt upgrade -y",
+    safeToAutoFix: "SAFE",
     explain: "Pending security updates leave known vulnerabilities unpatched.",
   };
 
@@ -57,6 +58,7 @@ export const parseUpdatesChecks: CheckParser = (sectionOutput: string, _platform
         : "unattended-upgrades not installed",
     expectedValue: "unattended-upgrades installed",
     fixCommand: "apt install -y unattended-upgrades && dpkg-reconfigure -plow unattended-upgrades",
+    safeToAutoFix: "SAFE",
     explain: "Automatic security updates ensure critical patches are applied promptly.",
   };
 
@@ -78,6 +80,7 @@ export const parseUpdatesChecks: CheckParser = (sectionOutput: string, _platform
         : "APT cache older than 7 days",
     expectedValue: "APT cache updated within 7 days",
     fixCommand: "apt update",
+    safeToAutoFix: "SAFE",
     explain: "Stale package cache may hide available security updates.",
   };
 
@@ -99,6 +102,7 @@ export const parseUpdatesChecks: CheckParser = (sectionOutput: string, _platform
           : "Unable to determine",
     expectedValue: "No reboot required",
     fixCommand: "reboot",
+    safeToAutoFix: "SAFE",
     explain: "Some updates require a reboot to take effect, especially kernel updates.",
   };
 
@@ -129,6 +133,7 @@ export const parseUpdatesChecks: CheckParser = (sectionOutput: string, _platform
         : "No package activity in over 30 days",
     expectedValue: "Package activity within 30 days",
     fixCommand: "apt update && apt upgrade -y",
+    safeToAutoFix: "SAFE",
     explain: "Systems with no package activity for 30+ days are likely missing critical security patches.",
   };
 
@@ -144,6 +149,7 @@ export const parseUpdatesChecks: CheckParser = (sectionOutput: string, _platform
     currentValue: hasCveTool ? `CVE scanner found: ${cveToolLine}` : "No CVE scanner found",
     expectedValue: "trivy or grype installed",
     fixCommand: "curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin",
+    safeToAutoFix: "SAFE",
     explain: "A CVE scanner enables proactive detection of known vulnerabilities in installed packages.",
   };
 
@@ -160,6 +166,7 @@ export const parseUpdatesChecks: CheckParser = (sectionOutput: string, _platform
     currentValue: isNA ? "Unable to determine" : `${dpkgPartialCount} partially installed package(s)`,
     expectedValue: "0 partially installed packages",
     fixCommand: "dpkg --configure -a && apt install -f",
+    safeToAutoFix: "SAFE",
     explain: "Partially installed packages indicate interrupted upgrades that may leave the system in an inconsistent state.",
   };
 
@@ -175,6 +182,7 @@ export const parseUpdatesChecks: CheckParser = (sectionOutput: string, _platform
     currentValue: hasKernelInfo ? `Kernel: ${kernelVersion}` : "Unable to determine kernel version",
     expectedValue: "Kernel version detectable",
     fixCommand: "uname -r",
+    safeToAutoFix: "SAFE",
     explain: "Knowing the running kernel version helps verify security patches have been applied via reboots.",
   };
 
@@ -192,6 +200,7 @@ export const parseUpdatesChecks: CheckParser = (sectionOutput: string, _platform
       : autoUpgradesContent || "Unattended-Upgrade not enabled",
     expectedValue: `APT::Periodic::Unattended-Upgrade "1"`,
     fixCommand: `dpkg-reconfigure -plow unattended-upgrades`,
+    safeToAutoFix: "SAFE",
     explain: "Unattended-upgrades must be explicitly enabled in 20auto-upgrades to apply security patches automatically.",
   };
 
@@ -206,6 +215,7 @@ export const parseUpdatesChecks: CheckParser = (sectionOutput: string, _platform
     currentValue: isNA ? "Unable to determine" : hasHttpRepos ? "Some APT repos use HTTP" : "APT repo HTTPS status not directly verified here",
     expectedValue: "APT repositories using HTTPS",
     fixCommand: "See /etc/apt/sources.list and replace http:// with https://",
+    safeToAutoFix: "GUARDED",
     explain: "APT repos using HTTPS prevent man-in-the-middle attacks during package downloads.",
   };
 
@@ -228,6 +238,7 @@ export const parseUpdatesChecks: CheckParser = (sectionOutput: string, _platform
         : "No dedicated security repository found in APT sources",
     expectedValue: "A security repository entry exists in /etc/apt/sources.list",
     fixCommand: "Ensure /etc/apt/sources.list includes the Ubuntu security repository",
+    safeToAutoFix: "GUARDED",
     explain:
       "A dedicated security repository ensures critical patches are available immediately without waiting for general release cycles.",
   };

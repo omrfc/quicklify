@@ -30,6 +30,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "kernel.randomize_va_space = 2",
     fixCommand: "sysctl -w kernel.randomize_va_space=2 && echo 'kernel.randomize_va_space=2' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain: "ASLR randomizes memory addresses, making exploitation of memory corruption bugs significantly harder.",
   };
 
@@ -52,6 +53,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
           : "Unable to determine",
     expectedValue: "fs.suid_dumpable = 0",
     fixCommand: "sysctl -w fs.suid_dumpable=0 && echo 'fs.suid_dumpable=0' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain: "Core dumps can contain sensitive data like passwords and encryption keys.",
   };
 
@@ -98,6 +100,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine kernel version",
     expectedValue: "Kernel version identifiable",
     fixCommand: "apt update && apt upgrade -y linux-generic",
+    safeToAutoFix: "SAFE",
     explain: "Keeping the kernel updated ensures security patches are applied.",
   };
 
@@ -116,6 +119,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "kernel.dmesg_restrict = 1",
     fixCommand: "sysctl -w kernel.dmesg_restrict=1 && echo 'kernel.dmesg_restrict=1' >> /etc/sysctl.conf",
+    safeToAutoFix: "SAFE",
     explain: "Restricting dmesg prevents unprivileged users from reading kernel messages that may contain sensitive info.",
   };
 
@@ -134,6 +138,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "kernel.yama.ptrace_scope = 1 or higher",
     fixCommand: "sysctl -w kernel.yama.ptrace_scope=1 && echo 'kernel.yama.ptrace_scope=1' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "Restricting ptrace prevents unprivileged processes from tracing or attaching to other processes.",
   };
 
@@ -152,6 +157,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "kernel.kptr_restrict = 1 or higher",
     fixCommand: "sysctl -w kernel.kptr_restrict=1 && echo 'kernel.kptr_restrict=1' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "Hiding kernel pointer addresses prevents attackers from exploiting kernel vulnerabilities via address leaks.",
   };
 
@@ -170,6 +176,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "kernel.perf_event_paranoid = 2 or higher",
     fixCommand: "sysctl -w kernel.perf_event_paranoid=2 && echo 'kernel.perf_event_paranoid=2' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "Restricting perf events prevents unprivileged users from gaining performance counter data for side-channel attacks.",
   };
 
@@ -188,6 +195,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "net.ipv4.tcp_syncookies = 1",
     fixCommand: "sysctl -w net.ipv4.tcp_syncookies=1 && echo 'net.ipv4.tcp_syncookies=1' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "SYN cookies protect the server against SYN flood denial-of-service attacks.",
   };
 
@@ -206,6 +214,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "net.ipv4.ip_forward = 0",
     fixCommand: "sysctl -w net.ipv4.ip_forward=0 && echo 'net.ipv4.ip_forward=0' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "IP forwarding should be disabled on servers that are not routers to prevent packet routing abuse.",
   };
 
@@ -225,6 +234,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "net.ipv4.conf.all.rp_filter = 1 or 2 (loose mode for Docker compatibility)",
     fixCommand: "sysctl -w net.ipv4.conf.all.rp_filter=2 && echo 'net.ipv4.conf.all.rp_filter=2' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "Reverse path filtering drops packets with a source address that cannot be reached via the incoming interface. Loose mode (2) is Docker-compatible.",
   };
 
@@ -243,6 +253,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "net.ipv4.tcp_timestamps = 0 (disabled)",
     fixCommand: "sysctl -w net.ipv4.tcp_timestamps=0 && echo 'net.ipv4.tcp_timestamps=0' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "TCP timestamps can be used to fingerprint the system uptime and derive information for certain attacks.",
   };
 
@@ -261,6 +272,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "net.ipv4.icmp_echo_ignore_broadcasts = 1",
     fixCommand: "sysctl -w net.ipv4.icmp_echo_ignore_broadcasts=1 && echo 'net.ipv4.icmp_echo_ignore_broadcasts=1' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "Ignoring ICMP broadcasts prevents the server from being used as an amplifier in smurf attacks.",
   };
 
@@ -279,6 +291,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "net.ipv6.conf.all.accept_redirects = 0",
     fixCommand: "sysctl -w net.ipv6.conf.all.accept_redirects=0 && echo 'net.ipv6.conf.all.accept_redirects=0' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "Accepting IPv6 ICMP redirects can allow attackers to redirect traffic through malicious routes.",
   };
 
@@ -297,6 +310,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "kernel.unprivileged_bpf_disabled = 1",
     fixCommand: "sysctl -w kernel.unprivileged_bpf_disabled=1 && echo 'kernel.unprivileged_bpf_disabled=1' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "Disabling unprivileged BPF prevents non-root users from loading eBPF programs that could be used for attacks.",
   };
 
@@ -315,6 +329,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "kernel.modules_disabled = 1",
     fixCommand: "sysctl -w kernel.modules_disabled=1 && echo 'kernel.modules_disabled=1' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "Disabling kernel module loading prevents attackers from loading malicious kernel modules after system startup.",
   };
 
@@ -333,6 +348,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "net.ipv6.conf.all.forwarding = 0",
     fixCommand: "sysctl -w net.ipv6.conf.all.forwarding=0 && echo 'net.ipv6.conf.all.forwarding=0' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "IPv6 forwarding should be disabled on servers that are not IPv6 routers.",
   };
 
@@ -351,6 +367,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "net.ipv4.conf.all.send_redirects = 0",
     fixCommand: "sysctl -w net.ipv4.conf.all.send_redirects=0 && echo 'net.ipv4.conf.all.send_redirects=0' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "Sending ICMP redirects is only needed on routers and can be exploited to redirect traffic on non-router systems.",
   };
 
@@ -369,6 +386,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "net.ipv4.conf.all.secure_redirects = 0",
     fixCommand: "sysctl -w net.ipv4.conf.all.secure_redirects=0 && echo 'net.ipv4.conf.all.secure_redirects=0' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "Even so-called secure ICMP redirects from gateways can be used to redirect traffic maliciously.",
   };
 
@@ -388,6 +406,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "kernel.sysrq = 0 or 1 (restricted)",
     fixCommand: "sysctl -w kernel.sysrq=0 && echo 'kernel.sysrq = 0' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "SysRq provides low-level kernel commands via keyboard; unrestricted access enables forced reboots and memory dumps.",
   };
@@ -408,6 +427,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "kernel.core_pattern does not start with | (no piped core dumps)",
     fixCommand: "echo 'kernel.core_pattern=core' > /etc/sysctl.d/99-kastell-core.conf && sysctl -p",
+    safeToAutoFix: "SAFE",
     explain:
       "Piped core patterns can execute arbitrary programs when a process crashes, enabling privilege escalation.",
   };
@@ -427,6 +447,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "kernel.panic_on_oops = 1",
     fixCommand: "sysctl -w kernel.panic_on_oops=1 && echo 'kernel.panic_on_oops = 1' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "Kernel oops without panic allows a potentially compromised kernel to continue running.",
   };
@@ -446,6 +467,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "kernel.nmi_watchdog = 0 (disabled on production VPS)",
     fixCommand: "sysctl -w kernel.nmi_watchdog=0 && echo 'kernel.nmi_watchdog = 0' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "NMI watchdog generates hardware interrupts that are rarely needed on VPS; disabling reduces attack surface.",
   };
@@ -469,6 +491,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Sysctl key not available (may not be supported on this kernel)",
     expectedValue: "kernel.unprivileged_userns_clone = 0",
     fixCommand: "sysctl -w kernel.unprivileged_userns_clone=0 && echo 'kernel.unprivileged_userns_clone = 0' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain:
       "Unprivileged user namespaces expand attack surface by allowing sandbox escapes and privilege escalation exploits.",
   };
@@ -488,6 +511,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Not present (modern kernel uses hardware NX bit)",
     expectedValue: "kernel.exec_shield = 1 or not present (NX bit handles this on modern CPUs)",
     fixCommand: "# Modern kernels use NX bit. Verify: grep -q ' nx ' /proc/cpuinfo && echo 'NX enabled'",
+    safeToAutoFix: "GUARDED",
     explain:
       "Exec-shield provides executable space protection; on modern kernels, hardware NX bit provides equivalent protection.",
   };
@@ -521,6 +545,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine module state",
     expectedValue: "0 blacklisted filesystem modules (cramfs, hfs, udf, etc.) loaded",
     fixCommand: "echo 'install cramfs /bin/true' >> /etc/modprobe.d/blacklist.conf && echo 'install hfs /bin/true' >> /etc/modprobe.d/blacklist.conf",
+    safeToAutoFix: "SAFE",
     explain: "Obsolete filesystem kernel modules (cramfs, hfs, udf) can be exploited to mount crafted filesystem images for privilege escalation.",
   };
 
@@ -540,6 +565,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "kernel.panic > 0 (auto-reboot on panic)",
     fixCommand: "sysctl -w kernel.panic=60 && echo 'kernel.panic = 60' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "Setting kernel.panic > 0 ensures automatic reboot after a kernel panic, preventing indefinite downtime on headless servers.",
   };
 
@@ -574,6 +600,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine sysctl.d config count",
     expectedValue: "At least 1 hardening config in /etc/sysctl.d/",
     fixCommand: "Create /etc/sysctl.d/99-kastell.conf with hardening settings",
+    safeToAutoFix: "GUARDED",
     explain: "Persistent sysctl configuration files in /etc/sysctl.d/ ensure kernel hardening survives reboots.",
   };
 
@@ -597,6 +624,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Coredump config not found",
     expectedValue: "Storage=none or ProcessSizeMax=0 in /etc/systemd/coredump.conf",
     fixCommand: "echo -e '[Coredump]\\nStorage=none\\nProcessSizeMax=0' > /etc/systemd/coredump.conf.d/kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "Disabling systemd core dumps prevents sensitive memory contents from being written to disk after crashes.",
   };
 
@@ -615,6 +643,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
       : lockdownLine?.trim() ?? "Lockdown mode not available",
     expectedValue: "[integrity] or [confidentiality] in /sys/kernel/security/lockdown",
     fixCommand: "Add lockdown=integrity to kernel boot parameters in GRUB",
+    safeToAutoFix: "GUARDED",
     explain: "Kernel lockdown mode prevents even root from modifying the running kernel, blocking rootkit installation.",
   };
 
@@ -633,6 +662,7 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "net.core.bpf_jit_harden = 1 or 2",
     fixCommand: "sysctl -w net.core.bpf_jit_harden=1 && echo 'net.core.bpf_jit_harden=1' >> /etc/sysctl.d/99-kastell.conf",
+    safeToAutoFix: "SAFE",
     explain: "BPF JIT hardening prevents JIT spray attacks by constant-blinding JIT-compiled BPF bytecode.",
   };
 

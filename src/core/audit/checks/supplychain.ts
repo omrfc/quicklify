@@ -5,7 +5,7 @@
  * verification, and unauthorized source detection.
  */
 
-import type { AuditCheck, CheckParser, Severity } from "../types.js";
+import type {AuditCheck, CheckParser, Severity, FixTier} from "../types.js";
 
 interface SupplyChainCheckDef {
   id: string;
@@ -13,7 +13,8 @@ interface SupplyChainCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
+  safeToAutoFix?: FixTier;
   explain: string;
 }
 
@@ -38,6 +39,7 @@ const SUPPLY_CHECKS: SupplyChainCheckDef[] = [
     expectedValue: "All APT repository URLs begin with https://",
     fixCommand:
       "# Edit /etc/apt/sources.list and /etc/apt/sources.list.d/*.list: replace http:// with https://\nsed -i 's|http://|https://|g' /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null",
+    safeToAutoFix: "GUARDED",
     explain:
       "APT repositories using plain HTTP (not HTTPS) are vulnerable to man-in-the-middle attacks that could inject malicious packages. An attacker between the server and the mirror can replace legitimate packages with trojaned versions.",
   },
@@ -66,6 +68,7 @@ const SUPPLY_CHECKS: SupplyChainCheckDef[] = [
     expectedValue: "APT trusted.gpg.d/ contains at least one GPG key",
     fixCommand:
       "# Add missing GPG key for your repository:\ncurl -fsSL https://packages.example.com/gpg | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/example.gpg",
+    safeToAutoFix: "GUARDED",
     explain:
       "APT package signature verification relies on trusted GPG keys in /etc/apt/trusted.gpg.d/. Without trusted keys, package authenticity cannot be verified and apt may install unsigned or improperly signed packages silently.",
   },
@@ -94,6 +97,7 @@ const SUPPLY_CHECKS: SupplyChainCheckDef[] = [
     expectedValue: "All installed packages are GPG-signed by their repository",
     fixCommand:
       "# Remove unsigned packages and re-install from trusted repos:\napt-get install --reinstall $(dpkg-query -W --showformat='${Package}\\n' 2>/dev/null | head -50)",
+    safeToAutoFix: "GUARDED",
     explain:
       "Unsigned packages bypass APT's GPG verification, meaning they were not authenticated by any trusted key. Malicious actors could substitute unsigned packages during download or through compromised mirrors without detection.",
   },
@@ -118,6 +122,7 @@ const SUPPLY_CHECKS: SupplyChainCheckDef[] = [
     expectedValue: "GPG keys managed via /etc/apt/trusted.gpg.d/ (not apt-key)",
     fixCommand:
       "# Migrate keys from legacy apt-key keyring to trusted.gpg.d/:\napt-key list 2>/dev/null | grep -E '^pub' -A2 | grep -oP '(?<=/)[0-9A-F]{8,}' | while read keyid; do apt-key export $keyid | gpg --dearmor > /etc/apt/trusted.gpg.d/$keyid.gpg; done; apt-key del $keyid",
+    safeToAutoFix: "GUARDED",
     explain:
       "apt-key is deprecated in Ubuntu 22.04+ and will be removed in future releases. It stores all keys in a single shared keyring (/etc/apt/trusted.gpg), meaning any trusted key can sign any package. Per-repository keys in trusted.gpg.d/ provide isolation.",
   },
@@ -139,6 +144,7 @@ const SUPPLY_CHECKS: SupplyChainCheckDef[] = [
     expectedValue: "APT repository Release/InRelease files are GPG-signed",
     fixCommand:
       "# Ensure repositories have signed Release files:\napt-get update --allow-unauthenticated 2>&1 | grep -i 'NO_PUBKEY\\|EXPKEYSIG' | awk '{print $NF}' | xargs -I{} apt-key adv --recv-keys {}",
+    safeToAutoFix: "GUARDED",
     explain:
       "APT verifies repository metadata (Release/InRelease files) against GPG signatures before downloading package indexes. Unsigned or unverified repository metadata allows a compromised mirror to serve malicious package lists.",
   },
@@ -160,6 +166,7 @@ const SUPPLY_CHECKS: SupplyChainCheckDef[] = [
     expectedValue: "GPG signature verification succeeds for installed packages",
     fixCommand:
       "# Re-import missing GPG keys:\napt-get update 2>&1 | grep 'NO_PUBKEY' | awk '{print $NF}' | sort -u | xargs -I{} sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys {}",
+    safeToAutoFix: "GUARDED",
     explain:
       "GPG verification operational status confirms that package signature checks are functioning correctly. Failed verification may indicate expired keys, missing keyrings, or a compromised keyring configuration.",
   },
@@ -181,6 +188,7 @@ const SUPPLY_CHECKS: SupplyChainCheckDef[] = [
     expectedValue: "All APT sources are official distribution or known third-party repos",
     fixCommand:
       "# Review and remove unauthorized sources:\ncat /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null | grep -v '^#' | grep '^deb'",
+    safeToAutoFix: "GUARDED",
     explain:
       "Unauthorized or unexpected package sources in APT configuration may indicate a supply chain compromise or misconfiguration. All package sources should be intentional, official, and properly signed by known keys.",
   },
@@ -203,6 +211,7 @@ const SUPPLY_CHECKS: SupplyChainCheckDef[] = [
     expectedValue: "dpkg --audit returns no broken or partially installed packages",
     fixCommand:
       "dpkg --configure -a && apt-get install -f -y",
+    safeToAutoFix: "SAFE",
     explain:
       "Broken or partially installed packages may indicate interrupted updates, package conflicts, or attempted supply chain attacks. dpkg --audit identifies packages in inconsistent states that could be leveraged by attackers or cause service failures.",
   },
@@ -227,6 +236,7 @@ const SUPPLY_CHECKS: SupplyChainCheckDef[] = [
     },
     expectedValue: "No AllowUnauthenticated or AllowInsecureRepositories set to true in apt config",
     fixCommand: "Remove AllowUnauthenticated and AllowInsecureRepositories from apt configuration",
+    safeToAutoFix: "GUARDED",
     explain:
       "Allowing unauthenticated or insecure repositories enables package tampering via man-in-the-middle attacks.",
   },
@@ -247,6 +257,7 @@ const SUPPLY_CHECKS: SupplyChainCheckDef[] = [
     },
     expectedValue: "At least one .gpg or .asc file in /etc/apt/trusted.gpg.d/",
     fixCommand: "# Add GPG key: curl -fsSL https://packages.example.com/gpg | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/example.gpg",
+    safeToAutoFix: "GUARDED",
     explain:
       "GPG keys in the trusted keyring ensure package integrity verification during apt operations.",
   },
@@ -268,6 +279,7 @@ const SUPPLY_CHECKS: SupplyChainCheckDef[] = [
     },
     expectedValue: "5 or fewer modified package files (small intentional modifications are normal)",
     fixCommand: "dpkg --verify — investigate modified files and reinstall affected packages",
+    safeToAutoFix: "SAFE",
     explain:
       "Modified package files may indicate rootkit installation or unauthorized system tampering.",
   },
@@ -285,6 +297,7 @@ const SUPPLY_CHECKS: SupplyChainCheckDef[] = [
     },
     expectedValue: "debsums is installed on the system",
     fixCommand: "apt install debsums",
+    safeToAutoFix: "SAFE",
     explain:
       "debsums verifies installed package file integrity against known checksums, detecting unauthorized file modifications.",
   },
@@ -310,7 +323,8 @@ export const parseSupplyChainChecks: CheckParser = (
         passed: false,
         currentValue: "Unable to determine",
         expectedValue: def.expectedValue,
-        fixCommand: def.fixCommand,
+        fixCommand: def.fixCommand,
+        safeToAutoFix: def.safeToAutoFix,
         explain: def.explain,
       };
     }
@@ -323,7 +337,8 @@ export const parseSupplyChainChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
+      safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };
   });

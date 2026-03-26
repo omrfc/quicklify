@@ -33,6 +33,7 @@ export const parseFilesystemChecks: CheckParser = (sectionOutput: string, _platf
         : "Unable to determine",
     expectedValue: "1777 (sticky bit set)",
     fixCommand: "chmod 1777 /tmp",
+    safeToAutoFix: "SAFE",
     explain: "The sticky bit on /tmp prevents users from deleting other users' files.",
   };
 
@@ -65,6 +66,7 @@ export const parseFilesystemChecks: CheckParser = (sectionOutput: string, _platf
         : "No world-writable files in /etc, /usr",
     expectedValue: "No world-writable files in system directories",
     fixCommand: "find /etc /usr -maxdepth 2 -perm -o+w -type f -exec chmod o-w {} \\;",
+    safeToAutoFix: "SAFE",
     explain: "World-writable files in system directories can be modified by any user, enabling privilege escalation.",
   };
 
@@ -85,6 +87,7 @@ export const parseFilesystemChecks: CheckParser = (sectionOutput: string, _platf
       : `${suidCount} SUID binary/ies found`,
     expectedValue: "15 or fewer SUID binaries",
     fixCommand: "find /usr/bin /usr/sbin -perm -4000 -type f -exec ls -la {} \\;",
+    safeToAutoFix: "SAFE",
     explain: "Excessive SUID binaries increase attack surface for privilege escalation.",
   };
 
@@ -118,6 +121,7 @@ export const parseFilesystemChecks: CheckParser = (sectionOutput: string, _platf
           : "Home directories not world-readable",
     expectedValue: "Home directories not world-readable (mode 750 or stricter)",
     fixCommand: "chmod 750 /home/*",
+    safeToAutoFix: "SAFE",
     explain: "World-readable home directories expose sensitive user files to all local users.",
   };
 
@@ -137,6 +141,7 @@ export const parseFilesystemChecks: CheckParser = (sectionOutput: string, _platf
         : "Unable to determine disk usage",
     expectedValue: "Root filesystem < 90% used",
     fixCommand: "df -h && du -sh /var/log/ /tmp/ /var/cache/",
+    safeToAutoFix: "SAFE",
     explain: "High disk usage can cause service failures, log loss, and security tool malfunction.",
   };
 
@@ -212,6 +217,7 @@ export const parseFilesystemChecks: CheckParser = (sectionOutput: string, _platf
         : "Non-restrictive umask detected",
     expectedValue: "umask 022 or 027",
     fixCommand: "echo 'umask 027' >> /etc/profile.d/kastell-umask.sh",
+    safeToAutoFix: "SAFE",
     explain: "A restrictive umask ensures newly created files are not world-readable by default.",
   };
 
@@ -235,6 +241,7 @@ export const parseFilesystemChecks: CheckParser = (sectionOutput: string, _platf
         : `${worldWritableLines.length} world-writable file(s) in system directories`,
     expectedValue: "Fewer than 3 world-writable files in /etc and /usr",
     fixCommand: "find /etc /usr -maxdepth 2 -perm -o+w -type f -exec ls -la {} \\;",
+    safeToAutoFix: "SAFE",
     explain: "Unowned or world-writable files in system directories may indicate leftover exploit artifacts.",
   };
 
@@ -267,6 +274,7 @@ export const parseFilesystemChecks: CheckParser = (sectionOutput: string, _platf
         : "/var/log is not on a separate partition",
     expectedValue: "/var/log mounted as a distinct partition",
     fixCommand: "Create separate /var/log partition or LVM volume and mount in /etc/fstab",
+    safeToAutoFix: "GUARDED",
     explain: "Separate /var/log partition prevents log flooding from filling the root filesystem.",
   };
 
@@ -307,6 +315,7 @@ export const parseFilesystemChecks: CheckParser = (sectionOutput: string, _platf
         : "SUID count not determinable",
     expectedValue: "30 or fewer SUID files system-wide",
     fixCommand: "find / -xdev -type f -perm -4000 -exec ls -la {} \\; -- review and remove unnecessary SUID bits",
+    safeToAutoFix: "SAFE",
     explain: "Each SUID binary is a potential privilege escalation vector; keeping the count low reduces attack surface.",
   };
 
