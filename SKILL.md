@@ -1,6 +1,6 @@
 ---
 name: kastell
-description: "Server security auditing, hardening, and fleet management. 448 security checks across 29 categories (SSH, Firewall, Docker, TLS, HTTP Headers), CIS/PCI-DSS/HIPAA compliance mapping, 24-step production hardening, and 13 MCP tools. Supports Hetzner, DigitalOcean, Vultr, and Linode with Coolify, Dokploy, and bare VPS modes. Install: claude plugins add kastell"
+description: "Server security auditing, hardening, and fleet management. 457 security checks across 30 categories (SSH, Firewall, Docker, TLS, HTTP Headers), CIS/PCI-DSS/HIPAA compliance mapping, 24-step production hardening, and 13 MCP tools. Supports Hetzner, DigitalOcean, Vultr, and Linode with Coolify, Dokploy, and bare VPS modes. Install: claude plugins add kastell"
 ---
 
 # Kastell — Server Security Toolkit
@@ -15,7 +15,7 @@ claude plugins add kastell
 
 ## Features
 
-- **Security Audit**: 448 checks across 29 categories with CIS/PCI-DSS/HIPAA compliance mapping
+- **Security Audit**: 457 checks across 30 categories with CIS/PCI-DSS/HIPAA compliance mapping
 - **Production Hardening**: 24-step server lock (SSH, fail2ban, UFW, sysctl, auditd, AIDE, Docker)
 - **Fleet Management**: Monitor multiple servers from a single dashboard
 - **4 Cloud Providers**: Hetzner, DigitalOcean, Vultr, Linode
@@ -27,7 +27,7 @@ claude plugins add kastell
 
 | Tool | Purpose |
 |------|---------|
-| `server_audit` | 448-check security scan |
+| `server_audit` | 457-check security scan |
 | `server_lock` | 24-step production hardening |
 | `server_secure` | SSH, firewall, domain/SSL management |
 | `server_doctor` | Proactive health analysis |

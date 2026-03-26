@@ -141,7 +141,7 @@ Helpers: `cis()`, `pci()`, `hipaa()`. Coverage: `"full"` or `"partial"`.
 
 ## Next Steps
 
-- [ ] Choose correct audit category (29 categories exist)
+- [ ] Choose correct audit category (30 categories exist)
 - [ ] Assign unique check key: `<CATEGORY>-NN` pattern
 - [ ] Verify `passed` logic matches `currentValue` evaluation
 - [ ] Add SSH command to category batch (avoid extra SSH round-trips)

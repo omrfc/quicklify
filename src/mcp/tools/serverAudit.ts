@@ -53,7 +53,7 @@ export async function handleServerAudit(params: {
       );
     }
 
-    await mcpLog(mcpServer, `Starting 448-check audit on ${server.name}`);
+    await mcpLog(mcpServer, `Starting 457-check audit on ${server.name}`);
 
     const platform = server.platform ?? server.mode ?? "bare";
     const result = await runAudit(server.ip, server.name, platform);

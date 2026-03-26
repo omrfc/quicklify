@@ -33,7 +33,7 @@ Explore the Kastell codebase using read-only tools (Read, Grep, Glob). Runs in a
 src/
   commands/     # 31 thin CLI wrappers (parse args + delegate only)
   core/         # Business logic (ALL computation here)
-    audit/      # 29 audit categories, 448+ checks
+    audit/      # 30 audit categories, 457+ checks
     lock/       # 24-step server hardening
   providers/    # Cloud API: hetzner, digitalocean, vultr, linode
   adapters/     # Platform abstraction: coolify, dokploy

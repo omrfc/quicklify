@@ -153,7 +153,7 @@ kastell domain add sunucum --domain ornek.com  # Domain + SSL ayarla
 
 ### Güvenlik Denetimi
 ```bash
-kastell audit sunucum                    # Tam güvenlik denetimi (29 kategori, 421+ kontrol)
+kastell audit sunucum                    # Tam güvenlik denetimi (30 kategori, 457+ kontrol)
 kastell audit sunucum --json             # Otomasyon için JSON çıktısı
 kastell audit sunucum --threshold 70     # Skor eşiğin altındaysa exit code 1
 kastell audit sunucum --fix              # İnteraktif düzeltme modu (önem derecesine göre)

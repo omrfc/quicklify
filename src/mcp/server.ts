@@ -37,7 +37,7 @@ Tool routing:
 - server_provision: creates new billable cloud resources (requires SAFE_MODE=false)
 - server_manage: register existing servers (add), unregister (remove), permanently delete (destroy - requires SAFE_MODE=false)
 - server_lock: one-shot 24-step production hardening (SSH + fail2ban + UFW + sysctl + auditd + AIDE + Docker)
-- server_audit: 448-check security scan, 27 categories, CIS/PCI-DSS/HIPAA compliance filtering
+- server_audit: 457-check security scan, 30 categories, CIS/PCI-DSS/HIPAA compliance filtering
 - server_secure: granular security (SSH hardening, firewall rules, domain/SSL)
 - server_backup: backup/restore + VPS snapshots
 - server_maintain: platform updates, restarts, full maintenance cycle
@@ -160,7 +160,7 @@ Bare servers: use service 'system' or 'docker' for logs (not 'coolify'). server_
 
   server.registerTool("server_audit", {
     description:
-      "Run a security audit on a server. Scans 29 categories with 448 checks. Returns score (0-100), per-category scores, and quick wins. Formats: 'summary' (compact text), 'json' (full AuditResult), 'score' (number only). Supports compliance filtering: cis-level1, cis-level2, pci-dss, hipaa. Requires SSH access. For health trends use server_doctor instead.",
+      "Run a security audit on a server. Scans 30 categories with 457 checks. Returns score (0-100), per-category scores, and quick wins. Formats: 'summary' (compact text), 'json' (full AuditResult), 'score' (number only). Supports compliance filtering: cis-level1, cis-level2, pci-dss, hipaa. Requires SSH access. For health trends use server_doctor instead.",
     inputSchema: serverAuditSchema,
     annotations: {
       title: "Server Security Audit",

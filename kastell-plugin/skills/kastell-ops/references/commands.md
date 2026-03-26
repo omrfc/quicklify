@@ -5,7 +5,7 @@ All commands follow the thin wrapper pattern: parse args in `src/commands/`, del
 | Command     | Description                                          | Key Arguments                              |
 |-------------|------------------------------------------------------|--------------------------------------------|
 | add         | Add existing server to kastell config                | --ip, --provider, --platform               |
-| audit       | Security audit (29 categories, 448 checks)           | --server, --category, --format, --explain  |
+| audit       | Security audit (30 categories, 457 checks)           | --server, --category, --format, --explain  |
 | auth        | Authenticate with a cloud provider                   | --provider                                 |
 | backup      | Create a platform backup (DB + config files)         | --server                                   |
 | completions | Generate shell completions                           | --shell (bash/zsh/fish)                    |
