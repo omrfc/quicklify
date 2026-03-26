@@ -173,6 +173,8 @@ const WAF_CHECK: NgxCheckDef = {
     "A Web Application Firewall (WAF) like ModSecurity or Coraza provides runtime protection against common web attacks (SQL injection, XSS, etc.). PCI-DSS v4.0 Requirement 6.4.2 requires a WAF for public-facing web applications. This check detects WAF presence — it does not penalize absence.",
 };
 
+const ALL_CHECKS: NgxCheckDef[] = [...NGX_CHECKS, WAF_CHECK];
+
 export const parseNginxChecks: CheckParser = (
   sectionOutput: string,
   _platform: string,
@@ -184,17 +186,14 @@ export const parseNginxChecks: CheckParser = (
     sectionOutput.includes("NGINX_NOT_INSTALLED");
 
   if (isNginxAbsent) {
-    // Per D-05: Detect alternative reverse proxy
     const altMatch = sectionOutput?.match(/ALT_RP:(\w+)/);
     const reason = altMatch
       ? `Alternative reverse proxy detected: ${altMatch[1].charAt(0).toUpperCase() + altMatch[1].slice(1)} — Nginx checks skipped`
       : "Nginx not installed";
-    return makeSkippedChecks([...NGX_CHECKS, WAF_CHECK], CATEGORY, reason);
+    return makeSkippedChecks(ALL_CHECKS, CATEGORY, reason);
   }
 
-  const allChecks = [...NGX_CHECKS, WAF_CHECK];
-
-  return allChecks.map((def) => {
+  return ALL_CHECKS.map((def) => {
     const { passed, currentValue } = def.check(sectionOutput);
     return {
       id: def.id,

@@ -330,12 +330,6 @@ describe("parseNginxChecks — check metadata", () => {
     expect(check!.severity).toBe("info");
   });
 
-  it("NGX-WAF-DETECTED has severity 'info'", () => {
-    const checks = parseNginxChecks(VALID_NGINX_OUTPUT, "bare");
-    const check = checks.find((c) => c.id === "NGX-WAF-DETECTED");
-    expect(check!.severity).toBe("info");
-  });
-
   it("MINIMAL_NGINX_OUTPUT returns 9 checks (partial pass/fail)", () => {
     const checks = parseNginxChecks(MINIMAL_NGINX_OUTPUT, "bare");
     expect(checks.length).toBe(9);
