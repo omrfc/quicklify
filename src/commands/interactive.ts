@@ -38,6 +38,7 @@ const MENU: MenuCategory[] = [
       { name: "Run security audit", value: "audit", description: "Score server security across 27 categories with compliance mapping" },
       { name: "Harden SSH & fail2ban", value: "secure", description: "Configure SSH security and brute-force protection" },
       { name: "Lock server (production hardening)", value: "lock", description: "Apply 24-step hardening: SSH, fail2ban, UFW, sysctl, auditd, AIDE, and more" },
+      { name: "Fix server (safe auto-fix)", value: "fix", description: "Apply safe fixes automatically with backup (SAFE tier only)" },
       { name: "Manage firewall (UFW)", value: "firewall", description: "View, add, or remove UFW firewall port rules" },
       { name: "Manage domain & SSL", value: "domain", description: "Set custom domains and configure SSL certificates" },
       { name: "Collect forensic evidence", value: "evidence", description: "Gather logs, ports, firewall rules with SHA256 checksums" },
@@ -617,6 +618,18 @@ async function promptLock(): Promise<string[] | null> {
   return args;
 }
 
+async function promptFix(): Promise<string[] | null> {
+  const mode = await promptList("Fix mode:", [
+    { name: "Dry run (preview safe fixes)", value: "dry-run" },
+    { name: "Apply safe fixes (backup + fix + verify)", value: "apply" },
+  ]);
+  if (!mode) return null;
+
+  const args = ["fix", "--safe"];
+  if (mode === "dry-run") args.push("--dry-run");
+  return args;
+}
+
 async function promptEvidence(): Promise<string[] | null> {
   const action = await promptList("Evidence collection:", [
     { name: "Collect with default label", value: "default" },
@@ -689,6 +702,7 @@ const SUB_PROMPTS: Record<string, () => Promise<string[] | null>> = {
   import: promptImport,
   audit: promptAudit,
   lock: promptLock,
+  fix: promptFix,
   evidence: promptEvidence,
   guard: promptGuard,
   notify: promptNotify,
