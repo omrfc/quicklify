@@ -118,5 +118,9 @@ exports[`audit report category structure CHECK_REGISTRY category names and order
     "name": "HTTP Security Headers",
     "sectionName": "HTTPHEADERS",
   },
+  {
+    "name": "WAF & Reverse Proxy",
+    "sectionName": "NGINX",
+  },
 ]
 `;
