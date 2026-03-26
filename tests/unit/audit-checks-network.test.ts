@@ -65,9 +65,9 @@ describe("parseNetworkChecks", () => {
     "net.ipv4.conf.all.secure_redirects = 1",
   ].join("\n");
 
-  it("should return 23 checks", () => {
+  it("should return 21 checks", () => {
     const checks = parseNetworkChecks(secureOutput, "bare");
-    expect(checks).toHaveLength(23);
+    expect(checks).toHaveLength(21);
     checks.forEach((check) => {
       expect(check.category).toBe("Network");
       expect(check.id).toMatch(/^NET-[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)+$/);
@@ -148,7 +148,7 @@ describe("parseNetworkChecks", () => {
 
   it("should handle N/A output gracefully", () => {
     const checks = parseNetworkChecks("N/A", "bare");
-    expect(checks).toHaveLength(23);
+    expect(checks).toHaveLength(21);
   });
 
   it("NET-ARP-ANNOUNCE passes when arp_announce = 2", () => {
@@ -178,21 +178,6 @@ describe("parseNetworkChecks", () => {
   it("NET-ARP-IGNORE fails when arp_ignore = 0", () => {
     const checks = parseNetworkChecks("net.ipv4.conf.all.arp_ignore = 0", "bare");
     const check = checks.find((c) => c.id === "NET-ARP-IGNORE");
-    expect(check).toBeDefined();
-    expect(check!.passed).toBe(false);
-  });
-
-  it("NET-BOGUS-ICMP-IGNORE passes when icmp_ignore_bogus_error_responses = 1", () => {
-    const checks = parseNetworkChecks(secureOutput, "bare");
-    const check = checks.find((c) => c.id === "NET-BOGUS-ICMP-IGNORE");
-    expect(check).toBeDefined();
-    expect(check!.passed).toBe(true);
-    expect(check!.severity).toBe("info");
-  });
-
-  it("NET-BOGUS-ICMP-IGNORE fails when not configured", () => {
-    const checks = parseNetworkChecks("net.ipv4.icmp_ignore_bogus_error_responses = 0", "bare");
-    const check = checks.find((c) => c.id === "NET-BOGUS-ICMP-IGNORE");
     expect(check).toBeDefined();
     expect(check!.passed).toBe(false);
   });
@@ -253,7 +238,7 @@ describe("parseNetworkChecks", () => {
   // ──────────────────────────────────────────────────────────────
 
   describe("ID array assertion — exact order from secure output", () => {
-    it("should return all 23 check IDs in exact order", () => {
+    it("should return all 21 check IDs in exact order", () => {
       const checks = parseNetworkChecks(secureOutput, "bare");
       const ids = checks.map((c) => c.id);
       expect(ids).toEqual([
@@ -271,13 +256,11 @@ describe("parseNetworkChecks", () => {
         "NET-MARTIAN-LOGGING",
         "NET-NO-EXPOSED-MGMT-PORTS",
         "NET-RP-FILTER",
-        "NET-TCP-SYN-RETRIES",
         "NET-NO-MAIL-PORTS",
         "NET-LISTENING-SERVICES-AUDIT",
         "NET-NO-PROMISCUOUS-INTERFACES",
         "NET-ARP-ANNOUNCE",
         "NET-ARP-IGNORE",
-        "NET-BOGUS-ICMP-IGNORE",
         "NET-TCP-WRAPPERS-CONFIGURED",
         "NET-LISTENING-PORT-COUNT",
       ]);
@@ -287,7 +270,7 @@ describe("parseNetworkChecks", () => {
   describe("N/A blanket assertion — all checks Unable to determine", () => {
     it("should set currentValue 'Unable to determine' and passed=false for ALL checks on N/A", () => {
       const checks = parseNetworkChecks("N/A", "bare");
-      expect(checks).toHaveLength(23);
+      expect(checks).toHaveLength(21);
       for (const check of checks) {
         expect(check.passed).toBe(false);
         expect(check.currentValue).toBe("Unable to determine");
@@ -296,7 +279,7 @@ describe("parseNetworkChecks", () => {
 
     it("should set currentValue 'Unable to determine' for empty string input", () => {
       const checks = parseNetworkChecks("", "bare");
-      expect(checks).toHaveLength(23);
+      expect(checks).toHaveLength(21);
       for (const check of checks) {
         expect(check.passed).toBe(false);
         expect(check.currentValue).toBe("Unable to determine");
@@ -305,7 +288,7 @@ describe("parseNetworkChecks", () => {
 
     it("should set currentValue 'Unable to determine' for whitespace-only input", () => {
       const checks = parseNetworkChecks("   \n  \n  ", "bare");
-      expect(checks).toHaveLength(23);
+      expect(checks).toHaveLength(21);
       for (const check of checks) {
         expect(check.passed).toBe(false);
         expect(check.currentValue).toBe("Unable to determine");
@@ -377,11 +360,6 @@ describe("parseNetworkChecks", () => {
       expect(c.currentValue).toBe("net.ipv4.conf.all.rp_filter = 1");
     });
 
-    it("NET-TCP-SYN-RETRIES currentValue shows sysctl key=value", () => {
-      const c = checks.find((c) => c.id === "NET-TCP-SYN-RETRIES")!;
-      expect(c.currentValue).toBe("net.ipv4.tcp_syn_retries = 3");
-    });
-
     it("NET-MARTIAN-LOGGING currentValue shows sysctl key=value", () => {
       const c = checks.find((c) => c.id === "NET-MARTIAN-LOGGING")!;
       expect(c.currentValue).toBe("net.ipv4.conf.all.log_martians = 1");
@@ -395,57 +373,6 @@ describe("parseNetworkChecks", () => {
     it("NET-ARP-IGNORE currentValue shows sysctl key=value", () => {
       const c = checks.find((c) => c.id === "NET-ARP-IGNORE")!;
       expect(c.currentValue).toBe("net.ipv4.conf.all.arp_ignore = 1");
-    });
-
-    it("NET-BOGUS-ICMP-IGNORE currentValue shows sysctl key=value", () => {
-      const c = checks.find((c) => c.id === "NET-BOGUS-ICMP-IGNORE")!;
-      expect(c.currentValue).toBe("net.ipv4.icmp_ignore_bogus_error_responses = 1");
-    });
-  });
-
-  describe("Boundary tests — TCP_SYN_RETRIES threshold (<=3)", () => {
-    it("passes at exactly 3 (boundary)", () => {
-      const output = "net.ipv4.tcp_syn_retries = 3";
-      const checks = parseNetworkChecks(output, "bare");
-      const c = checks.find((c) => c.id === "NET-TCP-SYN-RETRIES")!;
-      expect(c.passed).toBe(true);
-    });
-
-    it("passes at 1 (well below)", () => {
-      const output = "net.ipv4.tcp_syn_retries = 1";
-      const checks = parseNetworkChecks(output, "bare");
-      const c = checks.find((c) => c.id === "NET-TCP-SYN-RETRIES")!;
-      expect(c.passed).toBe(true);
-    });
-
-    it("passes at 0 (minimum)", () => {
-      const output = "net.ipv4.tcp_syn_retries = 0";
-      const checks = parseNetworkChecks(output, "bare");
-      const c = checks.find((c) => c.id === "NET-TCP-SYN-RETRIES")!;
-      expect(c.passed).toBe(true);
-    });
-
-    it("fails at exactly 4 (one above threshold)", () => {
-      const output = "net.ipv4.tcp_syn_retries = 4";
-      const checks = parseNetworkChecks(output, "bare");
-      const c = checks.find((c) => c.id === "NET-TCP-SYN-RETRIES")!;
-      expect(c.passed).toBe(false);
-      expect(c.currentValue).toBe("net.ipv4.tcp_syn_retries = 4");
-    });
-
-    it("fails at 6 (well above)", () => {
-      const output = "net.ipv4.tcp_syn_retries = 6";
-      const checks = parseNetworkChecks(output, "bare");
-      const c = checks.find((c) => c.id === "NET-TCP-SYN-RETRIES")!;
-      expect(c.passed).toBe(false);
-    });
-
-    it("fails when sysctl key is absent (null)", () => {
-      const output = "some unrelated output";
-      const checks = parseNetworkChecks(output, "bare");
-      const c = checks.find((c) => c.id === "NET-TCP-SYN-RETRIES")!;
-      expect(c.passed).toBe(false);
-      expect(c.currentValue).toBe("Unable to determine");
     });
   });
 
@@ -852,7 +779,6 @@ describe("parseNetworkChecks", () => {
       ["NET-SOURCE-ROUTING-V6", "net.ipv6.conf.all.accept_source_route", "1"],
       ["NET-MARTIAN-LOGGING", "net.ipv4.conf.all.log_martians", "0"],
       ["NET-RP-FILTER", "net.ipv4.conf.all.rp_filter", "0"],
-      ["NET-BOGUS-ICMP-IGNORE", "net.ipv4.icmp_ignore_bogus_error_responses", "0"],
     ];
 
     it.each(wrongValues)(
