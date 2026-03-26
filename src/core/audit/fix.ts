@@ -3,7 +3,7 @@
  * Provides --fix (interactive) and --fix --dry-run (preview) modes.
  */
 
-import type { AuditResult, AuditCheck, Severity } from "./types.js";
+import type { AuditResult, AuditCheck, Severity, FixTier } from "./types.js";
 import { SEVERITY_WEIGHTS, CATEGORY_WEIGHTS, DEFAULT_CATEGORY_WEIGHT, buildImpactContext, calculateCategoryScore, calculateOverallScore } from "./scoring.js";
 import type { ImpactContext } from "./scoring.js";
 import { sshExec } from "../../utils/ssh.js";
@@ -37,6 +37,19 @@ const KNOWN_AUDIT_FIX_PREFIXES = [
   "Ensure ", "Review ", "Verify ", "See ", "Update ", "Use ", "# ",
   "DEBIAN_FRONTEND", "curl",
 ];
+
+/** Categories where auto-fix is NEVER allowed regardless of check-level tier (D-02) */
+export const FORBIDDEN_CATEGORIES = new Set(["SSH", "Firewall", "Docker"]);
+
+/**
+ * Resolve the effective fix tier for a check.
+ * Category-level FORBIDDEN override trumps check-level field (D-02).
+ * Undefined safeToAutoFix defaults to GUARDED (D-04 safety net).
+ */
+export function resolveTier(check: AuditCheck, categoryName: string): FixTier {
+  if (FORBIDDEN_CATEGORIES.has(categoryName)) return "FORBIDDEN";
+  return check.safeToAutoFix ?? "GUARDED";
+}
 
 /** A check with pre-condition info for safe fixing */
 export interface FixCheck {
@@ -132,6 +145,56 @@ export function previewFixes(result: AuditResult): FixPlan {
   }
 
   return { groups };
+}
+
+/**
+ * Preview only SAFE tier fixes (no service restarts, no SSH/FW/Docker).
+ * Returns a FixPlan with only SAFE checks, plus counts of GUARDED and FORBIDDEN.
+ */
+export function previewSafeFixes(result: AuditResult): {
+  safePlan: FixPlan;
+  guardedCount: number;
+  forbiddenCount: number;
+  guardedIds: string[];
+} {
+  const safeChecks: FixCheck[] = [];
+  let guardedCount = 0;
+  let forbiddenCount = 0;
+  const guardedIds: string[] = [];
+
+  for (const category of result.categories) {
+    for (const check of category.checks) {
+      if (!check.passed && check.fixCommand) {
+        const tier = resolveTier(check, category.name);
+        if (tier === "SAFE") {
+          safeChecks.push({
+            id: check.id,
+            category: check.category,
+            name: check.name,
+            severity: check.severity,
+            fixCommand: check.fixCommand,
+            preCondition: getPreCondition(check),
+          });
+        } else if (tier === "GUARDED") {
+          guardedCount++;
+          guardedIds.push(check.id);
+        } else {
+          forbiddenCount++;
+        }
+      }
+    }
+  }
+
+  const ctx = buildImpactContext(result.categories);
+  const groups: FixGroup[] = [];
+  for (const severity of SEVERITY_ORDER) {
+    const checks = safeChecks.filter((c) => c.severity === severity);
+    if (checks.length === 0) continue;
+    const estimatedImpact = calculateGroupImpact(checks, ctx);
+    groups.push({ severity, checks, estimatedImpact });
+  }
+
+  return { safePlan: { groups }, guardedCount, forbiddenCount, guardedIds };
 }
 
 /**

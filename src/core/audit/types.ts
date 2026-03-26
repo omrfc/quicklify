@@ -7,6 +7,8 @@ import type { ComplianceDetailScore } from "./compliance/types.js";
 
 export type Severity = "critical" | "warning" | "info";
 
+export type FixTier = "SAFE" | "GUARDED" | "FORBIDDEN";
+
 export type ComplianceCoverage = "full" | "partial";
 
 export interface ComplianceRef {
@@ -31,6 +33,7 @@ export interface AuditCheck {
   complianceRefs?: ComplianceRef[];  // Compliance framework references (Phase 50)
   tags?: string[];               // Searchable tags e.g. ["ssh", "authentication"]
   vpsIrrelevant?: boolean;       // true for checks not meaningful on VPS (physical-hardware)
+  safeToAutoFix?: FixTier;       // SAFE (no restart), GUARDED (restart needed), FORBIDDEN (SSH/FW/Docker)
 }
 
 export interface AuditCategory {
