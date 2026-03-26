@@ -35,6 +35,7 @@ import { parseDnsChecks } from "./dns.js";
 import { parseTlsChecks } from "./tls.js";
 import { parseHttpHeadersChecks } from "./httpHeaders.js";
 import { parseNginxChecks } from "./nginx.js";
+import { parseDdosChecks } from "./ddos.js";
 
 export interface CategoryEntry {
   name: string;
@@ -74,6 +75,7 @@ export const CHECK_REGISTRY: CategoryEntry[] = [
   { name: "TLS Hardening", sectionName: "TLSHARDENING", parser: parseTlsChecks },
   { name: "HTTP Security Headers", sectionName: "HTTPHEADERS", parser: parseHttpHeadersChecks },
   { name: "WAF & Reverse Proxy", sectionName: "NGINX", parser: parseNginxChecks },
+  { name: "DDoS Hardening", sectionName: "DDOS", parser: parseDdosChecks },
 ];
 
 /** Named separator pattern used between sections in SSH batch output */

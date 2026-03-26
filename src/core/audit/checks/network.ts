@@ -286,24 +286,6 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
     explain: "Reverse path filtering drops packets with spoofed source addresses, preventing IP spoofing attacks.",
   };
 
-  // NET-15: TCP SYN retries limited
-  const synRetries = extractSysctlValue(output, "net.ipv4.tcp_syn_retries");
-  const net15: AuditCheck = {
-    id: "NET-TCP-SYN-RETRIES",
-    category: "Network",
-    name: "TCP SYN Retry Count Limited",
-    severity: "info",
-    passed: isNA ? false : synRetries !== null && parseInt(synRetries, 10) <= 3,
-    currentValue: isNA
-      ? "Unable to determine"
-      : synRetries !== null
-        ? `net.ipv4.tcp_syn_retries = ${synRetries}`
-        : "Unable to determine",
-    expectedValue: "net.ipv4.tcp_syn_retries <= 3",
-    fixCommand: "sysctl -w net.ipv4.tcp_syn_retries=3 && echo 'net.ipv4.tcp_syn_retries=3' >> /etc/sysctl.conf",
-    explain: "Limiting SYN retries reduces the time wasted on unanswered connection attempts and mitigates resource exhaustion.",
-  };
-
   // NET-16: No unnecessary mail ports open
   // ss -tlnp | grep -E ':25 |:110 |:143 ' output
   const mailPortsNone = output.split("\n").some((l) => l.trim() === "NONE");
@@ -398,24 +380,6 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
     explain: "Setting arp_ignore=1 prevents ARP cache poisoning by only responding to requests targeting the receiving interface's address.",
   };
 
-  // NET-21: Ignore bogus ICMP error responses (net.ipv4.icmp_ignore_bogus_error_responses = 1)
-  const bogusIcmp = extractSysctlValue(output, "net.ipv4.icmp_ignore_bogus_error_responses");
-  const net21: AuditCheck = {
-    id: "NET-BOGUS-ICMP-IGNORE",
-    category: "Network",
-    name: "Bogus ICMP Error Responses Ignored",
-    severity: "info",
-    passed: isNA ? false : bogusIcmp === "1",
-    currentValue: isNA
-      ? "Unable to determine"
-      : bogusIcmp !== null
-        ? `net.ipv4.icmp_ignore_bogus_error_responses = ${bogusIcmp}`
-        : "Unable to determine",
-    expectedValue: "net.ipv4.icmp_ignore_bogus_error_responses = 1",
-    fixCommand: "sysctl -w net.ipv4.icmp_ignore_bogus_error_responses=1",
-    explain: "Ignoring bogus ICMP error responses prevents denial-of-service from malformed ICMP packets.",
-  };
-
   // NET-22: TCP wrappers have active rules in hosts.allow
   // cat /etc/hosts.allow | grep non-comment/non-empty lines output — "EMPTY" if no rules
   const tcpWrappersOutput = output.split("\n").find((l) => l.trim() === "EMPTY" || (l.includes(":") && !l.startsWith("#")));
@@ -469,5 +433,5 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
     explain: "Excessive listening ports indicate unnecessary services, each representing a potential attack vector.",
   };
 
-  return [net01, net02, net03, net04, net05, net06, net07, net08, net09, net10, net11, net12, net13, net14, net15, net16, net17, net18, net19, net20, net21, net22, net23];
+  return [net01, net02, net03, net04, net05, net06, net07, net08, net09, net10, net11, net12, net13, net14, net16, net17, net18, net19, net20, net22, net23];
 };

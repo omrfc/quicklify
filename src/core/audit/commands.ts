@@ -183,7 +183,7 @@ function networkSection(): string {
     `timedatectl 2>/dev/null || echo 'N/A'`,
     `test -f /etc/hosts.allow && cat /etc/hosts.allow 2>/dev/null | head -10 || echo 'NO_HOSTS_ALLOW'`,
     `test -f /etc/hosts.deny && cat /etc/hosts.deny 2>/dev/null | head -10 || echo 'NO_HOSTS_DENY'`,
-    `sysctl net.ipv6.conf.all.disable_ipv6 net.ipv4.conf.all.send_redirects net.ipv4.conf.all.secure_redirects net.ipv6.conf.all.accept_source_route net.ipv4.conf.all.rp_filter net.ipv4.tcp_syn_retries 2>/dev/null || echo 'N/A'`,
+    `sysctl net.ipv6.conf.all.disable_ipv6 net.ipv4.conf.all.send_redirects net.ipv4.conf.all.secure_redirects net.ipv6.conf.all.accept_source_route net.ipv4.conf.all.rp_filter 2>/dev/null || echo 'N/A'`,
     `ss -tlnp 2>/dev/null | grep -E ':8080 |:8443 |:9000 |:3000 ' | grep '0.0.0.0' | head -10 || echo 'NONE'`,
     // NEW: mail service ports
     `ss -tlnp 2>/dev/null | grep -E ':25 |:110 |:143 ' | head -5 || echo 'NONE'`,
@@ -193,12 +193,8 @@ function networkSection(): string {
     `sysctl net.ipv4.conf.all.arp_announce net.ipv4.conf.all.arp_ignore 2>/dev/null || echo 'N/A'`,
     // NEW: TCP wrappers allow rules content
     `cat /etc/hosts.allow 2>/dev/null | grep -v '^#' | grep -v '^\\s*$' | head -5 || echo 'EMPTY'`,
-    // NEW: bogus ICMP error responses
-    `sysctl net.ipv4.icmp_ignore_bogus_error_responses 2>/dev/null || echo 'N/A'`,
     // NEW: total listening port count
     `ss -tlnp 2>/dev/null | grep -c ':' || echo '0'`,
-    // NEW: TCP SYN backlog
-    `sysctl net.ipv4.tcp_max_syn_backlog 2>/dev/null || echo 'N/A'`,
   ].join("\n");
 }
 
@@ -665,6 +661,13 @@ function nginxSection(): string {
   ].join("\n");
 }
 
+function ddosSection(): string {
+  return [
+    NAMED_SEP("DDOS"),
+    `sysctl net.ipv4.tcp_max_syn_backlog net.ipv4.tcp_synack_retries net.ipv4.tcp_fin_timeout net.ipv4.tcp_tw_reuse net.ipv4.icmp_ratelimit net.ipv4.icmp_ignore_bogus_error_responses net.core.somaxconn net.ipv4.tcp_syn_retries 2>/dev/null || echo 'N/A'`,
+  ].join("\n");
+}
+
 /**
  * Build 3 tiered SSH batch commands for server auditing.
  *
@@ -710,6 +713,7 @@ export function buildAuditBatchCommands(platform: string): BatchDef[] {
       resourceLimitsSection(),
       incidentReadySection(),
       dnsSection(),
+      ddosSection(),
     ].join("\n"),
   };
 
