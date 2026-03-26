@@ -2,8 +2,8 @@ import { parseAllChecks, CHECK_REGISTRY } from "../../src/core/audit/checks/inde
 import type { CategoryEntry } from "../../src/core/audit/checks/index.js";
 
 describe("CHECK_REGISTRY", () => {
-  it("should have entries for all 30 categories", () => {
-    expect(CHECK_REGISTRY).toHaveLength(30);
+  it("should have entries for all 31 categories", () => {
+    expect(CHECK_REGISTRY).toHaveLength(31);
     const names = CHECK_REGISTRY.map((e: CategoryEntry) => e.name);
     expect(names).toContain("SSH");
     expect(names).toContain("Firewall");
@@ -40,6 +40,8 @@ describe("CHECK_REGISTRY", () => {
     expect(names).toContain("HTTP Security Headers");
     // Phase 88 WAF & Reverse Proxy
     expect(names).toContain("WAF & Reverse Proxy");
+    // Phase 89 DDoS Hardening
+    expect(names).toContain("DDoS Hardening");
   });
 
   it("should map section names to correct parsers", () => {
@@ -100,9 +102,9 @@ describe("parseAllChecks", () => {
     expect(pwdCheck!.passed).toBe(true);
   });
 
-  it("should correctly route all 30 categories to their parsers", () => {
+  it("should correctly route all 31 categories to their parsers", () => {
     const categories = parseAllChecks([minimalBatch1, minimalBatch2, minimalBatch3], "bare");
-    expect(categories).toHaveLength(30);
+    expect(categories).toHaveLength(31);
     const names = categories.map((c) => c.name);
     expect(names).toContain("SSH");
     expect(names).toContain("Firewall");
@@ -134,6 +136,7 @@ describe("parseAllChecks", () => {
     expect(names).toContain("TLS Hardening");
     expect(names).toContain("HTTP Security Headers");
     expect(names).toContain("WAF & Reverse Proxy");
+    expect(names).toContain("DDoS Hardening");
   });
 
   it("should not shift FIREWALL parser when a new category is inserted between SSH and FIREWALL", () => {
@@ -172,9 +175,9 @@ describe("parseAllChecks", () => {
     expect(docker!.checks.length).toBeGreaterThan(0);
   });
 
-  it("should return 30 AuditCategory objects from batch outputs", () => {
+  it("should return 31 AuditCategory objects from batch outputs", () => {
     const categories = parseAllChecks([minimalBatch1, minimalBatch2, minimalBatch3], "bare");
-    expect(categories).toHaveLength(30);
+    expect(categories).toHaveLength(31);
     categories.forEach((cat) => {
       expect(cat.name).toBeDefined();
       expect(cat.checks).toBeDefined();
@@ -186,7 +189,7 @@ describe("parseAllChecks", () => {
 
   it("should handle empty batch outputs gracefully", () => {
     const categories = parseAllChecks(["", "", ""], "bare");
-    expect(categories).toHaveLength(30);
+    expect(categories).toHaveLength(31);
     // Cloud Metadata intentionally returns [] on bare metal/empty input (Phase 48-01 decision)
     // maxScore=0 means it is excluded from weighted score on non-VPS hosts
     const BARE_METAL_CATEGORIES = new Set(["Cloud Metadata"]);

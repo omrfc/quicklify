@@ -4,6 +4,7 @@
  * Phase 49 gap closure complete: +57 checks across 20 categories (Waves 1-3).
  * Simplify: removed 3 duplicate SRV- checks (rpcbind/avahi/cups already in SVC-), net 403.
  * Phase 88: +9 WAF & Reverse Proxy checks (NGX-*) = 412 floor.
+ * Phase 89: +8 DDoS Hardening checks (DDOS-*), -2 moved from Network (NET-TCP-SYN-RETRIES, NET-BOGUS-ICMP-IGNORE) = net +6 = 418 floor.
  * Note: Cloud Metadata returns [] on bare-metal/empty input (intentional — Phase 48-01 decision).
  * VPS environments will yield additional Cloud Metadata checks at runtime.
  */
@@ -11,11 +12,11 @@
 import { CHECK_REGISTRY } from "../../src/core/audit/checks/index.js";
 
 describe("Total check count CI gate", () => {
-  it("should have at least 412 checks across all categories", () => {
+  it("should have at least 418 checks across all categories", () => {
     const allChecks = CHECK_REGISTRY.flatMap((entry) =>
       entry.parser("", "bare"),
     );
-    expect(allChecks.length).toBeGreaterThanOrEqual(412);
+    expect(allChecks.length).toBeGreaterThanOrEqual(418);
   });
 
   it("each category should produce at least 1 check", () => {
