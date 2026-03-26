@@ -37,6 +37,7 @@ import { lockCommand } from "./commands/lock.js";
 import { guardCommand } from "./commands/guard.js";
 import { notifyCommand } from "./commands/notify.js";
 import { fleetCommand } from "./commands/fleet.js";
+import { fixSafeCommand } from "./commands/fix.js";
 import { printHeader, printQuickHelp } from "./cli/header.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -357,6 +358,17 @@ program
   .option("--json", "Print manifest JSON to stdout")
   .action((server?: string, options?: Record<string, unknown>) =>
     evidenceCommand(server, options ?? {}),
+  );
+
+program
+  .command("fix [server]")
+  .description("Apply safe auto-fixes from security audit (SAFE tier only)")
+  .option("--safe", "Apply only SAFE tier fixes (no service restarts)")
+  .option("--dry-run", "Preview fixes without applying")
+  .option("--category <list>", "Comma-separated category filter")
+  .action(
+    (server?: string, options?: { safe?: boolean; dryRun?: boolean; category?: string }) =>
+      fixSafeCommand(server, options ?? {}),
   );
 
 notifyCommand(program);

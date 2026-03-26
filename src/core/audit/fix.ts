@@ -14,7 +14,7 @@ import { buildAuditBatchCommands, BATCH_TIMEOUTS } from "./commands.js";
 import { parseAllChecks } from "./checks/index.js";
 
 /** Whitelist of known safe fix command prefixes from audit check definitions */
-const KNOWN_AUDIT_FIX_PREFIXES = [
+export const KNOWN_AUDIT_FIX_PREFIXES = [
   // System administration
   "chmod", "chown", "sed ", "systemctl", "apt ", "apt-get", "dpkg",
   "sysctl", "passwd", "useradd", "gpasswd", "visudo", "reboot",
