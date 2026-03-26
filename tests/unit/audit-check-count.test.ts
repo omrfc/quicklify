@@ -3,6 +3,7 @@
  * Phase 49-08 result: 406 bare-metal checks (412 on VPS with Cloud Metadata 6 checks). Phase 85: +8 TLS Hardening = 415 bare-metal. Phase 86: +6 HTTP Security Headers = 421 bare-metal.
  * Phase 49 gap closure complete: +57 checks across 20 categories (Waves 1-3).
  * Simplify: removed 3 duplicate SRV- checks (rpcbind/avahi/cups already in SVC-), net 403.
+ * Phase 88: +9 WAF & Reverse Proxy checks (NGX-*) = 412 floor.
  * Note: Cloud Metadata returns [] on bare-metal/empty input (intentional — Phase 48-01 decision).
  * VPS environments will yield additional Cloud Metadata checks at runtime.
  */
@@ -10,11 +11,11 @@
 import { CHECK_REGISTRY } from "../../src/core/audit/checks/index.js";
 
 describe("Total check count CI gate", () => {
-  it("should have at least 403 checks across all categories", () => {
+  it("should have at least 412 checks across all categories", () => {
     const allChecks = CHECK_REGISTRY.flatMap((entry) =>
       entry.parser("", "bare"),
     );
-    expect(allChecks.length).toBeGreaterThanOrEqual(403);
+    expect(allChecks.length).toBeGreaterThanOrEqual(412);
   });
 
   it("each category should produce at least 1 check", () => {

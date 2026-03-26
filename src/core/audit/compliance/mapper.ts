@@ -770,4 +770,31 @@ export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   "HDR-006": [
     pci("6.4.1", "Content Security Policy — defense against XSS injection", "partial"),
   ],
+
+  // --- WAF & Reverse Proxy (NGX) — Phase 88 ---
+  "NGX-SERVER-TOKENS": [
+    cis("2.2.1", "Ensure unnecessary system components are not installed", "partial"),
+    pci("2.2.1", "System components are configured and managed securely", "partial"),
+  ],
+  "NGX-SSL-PROTOCOLS": [
+    pci("4.2.1", "Strong cryptography for transmission of account data", "partial"),
+  ],
+  "NGX-RATE-LIMIT": [
+    pci("6.4.1", "Web-facing applications are protected against attacks", "partial"),
+  ],
+  "NGX-CLIENT-BODY-SIZE": [
+    pci("6.4.1", "Web-facing application security controls in place", "partial"),
+  ],
+  "NGX-ACCESS-LOG": [
+    cis("4.1.1.1", "Ensure auditd is installed", "partial"),
+    pci("10.2.1", "Audit logs capture events required for reconstruction", "partial"),
+  ],
+  "NGX-ERROR-LOG": [
+    cis("4.1.1.1", "Ensure logging is configured", "partial"),
+    pci("10.2.1", "Audit logs capture events", "partial"),
+  ],
+  "NGX-WAF-DETECTED": [
+    pci("6.4.2", "An automated technical solution is deployed to detect and prevent web-based attacks", "full"),
+  ],
+  // NGX-GZIP-CONFIG and NGX-SERVER-HEADER intentionally excluded — no direct CIS/PCI-DSS control
 };
