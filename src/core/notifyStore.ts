@@ -224,12 +224,13 @@ export function isNotifyKeychainAvailable(): boolean {
  * Returns [] if the file does not exist, the field is absent, or is not an array.
  */
 export function loadAllowedChatIds(): string[] {
+  if (!existsSync(NOTIFY_CHANNELS_FILE)) return [];
   try {
-    if (!existsSync(NOTIFY_CHANNELS_FILE)) return [];
     const raw = JSON.parse(readFileSync(NOTIFY_CHANNELS_FILE, "utf-8")) as Record<string, unknown>;
     const ids = raw?.allowedChatIds;
     return Array.isArray(ids) ? ids.map(String) : [];
   } catch {
+    // Malformed JSON — return empty allowlist
     return [];
   }
 }

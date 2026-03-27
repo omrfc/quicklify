@@ -127,8 +127,9 @@ export async function guardCommand(
       await dispatchGuardBreaches(server.name, result.breaches);
     }
 
-    // Check for audit score drops (TG-01, per D-01)
-    await checkAuditScoreDrop(server.name, server.ip);
+    if (result.isActive) {
+      await checkAuditScoreDrop(server.name, server.ip);
+    }
 
     if (result.logTail) {
       logger.info("Recent log:");
