@@ -1,5 +1,5 @@
 import * as notifyStore from "../../src/core/notifyStore";
-import { allowedChatIdsMiddleware } from "../../src/core/bot/middleware";
+import { allowedChatIdsMiddleware, _resetCache } from "../../src/core/bot/middleware";
 
 jest.mock("../../src/core/notifyStore");
 
@@ -7,6 +7,7 @@ const mockedNotifyStore = notifyStore as jest.Mocked<typeof notifyStore>;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  _resetCache();
 });
 
 function makeCtx(chatId: number): { chat: { id: number }; reply: jest.Mock } {

@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
-import { loadOffset, saveOffset, isStale } from "../../src/core/bot/offset";
+import { loadOffset, saveOffset, isStale, ensureOffsetDir } from "../../src/core/bot/offset";
 
 jest.mock("fs", () => ({
   readFileSync: jest.fn(),
@@ -52,10 +52,10 @@ describe("saveOffset", () => {
     expect(options).toEqual({ mode: 0o600 });
   });
 
-  it("creates config directory if missing", () => {
+  it("ensureOffsetDir creates config directory if missing", () => {
     mockedExistsSync.mockReturnValue(false);
     const mockedMkdirSync = mkdirSync as jest.MockedFunction<typeof mkdirSync>;
-    saveOffset(1);
+    ensureOffsetDir();
     expect(mockedMkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
   });
 });

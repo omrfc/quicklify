@@ -5,11 +5,10 @@
  */
 
 import { Bot } from "grammy";
-import { readNotifySecret } from "../notifyStore.js";
-import { loadAllowedChatIds } from "../notifyStore.js";
+import { readNotifySecret, loadAllowedChatIds } from "../notifyStore.js";
 import { allowedChatIdsMiddleware } from "./middleware.js";
 import { registerHandlers } from "./handlers.js";
-import { saveOffset } from "./offset.js";
+import { ensureOffsetDir, saveOffset } from "./offset.js";
 
 export async function startBot(): Promise<void> {
   const token = readNotifySecret("telegram", "botToken");
@@ -20,6 +19,9 @@ export async function startBot(): Promise<void> {
   }
 
   const bot = new Bot(token);
+
+  // Ensure offset directory exists once at startup
+  ensureOffsetDir();
 
   // Global auth middleware — D-10: enforce before any handler
   bot.use(allowedChatIdsMiddleware);

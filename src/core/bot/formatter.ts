@@ -112,10 +112,10 @@ export function formatDoctorMessage(serverName: string, findings: DoctorFinding[
     return `${serverName}: Doctor verisi yok. Calistir: kastell doctor ${serverName}`;
   }
 
-  const sorted = [...findings].sort((a, b) => {
-    const order: Record<string, number> = { critical: 0, warning: 1, info: 2 };
-    return (order[a.severity] ?? 2) - (order[b.severity] ?? 2);
-  });
+  const severityOrder: Record<string, number> = { critical: 0, warning: 1, info: 2 };
+  const sorted = [...findings].sort(
+    (a, b) => (severityOrder[a.severity] ?? 2) - (severityOrder[b.severity] ?? 2),
+  );
   const top5 = sorted.slice(0, 5);
 
   const lines = [

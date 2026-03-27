@@ -7,13 +7,31 @@
 import type { Context, NextFunction } from "grammy";
 import { loadAllowedChatIds } from "../notifyStore.js";
 
+const CACHE_TTL_MS = 5_000;
+let cachedIds: string[] | null = null;
+let cacheTime = 0;
+
+/** Reset internal cache — for testing only. */
+export function _resetCache(): void {
+  cachedIds = null;
+  cacheTime = 0;
+}
+
+function getCachedAllowedIds(): string[] {
+  const now = Date.now();
+  if (cachedIds === null || now - cacheTime > CACHE_TTL_MS) {
+    cachedIds = loadAllowedChatIds();
+    cacheTime = now;
+  }
+  return cachedIds;
+}
+
 export async function allowedChatIdsMiddleware(
   ctx: Context,
   next: NextFunction,
 ): Promise<void> {
-  const allowed = loadAllowedChatIds();
+  const allowed = getCachedAllowedIds();
 
-  // Empty allowlist = allow all (P92 backward compat)
   if (allowed.length === 0) {
     await next();
     return;
@@ -23,5 +41,4 @@ export async function allowedChatIdsMiddleware(
   if (allowed.includes(chatId)) {
     await next();
   }
-  // Unauthorized: silent ignore — no reply, no log (D-09)
 }

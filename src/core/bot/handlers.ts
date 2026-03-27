@@ -20,13 +20,17 @@ import {
   formatDoctorMessage,
 } from "./formatter.js";
 
-/** Read version from package.json — uses process.cwd() for ESM+CJS compat */
+let cachedVersion: string | null = null;
+
 function getVersion(): string {
+  if (cachedVersion !== null) return cachedVersion;
   try {
     const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf-8")) as { version: string };
-    return pkg.version;
+    cachedVersion = pkg.version;
+    return cachedVersion;
   } catch {
-    return "0.0.0";
+    cachedVersion = "0.0.0";
+    return cachedVersion;
   }
 }
 
@@ -121,11 +125,14 @@ export function registerHandlers(bot: Bot): void {
     const guardStates = getGuardStates();
     const snapshots = new Map<string, SnapshotListEntry>();
 
-    for (const s of servers) {
-      const entries = await listSnapshots(s.ip);
-      if (entries.length > 0) {
-        snapshots.set(s.ip, entries[entries.length - 1]);
-      }
+    const results = await Promise.all(
+      servers.map(async (s) => {
+        const entries = await listSnapshots(s.ip);
+        return { ip: s.ip, entry: entries.length > 0 ? entries[entries.length - 1] : null };
+      }),
+    );
+    for (const { ip, entry } of results) {
+      if (entry) snapshots.set(ip, entry);
     }
 
     await ctx.reply(formatHealthMessage(servers, guardStates, snapshots));
