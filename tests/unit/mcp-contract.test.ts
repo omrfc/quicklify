@@ -18,6 +18,7 @@
 
 jest.mock("../../src/utils/config");
 jest.mock("../../src/core/audit/index");
+jest.mock("../../src/core/audit/fix");
 jest.mock("../../src/core/deploy");
 jest.mock("../../src/core/doctor");
 jest.mock("../../src/core/evidence");
@@ -56,6 +57,7 @@ import { handleServerGuard } from "../../src/mcp/tools/serverGuard";
 import { handleServerDoctor } from "../../src/mcp/tools/serverDoctor";
 import { handleServerLock } from "../../src/mcp/tools/serverLock";
 import { handleServerFleet } from "../../src/mcp/tools/serverFleet";
+import { handleServerFix } from "../../src/mcp/tools/serverFix";
 import type { McpResponse } from "../../src/mcp/utils";
 import * as manage from "../../src/core/manage";
 
@@ -81,6 +83,7 @@ const MCP_TOOLS: Array<{
   { toolName: "server_doctor", handler: (p) => handleServerDoctor(p as unknown as Parameters<typeof handleServerDoctor>[0]) },
   { toolName: "server_lock", handler: (p) => handleServerLock(p as unknown as Parameters<typeof handleServerLock>[0]) },
   { toolName: "server_fleet", handler: (p) => handleServerFleet(p as unknown as Parameters<typeof handleServerFleet>[0]) },
+  { toolName: "server_fix", handler: (p) => handleServerFix(p as unknown as Parameters<typeof handleServerFix>[0]) },
 ];
 
 // ─── INVALID_PARAMS map ───────────────────────────────────────────────────────
@@ -117,6 +120,7 @@ const INVALID_PARAMS: Record<string, Record<string, unknown>> = {
   server_doctor: { server: 12345 },     // server must be string
   server_lock: { production: "yes" },   // production must be boolean
   server_fleet: { sort: 12345 },        // sort must be enum string
+  server_fix: { dryRun: "not-boolean" },  // dryRun must be boolean
 };
 
 // ─── Contract suite ───────────────────────────────────────────────────────────
