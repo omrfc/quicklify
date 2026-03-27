@@ -1,0 +1,266 @@
+import { z } from "zod";
+import { getServers } from "../../utils/config.js";
+import { runAudit } from "../../core/audit/index.js";
+import {
+  previewSafeFixes,
+  runScoreCheck,
+  isFixCommandAllowed,
+  resolveTier,
+  FORBIDDEN_CATEGORIES,
+} from "../../core/audit/fix.js";
+import { backupServer } from "../../core/backup.js";
+import { isSafeMode } from "../../core/manage.js";
+import { sshExec } from "../../utils/ssh.js";
+import { raw } from "../../utils/sshCommand.js";
+import {
+  resolveServerForMcp,
+  mcpSuccess,
+  mcpError,
+  mcpLog,
+  type McpResponse,
+} from "../utils.js";
+import { getErrorMessage } from "../../utils/errorMapper.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+
+export const serverFixSchema = {
+  server: z
+    .string()
+    .optional()
+    .describe(
+      "Server name or IP. Auto-selected if only one server exists.",
+    ),
+  dryRun: z
+    .boolean()
+    .default(true)
+    .describe(
+      "Preview fixes without applying. Defaults to true. Forced to true when KASTELL_SAFE_MODE=true.",
+    ),
+  checks: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Specific check IDs to fix (e.g. ['KERN-SYNCOOKIES']). AND-filtered with category if both provided.",
+    ),
+  category: z
+    .string()
+    .optional()
+    .describe(
+      "Category name to filter fixes (e.g. 'Kernel'). AND-filtered with checks if both provided.",
+    ),
+};
+
+/** Severity ordering for display (critical first) */
+const SEVERITY_ORDER: Array<"critical" | "warning" | "info"> = [
+  "critical",
+  "warning",
+  "info",
+];
+
+export async function handleServerFix(
+  params: {
+    server?: string;
+    dryRun?: boolean;
+    checks?: string[];
+    category?: string;
+  },
+  mcpServer?: McpServer,
+): Promise<McpResponse> {
+  try {
+    // ── Server resolution ──────────────────────────────────────────────────
+    const servers = getServers();
+    if (servers.length === 0) {
+      return mcpError("No servers found", undefined, [
+        { command: "kastell add", reason: "Add a server first" },
+      ]);
+    }
+
+    const server = resolveServerForMcp(params, servers);
+    if (!server) {
+      if (params.server) {
+        return mcpError(
+          `Server not found: ${params.server}`,
+          `Available servers: ${servers.map((s) => s.name).join(", ")}`,
+        );
+      }
+      return mcpError(
+        "Multiple servers found. Specify which server to fix.",
+        `Available: ${servers.map((s) => s.name).join(", ")}`,
+      );
+    }
+
+    const platform = server.platform ?? server.mode ?? "bare";
+
+    // ── SAFE_MODE + dryRun resolution ─────────────────────────────────────
+    const effectiveDryRun = (params.dryRun ?? true) || isSafeMode();
+    const safeModeForcedDryRun =
+      params.dryRun === false && isSafeMode() ? true : undefined;
+
+    // ── Run audit ─────────────────────────────────────────────────────────
+    await mcpLog(mcpServer, `Running audit on ${server.name}...`);
+    const result = await runAudit(server.ip, server.name, platform);
+    if (!result.success || !result.data) {
+      return mcpError(result.error ?? "Audit failed", result.hint);
+    }
+    const auditResult = result.data;
+
+    // ── FORBIDDEN rejection for user-supplied check IDs (FIX-08) ─────────
+    const rejectedChecks: Array<{ id: string; reason: string }> = [];
+    if (params.checks && params.checks.length > 0) {
+      for (const checkId of params.checks) {
+        let found = false;
+        for (const cat of auditResult.categories) {
+          const check = cat.checks.find((ch) => ch.id === checkId);
+          if (check) {
+            found = true;
+            const tier = resolveTier(check, cat.name);
+            if (tier === "FORBIDDEN") {
+              rejectedChecks.push({
+                id: checkId,
+                reason:
+                  "FORBIDDEN tier — SSH/Firewall/Docker categories never auto-fixed",
+              });
+            }
+            break;
+          }
+        }
+        if (!found) {
+          rejectedChecks.push({
+            id: checkId,
+            reason: "Check ID not found in audit results",
+          });
+        }
+      }
+    }
+
+    // ── Get SAFE plan + AND filter ────────────────────────────────────────
+    const { safePlan, guardedCount, forbiddenCount } =
+      previewSafeFixes(auditResult);
+    let filteredChecks = safePlan.groups.flatMap((g) => g.checks);
+
+    if (params.category) {
+      filteredChecks = filteredChecks.filter(
+        (c) => c.category === params.category,
+      );
+    }
+    if (params.checks && params.checks.length > 0) {
+      // Remove rejected IDs from the working set
+      const allowedIds = params.checks.filter(
+        (id) => !rejectedChecks.some((r) => r.id === id),
+      );
+      filteredChecks = filteredChecks.filter((c) => allowedIds.includes(c.id));
+    }
+
+    // ── Early exit if no SAFE fixes after filter ──────────────────────────
+    if (filteredChecks.length === 0) {
+      return mcpSuccess({
+        dryRun: effectiveDryRun,
+        ...(safeModeForcedDryRun ? { safeModeForcedDryRun } : {}),
+        applied: [],
+        message: "No matching SAFE fixes available",
+        rejectedChecks,
+        guardedCount,
+        forbiddenCount,
+        scoreBefore: auditResult.overallScore,
+      });
+    }
+
+    // ── DRY RUN response ──────────────────────────────────────────────────
+    if (effectiveDryRun) {
+      // Rebuild groups from filteredChecks (maintaining severity ordering)
+      const previewGroups = SEVERITY_ORDER.map((sev) => ({
+        severity: sev,
+        checks: filteredChecks.filter((c) => c.severity === sev),
+      })).filter((g) => g.checks.length > 0);
+
+      return mcpSuccess({
+        dryRun: true,
+        ...(safeModeForcedDryRun ? { safeModeForcedDryRun } : {}),
+        preview: { groups: previewGroups },
+        rejectedChecks,
+        guardedCount,
+        forbiddenCount,
+        scoreBefore: auditResult.overallScore,
+      });
+    }
+
+    // ── LIVE FIX — backup first (D-02, hard abort on failure) ────────────
+    await mcpLog(mcpServer, "Creating backup...");
+    const backup = await backupServer(server);
+    if (!backup.success) {
+      return mcpError(
+        `Backup failed: ${backup.error ?? "unknown error"}`,
+        backup.hint,
+      );
+    }
+
+    // ── LIVE FIX — execute ────────────────────────────────────────────────
+    await mcpLog(mcpServer, `Applying ${filteredChecks.length} safe fix(es)...`);
+    const applied: string[] = [];
+    const skipped: string[] = [];
+    const errors: string[] = [];
+
+    for (const check of filteredChecks) {
+      try {
+        if (check.preCondition) {
+          const preCheck = await sshExec(server.ip, raw(check.preCondition));
+          if (preCheck.code !== 0) {
+            errors.push(`${check.id}: pre-condition failed`);
+            continue;
+          }
+        }
+        if (!isFixCommandAllowed(check.fixCommand)) {
+          errors.push(`${check.id}: fix command rejected`);
+          continue;
+        }
+        const sshResult = await sshExec(server.ip, raw(check.fixCommand));
+        if (sshResult.code !== 0) {
+          errors.push(`${check.id}: command failed (exit ${sshResult.code})`);
+        } else {
+          applied.push(check.id);
+        }
+      } catch (err) {
+        errors.push(`${check.id}: ${getErrorMessage(err)}`);
+      }
+    }
+
+    // ── LIVE FIX — score delta ────────────────────────────────────────────
+    let scoreAfter: number | null = null;
+    if (applied.length > 0) {
+      await mcpLog(mcpServer, "Verifying score...");
+      const affectedCats = [
+        ...new Set(
+          applied
+            .map((checkId) => {
+              for (const cat of auditResult.categories) {
+                if (cat.checks.some((ch) => ch.id === checkId))
+                  return cat.name;
+              }
+              return undefined;
+            })
+            .filter((n): n is string => n !== undefined),
+        ),
+      ];
+      scoreAfter = await runScoreCheck(
+        server.ip,
+        platform,
+        auditResult,
+        affectedCats,
+      );
+    }
+
+    return mcpSuccess({
+      dryRun: false,
+      applied,
+      skipped,
+      errors,
+      rejectedChecks,
+      scoreBefore: auditResult.overallScore,
+      scoreAfter,
+    });
+  } catch (error: unknown) {
+    return mcpError(getErrorMessage(error));
+  }
+}
+
+// Re-export FORBIDDEN_CATEGORIES for reference (used by plan key_links)
+export { FORBIDDEN_CATEGORIES };

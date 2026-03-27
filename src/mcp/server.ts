@@ -15,6 +15,7 @@ import { serverGuardSchema, handleServerGuard } from "./tools/serverGuard.js";
 import { serverDoctorSchema, handleServerDoctor } from "./tools/serverDoctor.js";
 import { serverLockSchema, handleServerLock } from "./tools/serverLock.js";
 import { serverFleetSchema, handleServerFleet } from "./tools/serverFleet.js";
+import { serverFixSchema, handleServerFix } from "./tools/serverFix.js";
 import { setMcpVersion } from "./utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -46,6 +47,7 @@ Tool routing:
 - server_guard: autonomous monitoring daemon (cron-based)
 - server_doctor: proactive health analysis (disk trend, swap, stale packages)
 - server_fleet: fleet-wide dashboard (all servers at once)
+- server_fix: apply safe auto-fixes (SAFE tier only, dryRun default, SAFE_MODE enforced)
 
 Safety: KASTELL_SAFE_MODE=true (default in MCP) blocks destructive operations. Set SAFE_MODE=false explicitly to provision, destroy, or restore.
 
@@ -246,6 +248,21 @@ Bare servers: use service 'system' or 'docker' for logs (not 'coolify'). server_
     },
   }, async (params) => {
     return handleServerFleet(params);
+  });
+
+  server.registerTool("server_fix", {
+    description:
+      "Apply safe auto-fixes to a server. Runs audit, filters SAFE tier fixes, creates backup, applies fixes, and re-audits for score delta. dryRun defaults to true (preview only). SAFE_MODE forces preview. SSH/Firewall/Docker fixes are FORBIDDEN and always rejected. Use checks and category params to target specific fixes.",
+    inputSchema: serverFixSchema,
+    annotations: {
+      title: "Server Safe Fix",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
+  }, async (params) => {
+    return handleServerFix(params, server);
   });
 
   return server;
