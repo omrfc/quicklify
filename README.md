@@ -46,7 +46,7 @@ Running `kastell` without any arguments launches an **interactive search menu** 
  ██║  ██╗  ██║  ██║ ███████║   ██║   ███████╗███████╗███████╗
  ╚═╝  ╚═╝  ╚═╝  ╚═╝ ╚══════╝   ╚═╝   ╚══════╝╚══════╝╚══════╝
 
-  KASTELL  v1.14.0  ·  Your infrastructure, fortified.
+  KASTELL  v1.15.0  ·  Your infrastructure, fortified.
 
   $ kastell init --template production  → deploy a new server
   $ kastell status --all                → check all servers
@@ -246,7 +246,7 @@ kastell init --template production --provider hetzner
 
 ## Security
 
-Kastell is built with security as a priority -- **5,087 tests** across 197 suites, including dedicated security test suites.
+Kastell is built with security as a priority -- **5,499 tests** across 206 suites, including dedicated security test suites.
 
 - API tokens are never stored on disk -- prompted at runtime or via environment variables
 - SSH keys are auto-generated if needed (Ed25519)
@@ -288,7 +288,7 @@ Use `kastell status my-server --autostart` to check platform status and auto-res
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and contribution guidelines.
 
-Kastell uses **5,087 tests** across 197 suites. Run `npm test` before submitting PRs.
+Kastell uses **5,499 tests** across 206 suites. Run `npm test` before submitting PRs.
 
 ## MCP Server (AI Integration)
 
@@ -322,12 +322,13 @@ Available tools:
 | `server_secure` | secure, firewall, domain | SSH hardening, firewall rules, domain/SSL management (10 subcommands) |
 | `server_backup` | backup, snapshot | Backup/restore databases and create/manage VPS snapshots |
 | `server_provision` | create | Provision new servers on cloud providers |
-| `server_audit` | audit | 421+-check security audit with compliance framework filtering; use `--explain` for remediation guidance |
+| `server_audit` | audit | 442+-check security audit with compliance framework filtering; use `--explain` for remediation guidance |
 | `server_evidence` | collect | Collect forensic evidence package with checksums |
 | `server_guard` | start, stop, status | Manage autonomous security monitoring daemon |
 | `server_doctor` | diagnose | Proactive health analysis with remediation commands |
 | `server_lock` | harden | 24-step production hardening (SSH, UFW, sysctl, auditd, AIDE, Docker) |
 | `server_fleet` | overview | Fleet-wide health and security posture dashboard |
+| `server_fix` | fix --safe | Apply safe auto-fixes with backup (SAFE tier only, dryRun default) |
 
 > All destructive operations (destroy, restore, snapshot-delete, provision, restart, maintain, snapshot-create) require `SAFE_MODE=false` to execute.
 

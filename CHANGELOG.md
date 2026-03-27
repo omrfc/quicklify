@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.15.0] - 2026-03-27
+
+### Added
+- **Edge & WAF Audit (P88):** 9 Nginx config checks + WAF detection, 30th audit category, CIS/PCI-DSS compliance mapping
+- **TCP Stack DDoS Hardening (P89):** 8 sysctl DDoS parameter checks, 31st audit category, Docker platform guard
+- **kastell fix --safe (P90):** SAFE/GUARDED/FORBIDDEN tier classification for 442+ checks, mandatory backup, dry-run, fix→verify pipeline
+- **MCP server_fix (P91):** 14th MCP tool with dryRun:true default, SAFE_MODE guard, TypeScript FORBIDDEN rejection
+- **Telegram Bot Notifications (P92):** Guard audit score monitoring, two-tier alerts (warning 5-9pt, critical 10+pt), 24h staleness guard, allowedChatIds CRUD
+- **Telegram Bot Commands (P93):** grammy polling bot with /status, /audit, /health, /doctor, /help commands, allowedChatIds middleware, offset persistence
+- `kastell bot start` command for foreground Telegram bot
+- Interactive menu: "Start Telegram bot" entry in Notifications & Bot section
+
+### Changed
+- Audit categories: 29 → 31 (WAF & Reverse Proxy, DDoS Hardening)
+- Audit checks: 413 → 442
+- Test count: 5468 → 5499 (31 new bot module tests)
+- Interactive menu audit description updated to 31 categories
+
+### Fixed
+- npm audit vulnerabilities fixed (brace-expansion, handlebars, picomatch)
+
+### Security
+- Bot allowedChatIds middleware silently blocks unauthorized users (no response leaked)
+- Offset persistence prevents stale command replay on bot restart
+- server_fix FORBIDDEN rejection blocks SSH/Firewall/Docker category fixes via MCP
+- Fix tier classification: SSH/Firewall changes always FORBIDDEN (never auto-fixed)
+
 ## [1.14.0] - 2026-03-24
 
 ### Added
