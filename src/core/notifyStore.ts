@@ -219,6 +219,31 @@ export function isNotifyKeychainAvailable(): boolean {
   return _isKeychainAvailable(NOTIFY_SERVICE);
 }
 
+/**
+ * Load the allowedChatIds array from notify-channels.json metadata.
+ * Returns [] if the file does not exist, the field is absent, or is not an array.
+ */
+export function loadAllowedChatIds(): string[] {
+  try {
+    if (!existsSync(NOTIFY_CHANNELS_FILE)) return [];
+    const raw = JSON.parse(readFileSync(NOTIFY_CHANNELS_FILE, "utf-8")) as Record<string, unknown>;
+    const ids = raw?.allowedChatIds;
+    return Array.isArray(ids) ? ids.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Persist allowedChatIds to notify-channels.json, preserving existing channel flags.
+ */
+export function saveAllowedChatIds(ids: string[]): void {
+  if (!existsSync(KASTELL_DIR)) mkdirSync(KASTELL_DIR, { recursive: true });
+  const existing = readChannelMetadata() as Record<string, unknown>;
+  existing.allowedChatIds = ids;
+  writeFileSync(NOTIFY_CHANNELS_FILE, JSON.stringify(existing, null, 2), { mode: 0o600 });
+}
+
 // ─── Migration ────────────────────────────────────────────────────────────────
 
 function migrateFromLegacyNotifyJson(): Record<string, boolean> | undefined {

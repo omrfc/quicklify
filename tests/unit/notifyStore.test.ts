@@ -7,6 +7,8 @@ import {
   loadNotifyChannels,
   removeNotifyChannel,
   isNotifyKeychainAvailable,
+  loadAllowedChatIds,
+  saveAllowedChatIds,
 } from "../../src/core/notifyStore.js";
 import type { NotifyConfig } from "../../src/core/notify.js";
 import { __resetStore, __setAvailable } from "../__mocks__/@napi-rs/keyring.js";
@@ -306,6 +308,98 @@ describe("removeNotifyChannel", () => {
     );
     const parsed = JSON.parse(call![1] as string) as Record<string, boolean>;
     expect(parsed.telegram).toBe(false);
+  });
+});
+
+// ─── loadAllowedChatIds / saveAllowedChatIds ──────────────────────────────────
+
+describe("loadAllowedChatIds / saveAllowedChatIds", () => {
+  it("returns [] when notify-channels.json does not exist", () => {
+    mockedExistsSync.mockReturnValue(false);
+
+    const result = loadAllowedChatIds();
+
+    expect(result).toEqual([]);
+  });
+
+  it("returns [] when allowedChatIds field is absent from JSON", () => {
+    mockedExistsSync.mockImplementation((p: unknown) => {
+      return typeof p === "string" && (p as string).includes("notify-channels.json");
+    });
+    mockedReadFileSync.mockReturnValue(JSON.stringify({ telegram: true }));
+
+    const result = loadAllowedChatIds();
+
+    expect(result).toEqual([]);
+  });
+
+  it("returns ['1146895938'] when allowedChatIds contains that value", () => {
+    mockedExistsSync.mockImplementation((p: unknown) => {
+      return typeof p === "string" && (p as string).includes("notify-channels.json");
+    });
+    mockedReadFileSync.mockReturnValue(JSON.stringify({ telegram: true, allowedChatIds: ["1146895938"] }));
+
+    const result = loadAllowedChatIds();
+
+    expect(result).toEqual(["1146895938"]);
+  });
+
+  it("returns [] when allowedChatIds is not an array (defensive)", () => {
+    mockedExistsSync.mockImplementation((p: unknown) => {
+      return typeof p === "string" && (p as string).includes("notify-channels.json");
+    });
+    mockedReadFileSync.mockReturnValue(JSON.stringify({ allowedChatIds: "1146895938" }));
+
+    const result = loadAllowedChatIds();
+
+    expect(result).toEqual([]);
+  });
+
+  it("saveAllowedChatIds persists to notify-channels.json with mode 0o600", () => {
+    mockedExistsSync.mockReturnValue(false);
+
+    saveAllowedChatIds(["123"]);
+
+    const call = mockedWriteFileSync.mock.calls.find(
+      (c) => typeof c[0] === "string" && (c[0] as string).includes("notify-channels.json"),
+    );
+    expect(call).toBeDefined();
+    const content = JSON.parse(call![1] as string) as Record<string, unknown>;
+    expect(content.allowedChatIds).toEqual(["123"]);
+    expect(call![2]).toEqual({ mode: 0o600 });
+  });
+
+  it("saveAllowedChatIds preserves existing channel flags (telegram: true not lost)", () => {
+    mockedExistsSync.mockImplementation((p: unknown) => {
+      return typeof p === "string" && (p as string).includes("notify-channels.json");
+    });
+    mockedReadFileSync.mockReturnValue(JSON.stringify({ telegram: true, discord: false }));
+
+    saveAllowedChatIds(["456"]);
+
+    const call = mockedWriteFileSync.mock.calls.find(
+      (c) => typeof c[0] === "string" && (c[0] as string).includes("notify-channels.json"),
+    );
+    const content = JSON.parse(call![1] as string) as Record<string, unknown>;
+    expect(content.telegram).toBe(true);
+    expect(content.discord).toBe(false);
+    expect(content.allowedChatIds).toEqual(["456"]);
+  });
+
+  it("loadNotifyChannels still works correctly when allowedChatIds present in JSON (no regression)", () => {
+    mockedExistsSync.mockImplementation((p: unknown) => {
+      return typeof p === "string" && (p as string).includes("notify-channels.json");
+    });
+    mockedReadFileSync.mockReturnValue(
+      JSON.stringify({ telegram: true, discord: false, slack: false, allowedChatIds: ["1146895938"] }),
+    );
+    storeNotifySecret("telegram", "botToken", "bot123");
+    storeNotifySecret("telegram", "chatId", "-100456");
+
+    const config = loadNotifyChannels();
+
+    expect(config.telegram?.botToken).toBe("bot123");
+    expect(config.telegram?.chatId).toBe("-100456");
   });
 });
 
