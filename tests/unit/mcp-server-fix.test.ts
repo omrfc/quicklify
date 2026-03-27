@@ -195,6 +195,28 @@ describe("MCP server_fix tool", () => {
       const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
       expect(parsed.error).toContain("No servers found");
     });
+
+    it("returns mcpError with server name when specified server not found", async () => {
+      mockedConfig.getServers.mockReturnValue([sampleServer] as never);
+      mockedConfig.findServer.mockReturnValue(undefined);
+      const result = await handleServerFix({ server: "nonexistent" });
+
+      expect(result.isError).toBe(true);
+      const text = result.content[0].text;
+      expect(text).toContain("not found");
+    });
+
+    it("returns mcpError when multiple servers and no server specified", async () => {
+      mockedConfig.getServers.mockReturnValue([
+        sampleServer,
+        { ...sampleServer, id: "s2", name: "srv-2", ip: "5.6.7.8" },
+      ] as never);
+      const result = await handleServerFix({});
+
+      expect(result.isError).toBe(true);
+      const text = result.content[0].text;
+      expect(text).toContain("Multiple");
+    });
   });
 
   // ── dryRun default ───────────────────────────────────────────────────────
@@ -379,6 +401,74 @@ describe("MCP server_fix tool", () => {
       await handleServerFix({ dryRun: false });
 
       expect(mockedBackup.backupServer).toHaveBeenCalledWith(sampleServer);
+    });
+
+    it("returns mcpError when audit fails", async () => {
+      mockedAudit.runAudit.mockResolvedValue({
+        success: false,
+        error: "Connection refused",
+        hint: "Check SSH",
+      } as never);
+
+      const result = await handleServerFix({ dryRun: false });
+
+      expect(result.isError).toBe(true);
+      const text = result.content[0].text;
+      expect(text).toContain("Connection refused");
+    });
+
+    it("reports preCondition failure without aborting other fixes", async () => {
+      const planWithPreCond = {
+        safePlan: {
+          groups: [{
+            severity: "warning" as const,
+            checks: [{
+              ...makeFixCheck("KERN-SYNCOOKIES", "Kernel"),
+              preCondition: "test -f /etc/sysctl.conf",
+            }],
+            estimatedImpact: 5,
+          }],
+        },
+        guardedCount: 0,
+        forbiddenCount: 0,
+        guardedIds: [],
+      };
+      mockedFix.previewSafeFixes.mockReturnValue(planWithPreCond as never);
+      mockedSsh.sshExec.mockResolvedValue({ stdout: "", stderr: "", code: 1 });
+
+      const result = await handleServerFix({ dryRun: false });
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      const errors = parsed.errors as string[];
+      expect(errors.some((e: string) => e.includes("pre-condition"))).toBe(true);
+    });
+
+    it("reports isFixCommandAllowed rejection", async () => {
+      mockedFix.isFixCommandAllowed.mockReturnValue(false);
+
+      const result = await handleServerFix({ dryRun: false });
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      const errors = parsed.errors as string[];
+      expect(errors.some((e: string) => e.includes("rejected"))).toBe(true);
+    });
+
+    it("reports SSH command failure with exit code", async () => {
+      mockedFix.isFixCommandAllowed.mockReturnValue(true);
+      mockedSsh.sshExec.mockResolvedValue({ stdout: "", stderr: "error", code: 127 });
+
+      const result = await handleServerFix({ dryRun: false });
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      const errors = parsed.errors as string[];
+      expect(errors.some((e: string) => e.includes("command failed"))).toBe(true);
+    });
+
+    it("catches and reports unexpected SSH errors", async () => {
+      mockedFix.isFixCommandAllowed.mockReturnValue(true);
+      mockedSsh.sshExec.mockRejectedValue(new Error("ECONNRESET"));
+
+      const result = await handleServerFix({ dryRun: false });
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      const errors = parsed.errors as string[];
+      expect(errors.some((e: string) => e.includes("ECONNRESET"))).toBe(true);
     });
   });
 });
