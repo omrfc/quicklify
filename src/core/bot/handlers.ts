@@ -6,12 +6,11 @@
 
 import type { Bot } from "grammy";
 import { readFileSync } from "fs";
-import { existsSync } from "fs";
-import { createRequire } from "module";
+import { join } from "path";
 import { findServer, getServers } from "../../utils/config.js";
 import { listSnapshots, loadSnapshot } from "../audit/snapshot.js";
 import { getGuardStates } from "../guard.js";
-import { metricsHistoryPath, loadMetricsHistory } from "../doctor.js";
+import { loadMetricsHistory } from "../doctor.js";
 import type { SnapshotListEntry } from "../audit/types.js";
 import type { DoctorFinding } from "../doctor.js";
 import {
@@ -21,8 +20,15 @@ import {
   formatDoctorMessage,
 } from "./formatter.js";
 
-const require = createRequire(import.meta.url);
-const pkg = require("../../../package.json") as { version: string };
+/** Read version from package.json — uses process.cwd() for ESM+CJS compat */
+function getVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf-8")) as { version: string };
+    return pkg.version;
+  } catch {
+    return "0.0.0";
+  }
+}
 
 /** Register all bot command handlers on the given Bot instance. */
 export function registerHandlers(bot: Bot): void {
@@ -216,7 +222,7 @@ export function registerHandlers(bot: Bot): void {
       "/doctor <server> -- Doctor bulgulari (cached)",
       "/help -- Bu mesaj",
       "",
-      `Kastell v${pkg.version} | 4 komut`,
+      `Kastell v${getVersion()} | 4 komut`,
     ];
     await ctx.reply(lines.join("\n"));
   });
