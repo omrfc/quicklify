@@ -1,11 +1,13 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import * as sshUtils from "../../src/utils/ssh";
 import * as notifyModule from "../../src/core/notify";
+import * as snapshotModule from "../../src/core/audit/snapshot";
 import {
   startGuard,
   stopGuard,
   guardStatus,
   dispatchGuardBreaches,
+  checkAuditScoreDrop,
   buildDeployGuardScriptCommand,
   buildInstallGuardCronCommand,
   buildRemoveGuardCronCommand,
@@ -18,6 +20,9 @@ import {
   GUARD_SCRIPT_PATH,
   GUARD_LOG_PATH,
   GUARD_METRICS_PATH,
+  GUARD_AUDIT_STALENESS_MS,
+  SCORE_DROP_WARNING_THRESHOLD,
+  SCORE_DROP_CRITICAL_THRESHOLD,
 } from "../../src/core/guard";
 
 jest.mock("fs", () => ({
@@ -28,11 +33,13 @@ jest.mock("fs", () => ({
 }));
 jest.mock("../../src/utils/ssh");
 jest.mock("../../src/core/notify");
+jest.mock("../../src/core/audit/snapshot");
 
 const mockedNotify = notifyModule as jest.Mocked<typeof notifyModule>;
 let mockedDispatchWithCooldown: jest.Mock;
 
 const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
+const mockedSnapshot = snapshotModule as jest.Mocked<typeof snapshotModule>;
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;
 const mockedWriteFileSync = writeFileSync as jest.MockedFunction<typeof writeFileSync>;
@@ -689,5 +696,190 @@ describe("dispatchGuardBreaches", () => {
     const message: string = mockedDispatchWithCooldown.mock.calls[0][2];
     expect(message).toContain("my-server");
     expect(message).toContain(breach);
+  });
+});
+
+// ─── checkAuditScoreDrop ──────────────────────────────────────────────────────
+
+describe("checkAuditScoreDrop", () => {
+  const SERVER_IP = "1.2.3.4";
+  const SERVER = "prod-1";
+  const NOW = new Date("2026-03-27T12:00:00Z").getTime();
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    jest.spyOn(Date, "now").mockReturnValue(NOW);
+    mockedDispatchWithCooldown = mockedNotify.dispatchWithCooldown as jest.Mock;
+    mockedDispatchWithCooldown.mockResolvedValue({ skipped: false, results: [] });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  // Helpers
+  function makeEntry(score: number, minsAgo: number, filename = `snap-${score}.json`) {
+    return {
+      filename,
+      savedAt: new Date(NOW - minsAgo * 60 * 1000).toISOString(),
+      overallScore: score,
+    };
+  }
+
+  function makeSnapshotFile(categories: Array<{ name: string; score: number; maxScore: number; prevScore?: number }>): import("../../src/core/audit/types.js").SnapshotFile {
+    return {
+      schemaVersion: 2,
+      savedAt: new Date(NOW - 5 * 60 * 1000).toISOString(),
+      audit: {
+        serverName: SERVER,
+        serverIp: SERVER_IP,
+        platform: "bare",
+        timestamp: new Date(NOW - 5 * 60 * 1000).toISOString(),
+        auditVersion: "1.14.0",
+        overallScore: categories[0]?.score ?? 80,
+        categories: categories.map((c) => ({
+          name: c.name,
+          score: c.score,
+          maxScore: c.maxScore,
+          checks: [],
+        })),
+        quickWins: [],
+      },
+    };
+  }
+
+  it("no dispatch when fewer than 2 snapshots (0 entries)", async () => {
+    mockedSnapshot.listSnapshots.mockResolvedValue([]);
+
+    await checkAuditScoreDrop(SERVER, SERVER_IP);
+
+    expect(mockedDispatchWithCooldown).not.toHaveBeenCalled();
+  });
+
+  it("no dispatch when fewer than 2 snapshots (1 entry)", async () => {
+    mockedSnapshot.listSnapshots.mockResolvedValue([makeEntry(80, 5)]);
+
+    await checkAuditScoreDrop(SERVER, SERVER_IP);
+
+    expect(mockedDispatchWithCooldown).not.toHaveBeenCalled();
+  });
+
+  it("no dispatch when most recent snapshot savedAt > 24h ago (staleness guard D-02)", async () => {
+    const staleEntry = makeEntry(70, 25 * 60); // 25 hours ago
+    const previousEntry = makeEntry(80, 30 * 60);
+    mockedSnapshot.listSnapshots.mockResolvedValue([previousEntry, staleEntry]);
+
+    await checkAuditScoreDrop(SERVER, SERVER_IP);
+
+    expect(mockedDispatchWithCooldown).not.toHaveBeenCalled();
+  });
+
+  it("no dispatch when score delta is less than 5 points (delta = -3)", async () => {
+    mockedSnapshot.listSnapshots.mockResolvedValue([makeEntry(80, 60), makeEntry(77, 5)]);
+
+    await checkAuditScoreDrop(SERVER, SERVER_IP);
+
+    expect(mockedDispatchWithCooldown).not.toHaveBeenCalled();
+  });
+
+  it("no dispatch when score delta is exactly -4 (boundary: must be <= -5 to warn)", async () => {
+    mockedSnapshot.listSnapshots.mockResolvedValue([makeEntry(80, 60), makeEntry(76, 5)]);
+
+    await checkAuditScoreDrop(SERVER, SERVER_IP);
+
+    expect(mockedDispatchWithCooldown).not.toHaveBeenCalled();
+  });
+
+  it("no dispatch when score improves (delta positive)", async () => {
+    mockedSnapshot.listSnapshots.mockResolvedValue([makeEntry(70, 60), makeEntry(80, 5)]);
+
+    await checkAuditScoreDrop(SERVER, SERVER_IP);
+
+    expect(mockedDispatchWithCooldown).not.toHaveBeenCalled();
+  });
+
+  it("WARNING dispatch when score drops 5-9 points (80->73 = -7)", async () => {
+    mockedSnapshot.listSnapshots.mockResolvedValue([makeEntry(80, 60), makeEntry(73, 5)]);
+
+    await checkAuditScoreDrop(SERVER, SERVER_IP);
+
+    expect(mockedDispatchWithCooldown).toHaveBeenCalledTimes(1);
+    const message: string = mockedDispatchWithCooldown.mock.calls[0][2];
+    expect(message).toContain("WARNING");
+    expect(message).toContain("80");
+    expect(message).toContain("73");
+    expect(message).toContain("-7");
+    expect(message).toContain(SERVER);
+  });
+
+  it("WARNING dispatch uses cooldown key 'audit-score-drop' (TG-08)", async () => {
+    mockedSnapshot.listSnapshots.mockResolvedValue([makeEntry(80, 60), makeEntry(73, 5)]);
+
+    await checkAuditScoreDrop(SERVER, SERVER_IP);
+
+    expect(mockedDispatchWithCooldown).toHaveBeenCalledWith(
+      SERVER,
+      "audit-score-drop",
+      expect.any(String),
+    );
+  });
+
+  it("CRITICAL dispatch when score drops 10+ points (80->65 = -15)", async () => {
+    const prevSnap = makeSnapshotFile([
+      { name: "SSH Hardening", score: 90, maxScore: 100 },
+      { name: "Firewall", score: 80, maxScore: 100 },
+    ]);
+    const recentSnap = makeSnapshotFile([
+      { name: "SSH Hardening", score: 60, maxScore: 100 },
+      { name: "Firewall", score: 50, maxScore: 100 },
+    ]);
+    mockedSnapshot.listSnapshots.mockResolvedValue([
+      makeEntry(80, 60, "prev.json"),
+      makeEntry(65, 5, "recent.json"),
+    ]);
+    mockedSnapshot.loadSnapshot
+      .mockResolvedValueOnce(recentSnap)
+      .mockResolvedValueOnce(prevSnap);
+
+    await checkAuditScoreDrop(SERVER, SERVER_IP);
+
+    expect(mockedDispatchWithCooldown).toHaveBeenCalledTimes(1);
+    const message: string = mockedDispatchWithCooldown.mock.calls[0][2];
+    expect(message).toContain("CRITICAL");
+    expect(message).toContain("80");
+    expect(message).toContain("65");
+    expect(message).toContain("-15");
+    expect(message).toContain(SERVER);
+    expect(message).toContain("SSH Hardening");
+    expect(message).toContain("Firewall");
+  });
+
+  it("CRITICAL dispatch uses cooldown key 'audit-score-drop' (TG-08)", async () => {
+    const snap = makeSnapshotFile([{ name: "SSH Hardening", score: 60, maxScore: 100 }]);
+    mockedSnapshot.listSnapshots.mockResolvedValue([
+      makeEntry(80, 60, "prev.json"),
+      makeEntry(65, 5, "recent.json"),
+    ]);
+    mockedSnapshot.loadSnapshot.mockResolvedValue(snap);
+
+    await checkAuditScoreDrop(SERVER, SERVER_IP);
+
+    expect(mockedDispatchWithCooldown).toHaveBeenCalledWith(
+      SERVER,
+      "audit-score-drop",
+      expect.any(String),
+    );
+  });
+
+  it("exports GUARD_AUDIT_STALENESS_MS as 24 hours in ms", () => {
+    expect(GUARD_AUDIT_STALENESS_MS).toBe(24 * 60 * 60 * 1000);
+  });
+
+  it("exports SCORE_DROP_WARNING_THRESHOLD as 5", () => {
+    expect(SCORE_DROP_WARNING_THRESHOLD).toBe(5);
+  });
+
+  it("exports SCORE_DROP_CRITICAL_THRESHOLD as 10", () => {
+    expect(SCORE_DROP_CRITICAL_THRESHOLD).toBe(10);
   });
 });

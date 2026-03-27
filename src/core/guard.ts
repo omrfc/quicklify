@@ -5,6 +5,7 @@ import { sshExec, assertValidIp } from "../utils/ssh.js";
 import { raw, type SshCommand } from "../utils/sshCommand.js";
 import { CONFIG_DIR } from "../utils/config.js";
 import { dispatchWithCooldown } from "./notify.js";
+import { listSnapshots, loadSnapshot } from "./audit/snapshot.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,9 @@ export const GUARD_SCRIPT_PATH = "/root/kastell-guard.sh";
 export const GUARD_LOG_PATH = "/var/log/kastell-guard.log";
 export const GUARD_METRICS_PATH = "/var/lib/kastell/metrics.json";
 export const GUARD_MARKER = "# kastell-guard";
+export const GUARD_AUDIT_STALENESS_MS = 24 * 60 * 60 * 1000; // 24 hours
+export const SCORE_DROP_WARNING_THRESHOLD = 5;
+export const SCORE_DROP_CRITICAL_THRESHOLD = 10;
 
 const GUARD_STATE_FILE = join(CONFIG_DIR, "guard-state.json");
 
@@ -237,6 +241,89 @@ export async function dispatchGuardBreaches(serverName: string, breaches: string
     const findingType = categorizeBreach(breach);
     await dispatchWithCooldown(serverName, findingType, `[Kastell Guard] ${serverName}: ${breach}`);
   }
+}
+
+// ─── Audit Score Drop Monitoring ──────────────────────────────────────────────
+
+function buildWarningMessage(
+  serverName: string,
+  newScore: number,
+  oldScore: number,
+  absDelta: number,
+): string {
+  return `\u26a0\ufe0f [Kastell] ${serverName}: Audit score dropped ${oldScore}\u2192${newScore} (-${absDelta}) \u2014 WARNING`;
+}
+
+async function buildCriticalMessage(
+  serverName: string,
+  serverIp: string,
+  recentFilename: string,
+  previousFilename: string,
+  newScore: number,
+  oldScore: number,
+  absDelta: number,
+): Promise<string> {
+  const header = `\ud83d\udea8 [Kastell] ${serverName}: Audit score dropped ${oldScore}\u2192${newScore} (-${absDelta}) \u2014 CRITICAL`;
+
+  const [recentFull, previousFull] = await Promise.all([
+    loadSnapshot(serverIp, recentFilename),
+    loadSnapshot(serverIp, previousFilename),
+  ]);
+
+  if (!recentFull || !previousFull) return header;
+
+  const prevScoreMap = new Map(
+    previousFull.audit.categories.map((c) => [c.name, c.score]),
+  );
+
+  const degradedNames = recentFull.audit.categories
+    .filter((cat) => {
+      const prev = prevScoreMap.get(cat.name);
+      return prev !== undefined && cat.score < prev;
+    })
+    .map((cat) => cat.name);
+
+  if (degradedNames.length === 0) return header;
+
+  const categoryList = degradedNames.map((n) => `\u2022 ${n} \u2193`).join("\n");
+  return `${header}\n\nDegraded categories:\n${categoryList}\n\nRun: kastell audit --server ${serverName}`;
+}
+
+/**
+ * Check for audit score drops between the two most recent local snapshots.
+ * Sends a warning notification for 5-9pt drops, critical for 10+pt drops.
+ * Skips if fewer than 2 snapshots exist or the most recent is older than 24h.
+ */
+export async function checkAuditScoreDrop(
+  serverName: string,
+  serverIp: string,
+): Promise<void> {
+  const entries = await listSnapshots(serverIp);
+  if (entries.length < 2) return;
+
+  const recent = entries[entries.length - 1];
+  const previous = entries[entries.length - 2];
+
+  // Staleness guard (D-02): skip if most recent snapshot > 24h old
+  const ageMs = Date.now() - new Date(recent.savedAt).getTime();
+  if (ageMs > GUARD_AUDIT_STALENESS_MS) return;
+
+  const delta = recent.overallScore - previous.overallScore;
+  // Only alert on drops of SCORE_DROP_WARNING_THRESHOLD or more
+  if (delta > -SCORE_DROP_WARNING_THRESHOLD) return;
+
+  const absDelta = Math.abs(delta);
+  const isCritical = absDelta >= SCORE_DROP_CRITICAL_THRESHOLD;
+
+  const message = isCritical
+    ? await buildCriticalMessage(
+        serverName, serverIp,
+        recent.filename, previous.filename,
+        recent.overallScore, previous.overallScore, absDelta,
+      )
+    : buildWarningMessage(serverName, recent.overallScore, previous.overallScore, absDelta);
+
+  await dispatchWithCooldown(serverName, "audit-score-drop", message);
 }
 
 export async function guardStatus(ip: string, serverName: string): Promise<GuardStatusResult> {

@@ -3,7 +3,7 @@ import inquirer from "inquirer";
 import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
-import { startGuard, stopGuard, guardStatus, dispatchGuardBreaches } from "../core/guard.js";
+import { startGuard, stopGuard, guardStatus, dispatchGuardBreaches, checkAuditScoreDrop } from "../core/guard.js";
 
 export async function guardCommand(
   action: "start" | "status" | "stop",
@@ -126,6 +126,9 @@ export async function guardCommand(
       }
       await dispatchGuardBreaches(server.name, result.breaches);
     }
+
+    // Check for audit score drops (TG-01, per D-01)
+    await checkAuditScoreDrop(server.name, server.ip);
 
     if (result.logTail) {
       logger.info("Recent log:");
