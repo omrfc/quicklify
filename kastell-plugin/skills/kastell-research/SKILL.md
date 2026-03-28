@@ -69,6 +69,22 @@ Commands (parse args) --> Core (business logic) --> Providers (cloud API) / Adap
 2. Read `kastell-plugin/skills/kastell-ops/SKILL.md` for full detail (adapter contract, provider registry, layer rules)
 3. Trace specific files
 
+## Debug by Symptom
+
+Common failure patterns and where to look first:
+
+| Symptom | Start Here | Then Check |
+|---------|-----------|------------|
+| SSH auth failure | `src/utils/ssh.ts` → `sshExec()` | `assertValidIp()`, server config `~/.kastell/servers.json`, banner parsing |
+| Provider API error | `src/providers/<name>.ts` | `withProviderErrorHandling()` in `src/utils/retry.ts`, API token config |
+| Audit check false positive | `src/core/audit/checks/<category>.ts` | SSH command output parsing, regex pattern, `sshExec` mock in test |
+| Fix rejected (SAFE tier) | `src/core/fix.ts` → `resolveTier()` | `FORBIDDEN_PATTERNS`, shell redirect/pipe in fixCommand string |
+| MCP tool error | `src/mcp/tools/<name>.ts` | Handler → core delegation, Zod schema validation, `result.content` format |
+| Lock step failure | `src/core/lock.ts` | Step's SSH command, `sshExec` stderr, cloud-init completion |
+| Config not found | `src/utils/config.ts` | `~/.kastell/` dir existence, `servers.json` format, migration from `~/.quicklify/` |
+
+**Known pitfalls:** See `kastell-plugin/skills/kastell-ops/references/pitfalls.md`
+
 ## ARGUMENTS
 
 $ARGUMENTS
