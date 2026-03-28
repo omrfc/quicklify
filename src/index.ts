@@ -375,8 +375,10 @@ program
   .option("--safe", "Apply only SAFE tier fixes (no service restarts)")
   .option("--dry-run", "Preview fixes without applying")
   .option("--category <list>", "Comma-separated category filter")
+  .option("--rollback <id>", "Rollback a previous fix (fix ID or 'last')")
+  .option("--history", "Show fix history for the server")
   .action(
-    (server?: string, options?: { safe?: boolean; dryRun?: boolean; category?: string }) =>
+    (server?: string, options?: { safe?: boolean; dryRun?: boolean; category?: string; rollback?: string; history?: boolean }) =>
       fixSafeCommand(server, options ?? {}),
   );
 
