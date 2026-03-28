@@ -307,6 +307,19 @@ export async function runFix(
 }
 
 /**
+ * Collect fix commands from a safe plan for backup purposes.
+ * Returns array of { checkId, fixCommand } for checks that will be applied.
+ * Used by Plan 02 (CLI + MCP) to integrate with fix-history backup flow.
+ */
+export function collectFixCommands(
+  safePlan: FixPlan,
+): Array<{ checkId: string; fixCommand: string }> {
+  return safePlan.groups.flatMap((g) =>
+    g.checks.map((c) => ({ checkId: c.id, fixCommand: c.fixCommand })),
+  );
+}
+
+/**
  * Lightweight post-fix re-audit.
  * Re-runs all SSH batches, but only replaces scores for affected categories.
  * Returns new overall score, or null on failure or when nothing to check.
