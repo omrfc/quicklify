@@ -81,35 +81,29 @@ export async function saveFixHistory(entry: FixHistoryEntry): Promise<void> {
   const historyFile = getFixHistoryPath();
 
   await withFileLock(historyFile, () => {
-    // Ensure config directory exists
     if (!existsSync(CONFIG_DIR)) {
       mkdirSync(CONFIG_DIR, { recursive: true });
     }
 
-    // Load existing history
     let entries: FixHistoryEntry[] = [];
     try {
       if (existsSync(historyFile)) {
         const data = readFileSync(historyFile, "utf-8");
-        const parsed = JSON.parse(data);
-        const validated = fixHistoryFileSchema.safeParse(parsed);
+        const validated = fixHistoryFileSchema.safeParse(JSON.parse(data));
         if (validated.success) {
           entries = validated.data;
         }
-        // If validation fails, start fresh to avoid bloat propagation
       }
     } catch {
-      // Start fresh if corrupt
       entries = [];
     }
 
     entries.push(entry);
 
-    // Cap per server: keep most recent MAX_ENTRIES_PER_SERVER
     const serverEntries = entries.filter((e) => e.serverIp === entry.serverIp);
     if (serverEntries.length > MAX_ENTRIES_PER_SERVER) {
-      // Sort by timestamp ascending, remove oldest
       serverEntries.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      // .filter() preserves object references, so Set membership check works
       const toRemove = new Set(
         serverEntries.slice(0, serverEntries.length - MAX_ENTRIES_PER_SERVER),
       );
@@ -118,7 +112,6 @@ export async function saveFixHistory(entry: FixHistoryEntry): Promise<void> {
       );
     }
 
-    // Write atomically via temp file + rename
     const tmpFile = historyFile + ".tmp";
     writeFileSync(tmpFile, JSON.stringify(entries, null, 2), { encoding: "utf-8", mode: 0o600 });
     renameSync(tmpFile, historyFile);
@@ -151,12 +144,32 @@ export function getLastFixId(serverIp: string): string | null {
 }
 
 /**
+ * Save a rollback history entry for a previously applied fix.
+ * Encapsulates the fix ID naming convention (appends "-rollback").
+ */
+export async function saveRollbackEntry(
+  entry: FixHistoryEntry,
+  scoreAfter: number | null,
+): Promise<void> {
+  await saveFixHistory({
+    fixId: `${entry.fixId}-rollback`,
+    serverIp: entry.serverIp,
+    serverName: entry.serverName,
+    timestamp: new Date().toISOString(),
+    checks: entry.checks,
+    scoreBefore: entry.scoreAfter ?? entry.scoreBefore,
+    scoreAfter,
+    status: "rolled-back",
+    backupPath: entry.backupPath,
+  });
+}
+
+/**
  * Extract absolute file paths from a fix command.
  * Matches /etc/..., /root/..., /var/..., /usr/..., /home/... paths.
  * Returns [] for sysctl/systemctl/useradd commands (no file paths to back up).
  */
 export function extractFilePathsFromFixCommand(cmd: string): string[] {
-  // Sysctl, systemctl, useradd don't operate on files — no paths to extract
   if (
     cmd.startsWith("sysctl ") ||
     cmd.startsWith("systemctl ") ||
@@ -172,7 +185,6 @@ export function extractFilePathsFromFixCommand(cmd: string): string[] {
   let match;
   while ((match = regex.exec(cmd)) !== null) {
     const p = match[1];
-    // Filter out paths ending with / (directories, not files)
     if (!p.endsWith("/")) {
       paths.push(p);
     }
@@ -192,27 +204,29 @@ export async function backupFilesBeforeFix(
   fixCommands: Array<{ checkId: string; fixCommand: string }>,
 ): Promise<string> {
   const backupDir = `${REMOTE_BACKUP_BASE}/${fixId}`;
-  await sshExec(ip, raw(`mkdir -p ${backupDir}`));
+
+  // Collect all file paths and sysctl params, then batch into minimal SSH calls
+  const allFilePaths: string[] = [];
+  const sysctlParams: string[] = [];
 
   for (const { fixCommand } of fixCommands) {
-    const filePaths = extractFilePathsFromFixCommand(fixCommand);
-    for (const fp of filePaths) {
-      // Mirror directory structure — create parent dir in backup
-      await sshExec(ip, raw(`mkdir -p ${backupDir}$(dirname ${fp})`));
-      // Only backup if file exists on remote (test -f guard)
-      await sshExec(ip, raw(`test -f ${fp} && cp ${fp} ${backupDir}${fp} || true`));
-    }
-
-    // For sysctl fixes: capture current value in restore script
+    allFilePaths.push(...extractFilePathsFromFixCommand(fixCommand));
     const sysctlMatch = fixCommand.match(/^sysctl\s+-w\s+(\S+)=/);
     if (sysctlMatch) {
-      const param = sysctlMatch[1];
-      await sshExec(
-        ip,
-        raw(`echo "sysctl -w ${param}=$(sysctl -n ${param})" >> ${backupDir}/restore-commands.sh`),
-      );
+      sysctlParams.push(sysctlMatch[1]);
     }
   }
+
+  // Single SSH call: create backup dir + mirror dirs + copy files
+  const cmds = [`mkdir -p ${backupDir}`];
+  for (const fp of allFilePaths) {
+    cmds.push(`mkdir -p ${backupDir}$(dirname ${fp})`);
+    cmds.push(`test -f ${fp} && cp ${fp} ${backupDir}${fp} || true`);
+  }
+  for (const param of sysctlParams) {
+    cmds.push(`echo "sysctl -w ${param}=$(sysctl -n ${param})" >> ${backupDir}/restore-commands.sh`);
+  }
+  await sshExec(ip, raw(cmds.join(" && ")));
 
   return backupDir;
 }
@@ -224,20 +238,18 @@ export async function backupFilesBeforeFix(
  */
 export async function rollbackFix(
   ip: string,
-  _fixId: string,
   backupPath: string,
 ): Promise<{ restored: string[]; errors: string[] }> {
   const restored: string[] = [];
   const errors: string[] = [];
 
-  // Check backup directory exists
   const checkDir = await sshExec(ip, raw(`test -d ${backupPath} && echo exists`));
   if (!checkDir.stdout.includes("exists")) {
     errors.push(`Backup directory not found: ${backupPath}`);
     return { restored, errors };
   }
 
-  // Run restore-commands.sh if exists (sysctl rollback)
+  // Restore sysctl values if restore script exists
   const hasScript = await sshExec(ip, raw(`test -f ${backupPath}/restore-commands.sh && echo exists`));
   if (hasScript.stdout.includes("exists")) {
     const scriptResult = await sshExec(ip, raw(`bash ${backupPath}/restore-commands.sh`));
@@ -248,21 +260,20 @@ export async function rollbackFix(
     }
   }
 
-  // Find and restore backed-up files (mirror structure)
+  // Batch-restore all backed-up files in a single SSH call
   const findResult = await sshExec(
     ip,
     raw(`find ${backupPath} -type f ! -name 'restore-commands.sh' -printf '%P\\n'`),
   );
   const files = findResult.stdout.trim().split("\n").filter(Boolean);
 
-  for (const relPath of files) {
-    const origPath = `/${relPath}`;
-    const backupFile = `${backupPath}/${relPath}`;
-    const cpResult = await sshExec(ip, raw(`cp ${backupFile} ${origPath}`));
-    if (cpResult.code === 0) {
-      restored.push(origPath);
+  if (files.length > 0) {
+    const cpCmds = files.map((relPath) => `cp ${backupPath}/${relPath} /${relPath}`).join(" && ");
+    const batchResult = await sshExec(ip, raw(cpCmds));
+    if (batchResult.code === 0) {
+      restored.push(...files.map((r) => `/${r}`));
     } else {
-      errors.push(`${origPath}: restore failed (exit ${cpResult.code})`);
+      errors.push(`batch restore failed (exit ${batchResult.code})`);
     }
   }
 

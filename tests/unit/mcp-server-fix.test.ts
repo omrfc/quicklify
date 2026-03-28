@@ -192,6 +192,7 @@ beforeEach(() => {
     "/root/.kastell/fix-backups/fix-2026-03-29-001",
   );
   mockedFixHistory.rollbackFix.mockResolvedValue({ restored: [], errors: [] });
+  mockedFixHistory.saveRollbackEntry.mockResolvedValue(undefined);
   mockedFixHistory.backupRemoteCleanup.mockResolvedValue(undefined);
   mockedFix.collectFixCommands.mockReturnValue([
     { checkId: "KERN-SYNCOOKIES", fixCommand: "sysctl -w net.ipv4.tcp_syncookies=1" },
@@ -602,20 +603,19 @@ describe("MCP server_fix tool", () => {
       expect(parsed.fixId).toBe("fix-2026-03-29-001");
       expect(mockedFixHistory.rollbackFix).toHaveBeenCalledWith(
         "1.2.3.4",
-        "fix-2026-03-29-001",
         "/root/.kastell/fix-backups/fix-2026-03-29-001",
       );
-      expect(mockedFixHistory.saveFixHistory).toHaveBeenCalledWith(
+      expect(mockedFixHistory.saveRollbackEntry).toHaveBeenCalledWith(
         expect.objectContaining({
-          fixId: "fix-2026-03-29-001-rollback",
-          status: "rolled-back",
+          fixId: "fix-2026-03-29-001",
+          status: "applied",
           serverIp: "1.2.3.4",
         }),
+        63,
       );
     });
 
     it("rollbackId=last resolves to last applied fix", async () => {
-      mockedFixHistory.getLastFixId.mockReturnValue("fix-2026-03-29-001");
       mockedFixHistory.loadFixHistory.mockReturnValue([appliedEntry]);
       mockedFixHistory.rollbackFix.mockResolvedValue({
         restored: ["/etc/sysctl.conf"],
@@ -632,7 +632,6 @@ describe("MCP server_fix tool", () => {
       });
 
       expect(result.isError).toBeUndefined();
-      expect(mockedFixHistory.getLastFixId).toHaveBeenCalledWith("1.2.3.4");
       const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
       expect(parsed.fixId).toBe("fix-2026-03-29-001");
     });

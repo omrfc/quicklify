@@ -31,6 +31,7 @@ import { logger, createSpinner } from "../../src/utils/logger.js";
 import {
   loadFixHistory,
   saveFixHistory,
+  saveRollbackEntry,
   generateFixId,
   getLastFixId,
   backupFilesBeforeFix,
@@ -55,6 +56,7 @@ const mockedGenerateFixId = generateFixId as jest.MockedFunction<typeof generate
 const mockedGetLastFixId = getLastFixId as jest.MockedFunction<typeof getLastFixId>;
 const mockedBackupFilesBeforeFix = backupFilesBeforeFix as jest.MockedFunction<typeof backupFilesBeforeFix>;
 const mockedRollbackFix = rollbackFix as jest.MockedFunction<typeof rollbackFix>;
+const mockedSaveRollbackEntry = saveRollbackEntry as jest.MockedFunction<typeof saveRollbackEntry>;
 const mockedBackupRemoteCleanup = backupRemoteCleanup as jest.MockedFunction<typeof backupRemoteCleanup>;
 const mockedCollectFixCommands = collectFixCommands as jest.MockedFunction<typeof collectFixCommands>;
 
@@ -516,21 +518,20 @@ describe("fixSafeCommand", () => {
 
       expect(mockedRollbackFix).toHaveBeenCalledWith(
         "1.2.3.4",
-        "fix-2026-03-29-001",
         "/root/.kastell/fix-backups/fix-2026-03-29-001",
       );
-      expect(mockedSaveFixHistory).toHaveBeenCalledWith(
+      expect(mockedSaveRollbackEntry).toHaveBeenCalledWith(
         expect.objectContaining({
-          fixId: "fix-2026-03-29-001-rollback",
-          status: "rolled-back",
+          fixId: "fix-2026-03-29-001",
+          status: "applied",
           serverIp: "1.2.3.4",
         }),
+        68,
       );
     });
 
     it("Test R2: --rollback last resolves to last applied fix ID", async () => {
       mockedResolveServer.mockResolvedValue(testServer);
-      mockedGetLastFixId.mockReturnValue("fix-2026-03-29-001");
       const entry = makeHistoryEntry({ fixId: "fix-2026-03-29-001", status: "applied" });
       mockedLoadFixHistory.mockReturnValue([entry]);
       mockedCheckSsh.mockReturnValue(true);
@@ -539,8 +540,6 @@ describe("fixSafeCommand", () => {
 
       await fixSafeCommand(undefined, { rollback: "last" });
 
-      expect(mockedGetLastFixId).toHaveBeenCalledWith("1.2.3.4");
-      // Should log that 'last' was resolved
       expect(mockedLogger.info).toHaveBeenCalledWith(
         expect.stringContaining("fix-2026-03-29-001"),
       );
@@ -549,7 +548,7 @@ describe("fixSafeCommand", () => {
 
     it("Test R3: --rollback last with no applied fixes shows error", async () => {
       mockedResolveServer.mockResolvedValue(testServer);
-      mockedGetLastFixId.mockReturnValue(null);
+      mockedLoadFixHistory.mockReturnValue([]);
 
       await fixSafeCommand(undefined, { rollback: "last" });
 

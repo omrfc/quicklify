@@ -131,7 +131,7 @@ describe("rollbackFix", () => {
   it("should return error when backup directory does not exist", async () => {
     mockedSshExec.mockResolvedValue(makeSshResult({ stdout: "" })); // no "exists"
 
-    const result = await rollbackFix("1.2.3.4", "fix-2026-03-29-001", "/root/.kastell/fix-backups/fix-2026-03-29-001");
+    const result = await rollbackFix("1.2.3.4", "/root/.kastell/fix-backups/fix-2026-03-29-001");
 
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("Backup directory not found");
@@ -145,7 +145,7 @@ describe("rollbackFix", () => {
       .mockResolvedValueOnce(makeSshResult({ stdout: "", code: 0 })) // bash restore-commands.sh
       .mockResolvedValueOnce(makeSshResult({ stdout: "" }));         // find files (empty)
 
-    const result = await rollbackFix("1.2.3.4", "fix-2026-03-29-001", "/root/.kastell/fix-backups/fix-2026-03-29-001");
+    const result = await rollbackFix("1.2.3.4", "/root/.kastell/fix-backups/fix-2026-03-29-001");
 
     expect(result.restored).toContain("restore-commands.sh");
     expect(result.errors).toHaveLength(0);
@@ -158,7 +158,7 @@ describe("rollbackFix", () => {
       .mockResolvedValueOnce(makeSshResult({ stdout: "", code: 1 })) // bash restore-commands.sh FAILS
       .mockResolvedValueOnce(makeSshResult({ stdout: "" }));         // find files (empty)
 
-    const result = await rollbackFix("1.2.3.4", "fix-2026-03-29-001", "/root/.kastell/fix-backups/fix-2026-03-29-001");
+    const result = await rollbackFix("1.2.3.4", "/root/.kastell/fix-backups/fix-2026-03-29-001");
 
     expect(result.errors.some(e => e.includes("restore-commands.sh failed"))).toBe(true);
     expect(result.restored).toHaveLength(0);
@@ -172,7 +172,7 @@ describe("rollbackFix", () => {
       .mockResolvedValueOnce(makeSshResult({ stdout: "", code: 0 }));       // cp sshd_config
 
     const backupPath = "/root/.kastell/fix-backups/fix-2026-03-29-001";
-    const result = await rollbackFix("1.2.3.4", "fix-2026-03-29-001", backupPath);
+    const result = await rollbackFix("1.2.3.4", backupPath);
 
     expect(result.restored).toContain("/etc/ssh/sshd_config");
     expect(result.errors).toHaveLength(0);
@@ -185,24 +185,10 @@ describe("rollbackFix", () => {
       .mockResolvedValueOnce(makeSshResult({ stdout: "etc/ssh/sshd_config\n" })) // find files
       .mockResolvedValueOnce(makeSshResult({ stdout: "", code: 1 }));       // cp FAILS
 
-    const result = await rollbackFix("1.2.3.4", "fix-2026-03-29-001", "/root/.kastell/fix-backups/fix-2026-03-29-001");
+    const result = await rollbackFix("1.2.3.4", "/root/.kastell/fix-backups/fix-2026-03-29-001");
 
     expect(result.restored).toHaveLength(0);
-    expect(result.errors.some(e => e.includes("restore failed"))).toBe(true);
-  });
-
-  it("should handle mixed success/failure in file restores", async () => {
-    mockedSshExec
-      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" }))           // test -d
-      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))                  // no restore script
-      .mockResolvedValueOnce(makeSshResult({ stdout: "etc/ssh/sshd_config\netc/sysctl.conf\n" })) // find
-      .mockResolvedValueOnce(makeSshResult({ stdout: "", code: 0 }))        // cp sshd_config OK
-      .mockResolvedValueOnce(makeSshResult({ stdout: "", code: 1 }));       // cp sysctl.conf FAILS
-
-    const result = await rollbackFix("1.2.3.4", "fix-2026-03-29-001", "/root/.kastell/fix-backups/fix-2026-03-29-001");
-
-    expect(result.restored).toContain("/etc/ssh/sshd_config");
-    expect(result.errors.some(e => e.includes("/etc/sysctl.conf"))).toBe(true);
+    expect(result.errors.some(e => e.includes("batch restore failed"))).toBe(true);
   });
 });
 

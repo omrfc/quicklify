@@ -15,6 +15,7 @@ import { raw } from "../../utils/sshCommand.js";
 import {
   loadFixHistory,
   saveFixHistory,
+  saveRollbackEntry,
   generateFixId,
   getLastFixId,
   backupFilesBeforeFix,
@@ -138,18 +139,17 @@ export async function handleServerFix(
         return mcpError("rollbackId is required for rollback action");
       }
 
-      // Resolve fix ID (D-07: 'last' shortcut)
+      const entries = loadFixHistory(server.ip);
+
       let fixId = params.rollbackId;
       if (fixId === "last") {
-        const lastId = getLastFixId(server.ip);
-        if (!lastId) {
+        const applied = entries.filter((e) => e.status === "applied");
+        if (applied.length === 0) {
           return mcpError("No applied fixes found for this server");
         }
-        fixId = lastId;
+        fixId = applied[applied.length - 1].fixId;
       }
 
-      // Find history entry
-      const entries = loadFixHistory(server.ip);
       const entry = entries.find(
         (e) => e.fixId === fixId && e.status === "applied",
       );
@@ -161,7 +161,6 @@ export async function handleServerFix(
       await mcpLog(mcpServer, `Rolling back ${fixId}...`);
       const { restored, errors: rollbackErrors } = await rollbackFix(
         server.ip,
-        fixId,
         entry.backupPath,
       );
 
@@ -175,18 +174,7 @@ export async function handleServerFix(
         }
       }
 
-      // Save rollback history entry
-      await saveFixHistory({
-        fixId: `${fixId}-rollback`,
-        serverIp: server.ip,
-        serverName: server.name,
-        timestamp: new Date().toISOString(),
-        checks: entry.checks,
-        scoreBefore: entry.scoreAfter ?? entry.scoreBefore,
-        scoreAfter,
-        status: "rolled-back",
-        backupPath: entry.backupPath,
-      });
+      await saveRollbackEntry(entry, scoreAfter);
 
       return mcpSuccess({
         action: "rollback",

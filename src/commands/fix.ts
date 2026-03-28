@@ -12,9 +12,11 @@ import {
   collectFixCommands,
 } from "../core/audit/fix.js";
 import { backupServer } from "../core/backup.js";
+import { getErrorMessage } from "../utils/errorMapper.js";
 import {
   loadFixHistory,
   saveFixHistory,
+  saveRollbackEntry,
   generateFixId,
   getLastFixId,
   backupFilesBeforeFix,
@@ -84,20 +86,19 @@ export async function fixSafeCommand(
     const { ip, name } = server;
     const platform = server.platform ?? server.mode ?? "bare";
 
-    // Resolve fix ID (per D-07: 'last' shortcut)
+    const entries = loadFixHistory(ip);
+
     let fixId = options.rollback;
     if (fixId === "last") {
-      const lastId = getLastFixId(ip);
-      if (!lastId) {
+      const applied = entries.filter((e) => e.status === "applied");
+      if (applied.length === 0) {
         logger.error("No applied fixes found for this server.");
         return;
       }
-      fixId = lastId;
+      fixId = applied[applied.length - 1].fixId;
       logger.info(`Resolving 'last' to: ${fixId}`);
     }
 
-    // Find history entry
-    const entries = loadFixHistory(ip);
     const entry = entries.find((e) => e.fixId === fixId && e.status === "applied");
     if (!entry) {
       logger.error(`Fix not found or already rolled back: ${fixId}`);
@@ -115,7 +116,6 @@ export async function fixSafeCommand(
     rollbackSpinner.start();
     const { restored, errors: rollbackErrors } = await rollbackFix(
       ip,
-      fixId,
       entry.backupPath,
     );
     rollbackSpinner.stop();
@@ -144,18 +144,7 @@ export async function fixSafeCommand(
       }
     }
 
-    // Update history entry to rolled-back
-    await saveFixHistory({
-      fixId: `${fixId}-rollback`,
-      serverIp: ip,
-      serverName: name,
-      timestamp: new Date().toISOString(),
-      checks: entry.checks,
-      scoreBefore: entry.scoreAfter ?? entry.scoreBefore,
-      scoreAfter,
-      status: "rolled-back",
-      backupPath: entry.backupPath,
-    });
+    await saveRollbackEntry(entry, scoreAfter);
 
     return;
   }
@@ -345,9 +334,7 @@ export async function fixSafeCommand(
           applied.push(check.id);
         }
       } catch (err) {
-        errors.push(
-          `${check.id}: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        errors.push(`${check.id}: ${getErrorMessage(err)}`);
       }
     }
   }
