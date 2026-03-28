@@ -179,3 +179,415 @@ describe("parseFirewallChecks", () => {
     expect(check!.passed).toBe(false);
   });
 });
+
+describe("[MUTATION-KILLER] Firewall check string assertions", () => {
+  const activeSecureOutput = [
+    "Status: active",
+    "Logging: on (low)",
+    "Default: deny (incoming), allow (outgoing), disabled (routed)",
+    "",
+    "To                         Action      From",
+    "--                         ------      ----",
+    "22/tcp                     ALLOW IN    Anywhere",
+    "80/tcp                     ALLOW IN    Anywhere",
+    "443/tcp                    ALLOW IN    Anywhere",
+    "table inet filter {",
+    "  chain input {",
+    "    type filter hook input priority 0; policy drop;",
+    "  }",
+    "}",
+    "Chain INPUT (policy DROP 0 packets, 0 bytes)",
+    "num  target     prot opt source               destination",
+    "1    ACCEPT     all  --  0.0.0.0/0            0.0.0.0/0            state RELATED,ESTABLISHED",
+    "2    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:22",
+    "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)",
+    "---IPTABLES_COUNT---",
+    "15",
+    "Status",
+    "|- Number of jail: 2",
+    "|  `- Jail list: sshd, apache",
+    "|- Number of peers: 0",
+    "ACCEPT     tcp  --  0.0.0.0/0  0.0.0.0/0  limit: avg 3/min burst 3",
+    "Chain FORWARD (policy DROP 0 packets, 0 bytes)",
+    "---IPV6_RULE_COUNT---",
+    "5",
+    "---CONNTRACK_MAX---",
+    "131072",
+    "---LOG_RULE_COUNT---",
+    "3",
+  ].join("\n");
+
+  const checks = parseFirewallChecks(activeSecureOutput, "bare");
+
+  const expectedChecks = [
+    {
+      id: "FW-UFW-ACTIVE",
+      name: "Firewall Active",
+      severity: "critical",
+      expectedValue: "active",
+      fixCommand: "ufw enable",
+      explain: "A firewall is the first line of defense against unauthorized network access.",
+    },
+    {
+      id: "FW-DEFAULT-DENY",
+      name: "Default Deny Incoming",
+      severity: "critical",
+      expectedValue: "deny (incoming)",
+      fixCommand: "ufw default deny incoming",
+      explain: "Default deny ensures only explicitly allowed traffic reaches the server.",
+    },
+    {
+      id: "FW-SSH-ALLOWED",
+      name: "SSH Port in Rules",
+      severity: "warning",
+      expectedValue: "SSH port (22) explicitly allowed",
+      fixCommand: "ufw allow 22/tcp",
+      explain: "SSH port should be explicitly allowed to prevent lockout when firewall is active.",
+    },
+    {
+      id: "FW-NO-WIDE-OPEN",
+      name: "No Wide-Open Rules",
+      severity: "warning",
+      expectedValue: "No 0.0.0.0/0 rules on non-standard ports",
+      fixCommand: "ufw status numbered && ufw delete <rule_number>",
+      explain: "Wide-open rules on database or service ports expose them to the entire internet.",
+    },
+    {
+      id: "FW-IPV6-RULES",
+      name: "IPv6 Firewall Rules",
+      severity: "info",
+      expectedValue: "IPv6 firewall rules configured",
+      fixCommand: "sed -i 's/IPV6=no/IPV6=yes/' /etc/default/ufw && ufw reload",
+      explain: "IPv6 firewall rules prevent bypassing security through IPv6 connections.",
+    },
+    {
+      id: "FW-NFTABLES-PRESENT",
+      name: "nftables Available",
+      severity: "info",
+      expectedValue: "nftables available as modern firewall",
+      fixCommand: "apt install -y nftables && systemctl enable --now nftables",
+      explain: "nftables is the modern replacement for iptables with improved performance and maintainability.",
+    },
+    {
+      id: "FW-FAIL2BAN-ACTIVE",
+      name: "Fail2ban Active",
+      severity: "warning",
+      expectedValue: "fail2ban running with at least one jail",
+      fixCommand: "apt install -y fail2ban && systemctl enable --now fail2ban",
+      explain: "fail2ban blocks brute-force attacks by banning IPs with repeated failed logins.",
+    },
+    {
+      id: "FW-IPTABLES-BASELINE",
+      name: "iptables Has Rules",
+      severity: "warning",
+      expectedValue: "More than 8 iptables lines (non-empty chains)",
+      fixCommand: "iptables -A INPUT -j DROP",
+      explain: "An iptables ruleset with only default chains (< 8 lines) provides no real protection.",
+    },
+    {
+      id: "FW-INPUT-CHAIN-DENY",
+      name: "iptables INPUT Default Deny",
+      severity: "critical",
+      expectedValue: "Chain INPUT (policy DROP) or (policy REJECT)",
+      fixCommand: "iptables -P INPUT DROP",
+      explain: "Setting iptables INPUT default policy to DROP ensures all inbound traffic is denied unless explicitly allowed.",
+    },
+    {
+      id: "FW-REJECT-NOT-DROP",
+      name: "REJECT Rules Present",
+      severity: "info",
+      expectedValue: "REJECT preferred for user-facing services",
+      fixCommand: "iptables -A INPUT -j REJECT --reject-with icmp-port-unreachable",
+      explain: "REJECT informs the client the port is closed, which is preferable for user-facing services.",
+    },
+    {
+      id: "FW-OUTBOUND-RESTRICTED",
+      name: "Outbound Traffic Restricted",
+      severity: "info",
+      expectedValue: "Consider restricting outbound traffic",
+      fixCommand: "iptables -P OUTPUT DROP && iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT",
+      explain: "Restricting outbound traffic limits damage from compromised services attempting to exfiltrate data.",
+    },
+    {
+      id: "FW-RATE-LIMIT",
+      name: "Rate Limiting Rules Present",
+      severity: "info",
+      expectedValue: "iptables rate limiting rules configured",
+      fixCommand: "iptables -A INPUT -p tcp --dport 22 -m limit --limit 3/minute --limit-burst 3 -j ACCEPT",
+      explain: "Rate limiting rules protect against brute-force and DoS attacks by throttling connection attempts.",
+    },
+    {
+      id: "FW-FORWARD-CHAIN-DENY",
+      name: "FORWARD Chain Default Deny",
+      severity: "warning",
+      expectedValue: "Chain FORWARD (policy DROP) or (policy REJECT)",
+      fixCommand: "iptables -P FORWARD DROP",
+      explain: "FORWARD chain default ACCEPT allows unintended traffic routing through the host, potentially bypassing network segmentation.",
+    },
+    {
+      id: "FW-IPV6-DISABLED-OR-FILTERED",
+      name: "IPv6 Disabled or Filtered",
+      severity: "info",
+      expectedValue: "IPv6 disabled or ip6tables has rules (> 3 lines)",
+      fixCommand: "ip6tables -P INPUT DROP && ip6tables -P FORWARD DROP && ip6tables -P OUTPUT ACCEPT",
+      explain: "Unfiltered IPv6 traffic can bypass IPv4 firewall rules on dual-stack systems.",
+    },
+    {
+      id: "FW-NO-WILDCARD-ACCEPT",
+      name: "No Unrestricted ACCEPT All Rule",
+      severity: "warning",
+      expectedValue: "No 'ACCEPT all -- 0.0.0.0/0 0.0.0.0/0' rule without restrictions",
+      fixCommand: "iptables -D INPUT -j ACCEPT  # Remove and replace with specific allow rules",
+      explain: "A wildcard ACCEPT rule in the INPUT chain bypasses all other security rules, effectively disabling the firewall.",
+    },
+    {
+      id: "FW-CONNTRACK-MAX",
+      name: "Connection Tracking Limit Adequate",
+      severity: "info",
+      expectedValue: "nf_conntrack_max >= 65536",
+      fixCommand: "echo 262144 > /proc/sys/net/netfilter/nf_conntrack_max && echo 'net.netfilter.nf_conntrack_max = 262144' >> /etc/sysctl.d/99-kastell.conf",
+      explain: "Low connection tracking limits cause packet drops under load, which can be exploited for denial-of-service.",
+    },
+    {
+      id: "FW-LOG-DROPPED",
+      name: "Dropped Packets Logged",
+      severity: "info",
+      expectedValue: "At least 1 LOG rule in iptables for forensic evidence",
+      fixCommand: "iptables -A INPUT -j LOG --log-prefix \"iptables-dropped: \" --log-level 4",
+      explain: "Logging dropped firewall packets provides forensic evidence of attack attempts and helps identify malicious traffic patterns.",
+    },
+  ];
+
+  it("[MUTATION-KILLER] returns exactly 17 checks", () => {
+    expect(checks).toHaveLength(17);
+    expect(expectedChecks).toHaveLength(17);
+  });
+
+  expectedChecks.forEach((expected) => {
+    describe(`${expected.id}`, () => {
+      it("[MUTATION-KILLER] has correct id", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check).toBeDefined();
+        expect(check!.id).toBe(expected.id);
+      });
+
+      it("[MUTATION-KILLER] has correct name", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check!.name).toBe(expected.name);
+      });
+
+      it("[MUTATION-KILLER] has correct severity", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check!.severity).toBe(expected.severity);
+      });
+
+      it("[MUTATION-KILLER] has correct category", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check!.category).toBe("Firewall");
+      });
+
+      it("[MUTATION-KILLER] has correct expectedValue", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check!.expectedValue).toBe(expected.expectedValue);
+      });
+
+      it("[MUTATION-KILLER] has correct fixCommand", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check!.fixCommand).toBe(expected.fixCommand);
+      });
+
+      it("[MUTATION-KILLER] has correct explain", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check!.explain).toBe(expected.explain);
+      });
+
+      it("[MUTATION-KILLER] has safeToAutoFix set to FORBIDDEN", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check!.safeToAutoFix).toBe("FORBIDDEN");
+      });
+    });
+  });
+
+  it("[MUTATION-KILLER] every check has non-empty fixCommand", () => {
+    checks.forEach((c) => {
+      expect(c.fixCommand).toBeDefined();
+      expect(c.fixCommand!.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("[MUTATION-KILLER] every check has non-empty explain (> 10 chars)", () => {
+    checks.forEach((c) => {
+      expect(c.explain).toBeDefined();
+      expect(c.explain!.length).toBeGreaterThan(10);
+    });
+  });
+
+  it("[MUTATION-KILLER] every check has non-empty name", () => {
+    checks.forEach((c) => {
+      expect(c.name.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("[MUTATION-KILLER] every check has non-empty id", () => {
+    checks.forEach((c) => {
+      expect(c.id.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("[MUTATION-KILLER] every check has non-empty expectedValue", () => {
+    checks.forEach((c) => {
+      expect(c.expectedValue.length).toBeGreaterThan(0);
+    });
+  });
+});
+
+describe("[MUTATION-KILLER] Firewall N/A output string assertions", () => {
+  const naChecks = parseFirewallChecks("N/A", "bare");
+
+  it("[MUTATION-KILLER] every N/A check has category Firewall", () => {
+    naChecks.forEach((c) => {
+      expect(c.category).toBe("Firewall");
+    });
+  });
+
+  it("[MUTATION-KILLER] every N/A check has safeToAutoFix FORBIDDEN", () => {
+    naChecks.forEach((c) => {
+      expect(c.safeToAutoFix).toBe("FORBIDDEN");
+    });
+  });
+
+  it("[MUTATION-KILLER] FW-UFW-ACTIVE N/A currentValue is 'Unable to determine'", () => {
+    const check = naChecks.find((c) => c.id === "FW-UFW-ACTIVE");
+    expect(check!.currentValue).toBe("Unable to determine");
+  });
+
+  it("[MUTATION-KILLER] FW-DEFAULT-DENY N/A currentValue is 'Unable to determine'", () => {
+    const check = naChecks.find((c) => c.id === "FW-DEFAULT-DENY");
+    expect(check!.currentValue).toBe("Unable to determine");
+  });
+
+  it("[MUTATION-KILLER] FW-SSH-ALLOWED N/A currentValue is 'Unable to determine'", () => {
+    const check = naChecks.find((c) => c.id === "FW-SSH-ALLOWED");
+    expect(check!.currentValue).toBe("Unable to determine");
+  });
+
+  it("[MUTATION-KILLER] FW-NO-WIDE-OPEN N/A currentValue is 'Unable to determine'", () => {
+    const check = naChecks.find((c) => c.id === "FW-NO-WIDE-OPEN");
+    expect(check!.currentValue).toBe("Unable to determine");
+  });
+
+  it("[MUTATION-KILLER] FW-IPTABLES-BASELINE N/A currentValue is 'Unable to determine'", () => {
+    const check = naChecks.find((c) => c.id === "FW-IPTABLES-BASELINE");
+    expect(check!.currentValue).toBe("Unable to determine");
+  });
+
+  it("[MUTATION-KILLER] FW-INPUT-CHAIN-DENY N/A currentValue is 'Unable to determine'", () => {
+    const check = naChecks.find((c) => c.id === "FW-INPUT-CHAIN-DENY");
+    expect(check!.currentValue).toBe("Unable to determine");
+  });
+
+  it("[MUTATION-KILLER] FW-OUTBOUND-RESTRICTED N/A currentValue is 'Unable to determine'", () => {
+    const check = naChecks.find((c) => c.id === "FW-OUTBOUND-RESTRICTED");
+    expect(check!.currentValue).toBe("Unable to determine");
+  });
+
+  it("[MUTATION-KILLER] FW-IPV6-DISABLED-OR-FILTERED N/A currentValue is 'Unable to determine'", () => {
+    const check = naChecks.find((c) => c.id === "FW-IPV6-DISABLED-OR-FILTERED");
+    expect(check!.currentValue).toBe("Unable to determine");
+  });
+
+  it("[MUTATION-KILLER] FW-NO-WILDCARD-ACCEPT N/A currentValue is 'Unable to determine'", () => {
+    const check = naChecks.find((c) => c.id === "FW-NO-WILDCARD-ACCEPT");
+    expect(check!.currentValue).toBe("Unable to determine");
+  });
+
+  it("[MUTATION-KILLER] FW-CONNTRACK-MAX N/A currentValue is 'Unable to determine'", () => {
+    const check = naChecks.find((c) => c.id === "FW-CONNTRACK-MAX");
+    expect(check!.currentValue).toBe("Unable to determine");
+  });
+
+  it("[MUTATION-KILLER] FW-LOG-DROPPED N/A currentValue is 'Unable to determine'", () => {
+    const check = naChecks.find((c) => c.id === "FW-LOG-DROPPED");
+    expect(check!.currentValue).toBe("Unable to determine");
+  });
+});
+
+describe("[MUTATION-KILLER] Firewall currentValue strings for active output", () => {
+  const activeSecureOutput = [
+    "Status: active",
+    "Logging: on (low)",
+    "Default: deny (incoming), allow (outgoing), disabled (routed)",
+    "",
+    "To                         Action      From",
+    "--                         ------      ----",
+    "22/tcp                     ALLOW IN    Anywhere",
+    "80/tcp                     ALLOW IN    Anywhere",
+    "443/tcp                    ALLOW IN    Anywhere",
+    "table inet filter {",
+    "  chain input {",
+    "    type filter hook input priority 0; policy drop;",
+    "  }",
+    "}",
+    "Chain INPUT (policy DROP 0 packets, 0 bytes)",
+    "num  target     prot opt source               destination",
+    "1    ACCEPT     all  --  0.0.0.0/0            0.0.0.0/0            state RELATED,ESTABLISHED",
+    "2    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:22",
+    "Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)",
+    "---IPTABLES_COUNT---",
+    "15",
+    "Status",
+    "|- Number of jail: 2",
+    "|  `- Jail list: sshd, apache",
+    "|- Number of peers: 0",
+    "ACCEPT     tcp  --  0.0.0.0/0  0.0.0.0/0  limit: avg 3/min burst 3",
+    "Chain FORWARD (policy DROP 0 packets, 0 bytes)",
+    "---IPV6_RULE_COUNT---",
+    "5",
+    "---CONNTRACK_MAX---",
+    "131072",
+    "---LOG_RULE_COUNT---",
+    "3",
+  ].join("\n");
+
+  const checks = parseFirewallChecks(activeSecureOutput, "bare");
+
+  it("[MUTATION-KILLER] FW-UFW-ACTIVE currentValue is 'active'", () => {
+    const check = checks.find((c) => c.id === "FW-UFW-ACTIVE");
+    expect(check!.currentValue).toBe("active");
+  });
+
+  it("[MUTATION-KILLER] FW-DEFAULT-DENY currentValue is 'deny (incoming)'", () => {
+    const check = checks.find((c) => c.id === "FW-DEFAULT-DENY");
+    expect(check!.currentValue).toBe("deny (incoming)");
+  });
+
+  it("[MUTATION-KILLER] FW-SSH-ALLOWED currentValue is 'SSH port allowed'", () => {
+    const check = checks.find((c) => c.id === "FW-SSH-ALLOWED");
+    expect(check!.currentValue).toBe("SSH port allowed");
+  });
+
+  it("[MUTATION-KILLER] FW-NO-WIDE-OPEN currentValue is 'No wide-open rules'", () => {
+    const check = checks.find((c) => c.id === "FW-NO-WIDE-OPEN");
+    expect(check!.currentValue).toBe("No wide-open rules");
+  });
+
+  it("[MUTATION-KILLER] FW-NFTABLES-PRESENT currentValue is 'nftables ruleset present'", () => {
+    const check = checks.find((c) => c.id === "FW-NFTABLES-PRESENT");
+    expect(check!.currentValue).toBe("nftables ruleset present");
+  });
+
+  it("[MUTATION-KILLER] FW-FAIL2BAN-ACTIVE currentValue is 'fail2ban running with jails'", () => {
+    const check = checks.find((c) => c.id === "FW-FAIL2BAN-ACTIVE");
+    expect(check!.currentValue).toBe("fail2ban running with jails");
+  });
+
+  it("[MUTATION-KILLER] FW-RATE-LIMIT currentValue is 'Rate limiting rules found'", () => {
+    const check = checks.find((c) => c.id === "FW-RATE-LIMIT");
+    expect(check!.currentValue).toBe("Rate limiting rules found");
+  });
+
+  it("[MUTATION-KILLER] FW-NO-WILDCARD-ACCEPT currentValue is 'No unrestricted ACCEPT all rule found'", () => {
+    const check = checks.find((c) => c.id === "FW-NO-WILDCARD-ACCEPT");
+    expect(check!.currentValue).toBe("No unrestricted ACCEPT all rule found");
+  });
+});

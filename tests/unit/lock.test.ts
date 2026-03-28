@@ -1792,3 +1792,1027 @@ describe("buildFaillockCommand mutation-killer", () => {
     }
   });
 });
+
+// ─── [MUTATION-KILLER] lock command string assertions ─────────────────────────
+// Each assertion pins a specific string literal. Stryker replaces strings with ""
+// which causes these toContain checks to fail, killing the mutation.
+
+describe("[MUTATION-KILLER] buildSysctlHardeningCommand exact key=value pairs", () => {
+  const cmd = buildSysctlHardeningCommand();
+
+  it("net.ipv4.conf.all.accept_redirects=0", () => {
+    expect(cmd).toContain("net.ipv4.conf.all.accept_redirects=0");
+  });
+
+  it("net.ipv4.conf.default.accept_redirects=0", () => {
+    expect(cmd).toContain("net.ipv4.conf.default.accept_redirects=0");
+  });
+
+  it("net.ipv4.conf.all.accept_source_route=0", () => {
+    expect(cmd).toContain("net.ipv4.conf.all.accept_source_route=0");
+  });
+
+  it("net.ipv4.conf.default.accept_source_route=0", () => {
+    expect(cmd).toContain("net.ipv4.conf.default.accept_source_route=0");
+  });
+
+  it("net.ipv4.conf.all.log_martians=1", () => {
+    expect(cmd).toContain("net.ipv4.conf.all.log_martians=1");
+  });
+
+  it("net.ipv4.tcp_syncookies=1", () => {
+    expect(cmd).toContain("net.ipv4.tcp_syncookies=1");
+  });
+
+  it("kernel.randomize_va_space=2", () => {
+    expect(cmd).toContain("kernel.randomize_va_space=2");
+  });
+
+  it("net.ipv4.icmp_echo_ignore_broadcasts=1", () => {
+    expect(cmd).toContain("net.ipv4.icmp_echo_ignore_broadcasts=1");
+  });
+
+  it("kernel.dmesg_restrict=1", () => {
+    expect(cmd).toContain("kernel.dmesg_restrict=1");
+  });
+
+  it("kernel.kptr_restrict=1", () => {
+    expect(cmd).toContain("kernel.kptr_restrict=1");
+  });
+
+  it("fs.suid_dumpable=0", () => {
+    expect(cmd).toContain("fs.suid_dumpable=0");
+  });
+
+  it("net.core.bpf_jit_harden=1", () => {
+    expect(cmd).toContain("net.core.bpf_jit_harden=1");
+  });
+
+  it("kernel.unprivileged_bpf_disabled=1", () => {
+    expect(cmd).toContain("kernel.unprivileged_bpf_disabled=1");
+  });
+
+  it("net.ipv4.conf.all.rp_filter=2", () => {
+    expect(cmd).toContain("net.ipv4.conf.all.rp_filter=2");
+  });
+
+  it("net.ipv4.conf.default.rp_filter=2", () => {
+    expect(cmd).toContain("net.ipv4.conf.default.rp_filter=2");
+  });
+
+  it("net.ipv4.conf.all.send_redirects=0", () => {
+    expect(cmd).toContain("net.ipv4.conf.all.send_redirects=0");
+  });
+
+  it("net.ipv4.conf.default.send_redirects=0", () => {
+    expect(cmd).toContain("net.ipv4.conf.default.send_redirects=0");
+  });
+
+  it("net.ipv4.conf.all.secure_redirects=0", () => {
+    expect(cmd).toContain("net.ipv4.conf.all.secure_redirects=0");
+  });
+
+  it("net.ipv4.conf.default.secure_redirects=0", () => {
+    expect(cmd).toContain("net.ipv4.conf.default.secure_redirects=0");
+  });
+
+  it("net.ipv6.conf.all.accept_redirects=0", () => {
+    expect(cmd).toContain("net.ipv6.conf.all.accept_redirects=0");
+  });
+
+  it("net.ipv6.conf.default.accept_redirects=0", () => {
+    expect(cmd).toContain("net.ipv6.conf.default.accept_redirects=0");
+  });
+
+  it("writes to /etc/sysctl.d/99-kastell.conf", () => {
+    expect(cmd).toContain("/etc/sysctl.d/99-kastell.conf");
+  });
+
+  it("applies with sysctl -p /etc/sysctl.d/99-kastell.conf", () => {
+    expect(cmd).toContain("sysctl -p /etc/sysctl.d/99-kastell.conf");
+  });
+});
+
+describe("[MUTATION-KILLER] buildUnattendedUpgradesCommand exact strings", () => {
+  const cmd = buildUnattendedUpgradesCommand();
+
+  it("DEBIAN_FRONTEND=noninteractive", () => {
+    expect(cmd).toContain("DEBIAN_FRONTEND=noninteractive");
+  });
+
+  it("apt-get install -y unattended-upgrades", () => {
+    expect(cmd).toContain("apt-get install -y unattended-upgrades");
+  });
+
+  it("APT::Periodic::Update-Package-Lists \"1\"", () => {
+    expect(cmd).toContain('APT::Periodic::Update-Package-Lists "1"');
+  });
+
+  it("APT::Periodic::Unattended-Upgrade \"1\"", () => {
+    expect(cmd).toContain('APT::Periodic::Unattended-Upgrade "1"');
+  });
+
+  it("APT::Periodic::AutocleanInterval \"7\"", () => {
+    expect(cmd).toContain('APT::Periodic::AutocleanInterval "7"');
+  });
+
+  it("/etc/apt/apt.conf.d/20auto-upgrades", () => {
+    expect(cmd).toContain("/etc/apt/apt.conf.d/20auto-upgrades");
+  });
+});
+
+describe("[MUTATION-KILLER] buildLoginBannersCommand exact strings", () => {
+  const cmd = buildLoginBannersCommand();
+
+  it("exact banner text", () => {
+    expect(cmd).toContain("Authorized access only. All activity is monitored and logged.");
+  });
+
+  it("/etc/issue path", () => {
+    expect(cmd).toContain("/etc/issue");
+  });
+
+  it("/etc/issue.net path", () => {
+    expect(cmd).toContain("/etc/issue.net");
+  });
+
+  it("/etc/motd path", () => {
+    expect(cmd).toContain("/etc/motd");
+  });
+
+  it("Banner /etc/issue.net in sshd_config", () => {
+    expect(cmd).toContain("Banner /etc/issue.net");
+  });
+
+  it("/etc/ssh/sshd_config path", () => {
+    expect(cmd).toContain("/etc/ssh/sshd_config");
+  });
+
+  it("systemctl restart ssh", () => {
+    expect(cmd).toContain("systemctl restart ssh");
+  });
+
+  it("systemctl restart sshd", () => {
+    expect(cmd).toContain("systemctl restart sshd");
+  });
+});
+
+describe("[MUTATION-KILLER] buildAuditdCommand exact rules and paths", () => {
+  const cmd = buildAuditdCommand();
+
+  it("installs auditd and audispd-plugins", () => {
+    expect(cmd).toContain("apt-get install -y auditd audispd-plugins");
+  });
+
+  it("systemctl enable auditd", () => {
+    expect(cmd).toContain("systemctl enable auditd");
+  });
+
+  it("systemctl start auditd", () => {
+    expect(cmd).toContain("systemctl start auditd");
+  });
+
+  it("/etc/audit/rules.d/50-kastell-deep.rules path", () => {
+    expect(cmd).toContain("/etc/audit/rules.d/50-kastell-deep.rules");
+  });
+
+  it("/etc/audit/rules.d/99-kastell.rules path", () => {
+    expect(cmd).toContain("/etc/audit/rules.d/99-kastell.rules");
+  });
+
+  it("-w /etc/passwd -p wa -k identity", () => {
+    expect(cmd).toContain("-w /etc/passwd -p wa -k identity");
+  });
+
+  it("-w /etc/shadow -p wa -k identity", () => {
+    expect(cmd).toContain("-w /etc/shadow -p wa -k identity");
+  });
+
+  it("-w /etc/group -p wa -k identity", () => {
+    expect(cmd).toContain("-w /etc/group -p wa -k identity");
+  });
+
+  it("-w /etc/gshadow -p wa -k identity", () => {
+    expect(cmd).toContain("-w /etc/gshadow -p wa -k identity");
+  });
+
+  it("-w /etc/sudoers -p wa -k privilege", () => {
+    expect(cmd).toContain("-w /etc/sudoers -p wa -k privilege");
+  });
+
+  it("-w /etc/sudoers.d/ -p wa -k privilege", () => {
+    expect(cmd).toContain("-w /etc/sudoers.d/ -p wa -k privilege");
+  });
+
+  it("setreuid syscall monitoring", () => {
+    expect(cmd).toContain("-S setreuid");
+  });
+
+  it("setregid syscall monitoring", () => {
+    expect(cmd).toContain("-S setregid");
+  });
+
+  it("-w /etc/localtime -p wa -k time-change", () => {
+    expect(cmd).toContain("-w /etc/localtime -p wa -k time-change");
+  });
+
+  it("-S adjtimex -S settimeofday -S clock_settime", () => {
+    expect(cmd).toContain("-S adjtimex");
+    expect(cmd).toContain("-S settimeofday");
+    expect(cmd).toContain("-S clock_settime");
+  });
+
+  it("-w /var/log/lastlog -p wa -k logins", () => {
+    expect(cmd).toContain("-w /var/log/lastlog -p wa -k logins");
+  });
+
+  it("-w /var/run/faillock/ -p wa -k logins", () => {
+    expect(cmd).toContain("-w /var/run/faillock/ -p wa -k logins");
+  });
+
+  it("-w /var/run/utmp -p wa -k session", () => {
+    expect(cmd).toContain("-w /var/run/utmp -p wa -k session");
+  });
+
+  it("-w /var/log/wtmp -p wa -k session", () => {
+    expect(cmd).toContain("-w /var/log/wtmp -p wa -k session");
+  });
+
+  it("-w /var/log/btmp -p wa -k session", () => {
+    expect(cmd).toContain("-w /var/log/btmp -p wa -k session");
+  });
+
+  it("-S sethostname -S setdomainname -k network-change", () => {
+    expect(cmd).toContain("-S sethostname");
+    expect(cmd).toContain("-S setdomainname");
+  });
+
+  it("-w /etc/hostname -p wa -k network-change", () => {
+    expect(cmd).toContain("-w /etc/hostname -p wa -k network-change");
+  });
+
+  it("-w /etc/hosts -p wa -k network-change", () => {
+    expect(cmd).toContain("-w /etc/hosts -p wa -k network-change");
+  });
+
+  it("-w /etc/sysconfig/network -p wa -k network-change", () => {
+    expect(cmd).toContain("-w /etc/sysconfig/network -p wa -k network-change");
+  });
+
+  it("-S init_module -S delete_module -S finit_module -k kernel-module", () => {
+    expect(cmd).toContain("-S init_module");
+    expect(cmd).toContain("-S delete_module");
+    expect(cmd).toContain("-S finit_module");
+  });
+
+  it("-w /sbin/insmod -p x -k kernel-module", () => {
+    expect(cmd).toContain("-w /sbin/insmod -p x -k kernel-module");
+  });
+
+  it("-w /sbin/modprobe -p x -k kernel-module", () => {
+    expect(cmd).toContain("-w /sbin/modprobe -p x -k kernel-module");
+  });
+
+  it("-w /sbin/rmmod -p x -k kernel-module", () => {
+    expect(cmd).toContain("-w /sbin/rmmod -p x -k kernel-module");
+  });
+
+  it("immutability directive -e 2", () => {
+    expect(cmd).toContain("-e 2");
+  });
+
+  it("augenrules --load", () => {
+    expect(cmd).toContain("augenrules --load");
+  });
+});
+
+describe("[MUTATION-KILLER] buildResourceLimitsCommand exact strings", () => {
+  const cmd = buildResourceLimitsCommand();
+
+  it("* soft nproc 1024", () => {
+    expect(cmd).toContain("* soft nproc 1024");
+  });
+
+  it("* hard nproc 2048", () => {
+    expect(cmd).toContain("* hard nproc 2048");
+  });
+
+  it("* soft nofile 65536", () => {
+    expect(cmd).toContain("* soft nofile 65536");
+  });
+
+  it("* hard nofile 65536", () => {
+    expect(cmd).toContain("* hard nofile 65536");
+  });
+
+  it("root soft nproc unlimited", () => {
+    expect(cmd).toContain("root soft nproc unlimited");
+  });
+
+  it("root hard nproc unlimited", () => {
+    expect(cmd).toContain("root hard nproc unlimited");
+  });
+
+  it("/etc/security/limits.d/99-kastell.conf", () => {
+    expect(cmd).toContain("/etc/security/limits.d/99-kastell.conf");
+  });
+});
+
+describe("[MUTATION-KILLER] buildServiceDisableCommand exact service names", () => {
+  const cmd = buildServiceDisableCommand();
+
+  it("bluetooth.service", () => {
+    expect(cmd).toContain("bluetooth.service");
+  });
+
+  it("avahi-daemon.service", () => {
+    expect(cmd).toContain("avahi-daemon.service");
+  });
+
+  it("cups.service", () => {
+    expect(cmd).toContain("cups.service");
+  });
+
+  it("rpcbind.service", () => {
+    expect(cmd).toContain("rpcbind.service");
+  });
+
+  it("systemctl stop for each service", () => {
+    expect(cmd).toContain("systemctl stop bluetooth");
+    expect(cmd).toContain("systemctl stop avahi-daemon");
+    expect(cmd).toContain("systemctl stop cups");
+    expect(cmd).toContain("systemctl stop rpcbind");
+  });
+
+  it("systemctl disable for each service", () => {
+    expect(cmd).toContain("systemctl disable bluetooth");
+    expect(cmd).toContain("systemctl disable avahi-daemon");
+    expect(cmd).toContain("systemctl disable cups");
+    expect(cmd).toContain("systemctl disable rpcbind");
+  });
+});
+
+describe("[MUTATION-KILLER] buildAptValidationCommand exact strings", () => {
+  const cmd = buildAptValidationCommand();
+
+  it('APT::Get::AllowUnauthenticated "false"', () => {
+    expect(cmd).toContain('APT::Get::AllowUnauthenticated "false"');
+  });
+
+  it('Acquire::AllowInsecureRepositories "false"', () => {
+    expect(cmd).toContain('Acquire::AllowInsecureRepositories "false"');
+  });
+
+  it('Acquire::AllowDowngradeToInsecureRepositories "false"', () => {
+    expect(cmd).toContain('Acquire::AllowDowngradeToInsecureRepositories "false"');
+  });
+
+  it("/etc/apt/apt.conf.d/99-kastell-apt.conf", () => {
+    expect(cmd).toContain("/etc/apt/apt.conf.d/99-kastell-apt.conf");
+  });
+});
+
+describe("[MUTATION-KILLER] buildLogRetentionCommand exact strings", () => {
+  const cmd = buildLogRetentionCommand();
+
+  it("apt-get install -y logrotate", () => {
+    expect(cmd).toContain("apt-get install -y logrotate");
+  });
+
+  it("systemctl enable rsyslog", () => {
+    expect(cmd).toContain("systemctl enable rsyslog");
+  });
+
+  it("systemctl start rsyslog", () => {
+    expect(cmd).toContain("systemctl start rsyslog");
+  });
+
+  it("/var/log/syslog as target path", () => {
+    expect(cmd).toContain("/var/log/syslog");
+  });
+
+  it("daily rotation", () => {
+    expect(cmd).toContain("daily");
+  });
+
+  it("missingok directive", () => {
+    expect(cmd).toContain("missingok");
+  });
+
+  it("rotate 90 (retention days)", () => {
+    expect(cmd).toContain("rotate 90");
+  });
+
+  it("compress directive", () => {
+    expect(cmd).toContain("compress");
+  });
+
+  it("delaycompress directive", () => {
+    expect(cmd).toContain("delaycompress");
+  });
+
+  it("notifempty directive", () => {
+    expect(cmd).toContain("notifempty");
+  });
+
+  it("/usr/lib/rsyslog/rsyslog-rotate postrotate script", () => {
+    expect(cmd).toContain("/usr/lib/rsyslog/rsyslog-rotate");
+  });
+
+  it("/etc/logrotate.d/99-kastell-syslog config path", () => {
+    expect(cmd).toContain("/etc/logrotate.d/99-kastell-syslog");
+  });
+
+  it("systemctl enable logrotate.timer", () => {
+    expect(cmd).toContain("systemctl enable logrotate.timer");
+  });
+});
+
+describe("[MUTATION-KILLER] buildCloudMetaBlockCommand exact strings", () => {
+  const cmd = buildCloudMetaBlockCommand();
+
+  it("ufw deny out to 169.254.169.254", () => {
+    expect(cmd).toContain("ufw deny out to 169.254.169.254");
+  });
+
+  it("ufw deny in from 169.254.169.254", () => {
+    expect(cmd).toContain("ufw deny in from 169.254.169.254");
+  });
+});
+
+describe("[MUTATION-KILLER] buildAccountLockCommand exact strings", () => {
+  const cmd = buildAccountLockCommand();
+
+  it("reads /etc/passwd with awk", () => {
+    expect(cmd).toContain("/etc/passwd");
+  });
+
+  it("filters UID >= 1000 and < 65534", () => {
+    expect(cmd).toContain("$3 >= 1000");
+    expect(cmd).toContain("$3 < 65534");
+  });
+
+  it("checks /bin/bash shell", () => {
+    expect(cmd).toContain("/bin/bash");
+  });
+
+  it("checks /bin/sh shell", () => {
+    expect(cmd).toContain("/bin/sh");
+  });
+
+  it("uses who command to check active sessions", () => {
+    expect(cmd).toContain("who");
+  });
+
+  it("locks with passwd -l", () => {
+    expect(cmd).toContain("passwd -l");
+  });
+});
+
+describe("[MUTATION-KILLER] buildAideInitCommand exact strings", () => {
+  const cmd = buildAideInitCommand();
+
+  it("DEBIAN_FRONTEND=noninteractive apt-get install -y aide", () => {
+    expect(cmd).toContain("DEBIAN_FRONTEND=noninteractive apt-get install -y aide");
+  });
+
+  it("rm -f /etc/cron.d/kastell-aide", () => {
+    expect(cmd).toContain("rm -f /etc/cron.d/kastell-aide");
+  });
+
+  it("/etc/cron.daily/aide-check script path", () => {
+    expect(cmd).toContain("/etc/cron.daily/aide-check");
+  });
+
+  it("chmod 755 /etc/cron.daily/aide-check", () => {
+    expect(cmd).toContain("chmod 755 /etc/cron.daily/aide-check");
+  });
+
+  it("#!/bin/bash shebang in cron script", () => {
+    expect(cmd).toContain("#!/bin/bash");
+  });
+
+  it("/usr/sbin/aide --check in cron script", () => {
+    expect(cmd).toContain("/usr/sbin/aide --check");
+  });
+
+  it("nohup aide --init background init", () => {
+    expect(cmd).toContain("nohup aide --init");
+  });
+
+  it("/var/log/aide-init.log output path", () => {
+    expect(cmd).toContain("/var/log/aide-init.log");
+  });
+});
+
+describe("[MUTATION-KILLER] buildCronAccessCommand exact strings", () => {
+  const cmd = buildCronAccessCommand();
+
+  it("echo root > /etc/cron.allow", () => {
+    expect(cmd).toContain("echo root > /etc/cron.allow");
+  });
+
+  it("chmod 600 /etc/cron.allow", () => {
+    expect(cmd).toContain("chmod 600 /etc/cron.allow");
+  });
+
+  it("echo root > /etc/at.allow", () => {
+    expect(cmd).toContain("echo root > /etc/at.allow");
+  });
+
+  it("chmod 600 /etc/at.allow", () => {
+    expect(cmd).toContain("chmod 600 /etc/at.allow");
+  });
+
+  it("touch /etc/at.deny", () => {
+    expect(cmd).toContain("touch /etc/at.deny");
+  });
+
+  it("chmod 600 /etc/at.deny", () => {
+    expect(cmd).toContain("chmod 600 /etc/at.deny");
+  });
+});
+
+describe("[MUTATION-KILLER] buildBackupPermissionsCommand exact strings", () => {
+  const cmd = buildBackupPermissionsCommand();
+
+  it("DEBIAN_FRONTEND=noninteractive apt-get install -y rsync", () => {
+    expect(cmd).toContain("DEBIAN_FRONTEND=noninteractive apt-get install -y rsync");
+  });
+
+  it("mkdir -p /var/backups", () => {
+    expect(cmd).toContain("mkdir -p /var/backups");
+  });
+
+  it("chmod 700 /var/backups", () => {
+    expect(cmd).toContain("chmod 700 /var/backups");
+  });
+
+  it("chown root:root /var/backups", () => {
+    expect(cmd).toContain("chown root:root /var/backups");
+  });
+});
+
+describe("[MUTATION-KILLER] buildDnsSecurityCommand exact strings", () => {
+  const cmd = buildDnsSecurityCommand();
+
+  it("cp /etc/systemd/resolved.conf backup", () => {
+    expect(cmd).toContain("cp /etc/systemd/resolved.conf /etc/systemd/resolved.conf.kastell.bak");
+  });
+
+  it("mkdir -p /etc/systemd/resolved.conf.d", () => {
+    expect(cmd).toContain("mkdir -p /etc/systemd/resolved.conf.d");
+  });
+
+  it("[Resolve] section header", () => {
+    expect(cmd).toContain("[Resolve]");
+  });
+
+  it("DNSSEC=yes", () => {
+    expect(cmd).toContain("DNSSEC=yes");
+  });
+
+  it("DNSOverTLS=opportunistic", () => {
+    expect(cmd).toContain("DNSOverTLS=opportunistic");
+  });
+
+  it("/etc/systemd/resolved.conf.d/99-kastell-dns.conf path", () => {
+    expect(cmd).toContain("/etc/systemd/resolved.conf.d/99-kastell-dns.conf");
+  });
+
+  it("systemctl restart systemd-resolved", () => {
+    expect(cmd).toContain("systemctl restart systemd-resolved");
+  });
+
+  it("dig google.com verification", () => {
+    expect(cmd).toContain("dig google.com");
+  });
+
+  it("@127.0.0.53 DNS resolver target", () => {
+    expect(cmd).toContain("@127.0.0.53");
+  });
+});
+
+describe("[MUTATION-KILLER] buildDnsRollbackCommand exact strings", () => {
+  const cmd = buildDnsRollbackCommand();
+
+  it("rm -f /etc/systemd/resolved.conf.d/99-kastell-dns.conf", () => {
+    expect(cmd).toContain("rm -f /etc/systemd/resolved.conf.d/99-kastell-dns.conf");
+  });
+
+  it("systemctl restart systemd-resolved", () => {
+    expect(cmd).toContain("systemctl restart systemd-resolved");
+  });
+});
+
+describe("[MUTATION-KILLER] buildPwqualityCommand exact strings", () => {
+  const cmd = buildPwqualityCommand();
+
+  it("apt-cache show libpam-pwquality", () => {
+    expect(cmd).toContain("apt-cache show libpam-pwquality");
+  });
+
+  it("DEBIAN_FRONTEND=noninteractive apt-get install -y libpam-pwquality", () => {
+    expect(cmd).toContain("DEBIAN_FRONTEND=noninteractive apt-get install -y libpam-pwquality");
+  });
+
+  it("minlen = 14", () => {
+    expect(cmd).toContain("minlen = 14");
+  });
+
+  it("dcredit = -1", () => {
+    expect(cmd).toContain("dcredit = -1");
+  });
+
+  it("ucredit = -1", () => {
+    expect(cmd).toContain("ucredit = -1");
+  });
+
+  it("lcredit = -1", () => {
+    expect(cmd).toContain("lcredit = -1");
+  });
+
+  it("ocredit = -1", () => {
+    expect(cmd).toContain("ocredit = -1");
+  });
+
+  it("maxrepeat = 3", () => {
+    expect(cmd).toContain("maxrepeat = 3");
+  });
+
+  it("/etc/security/pwquality.conf path", () => {
+    expect(cmd).toContain("/etc/security/pwquality.conf");
+  });
+});
+
+describe("[MUTATION-KILLER] buildSshCipherCommand exact cipher/mac/kex values", () => {
+  const cmd = buildSshCipherCommand();
+
+  it("blacklists arcfour cipher", () => {
+    expect(cmd).toContain("-arcfour");
+  });
+
+  it("blacklists arcfour128 cipher", () => {
+    expect(cmd).toContain("-arcfour128");
+  });
+
+  it("blacklists arcfour256 cipher", () => {
+    expect(cmd).toContain("-arcfour256");
+  });
+
+  it("blacklists 3des-cbc cipher", () => {
+    expect(cmd).toContain("-3des-cbc");
+  });
+
+  it("blacklists blowfish-cbc cipher", () => {
+    expect(cmd).toContain("-blowfish-cbc");
+  });
+
+  it("blacklists cast128-cbc cipher", () => {
+    expect(cmd).toContain("-cast128-cbc");
+  });
+
+  it("blacklists hmac-md5 MAC", () => {
+    expect(cmd).toContain("-hmac-md5");
+  });
+
+  it("blacklists hmac-sha1-96 MAC", () => {
+    expect(cmd).toContain("-hmac-sha1-96");
+  });
+
+  it("blacklists umac-64@openssh.com MAC", () => {
+    expect(cmd).toContain("-umac-64@openssh.com");
+  });
+
+  it("blacklists diffie-hellman-group1-sha1 KEX", () => {
+    expect(cmd).toContain("-diffie-hellman-group1-sha1");
+  });
+
+  it("blacklists diffie-hellman-group14-sha1 KEX", () => {
+    expect(cmd).toContain("-diffie-hellman-group14-sha1");
+  });
+
+  it("cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak-cipher backup", () => {
+    expect(cmd).toContain("cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak-cipher");
+  });
+
+  it("removes existing Ciphers/MACs/KexAlgorithms lines with sed", () => {
+    expect(cmd).toContain("sed -i");
+    expect(cmd).toContain("Ciphers");
+    expect(cmd).toContain("MACs");
+    expect(cmd).toContain("KexAlgorithms");
+  });
+
+  it("sshd -t validation gate", () => {
+    expect(cmd).toContain("sshd -t");
+  });
+
+  it("rolls back on sshd -t failure", () => {
+    expect(cmd).toContain("sshd_config.bak-cipher /etc/ssh/sshd_config");
+    expect(cmd).toContain("exit 1");
+  });
+});
+
+describe("[MUTATION-KILLER] buildDockerHardeningCommand exact strings", () => {
+  it("bare: exact JSON keys and values", () => {
+    const cmd = buildDockerHardeningCommand(undefined);
+    expect(cmd).toContain('"log-driver":"json-file"');
+    expect(cmd).toContain('"max-size":"10m"');
+    expect(cmd).toContain('"max-file":"3"');
+    expect(cmd).toContain('"no-new-privileges":true');
+    expect(cmd).toContain('"live-restore":true');
+    expect(cmd).toContain('"icc":false');
+  });
+
+  it("jq merge pattern", () => {
+    const cmd = buildDockerHardeningCommand(undefined);
+    expect(cmd).toContain("jq -s '.[0] * .[1]'");
+  });
+
+  it("/etc/docker/daemon.json path", () => {
+    const cmd = buildDockerHardeningCommand(undefined);
+    expect(cmd).toContain("/etc/docker/daemon.json");
+  });
+
+  it("/tmp/daemon-kastell.json temp file", () => {
+    const cmd = buildDockerHardeningCommand(undefined);
+    expect(cmd).toContain("/tmp/daemon-kastell.json");
+  });
+
+  it("daemon.json.bak-docker backup", () => {
+    const cmd = buildDockerHardeningCommand(undefined);
+    expect(cmd).toContain("daemon.json.bak-docker");
+  });
+
+  it("systemctl reload docker", () => {
+    const cmd = buildDockerHardeningCommand(undefined);
+    expect(cmd).toContain("systemctl reload docker");
+  });
+
+  it("systemctl restart docker fallback", () => {
+    const cmd = buildDockerHardeningCommand(undefined);
+    expect(cmd).toContain("systemctl restart docker");
+  });
+
+  it("jq -e validation step", () => {
+    const cmd = buildDockerHardeningCommand(undefined);
+    expect(cmd).toContain("jq -e .");
+  });
+
+  it("WARN: jq not found skip message", () => {
+    const cmd = buildDockerHardeningCommand(undefined);
+    expect(cmd).toContain("WARN: jq not found");
+  });
+
+  it("WARN: Docker not installed skip message", () => {
+    const cmd = buildDockerHardeningCommand(undefined);
+    expect(cmd).toContain("WARN: Docker not installed");
+  });
+
+  it("daemon.json merge failed: rolled back error message", () => {
+    const cmd = buildDockerHardeningCommand(undefined);
+    expect(cmd).toContain("daemon.json merge failed: rolled back");
+  });
+});
+
+describe("[MUTATION-KILLER] buildSshFineTuningCommand exact directive key=value pairs", () => {
+  const cmd = buildSshFineTuningCommand();
+
+  it("ClientAliveInterval 300", () => {
+    expect(cmd).toContain("ClientAliveInterval 300");
+  });
+
+  it("ClientAliveCountMax 3", () => {
+    expect(cmd).toContain("ClientAliveCountMax 3");
+  });
+
+  it("LoginGraceTime 60", () => {
+    expect(cmd).toContain("LoginGraceTime 60");
+  });
+
+  it("AllowAgentForwarding no", () => {
+    expect(cmd).toContain("AllowAgentForwarding no");
+  });
+
+  it("X11Forwarding no", () => {
+    expect(cmd).toContain("X11Forwarding no");
+  });
+
+  it("MaxStartups 10:30:60", () => {
+    expect(cmd).toContain("MaxStartups 10:30:60");
+  });
+
+  it("StrictModes yes", () => {
+    expect(cmd).toContain("StrictModes yes");
+  });
+
+  it("PermitUserEnvironment no", () => {
+    expect(cmd).toContain("PermitUserEnvironment no");
+  });
+
+  it("LogLevel VERBOSE", () => {
+    expect(cmd).toContain("LogLevel VERBOSE");
+  });
+
+  it("UseDNS no", () => {
+    expect(cmd).toContain("UseDNS no");
+  });
+
+  it("PrintMotd no", () => {
+    expect(cmd).toContain("PrintMotd no");
+  });
+
+  it("IgnoreRhosts yes", () => {
+    expect(cmd).toContain("IgnoreRhosts yes");
+  });
+
+  it("HostbasedAuthentication no", () => {
+    expect(cmd).toContain("HostbasedAuthentication no");
+  });
+
+  it("MaxSessions 10", () => {
+    expect(cmd).toContain("MaxSessions 10");
+  });
+
+  it("PermitEmptyPasswords no", () => {
+    expect(cmd).toContain("PermitEmptyPasswords no");
+  });
+
+  it("cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak-finetune", () => {
+    expect(cmd).toContain("cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak-finetune");
+  });
+
+  it("SSH fine-tuning rolled back error message", () => {
+    expect(cmd).toContain("SSH fine-tuning rolled back");
+  });
+});
+
+describe("[MUTATION-KILLER] buildLoginDefsCommand exact strings", () => {
+  const cmd = buildLoginDefsCommand();
+
+  it("PASS_MIN_DAYS 1", () => {
+    expect(cmd).toContain("PASS_MIN_DAYS 1");
+  });
+
+  it("PASS_WARN_AGE 7", () => {
+    expect(cmd).toContain("PASS_WARN_AGE 7");
+  });
+
+  it("ENCRYPT_METHOD SHA512", () => {
+    expect(cmd).toContain("ENCRYPT_METHOD SHA512");
+  });
+
+  it("UMASK 027", () => {
+    expect(cmd).toContain("UMASK 027");
+  });
+
+  it("INACTIVE=30", () => {
+    expect(cmd).toContain("INACTIVE=30");
+  });
+
+  it("/etc/login.defs path", () => {
+    expect(cmd).toContain("/etc/login.defs");
+  });
+
+  it("/etc/default/useradd path", () => {
+    expect(cmd).toContain("/etc/default/useradd");
+  });
+});
+
+describe("[MUTATION-KILLER] buildFaillockCommand exact strings", () => {
+  const cmd = buildFaillockCommand();
+
+  it("deny = 5", () => {
+    expect(cmd).toContain("deny = 5");
+  });
+
+  it("unlock_time = 900", () => {
+    expect(cmd).toContain("unlock_time = 900");
+  });
+
+  it("fail_interval = 900", () => {
+    expect(cmd).toContain("fail_interval = 900");
+  });
+
+  it("mkdir -p /etc/security", () => {
+    expect(cmd).toContain("mkdir -p /etc/security");
+  });
+
+  it("/etc/security/faillock.conf path", () => {
+    expect(cmd).toContain("/etc/security/faillock.conf");
+  });
+
+  it("pam-auth-update --enable faillock", () => {
+    expect(cmd).toContain("pam-auth-update --enable faillock");
+  });
+});
+
+describe("[MUTATION-KILLER] buildSudoHardeningCommand exact strings", () => {
+  const cmd = buildSudoHardeningCommand();
+
+  it("mkdir -p /etc/sudoers.d", () => {
+    expect(cmd).toContain("mkdir -p /etc/sudoers.d");
+  });
+
+  it("Defaults log_output", () => {
+    expect(cmd).toContain("Defaults log_output");
+  });
+
+  it("/etc/sudoers.d/kastell-logging path", () => {
+    expect(cmd).toContain("/etc/sudoers.d/kastell-logging");
+  });
+
+  it("chmod 440 /etc/sudoers.d/kastell-logging", () => {
+    expect(cmd).toContain("chmod 440 /etc/sudoers.d/kastell-logging");
+  });
+
+  it("Defaults requiretty", () => {
+    expect(cmd).toContain("Defaults requiretty");
+  });
+
+  it("/etc/sudoers.d/kastell-requiretty path", () => {
+    expect(cmd).toContain("/etc/sudoers.d/kastell-requiretty");
+  });
+
+  it("chmod 440 /etc/sudoers.d/kastell-requiretty", () => {
+    expect(cmd).toContain("chmod 440 /etc/sudoers.d/kastell-requiretty");
+  });
+
+  it("grep -qr for idempotency check", () => {
+    expect(cmd).toContain("grep -qr");
+  });
+});
+
+// ─── [MUTATION-KILLER] applyLock error/hint string assertions ─────────────────
+
+describe("[MUTATION-KILLER] applyLock error and hint strings", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+    mockedSsh.assertValidIp.mockImplementation(() => undefined);
+    mockedSsh.checkSshAvailable.mockReturnValue(true);
+  });
+
+  it("no-keys error contains /root/.ssh/authorized_keys path", async () => {
+    mockedAudit.runAudit.mockResolvedValue(makeAuditResult(30));
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "0", stderr: "" });
+    const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+    expect(result.error).toContain("/root/.ssh/authorized_keys");
+  });
+
+  it("no-keys error contains 'Cannot disable password authentication'", async () => {
+    mockedAudit.runAudit.mockResolvedValue(makeAuditResult(30));
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "0", stderr: "" });
+    const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+    expect(result.error).toContain("Cannot disable password authentication without SSH keys");
+  });
+
+  it("no-keys error contains 'permanently lock you out'", async () => {
+    mockedAudit.runAudit.mockResolvedValue(makeAuditResult(30));
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "0", stderr: "" });
+    const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+    expect(result.error).toContain("permanently lock you out");
+  });
+
+  it("no-keys hint contains ssh-copy-id command", async () => {
+    mockedAudit.runAudit.mockResolvedValue(makeAuditResult(30));
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "0", stderr: "" });
+    const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+    expect(result.hint).toContain("ssh-copy-id root@1.2.3.4");
+  });
+
+  it("no-keys hint starts with 'Add an SSH key first:'", async () => {
+    mockedAudit.runAudit.mockResolvedValue(makeAuditResult(30));
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "0", stderr: "" });
+    const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+    expect(result.hint).toContain("Add an SSH key first:");
+  });
+
+  it("SSH key check failure error starts with 'SSH key check failed:'", async () => {
+    mockedAudit.runAudit.mockResolvedValue(makeAuditResult(30));
+    mockedSsh.sshExec.mockRejectedValueOnce(new Error("Connection refused"));
+    const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+    expect(result.error).toContain("SSH key check failed:");
+  });
+
+  it("cloudMeta stepError is exactly 'UFW required' when UFW fails", async () => {
+    mockedAudit.runAudit.mockResolvedValue(makeAuditResult(50));
+    mockedSsh.sshExec
+      .mockResolvedValueOnce({ code: 0, stdout: "2", stderr: "" }) // key check
+      .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // SSH hardening
+      .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // fail2ban
+      .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // banners
+      .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // accountLock
+      .mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" }) // sshCipher
+      .mockRejectedValueOnce(new Error("UFW failed")) // UFW
+      .mockResolvedValue({ code: 0, stdout: "", stderr: "" }); // remaining
+    const result = await applyLock("1.2.3.4", "test-server", undefined, {});
+    expect(result.stepErrors?.cloudMeta).toBe("UFW required");
+  });
+
+  it("uses 'bare' as audit platform when platform is undefined", async () => {
+    mockedAudit.runAudit.mockResolvedValue(makeAuditResult(50));
+    mockedSsh.sshExec.mockResolvedValue({ code: 0, stdout: "2", stderr: "" });
+    await applyLock("1.2.3.4", "test-server", undefined, {});
+    expect(mockedAudit.runAudit).toHaveBeenCalledWith("1.2.3.4", "test-server", "bare");
+  });
+});

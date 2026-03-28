@@ -1069,4 +1069,683 @@ describe("parseNetworkChecks", () => {
       expect(c.currentValue).toBe("Unable to determine");
     });
   });
+
+  // ──────────────────────────────────────────────────────────────
+  // MUTATION-KILLER WAVE 3 — name, fixCommand, explain, expectedValue, safeToAutoFix
+  // ──────────────────────────────────────────────────────────────
+
+  describe("[MUTATION-KILLER] NET-NO-DANGEROUS-PORTS metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-DANGEROUS-PORTS")!;
+      expect(c.name).toBe("No Dangerous Ports Exposed");
+      expect(c.expectedValue).toBe("No database/service ports exposed publicly");
+    });
+
+    it("explain mentions attack vectors and database", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-DANGEROUS-PORTS")!;
+      expect(c.explain).toContain("attack vectors");
+      expect(c.explain).toContain("Database");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-DNS-RESOLVER metadata", () => {
+    it("has correct name, severity, expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-DNS-RESOLVER")!;
+      expect(c.name).toBe("DNS Resolver Configured");
+      expect(c.severity).toBe("info");
+      expect(c.expectedValue).toBe("DNS resolver configured");
+    });
+
+    it("fixCommand contains nameserver and resolv.conf", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-DNS-RESOLVER")!;
+      expect(c.fixCommand).toContain("nameserver");
+      expect(c.fixCommand).toContain("resolv.conf");
+    });
+
+    it("explain mentions package updates and security operations", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-DNS-RESOLVER")!;
+      expect(c.explain).toContain("package updates");
+      expect(c.explain).toContain("security operations");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-DNS-RESOLVER")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-TIME-SYNC metadata", () => {
+    it("has correct name, severity, expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-TIME-SYNC")!;
+      expect(c.name).toBe("Time Synchronization");
+      expect(c.severity).toBe("info");
+      expect(c.expectedValue).toBe("NTP synchronized");
+    });
+
+    it("fixCommand contains timedatectl", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-TIME-SYNC")!;
+      expect(c.fixCommand).toContain("timedatectl set-ntp true");
+    });
+
+    it("explain mentions TLS certificates and audit trails", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-TIME-SYNC")!;
+      expect(c.explain).toContain("TLS certificates");
+      expect(c.explain).toContain("audit trails");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-TIME-SYNC")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-IP-FORWARDING metadata (bare)", () => {
+    it("has correct name and severity", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-IP-FORWARDING")!;
+      expect(c.name).toBe("IP Forwarding Status");
+      expect(c.severity).toBe("warning");
+    });
+
+    it("fixCommand contains sysctl and ip_forward", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-IP-FORWARDING")!;
+      expect(c.fixCommand).toContain("sysctl -w");
+      expect(c.fixCommand).toContain("ip_forward");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-IP-FORWARDING")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-SYN-COOKIES metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const output = secureOutput + "\nnet.ipv4.tcp_syncookies = 1";
+      const c = parseNetworkChecks(output, "bare").find((c) => c.id === "NET-SYN-COOKIES")!;
+      expect(c.name).toBe("TCP SYN Cookies Enabled");
+      expect(c.expectedValue).toBe("net.ipv4.tcp_syncookies = 1");
+    });
+
+    it("fixCommand contains sysctl and tcp_syncookies", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-SYN-COOKIES")!;
+      expect(c.fixCommand).toContain("sysctl -w");
+      expect(c.fixCommand).toContain("tcp_syncookies");
+    });
+
+    it("explain mentions SYN flood and denial-of-service", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-SYN-COOKIES")!;
+      expect(c.explain).toContain("SYN flood");
+      expect(c.explain).toContain("denial-of-service");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-SYN-COOKIES")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-HOSTS-ACCESS metadata", () => {
+    it("has correct name, expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-HOSTS-ACCESS")!;
+      expect(c.name).toBe("TCP Wrappers hosts.allow Configured");
+      expect(c.expectedValue).toBe("/etc/hosts.allow configured");
+    });
+
+    it("fixCommand contains hosts.allow and sshd", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-HOSTS-ACCESS")!;
+      expect(c.fixCommand).toContain("hosts.allow");
+      expect(c.fixCommand).toContain("sshd");
+    });
+
+    it("explain mentions access control layer", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-HOSTS-ACCESS")!;
+      expect(c.explain).toContain("access control layer");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-HOSTS-ACCESS")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-HOSTS-DENY metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-HOSTS-DENY")!;
+      expect(c.name).toBe("TCP Wrappers Default Deny Configured");
+      expect(c.expectedValue).toBe("/etc/hosts.deny contains ALL : ALL");
+    });
+
+    it("fixCommand contains hosts.deny and ALL", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-HOSTS-DENY")!;
+      expect(c.fixCommand).toContain("hosts.deny");
+      expect(c.fixCommand).toContain("ALL: ALL");
+    });
+
+    it("explain mentions default deny rule and blocks", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-HOSTS-DENY")!;
+      expect(c.explain).toContain("default deny");
+      expect(c.explain).toContain("blocks");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-HOSTS-DENY")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-IPV6-DISABLED metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-IPV6-DISABLED")!;
+      expect(c.name).toBe("IPv6 Disabled If Not Needed");
+      expect(c.expectedValue).toBe("net.ipv6.conf.all.disable_ipv6 = 1");
+    });
+
+    it("fixCommand contains sysctl and disable_ipv6", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-IPV6-DISABLED")!;
+      expect(c.fixCommand).toContain("sysctl -w");
+      expect(c.fixCommand).toContain("disable_ipv6");
+    });
+
+    it("explain mentions attack surface and IPv6", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-IPV6-DISABLED")!;
+      expect(c.explain).toContain("attack surface");
+      expect(c.explain).toContain("IPv6");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-IPV6-DISABLED")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-ICMP-REDIRECT-SEND metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ICMP-REDIRECT-SEND")!;
+      expect(c.name).toBe("ICMP Redirect Sending Disabled");
+      expect(c.expectedValue).toBe("net.ipv4.conf.all.send_redirects = 0");
+    });
+
+    it("fixCommand contains sysctl and send_redirects", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ICMP-REDIRECT-SEND")!;
+      expect(c.fixCommand).toContain("sysctl -w");
+      expect(c.fixCommand).toContain("send_redirects");
+    });
+
+    it("explain mentions routers and redirect traffic", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ICMP-REDIRECT-SEND")!;
+      expect(c.explain).toContain("routers");
+      expect(c.explain).toContain("redirect traffic");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ICMP-REDIRECT-SEND")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-ICMP-SECURE-REDIRECT metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ICMP-SECURE-REDIRECT")!;
+      expect(c.name).toBe("Secure ICMP Redirects Disabled");
+      expect(c.expectedValue).toBe("net.ipv4.conf.all.secure_redirects = 0");
+    });
+
+    it("fixCommand contains sysctl and secure_redirects", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ICMP-SECURE-REDIRECT")!;
+      expect(c.fixCommand).toContain("sysctl -w");
+      expect(c.fixCommand).toContain("secure_redirects");
+    });
+
+    it("explain mentions gateways and routing", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ICMP-SECURE-REDIRECT")!;
+      expect(c.explain).toContain("gateways");
+      expect(c.explain).toContain("routing");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ICMP-SECURE-REDIRECT")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-SOURCE-ROUTING-V6 metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-SOURCE-ROUTING-V6")!;
+      expect(c.name).toBe("IPv6 Source Routing Disabled");
+      expect(c.expectedValue).toBe("net.ipv6.conf.all.accept_source_route = 0");
+    });
+
+    it("fixCommand contains sysctl and accept_source_route", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-SOURCE-ROUTING-V6")!;
+      expect(c.fixCommand).toContain("sysctl -w");
+      expect(c.fixCommand).toContain("accept_source_route");
+    });
+
+    it("explain mentions traffic interception and source routing", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-SOURCE-ROUTING-V6")!;
+      expect(c.explain).toContain("traffic interception");
+      expect(c.explain).toContain("source routing");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-SOURCE-ROUTING-V6")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-MARTIAN-LOGGING metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-MARTIAN-LOGGING")!;
+      expect(c.name).toBe("Martian Packet Logging Enabled");
+      expect(c.expectedValue).toBe("net.ipv4.conf.all.log_martians = 1");
+    });
+
+    it("fixCommand contains sysctl and log_martians", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-MARTIAN-LOGGING")!;
+      expect(c.fixCommand).toContain("sysctl -w");
+      expect(c.fixCommand).toContain("log_martians");
+    });
+
+    it("explain mentions spoofed and network anomalies", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-MARTIAN-LOGGING")!;
+      expect(c.explain).toContain("spoofed");
+      expect(c.explain).toContain("network anomalies");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-MARTIAN-LOGGING")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-NO-EXPOSED-MGMT-PORTS metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-EXPOSED-MGMT-PORTS")!;
+      expect(c.name).toBe("No Management Ports Exposed Publicly");
+      expect(c.expectedValue).toBe("Ports 8080, 8443, 9000, 3000 not exposed on 0.0.0.0");
+    });
+
+    it("fixCommand contains ufw deny and port numbers", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-EXPOSED-MGMT-PORTS")!;
+      expect(c.fixCommand).toContain("ufw deny");
+      expect(c.fixCommand).toContain("8080");
+      expect(c.fixCommand).toContain("9000");
+    });
+
+    it("explain mentions unauthorized access and exploitation", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-EXPOSED-MGMT-PORTS")!;
+      expect(c.explain).toContain("unauthorized access");
+      expect(c.explain).toContain("exploitation");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-EXPOSED-MGMT-PORTS")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-RP-FILTER metadata (bare)", () => {
+    it("has correct name", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-RP-FILTER")!;
+      expect(c.name).toBe("Reverse Path Filtering Enabled");
+    });
+
+    it("fixCommand (bare) contains sysctl and rp_filter=1", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-RP-FILTER")!;
+      expect(c.fixCommand).toContain("sysctl -w");
+      expect(c.fixCommand).toContain("rp_filter=1");
+    });
+
+    it("explain (bare) mentions spoofed source addresses", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-RP-FILTER")!;
+      expect(c.explain).toContain("spoofed source addresses");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-NO-MAIL-PORTS metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-MAIL-PORTS")!;
+      expect(c.name).toBe("No Unnecessary Mail Ports Open");
+      expect(c.expectedValue).toBe("Ports 25, 110, 143 not listening (unless mail server)");
+    });
+
+    it("fixCommand contains ufw deny and mail ports", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-MAIL-PORTS")!;
+      expect(c.fixCommand).toContain("ufw deny 25/tcp");
+      expect(c.fixCommand).toContain("ufw deny 110/tcp");
+      expect(c.fixCommand).toContain("ufw deny 143/tcp");
+    });
+
+    it("explain mentions unnecessary services and attack surface", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-MAIL-PORTS")!;
+      expect(c.explain).toContain("unnecessary services");
+      expect(c.explain).toContain("attack surface");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-MAIL-PORTS")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-LISTENING-SERVICES-AUDIT metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-LISTENING-SERVICES-AUDIT")!;
+      expect(c.name).toBe("Listening Services Count Reasonable");
+      expect(c.expectedValue).toBe("Fewer than 20 listening TCP services");
+    });
+
+    it("fixCommand contains ss -tlnp", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-LISTENING-SERVICES-AUDIT")!;
+      expect(c.fixCommand).toContain("ss -tlnp");
+      expect(c.fixCommand).toContain("ufw deny");
+    });
+
+    it("explain mentions service hygiene and attack surface", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-LISTENING-SERVICES-AUDIT")!;
+      expect(c.explain).toContain("service hygiene");
+      expect(c.explain).toContain("attack surface");
+    });
+
+    it("safeToAutoFix is GUARDED", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-LISTENING-SERVICES-AUDIT")!;
+      expect(c.safeToAutoFix).toBe("GUARDED");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-NO-PROMISCUOUS-INTERFACES metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-PROMISCUOUS-INTERFACES")!;
+      expect(c.name).toBe("No Promiscuous Mode Interfaces");
+      expect(c.expectedValue).toBe("No network interfaces in PROMISC mode");
+    });
+
+    it("fixCommand contains ip link set and promisc off", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-PROMISCUOUS-INTERFACES")!;
+      expect(c.fixCommand).toContain("ip link set");
+      expect(c.fixCommand).toContain("promisc off");
+    });
+
+    it("explain mentions network sniffing and malware", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-PROMISCUOUS-INTERFACES")!;
+      expect(c.explain).toContain("network sniffing");
+      expect(c.explain).toContain("malware");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-PROMISCUOUS-INTERFACES")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-ARP-ANNOUNCE metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ARP-ANNOUNCE")!;
+      expect(c.name).toBe("ARP Announce Protection Enabled");
+      expect(c.expectedValue).toBe("net.ipv4.conf.all.arp_announce = 2");
+    });
+
+    it("fixCommand contains sysctl and arp_announce", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ARP-ANNOUNCE")!;
+      expect(c.fixCommand).toContain("sysctl -w");
+      expect(c.fixCommand).toContain("arp_announce");
+    });
+
+    it("explain mentions ARP spoofing and interface address", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ARP-ANNOUNCE")!;
+      expect(c.explain).toContain("ARP spoofing");
+      expect(c.explain).toContain("interface address");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ARP-ANNOUNCE")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-ARP-IGNORE metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ARP-IGNORE")!;
+      expect(c.name).toBe("ARP Ignore Protection Enabled");
+      expect(c.expectedValue).toBe("net.ipv4.conf.all.arp_ignore >= 1");
+    });
+
+    it("fixCommand contains sysctl and arp_ignore", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ARP-IGNORE")!;
+      expect(c.fixCommand).toContain("sysctl -w");
+      expect(c.fixCommand).toContain("arp_ignore");
+    });
+
+    it("explain mentions ARP cache poisoning", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ARP-IGNORE")!;
+      expect(c.explain).toContain("ARP cache poisoning");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-ARP-IGNORE")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-TCP-WRAPPERS-CONFIGURED metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-TCP-WRAPPERS-CONFIGURED")!;
+      expect(c.name).toBe("TCP Wrappers Active Rules Present");
+      expect(c.expectedValue).toBe("At least one active access control rule in /etc/hosts.allow");
+    });
+
+    it("fixCommand contains hosts.allow and hosts.deny", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-TCP-WRAPPERS-CONFIGURED")!;
+      expect(c.fixCommand).toContain("hosts.allow");
+      expect(c.fixCommand).toContain("hosts.deny");
+    });
+
+    it("explain mentions additional layer and access control", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-TCP-WRAPPERS-CONFIGURED")!;
+      expect(c.explain).toContain("additional layer");
+      expect(c.explain).toContain("access control");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-TCP-WRAPPERS-CONFIGURED")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-LISTENING-PORT-COUNT metadata", () => {
+    it("has correct name and expectedValue", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-LISTENING-PORT-COUNT")!;
+      expect(c.name).toBe("Listening Port Count Reasonable");
+      expect(c.expectedValue).toBe("20 or fewer listening TCP ports");
+    });
+
+    it("fixCommand contains ss -tlnp and review", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-LISTENING-PORT-COUNT")!;
+      expect(c.fixCommand).toContain("ss -tlnp");
+      expect(c.fixCommand).toContain("review");
+    });
+
+    it("explain mentions unnecessary services and attack vector", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-LISTENING-PORT-COUNT")!;
+      expect(c.explain).toContain("unnecessary services");
+      expect(c.explain).toContain("attack vector");
+    });
+
+    it("safeToAutoFix is SAFE", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-LISTENING-PORT-COUNT")!;
+      expect(c.safeToAutoFix).toBe("SAFE");
+    });
+  });
+
+  describe("[MUTATION-KILLER] N/A output preserves all metadata strings", () => {
+    it("all 21 checks preserve id, name, category, expectedValue, fixCommand, explain on N/A", () => {
+      const naChecks = parseNetworkChecks("N/A", "bare");
+      const normalChecks = parseNetworkChecks(secureOutput, "bare");
+      expect(naChecks).toHaveLength(21);
+      for (let i = 0; i < naChecks.length; i++) {
+        expect(naChecks[i].id).toBe(normalChecks[i].id);
+        expect(naChecks[i].name).toBe(normalChecks[i].name);
+        expect(naChecks[i].category).toBe("Network");
+        expect(naChecks[i].expectedValue).toBe(normalChecks[i].expectedValue);
+        expect(naChecks[i].fixCommand).toBe(normalChecks[i].fixCommand);
+        expect(naChecks[i].explain).toBe(normalChecks[i].explain);
+      }
+    });
+  });
+
+  describe("[MUTATION-KILLER] currentValue strings on pass", () => {
+    it("NET-HOSTS-ACCESS currentValue on pass", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-HOSTS-ACCESS")!;
+      expect(c.currentValue).toBe("/etc/hosts.allow exists");
+    });
+
+    it("NET-HOSTS-DENY currentValue on pass", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-HOSTS-DENY")!;
+      expect(c.currentValue).toBe("/etc/hosts.deny has ALL:ALL deny rule");
+    });
+
+    it("NET-NO-EXPOSED-MGMT-PORTS currentValue on pass", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-EXPOSED-MGMT-PORTS")!;
+      expect(c.currentValue).toBe("No management ports (8080, 8443, 9000, 3000) on 0.0.0.0");
+    });
+
+    it("NET-NO-MAIL-PORTS currentValue on pass", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-MAIL-PORTS")!;
+      expect(c.currentValue).toBe("No unexpected mail ports open");
+    });
+
+    it("NET-NO-PROMISCUOUS-INTERFACES currentValue on pass", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-PROMISCUOUS-INTERFACES")!;
+      expect(c.currentValue).toBe("No promiscuous mode interfaces");
+    });
+
+    it("NET-TCP-WRAPPERS-CONFIGURED currentValue on pass", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-TCP-WRAPPERS-CONFIGURED")!;
+      expect(c.currentValue).toBe("Active rules found in /etc/hosts.allow");
+    });
+
+    it("NET-NO-DANGEROUS-PORTS currentValue on pass (no dangerous)", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-NO-DANGEROUS-PORTS")!;
+      expect(c.currentValue).toContain("no dangerous ports exposed");
+    });
+
+    it("NET-LISTENING-PORT-COUNT currentValue on pass", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-LISTENING-PORT-COUNT")!;
+      expect(c.currentValue).toBe("15 listening TCP ports");
+    });
+
+    it("NET-DNS-RESOLVER currentValue exact pass string", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-DNS-RESOLVER")!;
+      expect(c.currentValue).toBe("DNS resolver configured");
+    });
+
+    it("NET-TIME-SYNC currentValue exact pass string", () => {
+      const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-TIME-SYNC")!;
+      expect(c.currentValue).toBe("NTP synchronized");
+    });
+  });
+
+  describe("[MUTATION-KILLER] currentValue strings on fail", () => {
+    it("NET-HOSTS-ACCESS currentValue on fail", () => {
+      const c = parseNetworkChecks("NO_HOSTS_ALLOW", "bare").find((c) => c.id === "NET-HOSTS-ACCESS")!;
+      expect(c.currentValue).toBe("/etc/hosts.allow not found");
+    });
+
+    it("NET-HOSTS-DENY currentValue on fail (no ALL:ALL)", () => {
+      const c = parseNetworkChecks("no deny rule here", "bare").find((c) => c.id === "NET-HOSTS-DENY")!;
+      expect(c.currentValue).toBe("/etc/hosts.deny missing or no default deny");
+    });
+
+    it("NET-NO-MAIL-PORTS currentValue on fail", () => {
+      const c = parseNetworkChecks("LISTEN 0.0.0.0:25 0.0.0.0:*", "bare").find((c) => c.id === "NET-NO-MAIL-PORTS")!;
+      expect(c.currentValue).toBe("Mail service port(s) (25/110/143) detected");
+    });
+
+    it("NET-NO-PROMISCUOUS-INTERFACES currentValue on fail", () => {
+      const c = parseNetworkChecks("3: eth0: <BROADCAST,MULTICAST,PROMISC,UP>", "bare").find((c) => c.id === "NET-NO-PROMISCUOUS-INTERFACES")!;
+      expect(c.currentValue).toBe("Promiscuous mode interface(s) detected");
+    });
+
+    it("NET-NO-EXPOSED-MGMT-PORTS currentValue on fail", () => {
+      const c = parseNetworkChecks("LISTEN 0.0.0.0:8080 0.0.0.0:*", "bare").find((c) => c.id === "NET-NO-EXPOSED-MGMT-PORTS")!;
+      expect(c.currentValue).toBe("Management port(s) exposed on 0.0.0.0");
+    });
+
+    it("NET-TCP-WRAPPERS-CONFIGURED currentValue on fail (EMPTY)", () => {
+      const c = parseNetworkChecks("EMPTY", "bare").find((c) => c.id === "NET-TCP-WRAPPERS-CONFIGURED")!;
+      expect(c.currentValue).toBe("No active rules in /etc/hosts.allow");
+    });
+
+    it("NET-DNS-RESOLVER currentValue on fail", () => {
+      const c = parseNetworkChecks("no dns here", "bare").find((c) => c.id === "NET-DNS-RESOLVER")!;
+      expect(c.currentValue).toBe("No DNS resolver found");
+    });
+
+    it("NET-TIME-SYNC currentValue on fail", () => {
+      const c = parseNetworkChecks("NTP synchronized: no", "bare").find((c) => c.id === "NET-TIME-SYNC")!;
+      expect(c.currentValue).toBe("NTP status unknown");
+    });
+
+    it("NET-LISTENING-PORT-COUNT currentValue on null count", () => {
+      const c = parseNetworkChecks("no numbers here", "bare").find((c) => c.id === "NET-LISTENING-PORT-COUNT")!;
+      expect(c.currentValue).toBe("Port count not determinable");
+    });
+
+    it("NET-CRON-D-FILE-COUNT currentValue shows 'Unable to determine' on no number", () => {
+      const c = parseNetworkChecks("no numbers", "bare").find((c) => c.id === "NET-LISTENING-SERVICES-AUDIT")!;
+      expect(c.currentValue).toContain("listening TCP services detected");
+    });
+  });
+
+  describe("[MUTATION-KILLER] platform-specific strings (coolify/dokploy)", () => {
+    const platformOutput = "net.ipv4.ip_forward = 1\nnet.ipv4.conf.all.rp_filter = 2";
+
+    it("NET-IP-FORWARDING expectedValue on coolify mentions Docker", () => {
+      const c = parseNetworkChecks(platformOutput, "coolify").find((c) => c.id === "NET-IP-FORWARDING")!;
+      expect(c.expectedValue).toContain("Docker");
+      expect(c.passed).toBe(true);
+    });
+
+    it("NET-IP-FORWARDING explain on coolify mentions Docker networking", () => {
+      const c = parseNetworkChecks(platformOutput, "coolify").find((c) => c.id === "NET-IP-FORWARDING")!;
+      expect(c.explain).toContain("Docker networking");
+    });
+
+    it("NET-RP-FILTER expectedValue on coolify mentions loose mode", () => {
+      const c = parseNetworkChecks(platformOutput, "coolify").find((c) => c.id === "NET-RP-FILTER")!;
+      expect(c.expectedValue).toContain("loose mode");
+    });
+
+    it("NET-RP-FILTER fixCommand on coolify uses rp_filter=2", () => {
+      const c = parseNetworkChecks(platformOutput, "coolify").find((c) => c.id === "NET-RP-FILTER")!;
+      expect(c.fixCommand).toContain("rp_filter=2");
+    });
+
+    it("NET-RP-FILTER explain on coolify mentions Docker Swarm IPVS", () => {
+      const c = parseNetworkChecks(platformOutput, "coolify").find((c) => c.id === "NET-RP-FILTER")!;
+      expect(c.explain).toContain("Docker Swarm");
+    });
+
+    it("NET-IP-FORWARDING explain on bare mentions router or Docker", () => {
+      const c = parseNetworkChecks("net.ipv4.ip_forward = 0", "bare").find((c) => c.id === "NET-IP-FORWARDING")!;
+      expect(c.explain).toContain("router");
+    });
+
+    it("NET-RP-FILTER explain on bare mentions spoofed source", () => {
+      const c = parseNetworkChecks("net.ipv4.conf.all.rp_filter = 1", "bare").find((c) => c.id === "NET-RP-FILTER")!;
+      expect(c.explain).toContain("spoofed source addresses");
+    });
+  });
+
+  describe("[MUTATION-KILLER] NET-NO-DANGEROUS-PORTS fixCommand dynamic", () => {
+    it("fixCommand includes first dangerous port when present", () => {
+      const c = parseNetworkChecks("LISTEN 0.0.0.0:5432 0.0.0.0:*", "bare").find((c) => c.id === "NET-NO-DANGEROUS-PORTS")!;
+      expect(c.fixCommand).toBe("ufw deny 5432/tcp");
+    });
+
+    it("fixCommand is review suggestion when no dangerous ports", () => {
+      const c = parseNetworkChecks("LISTEN 0.0.0.0:22 0.0.0.0:*", "bare").find((c) => c.id === "NET-NO-DANGEROUS-PORTS")!;
+      expect(c.fixCommand).toBe("Review listening ports with: ss -tlnp");
+    });
+  });
 });

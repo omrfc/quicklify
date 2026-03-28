@@ -253,3 +253,437 @@ describe("parseSSHChecks", () => {
     expect(check!.passed).toBe(false);
   });
 });
+
+describe("[MUTATION-KILLER] SSH check string assertions", () => {
+  const secureOutput = [
+    "passwordauthentication no",
+    "permitrootlogin prohibit-password",
+    "permitemptypasswords no",
+    "pubkeyauthentication yes",
+    "maxauthtries 3",
+    "x11forwarding no",
+    "clientaliveinterval 300",
+    "clientalivecountmax 3",
+    "logingracetime 60",
+    "ignorerhosts yes",
+    "hostbasedauthentication no",
+    "maxsessions 10",
+    "usedns no",
+    "permituserenvironment no",
+    "loglevel VERBOSE",
+    "ciphers aes256-ctr,aes192-ctr,aes128-ctr",
+    "macs hmac-sha2-256,hmac-sha2-512",
+    "kexalgorithms curve25519-sha256,diffie-hellman-group16-sha512",
+    "maxstartups 10:30:60",
+    "strictmodes yes",
+    "allowagentforwarding no",
+    "printmotd no",
+  ].join("\n");
+
+  const checks = parseSSHChecks(secureOutput, "bare");
+
+  const expectedChecks = [
+    {
+      id: "SSH-PASSWORD-AUTH",
+      name: "Password Authentication Disabled",
+      severity: "critical",
+      expectedValue: "no",
+      fixCommand: "sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Password authentication allows brute-force attacks. Key-based auth is significantly more secure.",
+    },
+    {
+      id: "SSH-ROOT-LOGIN",
+      name: "Root Login Restricted",
+      severity: "critical",
+      expectedValue: "no or prohibit-password",
+      fixCommand: "sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Direct root login increases attack surface. Use a regular user with sudo instead.",
+    },
+    {
+      id: "SSH-EMPTY-PASSWORDS",
+      name: "Empty Passwords Denied",
+      severity: "critical",
+      expectedValue: "no",
+      fixCommand: "sed -i 's/^#\\?PermitEmptyPasswords.*/PermitEmptyPasswords no/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Allowing empty passwords lets anyone log in without credentials.",
+    },
+    {
+      id: "SSH-PUBKEY-AUTH",
+      name: "Public Key Authentication Enabled",
+      severity: "warning",
+      expectedValue: "yes",
+      fixCommand: "sed -i 's/^#\\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Public key authentication provides strong cryptographic identity verification.",
+    },
+    {
+      id: "SSH-MAX-AUTH-TRIES",
+      name: "Max Auth Tries Limited",
+      severity: "warning",
+      expectedValue: "5 or less",
+      fixCommand: "sed -i 's/^#\\?MaxAuthTries.*/MaxAuthTries 3/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Limiting authentication attempts slows down brute-force attacks.",
+    },
+    {
+      id: "SSH-X11-FORWARDING",
+      name: "X11 Forwarding Disabled",
+      severity: "info",
+      expectedValue: "no",
+      fixCommand: "sed -i 's/^#\\?X11Forwarding.*/X11Forwarding no/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "X11 forwarding can be exploited for display hijacking on servers that don't need GUI access.",
+    },
+    {
+      id: "SSH-CLIENT-ALIVE-INTERVAL",
+      name: "Client Alive Interval Configured",
+      severity: "warning",
+      expectedValue: "300 or less (non-zero)",
+      fixCommand: "sed -i 's/^#\\?ClientAliveInterval.*/ClientAliveInterval 300/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Setting a client alive interval disconnects idle sessions, reducing the risk of session hijacking.",
+    },
+    {
+      id: "SSH-CLIENT-ALIVE-COUNT",
+      name: "Client Alive Count Max Limited",
+      severity: "warning",
+      expectedValue: "3 or less",
+      fixCommand: "sed -i 's/^#\\?ClientAliveCountMax.*/ClientAliveCountMax 3/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Limiting alive count ensures unresponsive sessions are terminated after a short time.",
+    },
+    {
+      id: "SSH-LOGIN-GRACE-TIME",
+      name: "Login Grace Time Restricted",
+      severity: "warning",
+      expectedValue: "60 or less",
+      fixCommand: "sed -i 's/^#\\?LoginGraceTime.*/LoginGraceTime 60/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Restricting login grace time limits how long an unauthenticated connection is held open.",
+    },
+    {
+      id: "SSH-IGNORE-RHOSTS",
+      name: "Ignore Rhosts Files",
+      severity: "critical",
+      expectedValue: "yes",
+      fixCommand: "sed -i 's/^#\\?IgnoreRhosts.*/IgnoreRhosts yes/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Rhosts-based authentication is insecure and allows host-based trust without cryptographic verification.",
+    },
+    {
+      id: "SSH-HOSTBASED-AUTH",
+      name: "Host-Based Authentication Disabled",
+      severity: "critical",
+      expectedValue: "no",
+      fixCommand: "sed -i 's/^#\\?HostbasedAuthentication.*/HostbasedAuthentication no/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Host-based authentication trusts remote hosts without user credentials, enabling lateral movement.",
+    },
+    {
+      id: "SSH-MAX-SESSIONS",
+      name: "Max Sessions Limited",
+      severity: "warning",
+      expectedValue: "10 or less",
+      fixCommand: "sed -i 's/^#\\?MaxSessions.*/MaxSessions 10/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Limiting max sessions per connection prevents resource exhaustion and reduces attack surface.",
+    },
+    {
+      id: "SSH-USE-DNS",
+      name: "DNS Lookup Disabled",
+      severity: "info",
+      expectedValue: "no",
+      fixCommand: "sed -i 's/^#\\?UseDNS.*/UseDNS no/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Disabling DNS lookups speeds up SSH connections and avoids DNS-based information disclosure.",
+    },
+    {
+      id: "SSH-PERMIT-USER-ENV",
+      name: "User Environment Passthrough Disabled",
+      severity: "warning",
+      expectedValue: "no",
+      fixCommand: "sed -i 's/^#\\?PermitUserEnvironment.*/PermitUserEnvironment no/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Allowing user environment passthrough can be used to bypass security restrictions via environment variables.",
+    },
+    {
+      id: "SSH-LOG-LEVEL",
+      name: "SSH Logging Level Adequate",
+      severity: "info",
+      expectedValue: "VERBOSE or INFO",
+      fixCommand: "sed -i 's/^#\\?LogLevel.*/LogLevel VERBOSE/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Verbose or INFO logging ensures sufficient detail is captured for security audit and incident response.",
+    },
+    {
+      id: "SSH-STRONG-CIPHERS",
+      name: "No Weak SSH Ciphers",
+      severity: "warning",
+      expectedValue: "No weak ciphers (3des, arcfour, blowfish, cast)",
+      fixCommand: "sed -i 's/^#\\?Ciphers.*/Ciphers aes256-ctr,aes192-ctr,aes128-ctr,aes256-gcm@openssh.com,aes128-gcm@openssh.com/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Weak ciphers like 3DES and Blowfish are vulnerable to known cryptographic attacks.",
+    },
+    {
+      id: "SSH-STRONG-MACS",
+      name: "No Weak SSH MACs",
+      severity: "warning",
+      expectedValue: "No weak MACs (md5, umac-64)",
+      fixCommand: "sed -i 's/^#\\?MACs.*/MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Weak MACs like MD5-based algorithms do not provide sufficient integrity protection for SSH sessions.",
+    },
+    {
+      id: "SSH-STRONG-KEX",
+      name: "No Weak KEX Algorithms",
+      severity: "warning",
+      expectedValue: "No weak KEX (sha1, diffie-hellman-group1, diffie-hellman-group-exchange-sha1)",
+      fixCommand: "sed -i 's/^#\\?KexAlgorithms.*/KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "Weak key exchange algorithms based on SHA-1 are vulnerable to collision attacks.",
+    },
+    {
+      id: "SSH-MAX-STARTUPS",
+      name: "MaxStartups Limits Concurrent Unauthenticated Connections",
+      severity: "warning",
+      expectedValue: "10:30:60 or stricter (start <= 10)",
+      fixCommand: "sed -i 's/^#\\?MaxStartups.*/MaxStartups 10:30:60/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "MaxStartups limits concurrent unauthenticated SSH connections, mitigating brute-force and resource exhaustion attacks.",
+    },
+    {
+      id: "SSH-STRICT-MODES",
+      name: "StrictModes Enabled",
+      severity: "warning",
+      expectedValue: "yes",
+      fixCommand: "sed -i 's/^#\\?StrictModes.*/StrictModes yes/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "StrictModes checks file permissions on user SSH files before accepting login, preventing exploitation of misconfigured authorized_keys.",
+    },
+    {
+      id: "SSH-NO-AGENT-FORWARDING",
+      name: "SSH Agent Forwarding Disabled",
+      severity: "warning",
+      expectedValue: "no",
+      fixCommand: "sed -i 's/^#\\?AllowAgentForwarding.*/AllowAgentForwarding no/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "SSH agent forwarding exposes the authentication agent to the remote server, enabling key theft if the server is compromised.",
+    },
+    {
+      id: "SSH-PRINT-MOTD",
+      name: "PrintMotd Handled by PAM",
+      severity: "info",
+      expectedValue: "no",
+      fixCommand: "sed -i 's/^#\\?PrintMotd.*/PrintMotd no/' /etc/ssh/sshd_config && systemctl restart sshd",
+      explain: "PrintMotd should be handled by PAM, not sshd directly, to prevent information leakage from static message-of-the-day files.",
+    },
+  ];
+
+  it("[MUTATION-KILLER] returns exactly 22 checks", () => {
+    expect(checks).toHaveLength(22);
+    expect(expectedChecks).toHaveLength(22);
+  });
+
+  expectedChecks.forEach((expected) => {
+    describe(`${expected.id}`, () => {
+      it("[MUTATION-KILLER] has correct id", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check).toBeDefined();
+        expect(check!.id).toBe(expected.id);
+      });
+
+      it("[MUTATION-KILLER] has correct name", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check!.name).toBe(expected.name);
+      });
+
+      it("[MUTATION-KILLER] has correct severity", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check!.severity).toBe(expected.severity);
+      });
+
+      it("[MUTATION-KILLER] has correct category", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check!.category).toBe("SSH");
+      });
+
+      it("[MUTATION-KILLER] has correct expectedValue", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check!.expectedValue).toBe(expected.expectedValue);
+      });
+
+      it("[MUTATION-KILLER] has correct fixCommand", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check!.fixCommand).toBe(expected.fixCommand);
+      });
+
+      it("[MUTATION-KILLER] has correct explain", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check!.explain).toBe(expected.explain);
+      });
+
+      it("[MUTATION-KILLER] has safeToAutoFix set to FORBIDDEN", () => {
+        const check = checks.find((c) => c.id === expected.id);
+        expect(check!.safeToAutoFix).toBe("FORBIDDEN");
+      });
+    });
+  });
+
+  it("[MUTATION-KILLER] every check has non-empty fixCommand", () => {
+    checks.forEach((c) => {
+      expect(c.fixCommand).toBeDefined();
+      expect(c.fixCommand!.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("[MUTATION-KILLER] every check has non-empty explain (> 10 chars)", () => {
+    checks.forEach((c) => {
+      expect(c.explain).toBeDefined();
+      expect(c.explain!.length).toBeGreaterThan(10);
+    });
+  });
+
+  it("[MUTATION-KILLER] every check has non-empty name", () => {
+    checks.forEach((c) => {
+      expect(c.name.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("[MUTATION-KILLER] every check has non-empty id", () => {
+    checks.forEach((c) => {
+      expect(c.id.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("[MUTATION-KILLER] every check has non-empty expectedValue", () => {
+    checks.forEach((c) => {
+      expect(c.expectedValue.length).toBeGreaterThan(0);
+    });
+  });
+});
+
+describe("[MUTATION-KILLER] SSH N/A output string assertions", () => {
+  const naChecks = parseSSHChecks("N/A", "bare");
+
+  it("[MUTATION-KILLER] every N/A check has currentValue 'Unable to determine'", () => {
+    naChecks.forEach((c) => {
+      expect(c.currentValue).toBe("Unable to determine");
+    });
+  });
+
+  it("[MUTATION-KILLER] every N/A check has safeToAutoFix FORBIDDEN", () => {
+    naChecks.forEach((c) => {
+      expect(c.safeToAutoFix).toBe("FORBIDDEN");
+    });
+  });
+
+  it("[MUTATION-KILLER] every N/A check retains correct category", () => {
+    naChecks.forEach((c) => {
+      expect(c.category).toBe("SSH");
+    });
+  });
+});
+
+describe("[MUTATION-KILLER] SSH comparator edge cases", () => {
+  it("[MUTATION-KILLER] SSH-ROOT-LOGIN passes with 'without-password'", () => {
+    const checks = parseSSHChecks("permitrootlogin without-password", "bare");
+    const check = checks.find((c) => c.id === "SSH-ROOT-LOGIN");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("[MUTATION-KILLER] SSH-ROOT-LOGIN passes with 'no'", () => {
+    const checks = parseSSHChecks("permitrootlogin no", "bare");
+    const check = checks.find((c) => c.id === "SSH-ROOT-LOGIN");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("[MUTATION-KILLER] SSH-MAX-AUTH-TRIES passes with exactly 5", () => {
+    const checks = parseSSHChecks("maxauthtries 5", "bare");
+    const check = checks.find((c) => c.id === "SSH-MAX-AUTH-TRIES");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("[MUTATION-KILLER] SSH-MAX-AUTH-TRIES passes with 1", () => {
+    const checks = parseSSHChecks("maxauthtries 1", "bare");
+    const check = checks.find((c) => c.id === "SSH-MAX-AUTH-TRIES");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("[MUTATION-KILLER] SSH-CLIENT-ALIVE-INTERVAL passes with exactly 1", () => {
+    const checks = parseSSHChecks("clientaliveinterval 1", "bare");
+    const check = checks.find((c) => c.id === "SSH-CLIENT-ALIVE-INTERVAL");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("[MUTATION-KILLER] SSH-CLIENT-ALIVE-COUNT passes with exactly 1", () => {
+    const checks = parseSSHChecks("clientalivecountmax 1", "bare");
+    const check = checks.find((c) => c.id === "SSH-CLIENT-ALIVE-COUNT");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("[MUTATION-KILLER] SSH-CLIENT-ALIVE-COUNT fails with 0", () => {
+    const checks = parseSSHChecks("clientalivecountmax 0", "bare");
+    const check = checks.find((c) => c.id === "SSH-CLIENT-ALIVE-COUNT");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("[MUTATION-KILLER] SSH-LOGIN-GRACE-TIME passes with exactly 1", () => {
+    const checks = parseSSHChecks("logingracetime 1", "bare");
+    const check = checks.find((c) => c.id === "SSH-LOGIN-GRACE-TIME");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("[MUTATION-KILLER] SSH-LOGIN-GRACE-TIME fails with 0", () => {
+    const checks = parseSSHChecks("logingracetime 0", "bare");
+    const check = checks.find((c) => c.id === "SSH-LOGIN-GRACE-TIME");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("[MUTATION-KILLER] SSH-MAX-SESSIONS passes with exactly 1", () => {
+    const checks = parseSSHChecks("maxsessions 1", "bare");
+    const check = checks.find((c) => c.id === "SSH-MAX-SESSIONS");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("[MUTATION-KILLER] SSH-MAX-SESSIONS fails with 0", () => {
+    const checks = parseSSHChecks("maxsessions 0", "bare");
+    const check = checks.find((c) => c.id === "SSH-MAX-SESSIONS");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("[MUTATION-KILLER] SSH-MAX-SESSIONS fails with 11", () => {
+    const checks = parseSSHChecks("maxsessions 11", "bare");
+    const check = checks.find((c) => c.id === "SSH-MAX-SESSIONS");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("[MUTATION-KILLER] SSH-LOG-LEVEL passes with INFO", () => {
+    const checks = parseSSHChecks("loglevel INFO", "bare");
+    const check = checks.find((c) => c.id === "SSH-LOG-LEVEL");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("[MUTATION-KILLER] SSH-LOG-LEVEL fails with QUIET", () => {
+    const checks = parseSSHChecks("loglevel QUIET", "bare");
+    const check = checks.find((c) => c.id === "SSH-LOG-LEVEL");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("[MUTATION-KILLER] SSH-STRONG-CIPHERS fails with arcfour", () => {
+    const checks = parseSSHChecks("ciphers arcfour128,aes256-ctr", "bare");
+    const check = checks.find((c) => c.id === "SSH-STRONG-CIPHERS");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("[MUTATION-KILLER] SSH-STRONG-CIPHERS fails with blowfish", () => {
+    const checks = parseSSHChecks("ciphers blowfish-cbc,aes256-ctr", "bare");
+    const check = checks.find((c) => c.id === "SSH-STRONG-CIPHERS");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("[MUTATION-KILLER] SSH-STRONG-CIPHERS fails with cast", () => {
+    const checks = parseSSHChecks("ciphers cast128-cbc,aes256-ctr", "bare");
+    const check = checks.find((c) => c.id === "SSH-STRONG-CIPHERS");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("[MUTATION-KILLER] SSH-STRONG-KEX fails with diffie-hellman-group-exchange-sha1", () => {
+    const checks = parseSSHChecks("kexalgorithms diffie-hellman-group-exchange-sha1,curve25519-sha256", "bare");
+    const check = checks.find((c) => c.id === "SSH-STRONG-KEX");
+    expect(check!.passed).toBe(false);
+  });
+
+  it("[MUTATION-KILLER] SSH-MAX-STARTUPS passes with start=5 (stricter)", () => {
+    const checks = parseSSHChecks("maxstartups 5:30:60", "bare");
+    const check = checks.find((c) => c.id === "SSH-MAX-STARTUPS");
+    expect(check!.passed).toBe(true);
+  });
+
+  it("[MUTATION-KILLER] SSH-MAX-STARTUPS fails with start=11", () => {
+    const checks = parseSSHChecks("maxstartups 11:30:60", "bare");
+    const check = checks.find((c) => c.id === "SSH-MAX-STARTUPS");
+    expect(check!.passed).toBe(false);
+  });
+});

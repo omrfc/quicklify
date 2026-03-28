@@ -2928,3 +2928,250 @@ describe("mutation-killer tests", () => {
     expect(check.currentValue).toContain("tcp://0.0.0.0:2376");
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [MUTATION-KILLER] String literal assertions — kills StringLiteral mutants
+// Every check's id, name, severity, safeToAutoFix, category, expectedValue,
+// fixCommand, and explain are asserted to prevent "" replacement surviving.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe("[MUTATION-KILLER] Docker check metadata — string literal assertions", () => {
+  const secureChecks = parseDockerChecks(
+    [
+      '{"Hosts":["unix:///var/run/docker.sock"],"ServerVersion":"24.0.7","SecurityOptions":["name=userns","name=seccomp,profile=default","name=apparmor"],"LoggingDriver":"json-file","LiveRestoreEnabled":true}',
+      "---DAEMON_JSON---",
+      '{"log-driver":"json-file","userns-remap":"default","live-restore":true,"icc":false,"log-opts":{"max-size":"10m","max-file":"3"},"default-ulimits":{"nofile":{"Name":"nofile","Hard":64000,"Soft":64000}}}',
+      "---END_DAEMON_JSON---",
+      "myapp nginx:latest Up 2 hours",
+      "db postgres:15 Up 2 hours",
+      "srw-rw---- 1 root docker 0 Mar  1 10:00 /var/run/docker.sock",
+      "/myapp SecurityOpt=[seccomp:default apparmor:docker-default] ReadonlyRootfs=true User=appuser Privileged=false",
+      "/db SecurityOpt=[seccomp:default apparmor:docker-default] ReadonlyRootfs=true User=postgres Privileged=false",
+      "DOCKER_CONTENT_TRUST=1",
+      "660 root docker",
+      "app-network bridge",
+      "myapp_data local",
+      "[name=userns name=seccomp name=apparmor]",
+      '{"com.docker.network.bridge.enable_icc":"false","com.docker.network.bridge.enable_ip_masquerade":"true"}',
+      "[]",
+      "/etc/docker/certs.d/registry.example.com",
+      "[127.0.0.0/8]",
+      "inactive",
+      "false",
+    ].join("\n"),
+    "bare",
+  );
+
+  const findDck = (id: string) => {
+    const c = secureChecks.find((ch) => ch.id === id);
+    if (!c) throw new Error(`Check ${id} not found`);
+    return c;
+  };
+
+  // ── All 32 checks: id, name, severity, safeToAutoFix, category ──
+
+  it.each([
+    ["DCK-NO-TCP-SOCKET", "No TCP Socket Exposed", "critical", "FORBIDDEN"],
+    ["DCK-NO-PRIVILEGED", "No Privileged Containers", "critical", "FORBIDDEN"],
+    ["DCK-VERSION-CURRENT", "Docker Version Current", "warning", "FORBIDDEN"],
+    ["DCK-USER-NAMESPACE", "User Namespace Enabled", "warning", "FORBIDDEN"],
+    ["DCK-NO-HOST-NETWORK", "No Host Network Containers", "warning", "FORBIDDEN"],
+    ["DCK-LOGGING-DRIVER", "Logging Driver Configured", "info", "FORBIDDEN"],
+    ["DCK-LIVE-RESTORE", "Live Restore Enabled", "warning", "FORBIDDEN"],
+    ["DCK-NO-NEW-PRIVILEGES", "No New Privileges Default", "warning", "FORBIDDEN"],
+    ["DCK-ICC-DISABLED", "Inter-Container Communication Disabled", "warning", "FORBIDDEN"],
+    ["DCK-TLS-VERIFY", "TLS Verification Enabled", "critical", "FORBIDDEN"],
+    ["DCK-SOCKET-PERMS", "Docker Socket Permissions", "warning", "FORBIDDEN"],
+    ["DCK-NO-ROOT-CONTAINERS", "No Root Containers", "warning", "FORBIDDEN"],
+    ["DCK-READ-ONLY-ROOTFS", "Read-Only Root Filesystem", "info", "FORBIDDEN"],
+    ["DCK-LOG-MAX-SIZE", "Log Max Size Configured", "info", "FORBIDDEN"],
+    ["DCK-DEFAULT-ULIMITS", "Default Ulimits Configured", "info", "FORBIDDEN"],
+    ["DCK-SECCOMP-ENABLED", "Seccomp Profile Applied", "warning", "FORBIDDEN"],
+    ["DCK-CONTENT-TRUST", "Docker Content Trust Enabled", "info", "FORBIDDEN"],
+    ["DCK-NO-SENSITIVE-MOUNTS", "No Sensitive Mounts", "warning", "FORBIDDEN"],
+    ["DCK-APPARMOR-PROFILE", "AppArmor Profile Applied", "warning", "FORBIDDEN"],
+    ["DCK-NO-PRIVILEGED-PORTS", "No Privileged Port Bindings", "info", "FORBIDDEN"],
+    ["DCK-NETWORK-DISABLED", "Custom Docker Network Configured", "info", "FORBIDDEN"],
+    ["DCK-LOG-DRIVER-CONFIGURED", "Logging Driver Not None", "warning", "FORBIDDEN"],
+    ["DCK-ROOTLESS-MODE", "Docker Rootless Mode", "info", "FORBIDDEN"],
+    ["DCK-NO-HOST-NETWORK-INSPECT", "No Host Network Mode (Inspect)", "warning", "FORBIDDEN"],
+    ["DCK-HEALTH-CHECK", "Container Health Checks Configured", "info", "FORBIDDEN"],
+    ["DCK-BRIDGE-NFCALL", "Bridge ICC Disabled", "warning", "FORBIDDEN"],
+    ["DCK-NO-INSECURE-REGISTRY", "No Insecure Registries Configured", "warning", "FORBIDDEN"],
+    ["DCK-NO-EXPERIMENTAL", "Experimental Features Disabled", "info", "FORBIDDEN"],
+    ["DCK-AUTH-PLUGIN", "Docker Authorization Plugin Configured", "info", "FORBIDDEN"],
+    ["DCK-REGISTRY-CERTS", "Registry TLS Certificates Configured", "info", "FORBIDDEN"],
+    ["DCK-SWARM-INACTIVE", "Docker Swarm Mode Inactive", "info", "FORBIDDEN"],
+    ["DCK-PID-MODE", "No Host PID Namespace Containers", "warning", "FORBIDDEN"],
+  ])("[MUTATION-KILLER] %s has name=%s, severity=%s, safeToAutoFix=%s", (id, name, severity, safe) => {
+    const c = findDck(id);
+    expect(c.name).toBe(name);
+    expect(c.severity).toBe(severity);
+    expect(c.safeToAutoFix).toBe(safe);
+    expect(c.category).toBe("Docker");
+  });
+
+  // ── Every check ID starts with DCK- ──
+  it("[MUTATION-KILLER] all 32 check IDs start with DCK-", () => {
+    expect(secureChecks).toHaveLength(32);
+    secureChecks.forEach((c) => expect(c.id).toMatch(/^DCK-/));
+  });
+
+  // ── expectedValue assertions per check ──
+  it.each([
+    ["DCK-NO-TCP-SOCKET", "No TCP socket (unix:// only)"],
+    ["DCK-NO-PRIVILEGED", "No privileged containers"],
+    ["DCK-VERSION-CURRENT", "Docker 24.0+"],
+    ["DCK-USER-NAMESPACE", "User namespace remapping or rootless mode"],
+    ["DCK-NO-HOST-NETWORK", "No containers using host network"],
+    ["DCK-LOGGING-DRIVER", "Logging driver configured (not none)"],
+    ["DCK-LIVE-RESTORE", "live-restore: true in daemon.json"],
+    ["DCK-NO-NEW-PRIVILEGES", "no-new-privileges: true in daemon.json"],
+    ["DCK-ICC-DISABLED", "icc: false in daemon.json"],
+    ["DCK-TLS-VERIFY", "No TCP socket, or TLS verification enabled"],
+    ["DCK-SOCKET-PERMS", "660 root docker"],
+    ["DCK-NO-ROOT-CONTAINERS", "No running containers using root user"],
+    ["DCK-READ-ONLY-ROOTFS", "Containers using read-only root filesystem"],
+    ["DCK-LOG-MAX-SIZE", "log-opts max-size set to prevent disk exhaustion"],
+    ["DCK-DEFAULT-ULIMITS", "default-ulimits set in daemon.json"],
+    ["DCK-SECCOMP-ENABLED", "seccomp profile applied to running containers"],
+    ["DCK-CONTENT-TRUST", "DOCKER_CONTENT_TRUST=1 environment variable set"],
+    ["DCK-NO-SENSITIVE-MOUNTS", "No containers with Privileged=true"],
+    ["DCK-APPARMOR-PROFILE", "AppArmor profile applied to running containers"],
+    ["DCK-NO-PRIVILEGED-PORTS", "No containers binding ports < 1024 (except 80/443)"],
+    ["DCK-NETWORK-DISABLED", "At least one user-defined network configured"],
+    ["DCK-LOG-DRIVER-CONFIGURED", "LoggingDriver is not 'none'"],
+    ["DCK-ROOTLESS-MODE", "Rootless Docker mode (optional enhancement)"],
+    ["DCK-NO-HOST-NETWORK-INSPECT", "No running containers with NetworkMode=host"],
+    ["DCK-HEALTH-CHECK", "Running containers have HEALTHCHECK defined"],
+    ["DCK-BRIDGE-NFCALL", "com.docker.network.bridge.enable_icc = false"],
+    ["DCK-NO-INSECURE-REGISTRY", "No insecure registries beyond 127.0.0.0/8"],
+    ["DCK-NO-EXPERIMENTAL", "ExperimentalBuild = false"],
+    ["DCK-AUTH-PLUGIN", "At least one authorization plugin active"],
+    ["DCK-REGISTRY-CERTS", "/etc/docker/certs.d/ exists with registry cert subdirectories"],
+    ["DCK-SWARM-INACTIVE", "Swarm mode inactive (if not intentionally used)"],
+    ["DCK-PID-MODE", "No containers with PidMode=host"],
+  ])("[MUTATION-KILLER] %s expectedValue = %s", (id, expected) => {
+    expect(findDck(id).expectedValue).toBe(expected);
+  });
+
+  // ── fixCommand contains key substring (kills "" mutation) ──
+  it.each([
+    ["DCK-NO-TCP-SOCKET", "daemon.json"],
+    ["DCK-NO-PRIVILEGED", "docker ps"],
+    ["DCK-VERSION-CURRENT", "get-docker.sh"],
+    ["DCK-USER-NAMESPACE", "userns-remap"],
+    ["DCK-NO-HOST-NETWORK", "docker ps"],
+    ["DCK-LOGGING-DRIVER", "daemon.json"],
+    ["DCK-LIVE-RESTORE", "daemon.json"],
+    ["DCK-NO-NEW-PRIVILEGES", "daemon.json"],
+    ["DCK-ICC-DISABLED", "daemon.json"],
+    ["DCK-TLS-VERIFY", "daemon.json"],
+    ["DCK-SOCKET-PERMS", "docker.sock"],
+    ["DCK-NO-ROOT-CONTAINERS", "USER"],
+    ["DCK-READ-ONLY-ROOTFS", "read-only"],
+    ["DCK-LOG-MAX-SIZE", "daemon.json"],
+    ["DCK-DEFAULT-ULIMITS", "daemon.json"],
+    ["DCK-SECCOMP-ENABLED", "seccomp"],
+    ["DCK-CONTENT-TRUST", "DOCKER_CONTENT_TRUST"],
+    ["DCK-NO-SENSITIVE-MOUNTS", "privileged"],
+    ["DCK-APPARMOR-PROFILE", "apparmor"],
+    ["DCK-NO-PRIVILEGED-PORTS", "1024"],
+    ["DCK-NETWORK-DISABLED", "docker network create"],
+    ["DCK-LOG-DRIVER-CONFIGURED", "daemon.json"],
+    ["DCK-ROOTLESS-MODE", "rootless"],
+    ["DCK-NO-HOST-NETWORK-INSPECT", "docker ps"],
+    ["DCK-HEALTH-CHECK", "HEALTHCHECK"],
+    ["DCK-BRIDGE-NFCALL", "daemon.json"],
+    ["DCK-NO-INSECURE-REGISTRY", "insecure-registry"],
+    ["DCK-NO-EXPERIMENTAL", "daemon.json"],
+    ["DCK-AUTH-PLUGIN", "authorization plugin"],
+    ["DCK-REGISTRY-CERTS", "certs.d"],
+    ["DCK-SWARM-INACTIVE", "swarm leave"],
+    ["DCK-PID-MODE", "pid"],
+  ])("[MUTATION-KILLER] %s fixCommand contains '%s'", (id, substring) => {
+    const fc = findDck(id).fixCommand;
+    expect(fc).toBeDefined();
+    expect(fc!.toLowerCase()).toContain(substring.toLowerCase());
+  });
+
+  // ── explain is non-empty and contains domain-specific keyword ──
+  it.each([
+    ["DCK-NO-TCP-SOCKET", "TCP"],
+    ["DCK-NO-PRIVILEGED", "host access"],
+    ["DCK-VERSION-CURRENT", "vulnerabilities"],
+    ["DCK-USER-NAMESPACE", "root"],
+    ["DCK-NO-HOST-NETWORK", "network isolation"],
+    ["DCK-LOGGING-DRIVER", "monitoring"],
+    ["DCK-LIVE-RESTORE", "restart"],
+    ["DCK-NO-NEW-PRIVILEGES", "privilege escalation"],
+    ["DCK-ICC-DISABLED", "lateral movement"],
+    ["DCK-TLS-VERIFY", "unauthenticated"],
+    ["DCK-SOCKET-PERMS", "unauthorized"],
+    ["DCK-NO-ROOT-CONTAINERS", "root"],
+    ["DCK-READ-ONLY-ROOTFS", "malicious"],
+    ["DCK-LOG-MAX-SIZE", "disk"],
+    ["DCK-DEFAULT-ULIMITS", "resource exhaustion"],
+    ["DCK-SECCOMP-ENABLED", "system calls"],
+    ["DCK-CONTENT-TRUST", "signed images"],
+    ["DCK-NO-SENSITIVE-MOUNTS", "host devices"],
+    ["DCK-APPARMOR-PROFILE", "AppArmor"],
+    ["DCK-NO-PRIVILEGED-PORTS", "capabilities"],
+    ["DCK-NETWORK-DISABLED", "isolation"],
+    ["DCK-LOG-DRIVER-CONFIGURED", "forensic"],
+    ["DCK-ROOTLESS-MODE", "blast radius"],
+    ["DCK-NO-HOST-NETWORK-INSPECT", "host ports"],
+    ["DCK-HEALTH-CHECK", "restart"],
+    ["DCK-BRIDGE-NFCALL", "lateral movement"],
+    ["DCK-NO-INSECURE-REGISTRY", "HTTP"],
+    ["DCK-NO-EXPERIMENTAL", "production"],
+    ["DCK-AUTH-PLUGIN", "access control"],
+    ["DCK-REGISTRY-CERTS", "registry"],
+    ["DCK-SWARM-INACTIVE", "ports"],
+    ["DCK-PID-MODE", "process"],
+  ])("[MUTATION-KILLER] %s explain contains '%s'", (id, keyword) => {
+    const e = findDck(id).explain;
+    expect(e).toBeDefined();
+    expect(e!.length).toBeGreaterThan(20);
+    expect(e!).toContain(keyword);
+  });
+
+  // ── Skipped checks (Docker not installed): every check has correct metadata ──
+  describe("[MUTATION-KILLER] skipped check metadata when Docker not installed", () => {
+    const skippedBare = parseDockerChecks("N/A", "bare");
+    const skippedCoolify = parseDockerChecks("N/A", "coolify");
+
+    it.each([
+      "DCK-NO-TCP-SOCKET", "DCK-NO-PRIVILEGED", "DCK-VERSION-CURRENT",
+      "DCK-USER-NAMESPACE", "DCK-NO-HOST-NETWORK", "DCK-LOGGING-DRIVER",
+      "DCK-LIVE-RESTORE", "DCK-NO-NEW-PRIVILEGES", "DCK-ICC-DISABLED",
+      "DCK-TLS-VERIFY", "DCK-SOCKET-PERMS", "DCK-NO-ROOT-CONTAINERS",
+      "DCK-READ-ONLY-ROOTFS", "DCK-LOG-MAX-SIZE", "DCK-DEFAULT-ULIMITS",
+      "DCK-SECCOMP-ENABLED", "DCK-CONTENT-TRUST", "DCK-NO-SENSITIVE-MOUNTS",
+      "DCK-APPARMOR-PROFILE", "DCK-NO-PRIVILEGED-PORTS", "DCK-NETWORK-DISABLED",
+      "DCK-LOG-DRIVER-CONFIGURED", "DCK-ROOTLESS-MODE", "DCK-NO-HOST-NETWORK-INSPECT",
+      "DCK-HEALTH-CHECK", "DCK-BRIDGE-NFCALL", "DCK-NO-INSECURE-REGISTRY",
+      "DCK-NO-EXPERIMENTAL", "DCK-AUTH-PLUGIN", "DCK-REGISTRY-CERTS",
+      "DCK-SWARM-INACTIVE", "DCK-PID-MODE",
+    ])("[MUTATION-KILLER] skipped %s has safeToAutoFix=FORBIDDEN, category=Docker, fixCommand contains get-docker", (id) => {
+      const bareCk = skippedBare.find((c) => c.id === id)!;
+      expect(bareCk.safeToAutoFix).toBe("FORBIDDEN");
+      expect(bareCk.category).toBe("Docker");
+      expect(bareCk.fixCommand).toContain("get-docker.sh");
+      expect(bareCk.expectedValue).toBe("Docker installed and configured securely");
+      expect(bareCk.currentValue).toBe("Docker not installed");
+    });
+
+    it("[MUTATION-KILLER] coolify skipped checks have explain mentioning 'expected'", () => {
+      skippedCoolify.forEach((c) => {
+        expect(c.explain).toContain("expected");
+      });
+    });
+
+    it("[MUTATION-KILLER] bare skipped checks have explain mentioning 'not installed'", () => {
+      skippedBare.forEach((c) => {
+        expect(c.explain).toContain("not installed");
+      });
+    });
+  });
+});

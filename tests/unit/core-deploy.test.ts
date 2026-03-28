@@ -602,3 +602,440 @@ describe("deployServer — KastellResult return type", () => {
     processExitSpy.mockRestore();
   });
 });
+
+// ─── [MUTATION-KILLER] deploy string assertions ─────────────────────────────
+// Each assertion pins a specific string literal used in deploy.ts.
+// Stryker replaces strings with "" which causes these checks to fail.
+
+describe("[MUTATION-KILLER] deployServer mode string handling", () => {
+  let consoleSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    consoleSpy = jest.spyOn(console, "log").mockImplementation();
+    jest.clearAllMocks();
+    waitForCoolify.mockResolvedValue(true);
+    sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+    firewallSetup.mockResolvedValue(undefined);
+    secureSetup.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  it("mode='bare' results in platform=undefined (not 'coolify')", async () => {
+    const provider = createMockProvider();
+    const result = await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    expect(result.data!.platform).toBeUndefined();
+  });
+
+  it("mode='dokploy' results in platform='dokploy'", async () => {
+    const provider = createMockProvider();
+    const result = await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "dokploy");
+    expect(result.data!.platform).toBe("dokploy");
+  });
+
+  it("mode=undefined (default) results in platform='coolify'", async () => {
+    const provider = createMockProvider();
+    const result = await deployServer("hetzner", provider, "nbg1", "cax11", "srv");
+    expect(result.data!.platform).toBe("coolify");
+  });
+
+  it("bare mode saves ServerRecord with mode='bare'", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    expect(saveServer).toHaveBeenCalledWith(expect.objectContaining({ mode: "bare" }));
+  });
+
+  it("coolify mode saves ServerRecord with mode='coolify'", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv");
+    expect(saveServer).toHaveBeenCalledWith(expect.objectContaining({ mode: "coolify" }));
+  });
+
+  it("dokploy mode saves ServerRecord with mode='coolify' and platform='dokploy'", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "dokploy");
+    expect(saveServer).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "coolify", platform: "dokploy" }),
+    );
+  });
+});
+
+describe("[MUTATION-KILLER] deployServer console output strings", () => {
+  let consoleSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    consoleSpy = jest.spyOn(console, "log").mockImplementation();
+    jest.clearAllMocks();
+    waitForCoolify.mockResolvedValue(true);
+    sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+    firewallSetup.mockResolvedValue(undefined);
+    secureSetup.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  it("bare mode shows 'ssh root@' connection info", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("ssh root@");
+  });
+
+  it("bare mode shows 'bare' mode label", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("bare");
+  });
+
+  it("bare mode shows 'kastell list' hint", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("kastell list");
+  });
+
+  it("coolify mode shows server IP in output", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv");
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("10.0.0.1");
+  });
+
+  it("coolify mode shows http:// URL with port 8000", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv");
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("http://10.0.0.1:8000");
+  });
+
+  it("dokploy mode shows http:// URL with port 3000", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "dokploy");
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("http://10.0.0.1:3000");
+  });
+
+  it("coolify mode shows 'Coolify' platform name", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv");
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Coolify");
+  });
+
+  it("dokploy mode shows 'Dokploy' platform name", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "dokploy");
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Dokploy");
+  });
+
+  it("onboarding shows 'kastell firewall setup' command", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", false, false);
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("kastell firewall setup my-server");
+  });
+
+  it("onboarding shows 'kastell secure setup' command", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", false, false);
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("kastell secure setup my-server");
+  });
+
+  it("onboarding shows 'kastell domain add' command", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", false, false);
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("kastell domain add my-server");
+  });
+
+  it("onboarding shows 'example.com' domain placeholder", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", false, false);
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("example.com");
+  });
+
+  it("onboarding shows 'kastell backup' command", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", false, false);
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("kastell backup my-server");
+  });
+
+  it("onboarding shows 'kastell init --full-setup' tip", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", false, false);
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("kastell init --full-setup");
+  });
+
+  it("onboarding shows 'kastell doctor' command", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", false, false);
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("kastell doctor");
+  });
+
+  it("shows GitHub docs URL", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", false, false);
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("https://github.com/kastelldev/kastell");
+  });
+
+  it("shows star CTA with stars emoji", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", false, false);
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Love Kastell?");
+  });
+
+  it("shows 'did not respond yet' warning when Coolify not ready", async () => {
+    waitForCoolify.mockResolvedValue(false);
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "my-server", false, false);
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("did not respond yet");
+  });
+
+  it("error result contains 'Deployment failed:' prefix", async () => {
+    const provider = createMockProvider({
+      createServer: jest.fn().mockRejectedValue(new Error("boom")),
+    });
+    const result = await deployServer("hetzner", provider, "nbg1", "cax11", "srv");
+    expect(result.error).toContain("Deployment failed:");
+  });
+});
+
+describe("[MUTATION-KILLER] deployServer SSH and cloud-init strings", () => {
+  let consoleSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    consoleSpy = jest.spyOn(console, "log").mockImplementation();
+    jest.clearAllMocks();
+    waitForCoolify.mockResolvedValue(true);
+    sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+    firewallSetup.mockResolvedValue(undefined);
+    secureSetup.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  it("checks SSH with 'echo ok' command", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    expect(sshExec).toHaveBeenCalledWith("10.0.0.1", "echo ok");
+  });
+
+  it("checks cloud-init with 'cloud-init status --wait' command", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    expect(sshExec).toHaveBeenCalledWith("10.0.0.1", "cloud-init status --wait");
+  });
+
+  it("saves createdAt as ISO timestamp", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    const savedArg = saveServer.mock.calls[0][0];
+    expect(savedArg.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("saves provider name from providerChoice parameter", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    expect(saveServer).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "hetzner" }),
+    );
+  });
+
+  it("saves region from parameter", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    expect(saveServer).toHaveBeenCalledWith(
+      expect.objectContaining({ region: "nbg1" }),
+    );
+  });
+
+  it("saves size from parameter", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    expect(saveServer).toHaveBeenCalledWith(
+      expect.objectContaining({ size: "cax11" }),
+    );
+  });
+
+  it("saves server name from parameter", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "test-name", false, false, "bare");
+    expect(saveServer).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "test-name" }),
+    );
+  });
+
+  it("saves IP from provider response", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    expect(saveServer).toHaveBeenCalledWith(
+      expect.objectContaining({ ip: "10.0.0.1" }),
+    );
+  });
+
+  it("saves server ID from provider response", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    expect(saveServer).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "999" }),
+    );
+  });
+});
+
+describe("[MUTATION-KILLER] deployServer IP validation strings", () => {
+  let consoleSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    consoleSpy = jest.spyOn(console, "log").mockImplementation();
+    jest.clearAllMocks();
+    waitForCoolify.mockResolvedValue(true);
+    sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+    firewallSetup.mockResolvedValue(undefined);
+    secureSetup.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  it("IP 0.0.0.0 is treated as invalid (triggers IP polling)", async () => {
+    jest.useFakeTimers();
+    const provider = createMockProvider({
+      createServer: jest.fn().mockResolvedValue({ id: "999", ip: "0.0.0.0", status: "running" }),
+      getServerDetails: jest.fn().mockResolvedValue({ ip: "10.0.0.1" }),
+    });
+    const promise = deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    await jest.runAllTimersAsync();
+    await promise;
+    jest.useRealTimers();
+    // getServerDetails was called because 0.0.0.0 triggered IP polling
+    expect(provider.getServerDetails).toHaveBeenCalled();
+  });
+
+  it("IP 'pending' is treated as invalid (triggers IP polling)", async () => {
+    jest.useFakeTimers();
+    const provider = createMockProvider({
+      createServer: jest.fn().mockResolvedValue({ id: "999", ip: "pending", status: "running" }),
+      getServerDetails: jest.fn().mockResolvedValue({ ip: "10.0.0.1" }),
+    });
+    const promise = deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    await jest.runAllTimersAsync();
+    await promise;
+    jest.useRealTimers();
+    expect(provider.getServerDetails).toHaveBeenCalled();
+  });
+
+  it("empty string IP is treated as invalid (triggers IP polling)", async () => {
+    jest.useFakeTimers();
+    const provider = createMockProvider({
+      createServer: jest.fn().mockResolvedValue({ id: "999", ip: "", status: "running" }),
+      getServerDetails: jest.fn().mockResolvedValue({ ip: "10.0.0.1" }),
+    });
+    const promise = deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    await jest.runAllTimersAsync();
+    await promise;
+    jest.useRealTimers();
+    expect(provider.getServerDetails).toHaveBeenCalled();
+  });
+
+  it("valid IP 10.0.0.1 does not trigger IP polling", async () => {
+    const provider = createMockProvider();
+    await deployServer("hetzner", provider, "nbg1", "cax11", "srv", false, false, "bare");
+    expect(provider.getServerDetails).not.toHaveBeenCalled();
+  });
+});
+
+describe("[MUTATION-KILLER] deployServer server status polling string", () => {
+  let consoleSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    consoleSpy = jest.spyOn(console, "log").mockImplementation();
+    jest.clearAllMocks();
+    sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+    firewallSetup.mockResolvedValue(undefined);
+    secureSetup.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  it("waits for status 'running' before proceeding", async () => {
+    jest.useFakeTimers();
+    const getServerStatus = jest.fn()
+      .mockResolvedValueOnce("initializing")
+      .mockResolvedValueOnce("running");
+    const provider = createMockProvider({ getServerStatus });
+    waitForCoolify.mockResolvedValue(true);
+
+    const promise = deployServer("hetzner", provider, "nbg1", "cax11", "srv");
+    await jest.runAllTimersAsync();
+    await promise;
+    jest.useRealTimers();
+
+    expect(getServerStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it("polls server status until running", async () => {
+    jest.useFakeTimers();
+    const getServerStatus = jest.fn()
+      .mockResolvedValueOnce("initializing")
+      .mockResolvedValueOnce("running");
+    const provider = createMockProvider({ getServerStatus });
+    waitForCoolify.mockResolvedValue(true);
+
+    const promise = deployServer("hetzner", provider, "nbg1", "cax11", "srv");
+    await jest.runAllTimersAsync();
+    const result = await promise;
+    jest.useRealTimers();
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("[MUTATION-KILLER] deployServer createServer retry strings", () => {
+  let consoleSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    consoleSpy = jest.spyOn(console, "log").mockImplementation();
+    jest.clearAllMocks();
+    waitForCoolify.mockResolvedValue(true);
+    sshExec.mockResolvedValue({ code: 0, stdout: "", stderr: "" });
+    firewallSetup.mockResolvedValue(undefined);
+    secureSetup.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  it("returns error containing 'Server creation failed' on retry exhaustion", async () => {
+    const provider = createMockProvider({
+      createServer: jest.fn()
+        .mockRejectedValueOnce(new Error("unavailable"))
+        .mockRejectedValueOnce(new Error("unavailable"))
+        .mockRejectedValueOnce(new Error("unavailable")),
+    });
+
+    const result = await deployServer("hetzner", provider, "nbg1", "cax11", "srv");
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBeDefined();
+  });
+});

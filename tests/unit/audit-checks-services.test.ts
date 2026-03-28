@@ -1062,3 +1062,232 @@ describe("parseServicesChecks — mutation killers", () => {
     });
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [MUTATION-KILLER] String literal assertions — kills StringLiteral mutants
+// Every check's id, name, severity, safeToAutoFix, category, expectedValue,
+// fixCommand, and explain are asserted to prevent "" replacement surviving.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe("[MUTATION-KILLER] Services check metadata — string literal assertions", () => {
+  const secureOutput = [
+    "inactive", "inactive", "inactive", "inactive", "inactive", "inactive",
+    "inactive", "inactive", "inactive", "inactive", "inactive", "inactive",
+    "inactive", "inactive", "inactive", "inactive", "inactive", "inactive",
+    "NONE", "NONE", "18", "3", "NONE", "inactive", "NONE",
+  ].join("\n");
+
+  const checks = parseServicesChecks(secureOutput, "bare");
+  const findSvc = (id: string) => {
+    const c = checks.find((ch) => ch.id === id);
+    if (!c) throw new Error(`Check ${id} not found`);
+    return c;
+  };
+
+  // ── All 25 checks: id, name, severity, safeToAutoFix, category ──
+
+  it.each([
+    ["SVC-NO-TELNET", "Telnet Service Disabled", "critical", "SAFE"],
+    ["SVC-NO-RSH", "rsh Service Disabled", "critical", "SAFE"],
+    ["SVC-NO-RLOGIN", "rlogin Service Disabled", "warning", "SAFE"],
+    ["SVC-NO-FTP", "FTP Server Disabled", "warning", "SAFE"],
+    ["SVC-NO-TFTP", "TFTP Service Disabled", "warning", "SAFE"],
+    ["SVC-NFS-RESTRICTED", "NFS Server Not Exposed", "warning", "SAFE"],
+    ["SVC-NO-RPCBIND", "rpcbind Not Running", "warning", "SAFE"],
+    ["SVC-SAMBA-RESTRICTED", "Samba Not Exposed", "warning", "SAFE"],
+    ["SVC-NO-AVAHI", "Avahi Daemon Disabled", "info", "SAFE"],
+    ["SVC-NO-CUPS", "CUPS Print Service Disabled", "info", "SAFE"],
+    ["SVC-NO-DHCP-SERVER", "DHCP Server Disabled", "info", "SAFE"],
+    ["SVC-NO-DNS-SERVER", "DNS Server Not Running", "info", "SAFE"],
+    ["SVC-NO-SNMP", "SNMP Service Disabled", "warning", "SAFE"],
+    ["SVC-NO-SQUID", "Squid Proxy Disabled", "info", "SAFE"],
+    ["SVC-NO-XINETD", "xinetd Service Disabled", "warning", "SAFE"],
+    ["SVC-NO-YPSERV", "NIS (ypserv) Disabled", "warning", "SAFE"],
+    ["SVC-NO-INETD", "No Dangerous inetd Entries", "warning", "SAFE"],
+    ["SVC-NO-CHARGEN", "chargen Service Disabled", "warning", "GUARDED"],
+    ["SVC-NO-DAYTIME", "daytime Service Disabled", "info", "GUARDED"],
+    ["SVC-NO-DISCARD", "discard Service Disabled", "info", "GUARDED"],
+    ["SVC-NO-ECHO-SVC", "echo Service Disabled", "info", "GUARDED"],
+    ["SVC-RUNNING-COUNT-REASONABLE", "Running Service Count Reasonable", "info", "GUARDED"],
+    ["SVC-NO-WILDCARD-LISTENERS", "No Excessive Wildcard Listeners", "warning", "SAFE"],
+    ["SVC-NO-XINETD-SERVICES", "xinetd Legacy Service Disabled", "info", "SAFE"],
+    ["SVC-NO-WORLD-READABLE-CONFIGS", "No World-Readable Service Configs", "info", "SAFE"],
+  ])("[MUTATION-KILLER] %s has name=%s, severity=%s, safeToAutoFix=%s", (id, name, severity, safe) => {
+    const c = findSvc(id);
+    expect(c.name).toBe(name);
+    expect(c.severity).toBe(severity);
+    expect(c.safeToAutoFix).toBe(safe);
+    expect(c.category).toBe("Services");
+  });
+
+  // ── expectedValue assertions per check ──
+  it.each([
+    ["SVC-NO-TELNET", "telnet service inactive or not installed"],
+    ["SVC-NO-RSH", "rsh service inactive or not installed"],
+    ["SVC-NO-RLOGIN", "rlogin service inactive or not installed"],
+    ["SVC-NO-FTP", "FTP service inactive or not installed"],
+    ["SVC-NO-TFTP", "TFTP service inactive or not installed"],
+    ["SVC-NFS-RESTRICTED", "NFS server inactive unless explicitly required"],
+    ["SVC-NO-RPCBIND", "rpcbind inactive unless NFS is required"],
+    ["SVC-SAMBA-RESTRICTED", "Samba inactive unless file sharing is required"],
+    ["SVC-NO-AVAHI", "avahi-daemon inactive on servers"],
+    ["SVC-NO-CUPS", "CUPS inactive unless print server needed"],
+    ["SVC-NO-DHCP-SERVER", "DHCP server inactive unless required"],
+    ["SVC-NO-DNS-SERVER", "DNS server inactive unless explicitly required"],
+    ["SVC-NO-SNMP", "SNMP inactive unless monitoring requires it"],
+    ["SVC-NO-SQUID", "Squid inactive unless proxy is required"],
+    ["SVC-NO-XINETD", "xinetd inactive — use systemd socket activation instead"],
+    ["SVC-NO-YPSERV", "NIS (ypserv) inactive — insecure authentication protocol"],
+    ["SVC-NO-INETD", "No dangerous services in inetd.conf"],
+    ["SVC-NO-CHARGEN", "chargen service not running or configured"],
+    ["SVC-NO-DAYTIME", "daytime service not running or configured"],
+    ["SVC-NO-DISCARD", "discard service not running or configured"],
+    ["SVC-NO-ECHO-SVC", "echo service not running or configured"],
+    ["SVC-RUNNING-COUNT-REASONABLE", "Fewer than 50 running services"],
+    ["SVC-NO-WILDCARD-LISTENERS", "5 or fewer services listening on 0.0.0.0"],
+    ["SVC-NO-XINETD-SERVICES", "xinetd inactive or not installed"],
+    ["SVC-NO-WORLD-READABLE-CONFIGS", "No world-readable systemd service configuration files"],
+  ])("[MUTATION-KILLER] %s expectedValue = %s", (id, expected) => {
+    expect(findSvc(id).expectedValue).toBe(expected);
+  });
+
+  // ── fixCommand contains key substring ──
+  it.each([
+    ["SVC-NO-TELNET", "telnet"],
+    ["SVC-NO-RSH", "rsh"],
+    ["SVC-NO-RLOGIN", "rlogin"],
+    ["SVC-NO-FTP", "vsftpd"],
+    ["SVC-NO-TFTP", "tftpd"],
+    ["SVC-NFS-RESTRICTED", "nfs-server"],
+    ["SVC-NO-RPCBIND", "rpcbind"],
+    ["SVC-SAMBA-RESTRICTED", "smbd"],
+    ["SVC-NO-AVAHI", "avahi-daemon"],
+    ["SVC-NO-CUPS", "cups"],
+    ["SVC-NO-DHCP-SERVER", "isc-dhcp-server"],
+    ["SVC-NO-DNS-SERVER", "named"],
+    ["SVC-NO-SNMP", "snmpd"],
+    ["SVC-NO-SQUID", "squid"],
+    ["SVC-NO-XINETD", "xinetd"],
+    ["SVC-NO-YPSERV", "ypserv"],
+    ["SVC-NO-INETD", "inetd.conf"],
+    ["SVC-NO-CHARGEN", "chargen"],
+    ["SVC-NO-DAYTIME", "daytime"],
+    ["SVC-NO-DISCARD", "discard"],
+    ["SVC-NO-ECHO-SVC", "echo"],
+    ["SVC-RUNNING-COUNT-REASONABLE", "systemctl"],
+    ["SVC-NO-WILDCARD-LISTENERS", "0.0.0.0"],
+    ["SVC-NO-XINETD-SERVICES", "xinetd"],
+    ["SVC-NO-WORLD-READABLE-CONFIGS", "systemd"],
+  ])("[MUTATION-KILLER] %s fixCommand contains '%s'", (id, substring) => {
+    const fc = findSvc(id).fixCommand;
+    expect(fc).toBeDefined();
+    expect(fc!.toLowerCase()).toContain(substring.toLowerCase());
+  });
+
+  // ── explain is non-empty and contains domain keyword ──
+  it.each([
+    ["SVC-NO-TELNET", "cleartext"],
+    ["SVC-NO-RSH", "encryption"],
+    ["SVC-NO-RLOGIN", "cleartext"],
+    ["SVC-NO-FTP", "cleartext"],
+    ["SVC-NO-TFTP", "authentication"],
+    ["SVC-NFS-RESTRICTED", "sensitive files"],
+    ["SVC-NO-RPCBIND", "reconnaissance"],
+    ["SVC-SAMBA-RESTRICTED", "ransomware"],
+    ["SVC-NO-AVAHI", "attack surface"],
+    ["SVC-NO-CUPS", "vulnerabilities"],
+    ["SVC-NO-DHCP-SERVER", "network addressing"],
+    ["SVC-NO-DNS-SERVER", "amplification"],
+    ["SVC-NO-SNMP", "community strings"],
+    ["SVC-NO-SQUID", "malicious traffic"],
+    ["SVC-NO-XINETD", "legacy"],
+    ["SVC-NO-YPSERV", "cleartext"],
+    ["SVC-NO-INETD", "legacy"],
+    ["SVC-NO-CHARGEN", "amplification"],
+    ["SVC-NO-DAYTIME", "amplification"],
+    ["SVC-NO-DISCARD", "no useful function"],
+    ["SVC-NO-ECHO-SVC", "traffic loops"],
+    ["SVC-RUNNING-COUNT-REASONABLE", "attack surface"],
+    ["SVC-NO-WILDCARD-LISTENERS", "attack surface"],
+    ["SVC-NO-XINETD-SERVICES", "systemd socket activation"],
+    ["SVC-NO-WORLD-READABLE-CONFIGS", "credentials"],
+  ])("[MUTATION-KILLER] %s explain contains '%s'", (id, keyword) => {
+    const e = findSvc(id).explain;
+    expect(e).toBeDefined();
+    expect(e!.length).toBeGreaterThan(20);
+    expect(e!).toContain(keyword);
+  });
+
+  // ── N/A output: every check has consistent metadata ──
+  describe("[MUTATION-KILLER] N/A output metadata consistency", () => {
+    const naChecks = parseServicesChecks("N/A", "bare");
+
+    it("[MUTATION-KILLER] N/A output all checks have category=Services", () => {
+      naChecks.forEach((c) => expect(c.category).toBe("Services"));
+    });
+
+    it("[MUTATION-KILLER] N/A output all checks have currentValue=Unable to determine", () => {
+      naChecks.forEach((c) => expect(c.currentValue).toBe("Unable to determine"));
+    });
+
+    it("[MUTATION-KILLER] N/A output preserves same expectedValue as normal output", () => {
+      naChecks.forEach((naC) => {
+        const normalC = findSvc(naC.id);
+        expect(naC.expectedValue).toBe(normalC.expectedValue);
+      });
+    });
+
+    it("[MUTATION-KILLER] N/A output preserves same explain as normal output", () => {
+      naChecks.forEach((naC) => {
+        const normalC = findSvc(naC.id);
+        expect(naC.explain).toBe(normalC.explain);
+      });
+    });
+
+    it("[MUTATION-KILLER] N/A output preserves same fixCommand as normal output", () => {
+      naChecks.forEach((naC) => {
+        const normalC = findSvc(naC.id);
+        expect(naC.fixCommand).toBe(normalC.fixCommand);
+      });
+    });
+  });
+
+  // ── Active service currentValue exact strings ──
+  describe("[MUTATION-KILLER] active service currentValue strings", () => {
+    const insecureOutput = [
+      "telnet active", "rsh active", "rlogin active", "vsftpd active",
+      "tftpd active", "nfs-server active", "rpcbind active", "smbd active",
+      "avahi-daemon active", "cups active", "isc-dhcp-server active",
+      "named active", "snmpd active", "squid active", "xinetd active",
+      "ypserv active", "inactive", "inactive",
+      "telnet stream tcp nowait root /usr/sbin/telnetd",
+      "chargen stream tcp nowait root internal",
+      "daytime stream tcp nowait root internal",
+      "discard stream tcp nowait root internal",
+      "echo stream tcp nowait root internal",
+    ].join("\n");
+    const insecureChecks = parseServicesChecks(insecureOutput, "bare");
+    const findInsecure = (id: string) => insecureChecks.find((c) => c.id === id)!;
+
+    it.each([
+      ["SVC-NO-TELNET", "telnet is active"],
+      ["SVC-NO-RSH", "rsh is active"],
+      ["SVC-NO-RLOGIN", "rlogin is active"],
+      ["SVC-NO-FTP", "FTP server is active"],
+      ["SVC-NO-TFTP", "TFTP is active"],
+      ["SVC-NFS-RESTRICTED", "NFS server is running"],
+      ["SVC-NO-RPCBIND", "rpcbind is running"],
+      ["SVC-SAMBA-RESTRICTED", "Samba is running"],
+      ["SVC-NO-AVAHI", "avahi-daemon is running"],
+      ["SVC-NO-CUPS", "CUPS is running"],
+      ["SVC-NO-DHCP-SERVER", "DHCP server is running"],
+      ["SVC-NO-DNS-SERVER", "DNS server is running"],
+      ["SVC-NO-SNMP", "SNMP is running"],
+      ["SVC-NO-SQUID", "Squid proxy is running"],
+      ["SVC-NO-XINETD", "xinetd is running"],
+      ["SVC-NO-YPSERV", "NIS is running"],
+    ])("[MUTATION-KILLER] %s active currentValue = %s", (id, expected) => {
+      expect(findInsecure(id).currentValue).toBe(expected);
+    });
+  });
+});
