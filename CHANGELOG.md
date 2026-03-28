@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.15.1] - 2026-03-28
+
+### Added
+- **`kastell changelog` command** — Parse and display CHANGELOG.md in terminal (`kastell changelog`, `kastell changelog v1.14.0`, `kastell changelog --all`)
+- **"Why Kastell?" manifesto** in README (EN + TR) — problem statement, approach, AI-native positioning
+- **Kastell vs Alternatives comparison table** in README (EN + TR) — Kastell vs Lynis vs OpenSCAP across 12 dimensions
+- **Zero Telemetry badge** in README (EN + TR) — trust signal, no data collection
+- **CI profile stats dispatch** — `.github` org profile auto-updates on every main push (test/check/category/MCP counts)
+- Interactive menu: "View changelog" entry in Configuration section
+- CHANGELOG.md included in npm package files
+
+### Fixed
+- **sshExec SSH banner handling** — servers with login banners caused non-zero exit codes on Windows, breaking health checks, audit scores (42→11 false drop), and doctor cache writes. Now checks stdout content when stderr is banner-only
+- **3 incorrect fix commands** — `grub2-mkpasswd-pbkdf2` → `grub-mkpasswd-pbkdf2` (Ubuntu), `dc3dd` → `sleuthkit` (available in repos), `vector` → `rsyslog` (no 3rd party repo needed)
+- **Backup fix command** — `kastell backup create` (local CLI, not available on server) → server-side `tar` command
+- **audit-watch test timeout** — Windows CI fake timer slowness (jest.setTimeout 15s + extra microtick flushes)
+- **CI dispatch format** — JSON body for repository_dispatch (was form-encoded)
+
+### Security
+- 10 security audit remediation items applied: SHELL_METACHAR validation, bot middleware fail-closed, clearKnownHostKey IP validation, sendTelegram token validation, unhandled rejection handler, npm publish --provenance, staging token scope, debugLog→KASTELL_DEBUG
+- Security audit report: `security-audit-report.md` (39 findings, 0 critical)
+
+### Changed
+- Test count: 5,506 → 5,522 (16 new tests: 4 SSH banner + 12 changelog)
+- Test suites: 206 → 207
+
 ## [1.15.0] - 2026-03-27
 
 ### Added
