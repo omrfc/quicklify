@@ -6,11 +6,21 @@ import {
   runScoreCheck,
   isFixCommandAllowed,
   resolveTier,
+  collectFixCommands,
 } from "../../core/audit/fix.js";
 import { backupServer } from "../../core/backup.js";
 import { isSafeMode } from "../../core/manage.js";
 import { sshExec } from "../../utils/ssh.js";
 import { raw } from "../../utils/sshCommand.js";
+import {
+  loadFixHistory,
+  saveFixHistory,
+  generateFixId,
+  getLastFixId,
+  backupFilesBeforeFix,
+  rollbackFix,
+  backupRemoteCleanup,
+} from "../../core/audit/fix-history.js";
 import {
   resolveServerForMcp,
   mcpSuccess,
@@ -28,11 +38,23 @@ export const serverFixSchema = {
     .describe(
       "Server name or IP. Auto-selected if only one server exists.",
     ),
+  action: z
+    .enum(["apply", "rollback", "history"])
+    .default("apply")
+    .describe(
+      "apply: run fixes (default), rollback: restore backup by fix-id, history: list fix operations",
+    ),
   dryRun: z
     .boolean()
     .default(true)
     .describe(
       "Preview fixes without applying. Defaults to true. Forced to true when KASTELL_SAFE_MODE=true.",
+    ),
+  rollbackId: z
+    .string()
+    .optional()
+    .describe(
+      "Fix ID to rollback (e.g. fix-2026-03-29-001) or 'last'",
     ),
   checks: z
     .array(z.string())
@@ -58,7 +80,9 @@ const SEVERITY_ORDER: Array<"critical" | "warning" | "info"> = [
 export async function handleServerFix(
   params: {
     server?: string;
+    action?: "apply" | "rollback" | "history";
     dryRun?: boolean;
+    rollbackId?: string;
     checks?: string[];
     category?: string;
   },
@@ -88,6 +112,91 @@ export async function handleServerFix(
     }
 
     const platform = server.platform ?? server.mode ?? "bare";
+
+    // ── HISTORY action (FIXPRO-02, D-09) ─────────────────────────────────
+    if (params.action === "history") {
+      const entries = loadFixHistory(server.ip);
+      return mcpSuccess({
+        action: "history",
+        server: { name: server.name, ip: server.ip },
+        entries: entries.slice(-20),
+        totalEntries: entries.length,
+      });
+    }
+
+    // ── ROLLBACK action (FIXPRO-01, D-06, D-07, D-09) ───────────────────
+    if (params.action === "rollback") {
+      // SAFE_MODE guard — rollback is destructive
+      if (isSafeMode()) {
+        return mcpError(
+          "Rollback blocked: KASTELL_SAFE_MODE=true",
+          "Set SAFE_MODE=false to allow rollback operations",
+        );
+      }
+
+      if (!params.rollbackId) {
+        return mcpError("rollbackId is required for rollback action");
+      }
+
+      // Resolve fix ID (D-07: 'last' shortcut)
+      let fixId = params.rollbackId;
+      if (fixId === "last") {
+        const lastId = getLastFixId(server.ip);
+        if (!lastId) {
+          return mcpError("No applied fixes found for this server");
+        }
+        fixId = lastId;
+      }
+
+      // Find history entry
+      const entries = loadFixHistory(server.ip);
+      const entry = entries.find(
+        (e) => e.fixId === fixId && e.status === "applied",
+      );
+      if (!entry) {
+        return mcpError(`Fix not found or already rolled back: ${fixId}`);
+      }
+
+      // Execute rollback
+      await mcpLog(mcpServer, `Rolling back ${fixId}...`);
+      const { restored, errors: rollbackErrors } = await rollbackFix(
+        server.ip,
+        fixId,
+        entry.backupPath,
+      );
+
+      // Post-rollback score (optional)
+      let scoreAfter: number | null = null;
+      if (restored.length > 0) {
+        await mcpLog(mcpServer, "Verifying score...");
+        const auditRes = await runAudit(server.ip, server.name, platform);
+        if (auditRes.success && auditRes.data) {
+          scoreAfter = auditRes.data.overallScore;
+        }
+      }
+
+      // Save rollback history entry
+      await saveFixHistory({
+        fixId: `${fixId}-rollback`,
+        serverIp: server.ip,
+        serverName: server.name,
+        timestamp: new Date().toISOString(),
+        checks: entry.checks,
+        scoreBefore: entry.scoreAfter ?? entry.scoreBefore,
+        scoreAfter,
+        status: "rolled-back",
+        backupPath: entry.backupPath,
+      });
+
+      return mcpSuccess({
+        action: "rollback",
+        fixId,
+        restored,
+        errors: rollbackErrors,
+        scoreBefore: entry.scoreAfter ?? entry.scoreBefore,
+        scoreAfter,
+      });
+    }
 
     // ── SAFE_MODE + dryRun resolution ─────────────────────────────────────
     const effectiveDryRun = (params.dryRun ?? true) || isSafeMode();
@@ -198,6 +307,16 @@ export async function handleServerFix(
       );
     }
 
+    // ── LIVE FIX — remote file backup + fix ID (D-01, D-03) ──────────────
+    const fixId = generateFixId(server.ip);
+    const fixCommands = collectFixCommands(safePlan);
+    await mcpLog(mcpServer, "Creating remote file backup...");
+    const remoteBackupPath = await backupFilesBeforeFix(
+      server.ip,
+      fixId,
+      fixCommands,
+    );
+
     // ── LIVE FIX — execute ────────────────────────────────────────────────
     await mcpLog(mcpServer, `Applying ${filteredChecks.length} safe fix(es)...`);
     const applied: string[] = [];
@@ -246,6 +365,22 @@ export async function handleServerFix(
       );
     }
 
+    // ── LIVE FIX — save history entry (FIXPRO-02) ────────────────────────
+    await saveFixHistory({
+      fixId,
+      serverIp: server.ip,
+      serverName: server.name,
+      timestamp: new Date().toISOString(),
+      checks: applied,
+      scoreBefore: auditResult.overallScore,
+      scoreAfter,
+      status: applied.length > 0 ? "applied" : "failed",
+      backupPath: remoteBackupPath,
+    });
+
+    // ── LIVE FIX — prune old backups ──────────────────────────────────────
+    await backupRemoteCleanup(server.ip);
+
     return mcpSuccess({
       dryRun: false,
       applied,
@@ -258,4 +393,3 @@ export async function handleServerFix(
     return mcpError(getErrorMessage(error));
   }
 }
-

@@ -18,6 +18,7 @@
 jest.mock("../../src/utils/config");
 jest.mock("../../src/core/audit/index");
 jest.mock("../../src/core/audit/fix");
+jest.mock("../../src/core/audit/fix-history");
 jest.mock("../../src/core/backup");
 jest.mock("../../src/core/manage");
 jest.mock("../../src/utils/ssh");
@@ -30,14 +31,17 @@ jest.mock("../../src/utils/errorMapper", () => ({
 import * as config from "../../src/utils/config";
 import * as auditIndex from "../../src/core/audit/index";
 import * as fix from "../../src/core/audit/fix";
+import * as fixHistory from "../../src/core/audit/fix-history";
 import * as backup from "../../src/core/backup";
 import * as manage from "../../src/core/manage";
 import * as ssh from "../../src/utils/ssh";
 import { handleServerFix } from "../../src/mcp/tools/serverFix";
+import type { FixHistoryEntry } from "../../src/core/audit/types";
 
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedAudit = auditIndex as jest.Mocked<typeof auditIndex>;
 const mockedFix = fix as jest.Mocked<typeof fix>;
+const mockedFixHistory = fixHistory as jest.Mocked<typeof fixHistory>;
 const mockedBackup = backup as jest.Mocked<typeof backup>;
 const mockedManage = manage as jest.Mocked<typeof manage>;
 const mockedSsh = ssh as jest.Mocked<typeof ssh>;
@@ -178,6 +182,20 @@ beforeEach(() => {
   mockedSsh.sshExec.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
 
   mockedFix.runScoreCheck.mockResolvedValue(72);
+
+  // Default fix-history mocks
+  mockedFixHistory.loadFixHistory.mockReturnValue([]);
+  mockedFixHistory.saveFixHistory.mockResolvedValue(undefined);
+  mockedFixHistory.generateFixId.mockReturnValue("fix-2026-03-29-001");
+  mockedFixHistory.getLastFixId.mockReturnValue(null);
+  mockedFixHistory.backupFilesBeforeFix.mockResolvedValue(
+    "/root/.kastell/fix-backups/fix-2026-03-29-001",
+  );
+  mockedFixHistory.rollbackFix.mockResolvedValue({ restored: [], errors: [] });
+  mockedFixHistory.backupRemoteCleanup.mockResolvedValue(undefined);
+  mockedFix.collectFixCommands.mockReturnValue([
+    { checkId: "KERN-SYNCOOKIES", fixCommand: "sysctl -w net.ipv4.tcp_syncookies=1" },
+  ]);
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -469,6 +487,232 @@ describe("MCP server_fix tool", () => {
       const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
       const errors = parsed.errors as string[];
       expect(errors.some((e: string) => e.includes("ECONNRESET"))).toBe(true);
+    });
+
+    it("saves history entry after successful live fix", async () => {
+      const result = await handleServerFix({ dryRun: false });
+
+      expect(result.isError).toBeUndefined();
+      expect(mockedFixHistory.generateFixId).toHaveBeenCalledWith("1.2.3.4");
+      expect(mockedFixHistory.backupFilesBeforeFix).toHaveBeenCalledWith(
+        "1.2.3.4",
+        "fix-2026-03-29-001",
+        expect.any(Array),
+      );
+      expect(mockedFixHistory.saveFixHistory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fixId: "fix-2026-03-29-001",
+          serverIp: "1.2.3.4",
+          serverName: "test-srv",
+          status: "applied",
+          backupPath: "/root/.kastell/fix-backups/fix-2026-03-29-001",
+        }),
+      );
+    });
+
+    it("calls backupRemoteCleanup after live fix", async () => {
+      await handleServerFix({ dryRun: false });
+
+      expect(mockedFixHistory.backupRemoteCleanup).toHaveBeenCalledWith("1.2.3.4");
+    });
+  });
+
+  // ── action=history ───────────────────────────────────────────────────────
+
+  describe("action=history", () => {
+    it("returns entries for server", async () => {
+      const entry: FixHistoryEntry = {
+        fixId: "fix-2026-03-29-001",
+        serverIp: "1.2.3.4",
+        serverName: "test-srv",
+        timestamp: "2026-03-29T10:00:00.000Z",
+        checks: ["KERN-SYNCOOKIES"],
+        scoreBefore: 65,
+        scoreAfter: 70,
+        status: "applied",
+        backupPath: "/root/.kastell/fix-backups/fix-2026-03-29-001",
+      };
+      mockedFixHistory.loadFixHistory.mockReturnValue([entry]);
+
+      const result = await handleServerFix({ action: "history" });
+
+      expect(result.isError).toBeUndefined();
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect(parsed.action).toBe("history");
+      expect(Array.isArray(parsed.entries)).toBe(true);
+      expect((parsed.entries as FixHistoryEntry[]).length).toBe(1);
+      expect(parsed.totalEntries).toBe(1);
+    });
+
+    it("returns empty entries array when no history", async () => {
+      mockedFixHistory.loadFixHistory.mockReturnValue([]);
+
+      const result = await handleServerFix({ action: "history" });
+
+      expect(result.isError).toBeUndefined();
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect(parsed.action).toBe("history");
+      expect(Array.isArray(parsed.entries)).toBe(true);
+      expect((parsed.entries as unknown[]).length).toBe(0);
+      expect(parsed.totalEntries).toBe(0);
+    });
+
+    it("does not call runAudit for history action", async () => {
+      const result = await handleServerFix({ action: "history" });
+
+      expect(result.isError).toBeUndefined();
+      expect(mockedAudit.runAudit).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── action=rollback ──────────────────────────────────────────────────────
+
+  describe("action=rollback", () => {
+    const appliedEntry: FixHistoryEntry = {
+      fixId: "fix-2026-03-29-001",
+      serverIp: "1.2.3.4",
+      serverName: "test-srv",
+      timestamp: "2026-03-29T10:00:00.000Z",
+      checks: ["KERN-SYNCOOKIES"],
+      scoreBefore: 65,
+      scoreAfter: 70,
+      status: "applied",
+      backupPath: "/root/.kastell/fix-backups/fix-2026-03-29-001",
+    };
+
+    it("calls rollbackFix and saves history entry", async () => {
+      mockedFixHistory.loadFixHistory.mockReturnValue([appliedEntry]);
+      mockedFixHistory.rollbackFix.mockResolvedValue({
+        restored: ["/etc/sysctl.conf"],
+        errors: [],
+      });
+      mockedAudit.runAudit.mockResolvedValue({
+        success: true,
+        data: { ...defaultAuditResult, overallScore: 63 } as never,
+      });
+
+      const result = await handleServerFix({
+        action: "rollback",
+        rollbackId: "fix-2026-03-29-001",
+      });
+
+      expect(result.isError).toBeUndefined();
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect(parsed.action).toBe("rollback");
+      expect(parsed.fixId).toBe("fix-2026-03-29-001");
+      expect(mockedFixHistory.rollbackFix).toHaveBeenCalledWith(
+        "1.2.3.4",
+        "fix-2026-03-29-001",
+        "/root/.kastell/fix-backups/fix-2026-03-29-001",
+      );
+      expect(mockedFixHistory.saveFixHistory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fixId: "fix-2026-03-29-001-rollback",
+          status: "rolled-back",
+          serverIp: "1.2.3.4",
+        }),
+      );
+    });
+
+    it("rollbackId=last resolves to last applied fix", async () => {
+      mockedFixHistory.getLastFixId.mockReturnValue("fix-2026-03-29-001");
+      mockedFixHistory.loadFixHistory.mockReturnValue([appliedEntry]);
+      mockedFixHistory.rollbackFix.mockResolvedValue({
+        restored: ["/etc/sysctl.conf"],
+        errors: [],
+      });
+      mockedAudit.runAudit.mockResolvedValue({
+        success: true,
+        data: { ...defaultAuditResult, overallScore: 63 } as never,
+      });
+
+      const result = await handleServerFix({
+        action: "rollback",
+        rollbackId: "last",
+      });
+
+      expect(result.isError).toBeUndefined();
+      expect(mockedFixHistory.getLastFixId).toHaveBeenCalledWith("1.2.3.4");
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect(parsed.fixId).toBe("fix-2026-03-29-001");
+    });
+
+    it("returns error when rollbackId not provided", async () => {
+      const result = await handleServerFix({ action: "rollback" });
+
+      expect(result.isError).toBe(true);
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect(String(parsed.error)).toContain("rollbackId");
+    });
+
+    it("returns error when SAFE_MODE=true", async () => {
+      mockedManage.isSafeMode.mockReturnValue(true);
+
+      const result = await handleServerFix({
+        action: "rollback",
+        rollbackId: "fix-2026-03-29-001",
+      });
+
+      expect(result.isError).toBe(true);
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect(String(parsed.error)).toContain("SAFE_MODE");
+    });
+
+    it("returns error when fix not found", async () => {
+      mockedFixHistory.loadFixHistory.mockReturnValue([]);
+
+      const result = await handleServerFix({
+        action: "rollback",
+        rollbackId: "fix-nonexistent",
+      });
+
+      expect(result.isError).toBe(true);
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect(String(parsed.error)).toContain("fix-nonexistent");
+    });
+
+    it("returns error when rollbackId=last but no applied fix exists", async () => {
+      mockedFixHistory.getLastFixId.mockReturnValue(null);
+
+      const result = await handleServerFix({
+        action: "rollback",
+        rollbackId: "last",
+      });
+
+      expect(result.isError).toBe(true);
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect(String(parsed.error)).toContain("No applied fixes");
+    });
+
+    it("returns error when fix already rolled back", async () => {
+      const rolledBackEntry: FixHistoryEntry = { ...appliedEntry, status: "rolled-back" };
+      mockedFixHistory.loadFixHistory.mockReturnValue([rolledBackEntry]);
+
+      const result = await handleServerFix({
+        action: "rollback",
+        rollbackId: "fix-2026-03-29-001",
+      });
+
+      expect(result.isError).toBe(true);
+    });
+  });
+
+  // ── Schema validation ────────────────────────────────────────────────────
+
+  describe("schema validation", () => {
+    it("serverFixSchema includes action enum with apply|rollback|history", () => {
+      const { serverFixSchema } = require("../../src/mcp/tools/serverFix");
+      expect(serverFixSchema.action).toBeDefined();
+      const parsed = serverFixSchema.action.parse("apply");
+      expect(parsed).toBe("apply");
+    });
+
+    it("serverFixSchema includes rollbackId optional string", () => {
+      const { serverFixSchema } = require("../../src/mcp/tools/serverFix");
+      expect(serverFixSchema.rollbackId).toBeDefined();
+      // Optional field — undefined is valid
+      const parsed = serverFixSchema.rollbackId.optional().parse(undefined);
+      expect(parsed).toBeUndefined();
     });
   });
 });
