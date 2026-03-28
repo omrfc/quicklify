@@ -57,6 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Dispatch stats-update to .github repo
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.WEBSITE_SYNC_PAT }}
         run: |
