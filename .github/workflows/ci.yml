@@ -50,3 +50,17 @@ jobs:
           directory: ./coverage
           fail_ci_if_error: false
 
+  notify-profile:
+    name: Sync org profile stats
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch stats-update to .github repo
+        env:
+          GH_TOKEN: ${{ secrets.WEBSITE_SYNC_PAT }}
+        run: |
+          gh api repos/kastelldev/.github/dispatches \
+            --method POST \
+            -f event_type=stats-update
+

@@ -48,6 +48,8 @@ afterEach(() => {
 });
 
 describe("watchAudit", () => {
+  // Windows CI fake timers can be slow — raise from default 5s
+  jest.setTimeout(15_000);
   it("should call runAudit repeatedly at given interval", async () => {
     const result = makeAuditResult(72);
     mockedAuditRunner.runAudit.mockResolvedValue({ success: true, data: result });
@@ -61,18 +63,15 @@ describe("watchAudit", () => {
       output: (line: string) => output.push(line),
     });
 
-    // First run happens immediately
+    // First run happens immediately — flush microtasks generously for Windows CI
     await jest.advanceTimersByTimeAsync(0);
-    // Wait for the async runAudit to resolve
-    await Promise.resolve();
-    await Promise.resolve();
+    for (let i = 0; i < 5; i++) await Promise.resolve();
 
     expect(mockedAuditRunner.runAudit).toHaveBeenCalledTimes(1);
 
     // Advance to trigger second run
     await jest.advanceTimersByTimeAsync(10_000);
-    await Promise.resolve();
-    await Promise.resolve();
+    for (let i = 0; i < 5; i++) await Promise.resolve();
 
     expect(mockedAuditRunner.runAudit).toHaveBeenCalledTimes(2);
 
