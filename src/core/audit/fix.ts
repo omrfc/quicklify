@@ -29,7 +29,7 @@ export const KNOWN_AUDIT_FIX_PREFIXES = [
   // Services & time
   "docker", "logrotate", "chronyc", "hwclock", "timedatectl",
   // Boot & kernel
-  "grub2-mkpasswd-pbkdf2", "uname", "df ",
+  "grub-mkpasswd-pbkdf2", "uname", "df ",
   // TLS & certs
   "certbot", "ssl_protocols",
   // Kastell & instructional

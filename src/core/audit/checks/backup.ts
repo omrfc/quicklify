@@ -32,7 +32,7 @@ const BACKUP_CHECKS: BackupCheckDef[] = [
       return { passed: false, currentValue: "Unable to determine backup presence" };
     },
     expectedValue: "Kastell backup exists in /root/.kastell/backups/ and is < 30 days old",
-    fixCommand: "kastell backup create",
+    fixCommand: "mkdir -p /root/.kastell/backups && tar czf /root/.kastell/backups/manual-$(date +%F).tar.gz /etc /root/.ssh 2>/dev/null",
     safeToAutoFix: "SAFE",
     explain:
       "A recent backup in /root/.kastell/backups/ confirms that server configuration and data are being backed up regularly. Without a recent backup, data loss after a failure or compromise cannot be recovered.",

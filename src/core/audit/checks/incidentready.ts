@@ -249,7 +249,7 @@ const INCIDENT_CHECKS: IncidentReadyCheckDef[] = [
       };
     },
     expectedValue: "At least one forensic tool (volatility3, dc3dd) is installed",
-    fixCommand: "apt install dc3dd — install forensic imaging tool for incident response",
+    fixCommand: "apt install -y sleuthkit # forensic imaging and analysis toolkit",
     safeToAutoFix: "SAFE",
     explain:
       "Having forensic tools pre-installed enables rapid incident response without contaminating the compromised system with new package installations.",

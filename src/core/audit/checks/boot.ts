@@ -53,7 +53,7 @@ const BOOT_CHECKS: BootCheckDef[] = [
       };
     },
     expectedValue: "GRUB password configured to prevent unauthorized boot changes",
-    fixCommand: "grub2-mkpasswd-pbkdf2 # Then add to /etc/grub.d/40_custom",
+    fixCommand: "grub-mkpasswd-pbkdf2 # Then add to /etc/grub.d/40_custom",
     safeToAutoFix: "SAFE",
     explain:
       "Without a GRUB password, anyone with physical or console access can modify boot parameters to gain root access.",

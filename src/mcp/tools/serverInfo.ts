@@ -129,7 +129,10 @@ interface BareServerSshResult {
 async function checkBareServerSsh(server: ServerRecord): Promise<BareServerSshResult> {
   try {
     const result = await sshExec(server.ip, "echo ok");
-    if (result.code === 0) {
+    // Check stdout for "ok" as primary indicator — SSH banners can cause
+    // non-zero exit codes on some Windows SSH binaries even when the
+    // command succeeds (banner text goes to stderr, exit code becomes 1).
+    if (result.code === 0 || result.stdout.trim() === "ok") {
       return { reachable: true, hostKeyMismatch: false };
     }
     if (isHostKeyMismatch(result.stderr)) {

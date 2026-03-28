@@ -237,7 +237,7 @@ export const parseLoggingChecks: CheckParser = (sectionOutput: string, _platform
         ? "Centralized logging tool installed"
         : "No centralized logging tool (vector, promtail, fluent-bit) detected",
     expectedValue: "vector, promtail, or fluent-bit installed",
-    fixCommand: "apt install -y vector  # or install promtail/fluent-bit per vendor instructions",
+    fixCommand: "apt install -y rsyslog  # or install promtail/fluent-bit per vendor instructions",
     safeToAutoFix: "SAFE",
     explain: "Centralized logging ensures log aggregation off the server, preserving evidence if the server is compromised.",
   };
