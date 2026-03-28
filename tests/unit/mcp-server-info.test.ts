@@ -388,6 +388,17 @@ describe("handleServerInfo — health bare server", () => {
     expect(data.summary.bare).toBeDefined();
   });
 
+  it("should return reachable when sshExec returns non-zero code but stdout contains ok (banner scenario)", async () => {
+    mockedConfig.getServers.mockReturnValue([bareServer]);
+    mockedConfig.findServer.mockReturnValue(bareServer);
+    mockedSsh.sshExec.mockResolvedValue({ code: 1, stdout: "ok", stderr: "Authorized access only.\n" });
+
+    const result = await handleServerInfo({ action: "health", server: "bare-node" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.sshReachable).toBe(true);
+  });
+
   it("should not call checkCoolifyHealth for bare servers", async () => {
     mockedConfig.getServers.mockReturnValue([bareServer]);
     mockedConfig.findServer.mockReturnValue(bareServer);

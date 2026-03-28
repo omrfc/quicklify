@@ -248,6 +248,51 @@ describe("ssh utils", () => {
     it("should throw error for invalid IP address", () => {
       expect(() => sshExec("localhost", "uptime")).toThrow("Invalid IP address");
     });
+
+    it("should treat non-zero exit as success when stdout has content and stderr is only a banner", async () => {
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
+
+      const promise = sshExec("1.2.3.4", "echo ok");
+      process.nextTick(() => {
+        mockCp.stdout.emit("data", Buffer.from("ok\n"));
+        mockCp.stderr.emit("data", Buffer.from("Authorized access only. All activity is monitored.\n"));
+        mockCp.emit("close", 1);
+      });
+
+      const result = await promise;
+      expect(result.code).toBe(0);
+      expect(result.stdout).toBe("ok\n");
+    });
+
+    it("should keep non-zero exit when stderr contains real error keywords", async () => {
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
+
+      const promise = sshExec("1.2.3.4", "echo ok");
+      process.nextTick(() => {
+        mockCp.stdout.emit("data", Buffer.from("ok\n"));
+        mockCp.stderr.emit("data", Buffer.from("Permission denied (publickey).\n"));
+        mockCp.emit("close", 1);
+      });
+
+      const result = await promise;
+      expect(result.code).toBe(1);
+    });
+
+    it("should keep non-zero exit when stdout is empty (real failure)", async () => {
+      const mockCp = new MockChildProcess(0, 99999);
+      mockedSpawn.mockReturnValue(mockCp as unknown as ReturnType<typeof spawn>);
+
+      const promise = sshExec("1.2.3.4", "bad-cmd");
+      process.nextTick(() => {
+        mockCp.stderr.emit("data", Buffer.from("Authorized access only.\n"));
+        mockCp.emit("close", 1);
+      });
+
+      const result = await promise;
+      expect(result.code).toBe(1);
+    });
   });
 
   describe("removeStaleHostKey", () => {
