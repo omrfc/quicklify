@@ -611,3 +611,203 @@ port 2222`;
     });
   });
 });
+
+// ─── MUTATION-KILLER: Pure function coverage from core/secure.ts ────────────
+
+import {
+  applySecureSetup,
+  calculateSecurityScore,
+  runSecureAudit,
+} from "../../src/core/secure.js";
+import type { SecureAuditResult } from "../../src/types/index.js";
+
+describe("[MUTATION-KILLER] calculateSecurityScore", () => {
+  it("returns 100 when all conditions met", () => {
+    const audit: SecureAuditResult = {
+      passwordAuth: { key: "PasswordAuthentication", value: "no", status: "secure" },
+      rootLogin: { key: "PermitRootLogin", value: "prohibit-password", status: "secure" },
+      fail2ban: { installed: true, active: true },
+      sshPort: 2222,
+    };
+    expect(calculateSecurityScore(audit)).toBe(100);
+  });
+
+  it("returns 0 when no conditions met", () => {
+    const audit: SecureAuditResult = {
+      passwordAuth: { key: "PasswordAuthentication", value: "yes", status: "insecure" },
+      rootLogin: { key: "PermitRootLogin", value: "yes", status: "insecure" },
+      fail2ban: { installed: false, active: false },
+      sshPort: 22,
+    };
+    expect(calculateSecurityScore(audit)).toBe(0);
+  });
+
+  it("returns 25 when only passwordAuth is secure", () => {
+    const audit: SecureAuditResult = {
+      passwordAuth: { key: "PasswordAuthentication", value: "no", status: "secure" },
+      rootLogin: { key: "PermitRootLogin", value: "yes", status: "insecure" },
+      fail2ban: { installed: false, active: false },
+      sshPort: 22,
+    };
+    expect(calculateSecurityScore(audit)).toBe(25);
+  });
+
+  it("returns 25 when only rootLogin is secure", () => {
+    const audit: SecureAuditResult = {
+      passwordAuth: { key: "PasswordAuthentication", value: "yes", status: "insecure" },
+      rootLogin: { key: "PermitRootLogin", value: "prohibit-password", status: "secure" },
+      fail2ban: { installed: false, active: false },
+      sshPort: 22,
+    };
+    expect(calculateSecurityScore(audit)).toBe(25);
+  });
+
+  it("returns 25 when only fail2ban active", () => {
+    const audit: SecureAuditResult = {
+      passwordAuth: { key: "PasswordAuthentication", value: "yes", status: "insecure" },
+      rootLogin: { key: "PermitRootLogin", value: "yes", status: "insecure" },
+      fail2ban: { installed: true, active: true },
+      sshPort: 22,
+    };
+    expect(calculateSecurityScore(audit)).toBe(25);
+  });
+
+  it("returns 25 when only non-default port", () => {
+    const audit: SecureAuditResult = {
+      passwordAuth: { key: "PasswordAuthentication", value: "yes", status: "insecure" },
+      rootLogin: { key: "PermitRootLogin", value: "yes", status: "insecure" },
+      fail2ban: { installed: false, active: false },
+      sshPort: 2222,
+    };
+    expect(calculateSecurityScore(audit)).toBe(25);
+  });
+
+  it("fail2ban installed but not active gives 0 for that category", () => {
+    const audit: SecureAuditResult = {
+      passwordAuth: { key: "PasswordAuthentication", value: "yes", status: "insecure" },
+      rootLogin: { key: "PermitRootLogin", value: "yes", status: "insecure" },
+      fail2ban: { installed: true, active: false },
+      sshPort: 22,
+    };
+    expect(calculateSecurityScore(audit)).toBe(0);
+  });
+});
+
+describe("[MUTATION-KILLER] applySecureSetup", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedSsh.assertValidIp.mockImplementation(() => undefined);
+  });
+
+  it("returns error when no SSH keys found (keyCount=0)", async () => {
+    mockedSsh.sshExec.mockResolvedValueOnce({ stdout: "0\n", stderr: "", code: 0 });
+    const result = await applySecureSetup("1.2.3.4");
+    expect(result.success).toBe(false);
+    expect(result.sshKeyCount).toBe(0);
+    expect(result.error).toContain("No SSH keys");
+    expect(result.error).toContain("permanently lock you out");
+    expect(result.hint).toContain("ssh-copy-id");
+    expect(result.hint).toContain("1.2.3.4");
+  });
+
+  it("returns error when keyCount is NaN", async () => {
+    mockedSsh.sshExec.mockResolvedValueOnce({ stdout: "not-a-number\n", stderr: "", code: 0 });
+    const result = await applySecureSetup("1.2.3.4");
+    expect(result.success).toBe(false);
+    expect(result.sshKeyCount).toBe(0);
+  });
+
+  it("returns success when all steps pass", async () => {
+    mockedSsh.sshExec
+      .mockResolvedValueOnce({ stdout: "3\n", stderr: "", code: 0 }) // key check
+      .mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 }) // hardening
+      .mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 }); // fail2ban
+    const result = await applySecureSetup("1.2.3.4");
+    expect(result.success).toBe(true);
+    expect(result.sshHardening).toBe(true);
+    expect(result.fail2ban).toBe(true);
+    expect(result.sshKeyCount).toBe(3);
+  });
+
+  it("returns fail2ban=false with hint when fail2ban install fails", async () => {
+    mockedSsh.sshExec
+      .mockResolvedValueOnce({ stdout: "1\n", stderr: "", code: 0 })
+      .mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 })
+      .mockResolvedValueOnce({ stdout: "", stderr: "err", code: 1 }); // fail2ban fails
+    const result = await applySecureSetup("1.2.3.4");
+    expect(result.success).toBe(true);
+    expect(result.fail2ban).toBe(false);
+    expect(result.hint).toContain("Fail2ban");
+  });
+
+  it("returns error when SSH hardening fails", async () => {
+    mockedSsh.sshExec
+      .mockResolvedValueOnce({ stdout: "1\n", stderr: "", code: 0 })
+      .mockResolvedValueOnce({ stdout: "", stderr: "err", code: 1 }); // hardening fails
+    const result = await applySecureSetup("1.2.3.4");
+    expect(result.success).toBe(false);
+    expect(result.sshHardening).toBe(false);
+    expect(result.error).toContain("SSH hardening failed");
+  });
+
+  it("catches sshExec exception and returns error", async () => {
+    mockedSsh.sshExec.mockRejectedValueOnce(new Error("connection refused"));
+    const result = await applySecureSetup("1.2.3.4");
+    expect(result.success).toBe(false);
+    expect(result.sshKeyCount).toBe(-1);
+    expect(result.error).toContain("connection refused");
+  });
+
+  it("passes port option to buildHardeningCommand", async () => {
+    mockedSsh.sshExec
+      .mockResolvedValueOnce({ stdout: "1\n", stderr: "", code: 0 })
+      .mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 })
+      .mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 });
+    await applySecureSetup("1.2.3.4", { port: 2222 });
+    const hardenCall = mockedSsh.sshExec.mock.calls[1];
+    expect(hardenCall[1]).toContain("Port 2222");
+  });
+});
+
+describe("[MUTATION-KILLER] runSecureAudit", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedSsh.assertValidIp.mockImplementation(() => undefined);
+  });
+
+  it("returns audit result with score on success", async () => {
+    const stdout = `PasswordAuthentication no\nPermitRootLogin prohibit-password\nPort 2222\n---SEPARATOR---\nactive (running)`;
+    mockedSsh.sshExec.mockResolvedValueOnce({ stdout, stderr: "", code: 0 });
+    const result = await runSecureAudit("1.2.3.4");
+    expect(result.score).toBe(100);
+    expect(result.audit.passwordAuth.status).toBe("secure");
+    expect(result.audit.rootLogin.status).toBe("secure");
+    expect(result.audit.fail2ban.active).toBe(true);
+    expect(result.audit.sshPort).toBe(2222);
+  });
+
+  it("returns score=0 and error on command failure with no stdout", async () => {
+    mockedSsh.sshExec.mockResolvedValueOnce({ stdout: "", stderr: "fail", code: 1 });
+    const result = await runSecureAudit("1.2.3.4");
+    expect(result.score).toBe(0);
+    expect(result.error).toContain("Audit command failed");
+  });
+
+  it("still parses stdout even when exit code is non-zero", async () => {
+    const stdout = `PasswordAuthentication no\n---SEPARATOR---\ninactive`;
+    mockedSsh.sshExec.mockResolvedValueOnce({ stdout, stderr: "", code: 1 });
+    const result = await runSecureAudit("1.2.3.4");
+    expect(result.audit.passwordAuth.status).toBe("secure");
+  });
+
+  it("catches exception and returns EMPTY_AUDIT with score=0", async () => {
+    mockedSsh.sshExec.mockRejectedValueOnce(new Error("timeout"));
+    const result = await runSecureAudit("1.2.3.4");
+    expect(result.score).toBe(0);
+    expect(result.error).toContain("timeout");
+    expect(result.audit.passwordAuth.status).toBe("missing");
+    expect(result.audit.rootLogin.status).toBe("missing");
+    expect(result.audit.fail2ban.installed).toBe(false);
+    expect(result.audit.sshPort).toBe(22);
+  });
+});

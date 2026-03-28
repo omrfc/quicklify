@@ -245,4 +245,111 @@ describe("parseResourceLimitsChecks", () => {
       checks.forEach((c) => expect(c.id).toMatch(/^RLIMIT-/));
     });
   });
+
+  describe("[MUTATION-KILLER] ResourceLimits boundary conditions", () => {
+    it("RLIMIT-NPROC-SOFT passes at 65535 (just under threshold)", () => {
+      const output = "NPROC_SOFT:65535";
+      const checks = parseResourceLimitsChecks(output, "bare");
+      const c = checks.find((c) => c.id === "RLIMIT-NPROC-SOFT")!;
+      expect(c.passed).toBe(true);
+    });
+
+    it("RLIMIT-NPROC-SOFT fails at 65536 (exact threshold)", () => {
+      const output = "NPROC_SOFT:65536";
+      const checks = parseResourceLimitsChecks(output, "bare");
+      const c = checks.find((c) => c.id === "RLIMIT-NPROC-SOFT")!;
+      expect(c.passed).toBe(false);
+      expect(c.currentValue).toContain("excessively high");
+    });
+
+    it("RLIMIT-NPROC-SOFT fails with 'unlimited' value", () => {
+      const output = "NPROC_SOFT:unlimited";
+      const checks = parseResourceLimitsChecks(output, "bare");
+      const c = checks.find((c) => c.id === "RLIMIT-NPROC-SOFT")!;
+      expect(c.passed).toBe(false);
+      expect(c.currentValue).toContain("unlimited");
+    });
+
+    it("RLIMIT-NPROC-SOFT fails with '-1' value", () => {
+      const output = "NPROC_SOFT:-1";
+      const checks = parseResourceLimitsChecks(output, "bare");
+      const c = checks.find((c) => c.id === "RLIMIT-NPROC-SOFT")!;
+      expect(c.passed).toBe(false);
+    });
+
+    it("RLIMIT-NPROC-SOFT fails when no NPROC_SOFT match", () => {
+      const output = "no nproc info";
+      const checks = parseResourceLimitsChecks(output, "bare");
+      const c = checks.find((c) => c.id === "RLIMIT-NPROC-SOFT")!;
+      expect(c.passed).toBe(false);
+      expect(c.currentValue).toBe("nproc soft limit not found");
+    });
+
+    it("RLIMIT-NPROC-HARD fails with NOT_SET value", () => {
+      const output = "NPROC_HARD:NOT_SET";
+      const checks = parseResourceLimitsChecks(output, "bare");
+      const c = checks.find((c) => c.id === "RLIMIT-NPROC-HARD")!;
+      expect(c.passed).toBe(false);
+      expect(c.currentValue).toContain("NOT_SET");
+    });
+
+    it("RLIMIT-NPROC-HARD passes with positive number", () => {
+      const output = "NPROC_HARD:8192";
+      const checks = parseResourceLimitsChecks(output, "bare");
+      const c = checks.find((c) => c.id === "RLIMIT-NPROC-HARD")!;
+      expect(c.passed).toBe(true);
+      expect(c.currentValue).toContain("8192");
+    });
+
+    it("RLIMIT-THREADS-MAX fails with THREADS_MAX_NOT_FOUND", () => {
+      const output = "THREADS_MAX_NOT_FOUND";
+      const checks = parseResourceLimitsChecks(output, "bare");
+      const c = checks.find((c) => c.id === "RLIMIT-THREADS-MAX")!;
+      expect(c.passed).toBe(false);
+    });
+
+    it("RLIMIT-THREADS-MAX passes with valid value", () => {
+      const output = "THREADS_MAX:kernel.threads-max = 32768";
+      const checks = parseResourceLimitsChecks(output, "bare");
+      const c = checks.find((c) => c.id === "RLIMIT-THREADS-MAX")!;
+      expect(c.passed).toBe(true);
+      expect(c.currentValue).toContain("32768");
+    });
+
+    it("RLIMIT-CGROUPS-V2 passes with CGROUPS_V2_ACTIVE", () => {
+      const output = "CGROUPS_V2_ACTIVE";
+      const checks = parseResourceLimitsChecks(output, "bare");
+      const c = checks.find((c) => c.id === "RLIMIT-CGROUPS-V2")!;
+      expect(c.passed).toBe(true);
+    });
+
+    it("RLIMIT-CGROUPS-V2 fails with CGROUPS_V2_ABSENT", () => {
+      const output = "CGROUPS_V2_ABSENT";
+      const checks = parseResourceLimitsChecks(output, "bare");
+      const c = checks.find((c) => c.id === "RLIMIT-CGROUPS-V2")!;
+      expect(c.passed).toBe(false);
+    });
+
+    it("RLIMIT-CGROUPS-V2 fails with unknown output", () => {
+      const output = "something else";
+      const checks = parseResourceLimitsChecks(output, "bare");
+      const c = checks.find((c) => c.id === "RLIMIT-CGROUPS-V2")!;
+      expect(c.passed).toBe(false);
+      expect(c.currentValue).toContain("could not be determined");
+    });
+
+    it("RLIMIT-LIMITS-CONF-NPROC passes when LIMITS_CONF_NPROC_SET", () => {
+      const output = "LIMITS_CONF_NPROC_SET";
+      const checks = parseResourceLimitsChecks(output, "bare");
+      const c = checks.find((c) => c.id === "RLIMIT-LIMITS-CONF-NPROC")!;
+      expect(c.passed).toBe(true);
+    });
+
+    it("RLIMIT-MAXLOGINS passes when LIMITS_CONF_MAXLOGINS_SET", () => {
+      const output = "LIMITS_CONF_MAXLOGINS_SET";
+      const checks = parseResourceLimitsChecks(output, "bare");
+      const c = checks.find((c) => c.id === "RLIMIT-MAXLOGINS")!;
+      expect(c.passed).toBe(true);
+    });
+  });
 });
