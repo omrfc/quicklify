@@ -61,7 +61,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.WEBSITE_SYNC_PAT }}
         run: |
-          gh api repos/kastelldev/.github/dispatches \
-            --method POST \
-            -f event_type=stats-update
+          echo '{"event_type":"stats-update"}' \
+            | gh api repos/kastelldev/.github/dispatches --method POST --input -
 
