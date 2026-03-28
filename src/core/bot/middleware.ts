@@ -33,7 +33,7 @@ export async function allowedChatIdsMiddleware(
   const allowed = getCachedAllowedIds();
 
   if (allowed.length === 0) {
-    await next();
+    // Fail-closed: deny all when no allowlist configured (security audit MEDIUM-001)
     return;
   }
 

@@ -77,7 +77,8 @@ function resolveSshKeygenPath(): string {
  * Best-effort — failures are silently ignored.
  */
 export function clearKnownHostKey(ip: string): void {
-  spawnSync(resolveSshKeygenPath(), ["-R", ip], { stdio: "ignore" });
+  assertValidIp(ip);
+  spawnSync(resolveSshKeygenPath(), ["-R", ip], { stdio: "ignore", env: sanitizedEnv() });
 }
 
 export function checkSshAvailable(): boolean {

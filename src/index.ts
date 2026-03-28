@@ -45,6 +45,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const pkg = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf-8"));
 
+// Graceful handling of unhandled rejections (security audit MEDIUM-007)
+process.on("unhandledRejection", (reason) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  process.stderr.write(`Unhandled rejection: ${msg}\n`);
+  process.exit(1);
+});
+
 migrateConfigIfNeeded();
 
 const program = new Command();

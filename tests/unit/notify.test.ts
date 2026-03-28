@@ -55,12 +55,12 @@ describe("loadNotifyConfig — delegates to notifyStore", () => {
   });
 
   it("returns telegram config from notifyStore (NOTF-01)", () => {
-    const config = { telegram: { botToken: "bot123:ABC", chatId: "-100123456" } };
+    const config = { telegram: { botToken: "123456:ABCdef_GHI-jkl", chatId: "-100123456" } };
     mockedLoadNotifyChannels.mockReturnValue(config);
 
     const result = loadNotifyConfig();
 
-    expect(result.telegram?.botToken).toBe("bot123:ABC");
+    expect(result.telegram?.botToken).toBe("123456:ABCdef_GHI-jkl");
     expect(result.telegram?.chatId).toBe("-100123456");
   });
 
@@ -89,10 +89,10 @@ describe("sendTelegram", () => {
   it("POSTs to api.telegram.org with chat_id (snake_case) and text (NOTF-05)", async () => {
     mockedAxiosPost.mockResolvedValue({ data: { ok: true }, status: 200 });
 
-    await sendTelegram("bot123:ABC", "-100456", "Hello telegram");
+    await sendTelegram("123456:ABCdef_GHI-jkl", "-100456", "Hello telegram");
 
     expect(mockedAxiosPost).toHaveBeenCalledWith(
-      "https://api.telegram.org/botbot123:ABC/sendMessage",
+      "https://api.telegram.org/bot123456:ABCdef_GHI-jkl/sendMessage",
       { chat_id: "-100456", text: "Hello telegram" },
       { timeout: 10_000 },
     );
@@ -101,7 +101,7 @@ describe("sendTelegram", () => {
   it("returns { success: true } on successful POST (NOTF-05)", async () => {
     mockedAxiosPost.mockResolvedValue({ data: { ok: true }, status: 200 });
 
-    const result = await sendTelegram("bot123", "chat456", "msg");
+    const result = await sendTelegram("111222:TestToken_abc", "chat456", "msg");
 
     expect(result).toEqual({ success: true });
   });
@@ -109,7 +109,7 @@ describe("sendTelegram", () => {
   it("returns { success: false, error } on network error (NOTF-05)", async () => {
     mockedAxiosPost.mockRejectedValue(new Error("Network timeout"));
 
-    const result = await sendTelegram("bot123", "chat456", "msg");
+    const result = await sendTelegram("111222:TestToken_abc", "chat456", "msg");
 
     expect(result.success).toBe(false);
     expect(result.error).toBe("Network timeout");
@@ -118,7 +118,7 @@ describe("sendTelegram", () => {
   it("uses 10s timeout", async () => {
     mockedAxiosPost.mockResolvedValue({ data: {}, status: 200 });
 
-    await sendTelegram("bot", "cid", "text");
+    await sendTelegram("999888:ValidToken_xyz", "cid", "text");
 
     expect(mockedAxiosPost).toHaveBeenCalledWith(
       expect.any(String),
@@ -197,7 +197,7 @@ describe("dispatchNotification", () => {
     mockedAxiosPost.mockResolvedValue({ data: {}, status: 200 });
 
     const config: NotifyConfig = {
-      telegram: { botToken: "bot", chatId: "cid" },
+      telegram: { botToken: "999888:ValidToken_xyz", chatId: "cid" },
       discord: { webhookUrl: "https://discord.com/api/webhooks/1/tok" },
       slack: { webhookUrl: "https://hooks.slack.com/services/T/B/s" },
     };
@@ -214,7 +214,7 @@ describe("dispatchNotification", () => {
       .mockResolvedValue({ status: 200 });
 
     const config: NotifyConfig = {
-      telegram: { botToken: "bot", chatId: "cid" },
+      telegram: { botToken: "999888:ValidToken_xyz", chatId: "cid" },
       discord: { webhookUrl: "https://discord.com/api/webhooks/1/tok" },
     };
 
@@ -231,7 +231,7 @@ describe("dispatchNotification", () => {
     mockedAxiosPost.mockResolvedValue({ status: 200 });
 
     const config: NotifyConfig = {
-      telegram: { botToken: "bot", chatId: "cid" },
+      telegram: { botToken: "999888:ValidToken_xyz", chatId: "cid" },
     };
 
     const results = await dispatchNotification("msg", config);
@@ -250,7 +250,7 @@ describe("dispatchNotification", () => {
   });
 
   it("loads config from notifyStore when config not provided", async () => {
-    mockedLoadNotifyChannels.mockReturnValue({ telegram: { botToken: "bot", chatId: "cid" } });
+    mockedLoadNotifyChannels.mockReturnValue({ telegram: { botToken: "999888:ValidToken_xyz", chatId: "cid" } });
     mockedAxiosPost.mockResolvedValue({ status: 200 });
 
     const results = await dispatchNotification("msg");
@@ -316,7 +316,7 @@ describe("dispatchWithCooldown", () => {
     // loadCooldownState: no cooldown file
     // loadNotifyConfig -> loadNotifyChannels (mocked with telegram config)
     mockedExistsSync.mockReturnValueOnce(false); // cooldown file missing
-    mockedLoadNotifyChannels.mockReturnValue({ telegram: { botToken: "bot", chatId: "cid" } });
+    mockedLoadNotifyChannels.mockReturnValue({ telegram: { botToken: "999888:ValidToken_xyz", chatId: "cid" } });
     mockedAxiosPost.mockResolvedValue({ status: 200 });
 
     await dispatchWithCooldown("api", "ram", "RAM 95%");
@@ -335,7 +335,7 @@ describe("dispatchWithCooldown", () => {
     // loadCooldownState: no cooldown file
     // loadNotifyConfig -> loadNotifyChannels (mocked with telegram config)
     mockedExistsSync.mockReturnValueOnce(false); // cooldown file missing
-    mockedLoadNotifyChannels.mockReturnValue({ telegram: { botToken: "bot", chatId: "cid" } });
+    mockedLoadNotifyChannels.mockReturnValue({ telegram: { botToken: "999888:ValidToken_xyz", chatId: "cid" } });
     mockedAxiosPost.mockRejectedValue(new Error("All down"));
 
     await dispatchWithCooldown("api", "cpu", "CPU 200%");

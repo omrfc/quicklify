@@ -36,6 +36,6 @@ export function createSpinner(text: string): Ora {
   });
 }
 
-export const debugLog = process.env.DEBUG
+export const debugLog = process.env.KASTELL_DEBUG
   ? (...args: unknown[]) => console.error("[debug]", ...args)
   : undefined;

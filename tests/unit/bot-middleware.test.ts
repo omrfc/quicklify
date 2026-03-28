@@ -18,13 +18,13 @@ function makeCtx(chatId: number): { chat: { id: number }; reply: jest.Mock } {
 }
 
 describe("allowedChatIdsMiddleware", () => {
-  it("calls next() when allowedChatIds is empty array (allow all)", async () => {
+  it("does NOT call next() when allowedChatIds is empty array (fail-closed)", async () => {
     mockedNotifyStore.loadAllowedChatIds.mockReturnValue([]);
     const next = jest.fn();
     const ctx = makeCtx(12345);
 
     await allowedChatIdsMiddleware(ctx as never, next);
-    expect(next).toHaveBeenCalledTimes(1);
+    expect(next).not.toHaveBeenCalled();
   });
 
   it("calls next() when chat.id is in allowedChatIds", async () => {

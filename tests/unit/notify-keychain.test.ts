@@ -65,7 +65,7 @@ beforeEach(() => {
 describe("loadNotifyConfig — delegates to notifyStore (SEC-01)", () => {
   it("returns config from loadNotifyChannels", () => {
     const expected: NotifyConfig = {
-      telegram: { botToken: "bot123", chatId: "-100456" },
+      telegram: { botToken: "111222:TestToken_abc", chatId: "-100456" },
     };
     mockedLoadNotifyChannels.mockReturnValue(expected);
 
@@ -101,12 +101,12 @@ describe("addChannel — stores via notifyStore (SEC-01)", () => {
   it("calls saveNotifyChannel for telegram --force (not writeFileSync to notify.json)", async () => {
     await addChannel("telegram", {
       force: true,
-      botToken: "bot123:ABC",
+      botToken: "123456:ABCdef_GHI-jkl",
       chatId: "-100123",
     });
 
     expect(mockedSaveNotifyChannel).toHaveBeenCalledWith("telegram", {
-      botToken: "bot123:ABC",
+      botToken: "123456:ABCdef_GHI-jkl",
       chatId: "-100123",
     });
   });
@@ -190,7 +190,7 @@ describe("removeChannel — delegates to notifyStore (SEC-01)", () => {
 describe("dispatchNotification — backward compatible with keychain config (SEC-01)", () => {
   it("fans out to telegram using keychain-loaded config", async () => {
     mockedLoadNotifyChannels.mockReturnValue({
-      telegram: { botToken: "bot123", chatId: "-100456" },
+      telegram: { botToken: "111222:TestToken_abc", chatId: "-100456" },
     });
     mockedAxiosPost.mockResolvedValue({ data: { ok: true }, status: 200 });
 
@@ -204,7 +204,7 @@ describe("dispatchNotification — backward compatible with keychain config (SEC
   it("accepts explicit config and does not call loadNotifyChannels", async () => {
     mockedAxiosPost.mockResolvedValue({ status: 200 });
     const config: NotifyConfig = {
-      telegram: { botToken: "explicitBot", chatId: "cid" },
+      telegram: { botToken: "555666:ExplicitToken_abc", chatId: "cid" },
     };
 
     await dispatchNotification("msg", config);
@@ -240,7 +240,7 @@ describe("dispatchWithCooldown — guard/fleet callers unchanged (SEC-01)", () =
 
   it("skips dispatch when in cooldown regardless of keychain config", async () => {
     mockedLoadNotifyChannels.mockReturnValue({
-      telegram: { botToken: "bot", chatId: "cid" },
+      telegram: { botToken: "999888:ValidToken_xyz", chatId: "cid" },
     });
 
     // This is a basic sanity check — cooldown tests are in notify.test.ts

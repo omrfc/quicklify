@@ -69,12 +69,12 @@ describe("addChannel", () => {
     it("saves telegram config via notifyStore when --force with botToken and chatId (NOTF-01)", async () => {
       await addChannel("telegram", {
         force: true,
-        botToken: "bot123:ABC",
+        botToken: "123456:ABCdef_GHI-jkl",
         chatId: "-100123",
       });
 
       expect(mockedSaveNotifyChannel).toHaveBeenCalledWith("telegram", {
-        botToken: "bot123:ABC",
+        botToken: "123456:ABCdef_GHI-jkl",
         chatId: "-100123",
       });
     });
@@ -164,7 +164,7 @@ describe("addChannel", () => {
 describe("testChannel", () => {
   it("sends test message to telegram when configured (NOTF-04)", async () => {
     mockedLoadNotifyChannels.mockReturnValue({
-      telegram: { botToken: "bot123", chatId: "-100456" },
+      telegram: { botToken: "111222:TestToken_abc", chatId: "-100456" },
     });
     mockedAxiosPost.mockResolvedValue({ data: { ok: true }, status: 200 });
 

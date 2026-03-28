@@ -90,6 +90,10 @@ export async function sendTelegram(
   chatId: string,
   text: string,
 ): Promise<{ success: boolean; error?: string }> {
+  // Validate bot token format to prevent URL manipulation (security audit MEDIUM-006)
+  if (!/^\d+:[A-Za-z0-9_-]+$/.test(botToken)) {
+    return { success: false, error: "Invalid Telegram bot token format" };
+  }
   return sendHttp(`https://api.telegram.org/bot${botToken}/sendMessage`, { chat_id: chatId, text });
 }
 

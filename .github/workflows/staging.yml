@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      HETZNER_TOKEN: ${{ secrets.HETZNER_TOKEN }}
       KASTELL_SAFE_MODE: 'false'
 
     steps:
@@ -30,6 +29,8 @@ jobs:
 
       - name: Provision staging server
         id: provision
+        env:
+          HETZNER_TOKEN: ${{ secrets.HETZNER_TOKEN }}
         run: |
           SERVER_NAME="staging-ci-${{ github.run_id }}"
           echo "SERVER_NAME=$SERVER_NAME" >> $GITHUB_ENV
@@ -60,4 +61,5 @@ jobs:
               --label "ops,urgent"
           # NOTE: Telegram notification via @kastelltestbot — activate when P92 ships
         env:
+          HETZNER_TOKEN: ${{ secrets.HETZNER_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

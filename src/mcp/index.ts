@@ -13,6 +13,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const pkg = JSON.parse(readFileSync(join(__dirname, "..", "..", "package.json"), "utf-8")) as { version: string };
 
+// Graceful handling of unhandled rejections (security audit MEDIUM-007)
+process.on("unhandledRejection", (reason) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  process.stderr.write(`MCP unhandled rejection: ${msg}\n`);
+});
+
 async function main(): Promise<void> {
   migrateConfigIfNeeded();
   const server = createMcpServer();
