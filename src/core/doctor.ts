@@ -355,7 +355,7 @@ export async function runServerDoctor(
 
   if (fresh) {
     // Fetch current MetricSnapshot from VPS and append to local cache
-    const metricsResult = await sshExec(ip, CMD_METRICS);
+    const metricsResult = await sshExec(ip, CMD_METRICS, { useStdin: true });
     if (metricsResult.code === 0 && metricsResult.stdout.trim()) {
       try {
         const parsed = JSON.parse(metricsResult.stdout) as MetricSnapshot;

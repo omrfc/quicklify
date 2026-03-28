@@ -330,7 +330,16 @@ function sshExecInner(
       }
     });
     child.on("close", (code) => {
-      const exitCode = code ?? 1;
+      // Some Windows SSH binaries return non-zero when SSH banners are present
+      // even though the command succeeded. If stdout has content and stderr is
+      // only a banner (no error keywords), treat as success.
+      let exitCode = code ?? 1;
+      if (exitCode !== 0 && stdout.trim().length > 0 && stderr.length > 0
+        && !stderr.includes("Permission denied") && !stderr.includes("Connection refused")
+        && !stderr.includes("Host key") && !stderr.includes("No route")
+        && !stderr.includes("timed out") && !stderr.includes("REMOTE HOST IDENTIFICATION")) {
+        exitCode = 0;
+      }
       if (exitCode !== 0 && !retried && isHostKeyMismatch(stderr)) {
         removeStaleHostKey(ip);
         clearTimeout(timer);
