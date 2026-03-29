@@ -119,3 +119,28 @@ export async function executeHandlerChain(
 
   return { success: true };
 }
+
+// ─── tryHandlerDispatch ─────────────────────────────────────���─────────────────
+
+/**
+ * Attempts handler dispatch for a fix command. Returns true if handled (success or failure),
+ * false if no handler matched (caller should fall through to shell path).
+ * Shared by runFix(), fixSafeCommand(), and handleServerFix() to avoid copy-paste.
+ */
+export async function tryHandlerDispatch(
+  ip: string,
+  check: { id: string; fixCommand: string },
+  applied: string[],
+  errors: string[],
+): Promise<boolean> {
+  const chain = resolveHandlerChain(check.fixCommand);
+  if (chain === null) return false;
+
+  const result = await executeHandlerChain(ip, chain);
+  if (result.success) {
+    applied.push(check.id);
+  } else {
+    errors.push(`${check.id}: handler failed — ${result.error ?? "unknown"}`);
+  }
+  return true;
+}

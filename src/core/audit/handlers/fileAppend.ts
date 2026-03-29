@@ -13,9 +13,8 @@ import type { FixHandler, HandlerParams, HandlerResult, RollbackStep } from "./i
 const ECHO_SINGLE_REGEX = /^echo\s+'([^']+)'\s*>>\s*(\/\S+)$/;
 const ECHO_DOUBLE_REGEX = /^echo\s+"([^"]+)"\s*>>\s*(\/\S+)$/;
 
-function stripTrailingComment(cmd: string): string {
-  // Remove trailing # comments (not inside quotes)
-  return cmd.replace(/\s+#.*$/, "").trim();
+function stripTrailingComment(input: string): string {
+  return input.replace(/\s+#.*$/, "").trim();
 }
 
 export const fileAppendHandler: FixHandler = {

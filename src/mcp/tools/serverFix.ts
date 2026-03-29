@@ -11,7 +11,7 @@ import {
   selectChecksForTarget,
   fixCommandsFromChecks,
 } from "../../core/audit/fix.js";
-import { resolveHandlerChain, executeHandlerChain } from "../../core/audit/handlers/index.js";
+import { tryHandlerDispatch } from "../../core/audit/handlers/index.js";
 import { buildImpactContext } from "../../core/audit/scoring.js";
 import { backupServer } from "../../core/backup.js";
 import { isSafeMode } from "../../core/manage.js";
@@ -369,17 +369,8 @@ export async function handleServerFix(
             continue;
           }
         }
-        // Handler dispatch — programmatic execution bypasses shell metachar guard (D-05, D-06)
-        const handlerChain = resolveHandlerChain(check.fixCommand);
-        if (handlerChain !== null) {
-          const handlerResult = await executeHandlerChain(server.ip, handlerChain);
-          if (handlerResult.success) {
-            applied.push(check.id);
-          } else {
-            errors.push(`${check.id}: handler failed — ${handlerResult.error ?? "unknown"}`);
-          }
-          continue;  // handler handled it — skip shell path entirely
-        }
+        // Handler dispatch — bypasses shell metachar guard (D-05, D-06)
+        if (await tryHandlerDispatch(server.ip, check, applied, errors)) continue;
         if (!isFixCommandAllowed(check.fixCommand)) {
           errors.push(`${check.id}: fix command rejected`);
           continue;

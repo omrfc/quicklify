@@ -215,9 +215,8 @@ beforeEach(() => {
   mockedFix.selectChecksForTop.mockImplementation((sorted, n) => sorted.slice(0, n));
   mockedFix.selectChecksForTarget.mockImplementation((sorted) => sorted);
 
-  // Default handler mocks — return null (no match) so existing tests use shell path
-  mockedHandlers.resolveHandlerChain.mockReturnValue(null);
-  mockedHandlers.executeHandlerChain.mockResolvedValue({ success: true });
+  // Default handler mock — return false (no match) so existing tests use shell path
+  mockedHandlers.tryHandlerDispatch.mockResolvedValue(false);
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -565,15 +564,16 @@ describe("MCP server_fix tool", () => {
       );
       mockedFix.selectChecksForTarget.mockImplementation((sorted) => sorted);
 
-      // Handler matches and succeeds
-      mockedHandlers.resolveHandlerChain.mockReturnValue([{ handler: {} as never, params: {} as never }]);
-      mockedHandlers.executeHandlerChain.mockResolvedValue({ success: true });
+      // Handler matches and succeeds — pushes to applied array
+      mockedHandlers.tryHandlerDispatch.mockImplementation(async (_ip, check, applied, _errors) => {
+        applied.push(check.id);
+        return true;
+      });
 
       const result = await handleServerFix({ dryRun: false });
 
       expect(result.isError).toBeUndefined();
-      expect(mockedHandlers.resolveHandlerChain).toHaveBeenCalledWith(sysctlCompound);
-      expect(mockedHandlers.executeHandlerChain).toHaveBeenCalled();
+      expect(mockedHandlers.tryHandlerDispatch).toHaveBeenCalled();
       // isFixCommandAllowed NOT called for the handler-matched command
       expect(mockedFix.isFixCommandAllowed).not.toHaveBeenCalledWith(sysctlCompound);
       const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
@@ -581,9 +581,11 @@ describe("MCP server_fix tool", () => {
     });
 
     it("handler failure appears in MCP errors array", async () => {
-      // Handler matches but fails
-      mockedHandlers.resolveHandlerChain.mockReturnValue([{ handler: {} as never, params: {} as never }]);
-      mockedHandlers.executeHandlerChain.mockResolvedValue({ success: false, error: "sysctl write failed" });
+      // Handler matches but fails — pushes to errors array
+      mockedHandlers.tryHandlerDispatch.mockImplementation(async (_ip, check, _applied, errors) => {
+        errors.push(`${check.id}: handler failed — sysctl write failed`);
+        return true;
+      });
 
       const result = await handleServerFix({ dryRun: false });
 
