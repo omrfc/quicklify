@@ -20,13 +20,19 @@ process.on("unhandledRejection", (reason) => {
 });
 
 async function main(): Promise<void> {
+  // Fail-closed: MCP server defaults to SAFE_MODE=true if env is not explicitly set.
+  // This prevents destructive operations when Claude Code doesn't propagate the env correctly.
+  if (process.env.KASTELL_SAFE_MODE === undefined) {
+    process.env.KASTELL_SAFE_MODE = "true";
+  }
+
   migrateConfigIfNeeded();
   const server = createMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   // Server is now listening on stdin/stdout via JSON-RPC
   // All logging must go to stderr (stdout is reserved for MCP protocol)
-  process.stderr.write(`kastell-mcp v${pkg.version} started\n`);
+  process.stderr.write(`kastell-mcp v${pkg.version} started (SAFE_MODE=${process.env.KASTELL_SAFE_MODE ?? "unset"})\n`);
 }
 
 main().catch((error: unknown) => {
