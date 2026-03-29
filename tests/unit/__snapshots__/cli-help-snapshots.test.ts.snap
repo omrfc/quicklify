@@ -81,6 +81,23 @@ Options:
   -h, --help                   display help for command"
 `;
 
+exports[`CLI help text snapshots kastell fix --help matches snapshot 1`] = `
+"Usage: kastell fix [options] [server]
+
+Apply safe auto-fixes from security audit (SAFE tier only)
+
+Options:
+  --safe             Apply only SAFE tier fixes (no service restarts)
+  --dry-run          Preview fixes without applying
+  --category <list>  Comma-separated category filter
+  --rollback <id>    Rollback a previous fix (fix ID or 'last')
+  --history          Show fix history for the server
+  --top <n>          Apply top N highest-impact SAFE fixes (requires --safe)
+  --target <score>   Apply SAFE fixes until score reaches target (requires
+                     --safe)
+  -h, --help         display help for command"
+`;
+
 exports[`CLI help text snapshots kastell guard --help matches snapshot 1`] = `
 "Usage: kastell guard [options] [command]
 

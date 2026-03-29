@@ -753,4 +753,121 @@ describe("fixSafeCommand", () => {
       );
     });
   });
+
+  // ── --top and --target flag tests ────────────────────────────────────────
+
+  describe("--top and --target flags", () => {
+    it("Test P1: --top without --safe returns error and no audit", async () => {
+      await fixSafeCommand(undefined, { top: "3" });
+
+      expect(mockedLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining("--top / --target sadece --safe ile kullanilir"),
+      );
+      expect(mockedRunAudit).not.toHaveBeenCalled();
+    });
+
+    it("Test P2: --target without --safe returns error and no audit", async () => {
+      await fixSafeCommand(undefined, { target: "80" });
+
+      expect(mockedLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining("--top / --target sadece --safe ile kullanilir"),
+      );
+      expect(mockedRunAudit).not.toHaveBeenCalled();
+    });
+
+    it("Test P3: --top and --target together returns mutual exclusion error", async () => {
+      await fixSafeCommand(undefined, { safe: true, top: "3", target: "80" });
+
+      expect(mockedLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining("birlikte kullanilamaz"),
+      );
+      expect(mockedRunAudit).not.toHaveBeenCalled();
+    });
+
+    it("Test P4: --top N applies only N fixes from sorted list", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+
+      const fiveChecks = [
+        { id: "CHECK-01", category: "Kernel", name: "Check 1", severity: "warning" as const, fixCommand: "sysctl -w check.01=1" },
+        { id: "CHECK-02", category: "Kernel", name: "Check 2", severity: "warning" as const, fixCommand: "sysctl -w check.02=1" },
+        { id: "CHECK-03", category: "Kernel", name: "Check 3", severity: "warning" as const, fixCommand: "sysctl -w check.03=1" },
+        { id: "CHECK-04", category: "Kernel", name: "Check 4", severity: "warning" as const, fixCommand: "sysctl -w check.04=1" },
+        { id: "CHECK-05", category: "Kernel", name: "Check 5", severity: "warning" as const, fixCommand: "sysctl -w check.05=1" },
+      ];
+      const auditResult = makeResult([makeCategory("Kernel", [])], 60);
+      mockedRunAudit.mockResolvedValue({ success: true, data: auditResult });
+      mockedPreviewSafeFixes.mockReturnValue({
+        safePlan: { groups: [{ severity: "warning", checks: fiveChecks, estimatedImpact: 25 }] },
+        guardedCount: 0, forbiddenCount: 0, guardedIds: [],
+      });
+      const scoredChecks = fiveChecks.map((c) => ({ ...c, impact: 5 }));
+      mockedSortChecksByImpact.mockReturnValue(scoredChecks);
+      mockedSelectChecksForTop.mockReturnValue(scoredChecks.slice(0, 3));
+      mockedPrompt.mockResolvedValue({ confirm: true });
+      mockedBackupServer.mockResolvedValue({ success: true, backupPath: "/tmp/backup" } as BackupResult);
+      mockedSshExec.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
+
+      await fixSafeCommand(undefined, { safe: true, top: "3" });
+
+      expect(mockedSelectChecksForTop).toHaveBeenCalledWith(
+        expect.any(Array),
+        3,
+      );
+      // Only 3 SSH fix commands should be issued (not 5)
+      const fixCalls = mockedSshExec.mock.calls.filter((c) =>
+        String(c[1]).includes("sysctl -w check."),
+      );
+      expect(fixCalls.length).toBe(3);
+    });
+
+    it("Test P5: --target already met shows 'fix gerekmez' and no SSH", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+
+      const auditResult = makeResult([makeCategory("Kernel", [])], 85);
+      mockedRunAudit.mockResolvedValue({ success: true, data: auditResult });
+      mockedPreviewSafeFixes.mockReturnValue({
+        safePlan: { groups: [{ severity: "warning", checks: [{ id: "KERN-01", category: "Kernel", name: "Test", severity: "warning" as const, fixCommand: "sysctl -w x=1" }], estimatedImpact: 5 }] },
+        guardedCount: 0, forbiddenCount: 0, guardedIds: [],
+      });
+      mockedSortChecksByImpact.mockReturnValue([
+        { id: "KERN-01", category: "Kernel", name: "Test", severity: "warning" as const, fixCommand: "sysctl -w x=1", impact: 5 },
+      ]);
+
+      await fixSafeCommand(undefined, { safe: true, target: "80" });
+
+      expect(mockedLogger.info).toHaveBeenCalledWith(
+        expect.stringContaining("fix gerekmez"),
+      );
+      expect(mockedSshExec).not.toHaveBeenCalled();
+      expect(mockedBackupServer).not.toHaveBeenCalled();
+    });
+
+    it("Test P6: --target unreachable applies all SAFE + shows GUARDED/FORBIDDEN warning", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+
+      const auditResult = makeResult([makeCategory("Kernel", [])], 50);
+      mockedRunAudit.mockResolvedValue({ success: true, data: auditResult });
+      mockedPreviewSafeFixes.mockReturnValue(defaultSafePlan);
+      const scoredCheck = {
+        id: "KERN-01", category: "Kernel", name: "TCP SYN Cookies",
+        severity: "warning" as const, fixCommand: "sysctl -w net.ipv4.tcp_syncookies=1", impact: 3,
+      };
+      mockedSortChecksByImpact.mockReturnValue([scoredCheck]);
+      mockedSelectChecksForTarget.mockReturnValue([scoredCheck]);
+      mockedPrompt.mockResolvedValue({ confirm: true });
+      mockedBackupServer.mockResolvedValue({ success: true, backupPath: "/tmp/backup" } as BackupResult);
+      mockedSshExec.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
+      // After fix, score is still well below target 99
+      mockedRunScoreCheck.mockResolvedValue(53);
+
+      await fixSafeCommand(undefined, { safe: true, target: "99" });
+
+      const infoCalls = mockedLogger.info.mock.calls.map((c) => String(c[0]));
+      const hasWarning = infoCalls.some((msg) => msg.includes("GUARDED/FORBIDDEN"));
+      expect(hasWarning).toBe(true);
+    });
+  });
 });

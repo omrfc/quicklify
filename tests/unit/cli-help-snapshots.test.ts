@@ -54,4 +54,8 @@ describe("CLI help text snapshots", () => {
   it("kastell guard --help matches snapshot", () => {
     expect(getHelp(["guard", "--help"])).toMatchSnapshot();
   });
+
+  it("kastell fix --help matches snapshot", () => {
+    expect(getHelp(["fix", "--help"])).toMatchSnapshot();
+  });
 });
