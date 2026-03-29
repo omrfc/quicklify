@@ -68,30 +68,17 @@ function ensureKastellDir(): void {
   if (!existsSync(KASTELL_DIR)) mkdirSync(KASTELL_DIR, { recursive: true });
 }
 
-/** Per-installation random salt — generated once, persisted to disk. */
-function getOrCreateSalt(): string {
+/** Read persisted value or generate, write, and return a new one. */
+function getOrCreatePersistedValue(filePath: string, generate: () => string): string {
   try {
-    if (existsSync(SALT_FILE)) {
-      return readFileSync(SALT_FILE, "utf8").trim();
+    if (existsSync(filePath)) {
+      return readFileSync(filePath, "utf8").trim();
     }
   } catch { /* regenerate */ }
   ensureKastellDir();
-  const salt = randomBytes(32).toString("hex");
-  writeFileSync(SALT_FILE, salt, { mode: 0o600 });
-  return salt;
-}
-
-/** Persistent random fallback ID — avoids low-entropy hostname-based derivation. */
-function getOrCreateFallbackId(): string {
-  try {
-    if (existsSync(FALLBACK_ID_FILE)) {
-      return readFileSync(FALLBACK_ID_FILE, "utf8").trim();
-    }
-  } catch { /* regenerate */ }
-  ensureKastellDir();
-  const id = randomUUID();
-  writeFileSync(FALLBACK_ID_FILE, id, { mode: 0o600 });
-  return id;
+  const value = generate();
+  writeFileSync(filePath, value, { mode: 0o600 });
+  return value;
 }
 
 function getRawMachineId(): string {
@@ -120,13 +107,13 @@ function getRawMachineId(): string {
     // Fall through to fallback
   }
 
-  return getOrCreateFallbackId();
+  return getOrCreatePersistedValue(FALLBACK_ID_FILE, () => randomUUID());
 }
 
 export function getMachineKey(): Buffer {
   if (_cachedKey) return _cachedKey;
   const machineId = getRawMachineId();
-  const salt = getOrCreateSalt();
+  const salt = getOrCreatePersistedValue(SALT_FILE, () => randomBytes(32).toString("hex"));
   _cachedKey = scryptSync(machineId, salt, 32) as Buffer;
   return _cachedKey;
 }

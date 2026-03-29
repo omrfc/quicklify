@@ -5,7 +5,7 @@
  */
 
 import { sshExec } from "../../../utils/ssh.js";
-import { cmd, raw } from "../../../utils/sshCommand.js";
+import { cmd, raw, shellEscape } from "../../../utils/sshCommand.js";
 import type { FixHandler, HandlerParams, HandlerResult, RollbackStep, DiffLine } from "./index.js";
 
 // Matches: echo 'line' >> /path  or  echo "line" >> /path
@@ -48,8 +48,7 @@ export const fileAppendHandler: FixHandler = {
     }
 
     // Append via stdin to avoid local metachar issues (useStdin=true lets remote bash handle >>)
-    const escapedLine = line.replace(/'/g, "'\\''");
-    const appendCmd = raw(`echo '${escapedLine}' >> ${path}`);
+    const appendCmd = raw(`echo ${shellEscape(line)} >> ${path}`);
     const appendResult = await sshExec(ip, appendCmd, { useStdin: true });
     if (appendResult.code !== 0) {
       return { success: false, error: appendResult.stderr };
