@@ -64,7 +64,7 @@ export const PROFILES: Record<ProfileName, readonly string[]> = {
 
 /** Type guard: returns true if name is a valid ProfileName */
 export function isValidProfile(name: string): name is ProfileName {
-  return name === "web-server" || name === "database" || name === "mail-server";
+  return name in PROFILES;
 }
 
 /**

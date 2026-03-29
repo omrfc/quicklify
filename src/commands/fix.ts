@@ -1,5 +1,3 @@
-import { writeFileSync } from "fs";
-import { join } from "path";
 import chalk from "chalk";
 import inquirer from "inquirer";
 import { resolveServer } from "../utils/serverSelect.js";
@@ -17,10 +15,10 @@ import {
   fixCommandsFromChecks,
   type ScoredFixCheck,
 } from "../core/audit/fix.js";
-import { tryHandlerDispatch, type DiffLine } from "../core/audit/handlers/index.js";
+import { tryHandlerDispatch, type CollectedDiff } from "../core/audit/handlers/index.js";
 import { buildImpactContext } from "../core/audit/scoring.js";
 import { filterChecksByProfile, isValidProfile, type ProfileName } from "../core/audit/profiles.js";
-import { generateFixReport, fixReportFilename } from "../utils/fixReport.js";
+import { writeFixReport } from "../utils/fixReport.js";
 import { backupServer } from "../core/backup.js";
 import { getErrorMessage } from "../utils/errorMapper.js";
 import {
@@ -382,7 +380,7 @@ export async function fixSafeCommand(
   fixSpinner.start();
   const applied: string[] = [];
   const errors: string[] = [];
-  const collectedDiffs: Array<{ checkId: string; category: string; severity: string; diff?: DiffLine }> = [];
+  const collectedDiffs: CollectedDiff[] = [];
 
   for (const check of selectedChecks) {
     try {
@@ -493,29 +491,19 @@ export async function fixSafeCommand(
 
   // Generate fix report (FIXPRO-07, D-10)
   if (options.report) {
-    const timestamp = new Date().toISOString();
-    const date = timestamp.slice(0, 10);
-    const filename = fixReportFilename(name, date);
-    // Build skipped list: checks in all SAFE pool not in selectedChecks
     const selectedIds = new Set(selectedChecks.map((c) => c.id));
     const skipped = allSafeChecks
       .filter((c) => !selectedIds.has(c.id))
       .map((c) => ({ id: c.id, category: c.category, reason: "not selected" }));
-    const reportContent = generateFixReport({
+    const filename = writeFixReport({
+      collectedDiffs, applied, errors,
       server: { name, ip },
       scoreBefore: auditResult.overallScore,
       scoreAfter: newScore,
-      applied: collectedDiffs
-        .filter((d) => applied.includes(d.checkId))
-        .map((d) => ({ id: d.checkId, category: d.category, severity: d.severity, diff: d.diff })),
-      failed: errors.map((e) => ({ id: e.split(":")[0].trim(), error: e })),
       skipped,
       profile: options.profile,
       dryRun: false,
-      timestamp,
     });
-    const filepath = join(process.cwd(), filename);
-    writeFileSync(filepath, reportContent, "utf-8");
     logger.success(`Report saved: ${filename}`);
   }
 

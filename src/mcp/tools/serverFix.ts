@@ -1,5 +1,3 @@
-import { writeFileSync } from "fs";
-import { join } from "path";
 import { z } from "zod";
 import { getServers } from "../../utils/config.js";
 import { runAudit } from "../../core/audit/index.js";
@@ -13,10 +11,10 @@ import {
   selectChecksForTarget,
   fixCommandsFromChecks,
 } from "../../core/audit/fix.js";
-import { tryHandlerDispatch, type DiffLine } from "../../core/audit/handlers/index.js";
+import { tryHandlerDispatch, type CollectedDiff } from "../../core/audit/handlers/index.js";
 import { buildImpactContext } from "../../core/audit/scoring.js";
 import { filterChecksByProfile } from "../../core/audit/profiles.js";
-import { generateFixReport, fixReportFilename } from "../../utils/fixReport.js";
+import { writeFixReport } from "../../utils/fixReport.js";
 import { backupServer } from "../../core/backup.js";
 import { isSafeMode } from "../../core/manage.js";
 import { sshExec } from "../../utils/ssh.js";
@@ -385,7 +383,7 @@ export async function handleServerFix(
     await mcpLog(mcpServer, `Applying ${selectedChecks.length} safe fix(es)...`);
     const applied: string[] = [];
     const errors: string[] = [];
-    const collectedDiffs: Array<{ checkId: string; category: string; severity: string; diff?: DiffLine }> = [];
+    const collectedDiffs: CollectedDiff[] = [];
 
     for (const check of selectedChecks) {
       try {
@@ -469,24 +467,15 @@ export async function handleServerFix(
     // Generate fix report if requested (FIXPRO-07)
     let reportFile: string | undefined;
     if (params.report) {
-      const timestamp = new Date().toISOString();
-      const date = timestamp.slice(0, 10);
-      const filename = fixReportFilename(server.name, date);
-      const reportContent = generateFixReport({
+      reportFile = writeFixReport({
+        collectedDiffs, applied, errors,
         server: { name: server.name, ip: server.ip },
         scoreBefore: auditResult.overallScore,
         scoreAfter,
-        applied: collectedDiffs
-          .filter((d) => applied.includes(d.checkId))
-          .map((d) => ({ id: d.checkId, category: d.category, severity: d.severity, diff: d.diff })),
-        failed: errors.map((e) => ({ id: e.split(":")[0].trim(), error: e })),
         skipped: [],
         profile: params.profile,
         dryRun: false,
-        timestamp,
       });
-      writeFileSync(join(process.cwd(), filename), reportContent, "utf-8");
-      reportFile = filename;
     }
 
     return mcpSuccess({

@@ -4,7 +4,9 @@
  * Per D-10: Summary, Server Info, Score Change, Applied Fixes, Diff Details, Skipped Fixes, Profile.
  */
 
-import type { DiffLine } from "../core/audit/handlers/index.js";
+import { writeFileSync } from "fs";
+import { join } from "path";
+import type { DiffLine, CollectedDiff } from "../core/audit/handlers/index.js";
 
 export interface FixReportParams {
   server: { name: string; ip: string };
@@ -134,4 +136,41 @@ export function generateFixReport(params: FixReportParams): string {
   }
 
   return lines.join("\n");
+}
+
+/**
+ * Builds and writes a fix report file to CWD.
+ * Shared by CLI fix command and MCP server_fix tool.
+ * Returns the filename written.
+ */
+export function writeFixReport(params: {
+  collectedDiffs: CollectedDiff[];
+  applied: string[];
+  errors: string[];
+  server: { name: string; ip: string };
+  scoreBefore: number;
+  scoreAfter: number | null;
+  skipped: Array<{ id: string; category: string; reason: string }>;
+  profile?: string;
+  dryRun: boolean;
+}): string {
+  const appliedSet = new Set(params.applied);
+  const timestamp = new Date().toISOString();
+  const date = timestamp.slice(0, 10);
+  const filename = fixReportFilename(params.server.name, date);
+  const reportContent = generateFixReport({
+    server: params.server,
+    scoreBefore: params.scoreBefore,
+    scoreAfter: params.scoreAfter,
+    applied: params.collectedDiffs
+      .filter((d) => appliedSet.has(d.checkId))
+      .map((d) => ({ id: d.checkId, category: d.category, severity: d.severity, diff: d.diff })),
+    failed: params.errors.map((e) => ({ id: e.split(":")[0].trim(), error: e })),
+    skipped: params.skipped,
+    profile: params.profile,
+    dryRun: params.dryRun,
+    timestamp,
+  });
+  writeFileSync(join(process.cwd(), filename), reportContent, "utf-8");
+  return filename;
 }

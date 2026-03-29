@@ -33,6 +33,14 @@ export interface HandlerResult {
   diff?: DiffLine; // populated by handlers that can report state change
 }
 
+/** Diff entry collected during fix loop — shared by CLI and MCP fix paths */
+export interface CollectedDiff {
+  checkId: string;
+  category: string;
+  severity: string;
+  diff?: DiffLine;
+}
+
 /** Rollback info collected during chain execution for atomic undo (D-08, D-16) */
 export interface RollbackStep {
   rollback: (ip: string) => Promise<void>;
