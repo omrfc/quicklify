@@ -13,6 +13,31 @@ const VALID_NGINX_OUTPUT = [
   "access_log /var/log/nginx/access.log combined;",
   "error_log /var/log/nginx/error.log warn;",
   "modsecurity on;",
+  // WAF deep checks
+  "SecRuleEngine On",
+  "SecRule IP:REMOTE_ADDR id:900",
+  "10",
+  "  deny 10.0.0.0/8;",
+  "proxy_hide_header X-Powered-By;",
+].join("\n");
+
+const FULL_MODSEC_OUTPUT = [
+  "server_tokens off;",
+  "ssl_protocols TLSv1.2 TLSv1.3;",
+  "limit_req_zone $binary_remote_addr zone=one:10m rate=10r/s;",
+  "gzip on;",
+  "client_max_body_size 50m;",
+  "more_clear_headers Server;",
+  "access_log /var/log/nginx/access.log combined;",
+  "error_log /var/log/nginx/error.log warn;",
+  "modsecurity on;",
+  // WAF deep: SecRuleEngine, rate limit rule, CRS count, IP ACL, data masking
+  "SecRuleEngine On",
+  "SecRule IP:REMOTE_ADDR \"@gt 100\" id:900100",
+  "15",
+  "  deny 192.168.0.0/16;",
+  "  allow 10.0.0.1;",
+  "proxy_hide_header X-Powered-By;",
 ].join("\n");
 
 const MINIMAL_NGINX_OUTPUT = [
@@ -39,9 +64,9 @@ const NO_WAF_OUTPUT = [
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe("parseNginxChecks — full nginx output", () => {
-  it("returns exactly 9 AuditCheck objects for full valid output", () => {
+  it("returns exactly 14 AuditCheck objects for full valid output", () => {
     const checks = parseNginxChecks(VALID_NGINX_OUTPUT, "bare");
-    expect(checks.length).toBe(9);
+    expect(checks.length).toBe(14);
   });
 
   it("all check IDs start with 'NGX-'", () => {
@@ -54,7 +79,7 @@ describe("parseNginxChecks — full nginx output", () => {
     checks.forEach((c) => expect(c.category).toBe("WAF & Reverse Proxy"));
   });
 
-  it("all 9 checks pass with complete valid config", () => {
+  it("all 14 checks pass with complete valid config", () => {
     const checks = parseNginxChecks(VALID_NGINX_OUTPUT, "bare");
     checks.forEach((c) => expect(c.passed).toBe(true));
   });
@@ -183,9 +208,9 @@ describe("parseNginxChecks — individual check logic", () => {
 });
 
 describe("parseNginxChecks — nginx absent", () => {
-  it("returns exactly 9 checks when NGINX_NOT_INSTALLED sentinel", () => {
+  it("returns exactly 14 checks when NGINX_NOT_INSTALLED sentinel", () => {
     const checks = parseNginxChecks("NGINX_NOT_INSTALLED", "bare");
-    expect(checks.length).toBe(9);
+    expect(checks.length).toBe(14);
   });
 
   it("all checks have passed=true (score-neutral) when NGINX_NOT_INSTALLED", () => {
@@ -198,22 +223,22 @@ describe("parseNginxChecks — nginx absent", () => {
     checks.forEach((c) => expect(c.severity).toBe("info"));
   });
 
-  it("returns 9 checks with skipped currentValue for empty string", () => {
+  it("returns 14 checks with skipped currentValue for empty string", () => {
     const checks = parseNginxChecks("", "bare");
-    expect(checks.length).toBe(9);
+    expect(checks.length).toBe(14);
     checks.forEach((c) => expect(c.passed).toBe(true));
   });
 
-  it("returns 9 checks for N/A input", () => {
+  it("returns 14 checks for N/A input", () => {
     const checks = parseNginxChecks("N/A", "bare");
-    expect(checks.length).toBe(9);
+    expect(checks.length).toBe(14);
   });
 });
 
 describe("parseNginxChecks — alternative proxy detection", () => {
-  it("returns 9 checks when ALT_RP:caddy sentinel present", () => {
+  it("returns 14 checks when ALT_RP:caddy sentinel present", () => {
     const checks = parseNginxChecks(NGINX_NOT_INSTALLED_OUTPUT, "bare");
-    expect(checks.length).toBe(9);
+    expect(checks.length).toBe(14);
   });
 
   it("all checks have passed=true for Caddy sentinel", () => {
@@ -330,9 +355,9 @@ describe("parseNginxChecks — check metadata", () => {
     expect(check!.severity).toBe("info");
   });
 
-  it("MINIMAL_NGINX_OUTPUT returns 9 checks (partial pass/fail)", () => {
+  it("MINIMAL_NGINX_OUTPUT returns 14 checks (partial pass/fail)", () => {
     const checks = parseNginxChecks(MINIMAL_NGINX_OUTPUT, "bare");
-    expect(checks.length).toBe(9);
+    expect(checks.length).toBe(14);
   });
 
   it("MINIMAL_NGINX_OUTPUT has some passing and some failing checks", () => {
@@ -356,6 +381,11 @@ describe("parseNginxChecks — check metadata", () => {
       ["NGX-ACCESS-LOG", "warning", "GUARDED"],
       ["NGX-ERROR-LOG", "warning", "GUARDED"],
       ["NGX-WAF-DETECTED", "info", "GUARDED"],
+      ["NGX-WAF-IP-ACL", "warning", "GUARDED"],
+      ["NGX-WAF-RATE-LIMIT", "info", "GUARDED"],
+      ["NGX-WAF-INPUT-SANITIZE", "info", "GUARDED"],
+      ["NGX-WAF-DETECTION-ENGINE", "info", "GUARDED"],
+      ["NGX-WAF-DATA-MASKING", "info", "GUARDED"],
     ];
 
     it.each(expectedMeta)("[MUTATION-KILLER] %s has severity=%s, safeToAutoFix=%s", (id, severity, safe) => {
@@ -378,5 +408,185 @@ describe("parseNginxChecks — check metadata", () => {
     it("[MUTATION-KILLER] all IDs start with NGX-", () => {
       checks.forEach((c) => expect(c.id).toMatch(/^NGX-/));
     });
+  });
+});
+
+// ─── New WAF Deep Checks ──────────────────────────────────────────────────────
+
+const NO_WAF_NGINX_OUTPUT = [
+  "server_tokens off;",
+  "ssl_protocols TLSv1.2 TLSv1.3;",
+  "limit_req_zone $binary_remote_addr zone=one:10m rate=10r/s;",
+  "gzip on;",
+  "client_max_body_size 50m;",
+  "more_clear_headers Server;",
+  "access_log /var/log/nginx/access.log combined;",
+  "error_log /var/log/nginx/error.log warn;",
+  "NO_WAF",
+  // WAF deep: gateway outputs (no modsecurity/coraza)
+  "NO_MODSEC_CONFIG",
+  "0",
+  "NO_IP_ACL",
+  "NO_HEADER_FILTER",
+].join("\n");
+
+const MODSEC_NGINX_OUTPUT = [
+  "server_tokens off;",
+  "ssl_protocols TLSv1.2 TLSv1.3;",
+  "limit_req_zone $binary_remote_addr zone=one:10m rate=10r/s;",
+  "gzip on;",
+  "client_max_body_size 50m;",
+  "more_clear_headers Server;",
+  "access_log /var/log/nginx/access.log combined;",
+  "error_log /var/log/nginx/error.log warn;",
+  "modsecurity on;",
+  // WAF deep checks: full ModSec data
+  "SecRuleEngine On",
+  "SecRule IP:REMOTE_ADDR \"@gt 100\" id:900100",
+  "15",
+  "  deny 10.0.0.0/8;",
+  "proxy_hide_header X-Powered-By;",
+].join("\n");
+
+describe("parseNginxChecks — NGX-WAF-IP-ACL", () => {
+  it("passes when deny directive present", () => {
+    const checks = parseNginxChecks(MODSEC_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-IP-ACL");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("fails (warning) when NO_IP_ACL sentinel present and no deny/allow", () => {
+    const checks = parseNginxChecks(NO_WAF_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-IP-ACL");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(false);
+  });
+
+  it("has severity='warning'", () => {
+    const checks = parseNginxChecks(MODSEC_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-IP-ACL");
+    expect(check!.severity).toBe("warning");
+  });
+
+  it("has safeToAutoFix='GUARDED'", () => {
+    const checks = parseNginxChecks(MODSEC_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-IP-ACL");
+    expect(check!.safeToAutoFix).toBe("GUARDED");
+  });
+});
+
+describe("parseNginxChecks — NGX-WAF-RATE-LIMIT", () => {
+  it("passes=true with 'WAF not installed' message when NO_WAF present (gateway)", () => {
+    const checks = parseNginxChecks(NO_WAF_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-RATE-LIMIT");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toContain("WAF not installed");
+  });
+
+  it("passes when SecRule with rate-related pattern found and WAF present", () => {
+    const checks = parseNginxChecks(MODSEC_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-RATE-LIMIT");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("has severity='info'", () => {
+    const checks = parseNginxChecks(MODSEC_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-RATE-LIMIT");
+    expect(check!.severity).toBe("info");
+  });
+
+  it("has safeToAutoFix='GUARDED'", () => {
+    const checks = parseNginxChecks(MODSEC_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-RATE-LIMIT");
+    expect(check!.safeToAutoFix).toBe("GUARDED");
+  });
+});
+
+describe("parseNginxChecks — NGX-WAF-INPUT-SANITIZE", () => {
+  it("passes=true with 'WAF not installed' when no modsecurity/coraza in output", () => {
+    const checks = parseNginxChecks(NO_WAF_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-INPUT-SANITIZE");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toContain("WAF not installed");
+  });
+
+  it("passes when SecRuleEngine On present and WAF active", () => {
+    const checks = parseNginxChecks(MODSEC_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-INPUT-SANITIZE");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("has severity='info'", () => {
+    const checks = parseNginxChecks(MODSEC_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-INPUT-SANITIZE");
+    expect(check!.severity).toBe("info");
+  });
+});
+
+describe("parseNginxChecks — NGX-WAF-DETECTION-ENGINE", () => {
+  it("passes=true with 'WAF not installed' when no WAF detected", () => {
+    const checks = parseNginxChecks(NO_WAF_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-DETECTION-ENGINE");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+    expect(check!.currentValue).toContain("WAF not installed");
+  });
+
+  it("passes when CRS rule count > 0 and WAF active", () => {
+    const checks = parseNginxChecks(MODSEC_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-DETECTION-ENGINE");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("has severity='info'", () => {
+    const checks = parseNginxChecks(MODSEC_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-DETECTION-ENGINE");
+    expect(check!.severity).toBe("info");
+  });
+});
+
+describe("parseNginxChecks — NGX-WAF-DATA-MASKING", () => {
+  it("passes when proxy_hide_header targeting sensitive headers present", () => {
+    const checks = parseNginxChecks(MODSEC_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-DATA-MASKING");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(true);
+  });
+
+  it("fails when NO_HEADER_FILTER sentinel and no header filtering", () => {
+    const checks = parseNginxChecks(NO_WAF_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-DATA-MASKING");
+    expect(check).toBeDefined();
+    expect(check!.passed).toBe(false);
+  });
+
+  it("has severity='info'", () => {
+    const checks = parseNginxChecks(MODSEC_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-DATA-MASKING");
+    expect(check!.severity).toBe("info");
+  });
+
+  it("has safeToAutoFix='GUARDED'", () => {
+    const checks = parseNginxChecks(MODSEC_NGINX_OUTPUT, "bare");
+    const check = checks.find((c) => c.id === "NGX-WAF-DATA-MASKING");
+    expect(check!.safeToAutoFix).toBe("GUARDED");
+  });
+});
+
+describe("parseNginxChecks — WAF gateway: all WAF-dependent checks pass when no WAF", () => {
+  it("NGX-WAF-RATE-LIMIT, NGX-WAF-INPUT-SANITIZE, NGX-WAF-DETECTION-ENGINE all pass=true when no WAF", () => {
+    const checks = parseNginxChecks(NO_WAF_NGINX_OUTPUT, "bare");
+    const gatewayChecks = ["NGX-WAF-RATE-LIMIT", "NGX-WAF-INPUT-SANITIZE", "NGX-WAF-DETECTION-ENGINE"];
+    for (const id of gatewayChecks) {
+      const c = checks.find((c) => c.id === id);
+      expect(c).toBeDefined();
+      expect(c!.passed).toBe(true);
+    }
   });
 });
