@@ -5,6 +5,11 @@ import inquirer from "inquirer";
 
 jest.mock("../../src/utils/ssh.js");
 jest.mock("inquirer");
+jest.mock("../../src/core/audit/handlers/index.js", () => ({
+  resolveHandlerChain: jest.fn().mockReturnValue(null),
+  executeHandlerChain: jest.fn().mockResolvedValue({ success: true }),
+  matchHandler: jest.fn().mockReturnValue(null),
+}));
 
 const mockedSshExec = ssh.sshExec as jest.MockedFunction<typeof ssh.sshExec>;
 const mockedPrompt = inquirer.prompt as jest.MockedFunction<typeof inquirer.prompt>;

@@ -15,6 +15,7 @@ jest.mock("../../src/core/audit/scoring.js");
 jest.mock("../../src/core/backup.js");
 jest.mock("../../src/utils/logger.js");
 jest.mock("../../src/core/audit/fix-history.js");
+jest.mock("../../src/core/audit/handlers/index.js");
 jest.mock("inquirer");
 
 import { fixSafeCommand } from "../../src/commands/fix.js";
@@ -30,6 +31,10 @@ import {
   selectChecksForTop,
   selectChecksForTarget,
 } from "../../src/core/audit/fix.js";
+import {
+  resolveHandlerChain,
+  executeHandlerChain,
+} from "../../src/core/audit/handlers/index.js";
 import { buildImpactContext } from "../../src/core/audit/scoring.js";
 import { backupServer } from "../../src/core/backup.js";
 import { logger, createSpinner } from "../../src/utils/logger.js";
@@ -68,6 +73,8 @@ const mockedSortChecksByImpact = sortChecksByImpact as jest.MockedFunction<typeo
 const mockedSelectChecksForTop = selectChecksForTop as jest.MockedFunction<typeof selectChecksForTop>;
 const mockedSelectChecksForTarget = selectChecksForTarget as jest.MockedFunction<typeof selectChecksForTarget>;
 const mockedBuildImpactContext = buildImpactContext as jest.MockedFunction<typeof buildImpactContext>;
+const mockedResolveHandlerChain = resolveHandlerChain as jest.MockedFunction<typeof resolveHandlerChain>;
+const mockedExecuteHandlerChain = executeHandlerChain as jest.MockedFunction<typeof executeHandlerChain>;
 
 // ─── Test Helpers ────────────────────────────────────────────────────────────
 
@@ -184,6 +191,10 @@ beforeEach(() => {
   );
   mockedSelectChecksForTop.mockImplementation((sorted, n) => sorted.slice(0, n));
   mockedSelectChecksForTarget.mockImplementation((sorted) => sorted);
+
+  // Default handler mocks — return null (no match) so existing tests use shell path
+  mockedResolveHandlerChain.mockReturnValue(null);
+  mockedExecuteHandlerChain.mockResolvedValue({ success: true });
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -868,6 +879,159 @@ describe("fixSafeCommand", () => {
       const infoCalls = mockedLogger.info.mock.calls.map((c) => String(c[0]));
       const hasWarning = infoCalls.some((msg) => msg.includes("GUARDED/FORBIDDEN"));
       expect(hasWarning).toBe(true);
+    });
+  });
+
+  // ── handler dispatch integration ─────────────────────────────────────────
+
+  describe("handler dispatch integration", () => {
+    const sysctlCompoundCommand =
+      "sysctl -w kernel.randomize_va_space=2 && echo 'kernel.randomize_va_space=2' >> /etc/sysctl.conf";
+
+    const handlerCheckPlan = {
+      safePlan: {
+        groups: [{
+          severity: "warning" as const,
+          checks: [{
+            id: "KERN-RANDOMIZE",
+            category: "Kernel",
+            name: "ASLR Randomization",
+            severity: "warning" as const,
+            fixCommand: sysctlCompoundCommand,
+          }],
+          estimatedImpact: 5,
+        }],
+      },
+      guardedCount: 0,
+      forbiddenCount: 0,
+      guardedIds: [],
+    };
+
+    it("Test HD1: sysctl compound fixCommand executes via handler instead of being rejected", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+
+      const auditResult = makeResult([
+        makeCategory("Kernel", [
+          makeCheck({ id: "KERN-RANDOMIZE", category: "Kernel", passed: false,
+            fixCommand: sysctlCompoundCommand, safeToAutoFix: "SAFE" }),
+        ]),
+      ]);
+      mockedRunAudit.mockResolvedValue({ success: true, data: auditResult });
+      mockedPreviewSafeFixes.mockReturnValue(handlerCheckPlan);
+      mockedPrompt.mockResolvedValue({ confirm: true });
+      mockedBackupServer.mockResolvedValue({ success: true, backupPath: "/tmp/backup" } as BackupResult);
+
+      // Handler matches — returns non-null chain and succeeds
+      mockedResolveHandlerChain.mockReturnValue([{ handler: {} as never, params: {} as never }]);
+      mockedExecuteHandlerChain.mockResolvedValue({ success: true });
+
+      await fixSafeCommand(undefined, { safe: true });
+
+      // Handler was called with the compound command
+      expect(mockedResolveHandlerChain).toHaveBeenCalledWith(sysctlCompoundCommand);
+      expect(mockedExecuteHandlerChain).toHaveBeenCalled();
+      // isFixCommandAllowed NOT called for this check (handler bypasses shell path)
+      expect(isFixCommandAllowed).not.toHaveBeenCalledWith(sysctlCompoundCommand);
+      // Check was applied (in applied array) — saveFixHistory called with it
+      expect(mockedSaveFixHistory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          checks: expect.arrayContaining(["KERN-RANDOMIZE"]),
+          status: "applied",
+        }),
+      );
+    });
+
+    it("Test HD2: unmatched fixCommand falls through to shell path", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+
+      const metacharCommand = "rm -rf /tmp/test && echo bad";
+      const plan = {
+        safePlan: {
+          groups: [{
+            severity: "warning" as const,
+            checks: [{
+              id: "TEST-01",
+              category: "Kernel",
+              name: "Test",
+              severity: "warning" as const,
+              fixCommand: metacharCommand,
+            }],
+            estimatedImpact: 3,
+          }],
+        },
+        guardedCount: 0,
+        forbiddenCount: 0,
+        guardedIds: [],
+      };
+
+      const auditResult = makeResult([makeCategory("Kernel", [])]);
+      mockedRunAudit.mockResolvedValue({ success: true, data: auditResult });
+      mockedPreviewSafeFixes.mockReturnValue(plan);
+      mockedPrompt.mockResolvedValue({ confirm: true });
+      mockedBackupServer.mockResolvedValue({ success: true, backupPath: "/tmp/backup" } as BackupResult);
+
+      // Handler returns null — no match, falls through to shell path
+      mockedResolveHandlerChain.mockReturnValue(null);
+      // isFixCommandAllowed returns false (metachar)
+      (isFixCommandAllowed as jest.MockedFunction<typeof isFixCommandAllowed>).mockReturnValue(false);
+
+      await fixSafeCommand(undefined, { safe: true });
+
+      // isFixCommandAllowed WAS called (shell fallback path)
+      expect(isFixCommandAllowed).toHaveBeenCalledWith(metacharCommand);
+      // Rejected — appears in errors
+      expect(mockedSaveFixHistory).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "failed" }),
+      );
+    });
+
+    it("Test HD3: handler failure reports in errors array", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+
+      const auditResult = makeResult([makeCategory("Kernel", [])]);
+      mockedRunAudit.mockResolvedValue({ success: true, data: auditResult });
+      mockedPreviewSafeFixes.mockReturnValue(handlerCheckPlan);
+      mockedPrompt.mockResolvedValue({ confirm: true });
+      mockedBackupServer.mockResolvedValue({ success: true, backupPath: "/tmp/backup" } as BackupResult);
+
+      // Handler matches but fails
+      mockedResolveHandlerChain.mockReturnValue([{ handler: {} as never, params: {} as never }]);
+      mockedExecuteHandlerChain.mockResolvedValue({ success: false, error: "sysctl write failed" });
+
+      await fixSafeCommand(undefined, { safe: true });
+
+      // Error logged with "handler failed" message
+      expect(mockedLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining("handler failed"),
+      );
+    });
+
+    it("Test HD4: handler failure with no successful fixes produces status:failed in history (D-09)", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+
+      const auditResult = makeResult([makeCategory("Kernel", [])]);
+      mockedRunAudit.mockResolvedValue({ success: true, data: auditResult });
+      mockedPreviewSafeFixes.mockReturnValue(handlerCheckPlan);
+      mockedPrompt.mockResolvedValue({ confirm: true });
+      mockedBackupServer.mockResolvedValue({ success: true, backupPath: "/tmp/backup" } as BackupResult);
+
+      // All fixes go through handler path — all fail
+      mockedResolveHandlerChain.mockReturnValue([{ handler: {} as never, params: {} as never }]);
+      mockedExecuteHandlerChain.mockResolvedValue({ success: false, error: "permission denied" });
+
+      await fixSafeCommand(undefined, { safe: true });
+
+      // applied.length === 0 → saveFixHistory called with status:"failed" (D-09)
+      expect(mockedSaveFixHistory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "failed",
+          checks: [],
+        }),
+      );
     });
   });
 });

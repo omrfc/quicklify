@@ -23,6 +23,7 @@ jest.mock("../../src/core/audit/scoring");
 jest.mock("../../src/core/backup");
 jest.mock("../../src/core/manage");
 jest.mock("../../src/utils/ssh");
+jest.mock("../../src/core/audit/handlers/index");
 jest.mock("../../src/utils/errorMapper", () => ({
   getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
 }));
@@ -37,6 +38,7 @@ import * as scoring from "../../src/core/audit/scoring";
 import * as backup from "../../src/core/backup";
 import * as manage from "../../src/core/manage";
 import * as ssh from "../../src/utils/ssh";
+import * as handlers from "../../src/core/audit/handlers/index";
 import { handleServerFix } from "../../src/mcp/tools/serverFix";
 import type { FixHistoryEntry } from "../../src/core/audit/types";
 
@@ -48,6 +50,7 @@ const mockedScoring = scoring as jest.Mocked<typeof scoring>;
 const mockedBackup = backup as jest.Mocked<typeof backup>;
 const mockedManage = manage as jest.Mocked<typeof manage>;
 const mockedSsh = ssh as jest.Mocked<typeof ssh>;
+const mockedHandlers = handlers as jest.Mocked<typeof handlers>;
 
 // ─── Test fixtures ────────────────────────────────────────────────────────────
 
@@ -211,6 +214,10 @@ beforeEach(() => {
   );
   mockedFix.selectChecksForTop.mockImplementation((sorted, n) => sorted.slice(0, n));
   mockedFix.selectChecksForTarget.mockImplementation((sorted) => sorted);
+
+  // Default handler mocks — return null (no match) so existing tests use shell path
+  mockedHandlers.resolveHandlerChain.mockReturnValue(null);
+  mockedHandlers.executeHandlerChain.mockResolvedValue({ success: true });
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -529,6 +536,61 @@ describe("MCP server_fix tool", () => {
       await handleServerFix({ dryRun: false });
 
       expect(mockedFixHistory.backupRemoteCleanup).toHaveBeenCalledWith("1.2.3.4");
+    });
+
+    it("handler-matchable fixCommand is applied via handler (not shell path)", async () => {
+      const sysctlCompound =
+        "sysctl -w kernel.randomize_va_space=2 && echo 'kernel.randomize_va_space=2' >> /etc/sysctl.conf";
+
+      const planWithHandler = {
+        safePlan: {
+          groups: [{
+            severity: "warning" as const,
+            checks: [makeFixCheck("KERN-RANDOMIZE", "Kernel")],
+            estimatedImpact: 5,
+          }],
+        },
+        guardedCount: 0,
+        forbiddenCount: 0,
+        guardedIds: [],
+      };
+      // Override the fixCommand to the compound one
+      planWithHandler.safePlan.groups[0].checks[0] = {
+        ...planWithHandler.safePlan.groups[0].checks[0],
+        fixCommand: sysctlCompound,
+      };
+      mockedFix.previewSafeFixes.mockReturnValue(planWithHandler as never);
+      mockedFix.sortChecksByImpact.mockImplementation((checks) =>
+        checks.map((c) => ({ ...c, impact: 5 })),
+      );
+      mockedFix.selectChecksForTarget.mockImplementation((sorted) => sorted);
+
+      // Handler matches and succeeds
+      mockedHandlers.resolveHandlerChain.mockReturnValue([{ handler: {} as never, params: {} as never }]);
+      mockedHandlers.executeHandlerChain.mockResolvedValue({ success: true });
+
+      const result = await handleServerFix({ dryRun: false });
+
+      expect(result.isError).toBeUndefined();
+      expect(mockedHandlers.resolveHandlerChain).toHaveBeenCalledWith(sysctlCompound);
+      expect(mockedHandlers.executeHandlerChain).toHaveBeenCalled();
+      // isFixCommandAllowed NOT called for the handler-matched command
+      expect(mockedFix.isFixCommandAllowed).not.toHaveBeenCalledWith(sysctlCompound);
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect((parsed.applied as string[]).includes("KERN-RANDOMIZE")).toBe(true);
+    });
+
+    it("handler failure appears in MCP errors array", async () => {
+      // Handler matches but fails
+      mockedHandlers.resolveHandlerChain.mockReturnValue([{ handler: {} as never, params: {} as never }]);
+      mockedHandlers.executeHandlerChain.mockResolvedValue({ success: false, error: "sysctl write failed" });
+
+      const result = await handleServerFix({ dryRun: false });
+
+      expect(result.isError).toBeUndefined();
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      const errors = parsed.errors as string[];
+      expect(errors.some((e) => e.includes("handler failed"))).toBe(true);
     });
   });
 
