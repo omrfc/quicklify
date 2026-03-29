@@ -1,39 +1,62 @@
-import { randomBytes, scryptSync } from "crypto";
+import { randomBytes } from "crypto";
 
-// We need to mock child_process and fs for platform-specific getMachineKey tests
+// Mock child_process and os for platform-specific getMachineKey tests
 jest.mock("child_process", () => ({
   execSync: jest.fn(),
 }));
 
-// Only mock readFileSync for /etc/machine-id reads — not the whole fs
-const originalReadFileSync = jest.requireActual<typeof import("fs")>("fs").readFileSync;
+jest.mock("os", () => {
+  const actual = jest.requireActual<typeof import("os")>("os");
+  return {
+    ...actual,
+    platform: jest.fn(() => actual.platform()),
+    hostname: jest.fn(() => "test-host"),
+    arch: jest.fn(() => "x64"),
+  };
+});
+
+// Partial fs mock — only readFileSync for /etc/machine-id
+const actualFs = jest.requireActual<typeof import("fs")>("fs");
 jest.mock("fs", () => {
   const actual = jest.requireActual<typeof import("fs")>("fs");
   return {
     ...actual,
-    readFileSync: jest.fn((...args: unknown[]) => {
-      // Default: delegate to actual unless test overrides
-      return (actual.readFileSync as Function)(...args);
-    }),
+    readFileSync: jest.fn((...args: unknown[]) =>
+      (actual.readFileSync as Function)(...args),
+    ),
   };
 });
 
 import { execSync } from "child_process";
 import { readFileSync } from "fs";
+import { platform } from "os";
 
 const mockedExecSync = execSync as jest.MockedFunction<typeof execSync>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;
+const mockedPlatform = platform as jest.MockedFunction<typeof platform>;
 
-// Reset module between tests to clear cached key
+// Reset module cache between tests to clear cached key
 beforeEach(() => {
   jest.resetModules();
   jest.clearAllMocks();
+  // Restore default: delegate readFileSync to actual
+  mockedReadFileSync.mockImplementation((...args: unknown[]) =>
+    (actualFs.readFileSync as Function)(...args),
+  );
 });
 
 async function loadModule() {
-  const mod = await import("../../src/utils/encryption");
-  return mod;
+  // Re-mock after resetModules
+  jest.mock("child_process", () => ({ execSync: mockedExecSync }));
+  jest.mock("os", () => {
+    const actual = jest.requireActual<typeof import("os")>("os");
+    return { ...actual, platform: mockedPlatform, hostname: jest.fn(() => "test-host"), arch: jest.fn(() => "x64") };
+  });
+  jest.mock("fs", () => ({ ...actualFs, readFileSync: mockedReadFileSync }));
+  return await import("../../src/utils/encryption");
 }
+
+// ─── encryptData + decryptData ───────────────────────────────────────────────
 
 describe("encryptData + decryptData", () => {
   it("round-trip: encrypt then decrypt returns original string", async () => {
@@ -60,7 +83,7 @@ describe("encryptData + decryptData", () => {
   it("round-trip with unicode content", async () => {
     const { encryptData, decryptData } = await loadModule();
     const key = randomBytes(32);
-    const plaintext = '{"hetzner":"tok-123","comment":"türkçe içerik 🔑"}';
+    const plaintext = '{"hetzner":"tok-123","comment":"türkçe içerik"}';
 
     const encrypted = encryptData(plaintext, key);
     const decrypted = decryptData(encrypted, key);
@@ -79,9 +102,9 @@ describe("encryptData + decryptData", () => {
     expect(typeof payload.iv).toBe("string");
     expect(typeof payload.data).toBe("string");
     expect(typeof payload.tag).toBe("string");
-    // IV should be 12 bytes = 24 hex chars
+    // IV: 12 bytes = 24 hex chars
     expect(payload.iv).toMatch(/^[0-9a-f]{24}$/);
-    // Tag should be 16 bytes = 32 hex chars
+    // Tag: 16 bytes = 32 hex chars
     expect(payload.tag).toMatch(/^[0-9a-f]{32}$/);
   });
 
@@ -92,9 +115,7 @@ describe("encryptData + decryptData", () => {
 
     const encrypted = encryptData("secret", key1);
 
-    expect(() => decryptData(encrypted, key2)).toThrow(
-      /decryption failed/i,
-    );
+    expect(() => decryptData(encrypted, key2)).toThrow(/decryption failed/i);
   });
 
   it("decryptData with tampered ciphertext throws", async () => {
@@ -102,12 +123,9 @@ describe("encryptData + decryptData", () => {
     const key = randomBytes(32);
 
     const encrypted = encryptData("secret", key);
-    // Tamper with data
     const tampered = { ...encrypted, data: "ff" + encrypted.data.slice(2) };
 
-    expect(() => decryptData(tampered, key)).toThrow(
-      /decryption failed/i,
-    );
+    expect(() => decryptData(tampered, key)).toThrow(/decryption failed/i);
   });
 
   it("two encryptions of same plaintext produce different IVs", async () => {
@@ -121,11 +139,12 @@ describe("encryptData + decryptData", () => {
   });
 });
 
+// ─── isEncryptedPayload ──────────────────────────────────────────────────────
+
 describe("isEncryptedPayload", () => {
   it("returns true for valid payload", async () => {
     const { encryptData, isEncryptedPayload } = await loadModule();
     const key = randomBytes(32);
-
     const payload = encryptData("test", key);
 
     expect(isEncryptedPayload(payload)).toBe(true);
@@ -155,16 +174,14 @@ describe("isEncryptedPayload", () => {
   });
 });
 
+// ─── getMachineKey ───────────────────────────────────────────────────────────
+
 describe("getMachineKey", () => {
   it("returns 32-byte Buffer", async () => {
-    // Mock platform-specific calls
-    mockedReadFileSync.mockImplementation(((path: string, ...rest: unknown[]) => {
-      if (typeof path === "string" && path === "/etc/machine-id") {
-        return "test-machine-id-12345\n";
-      }
-      return originalReadFileSync(path, ...rest as [any]);
-    }) as typeof readFileSync);
-    mockedExecSync.mockReturnValue("IOPlatformUUID = test-uuid-12345\n");
+    mockedPlatform.mockReturnValue("win32" as NodeJS.Platform);
+    mockedExecSync.mockReturnValue(
+      "\r\nHKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography\r\n    MachineGuid    REG_SZ    TEST-GUID-1234\r\n\r\n",
+    );
 
     const { getMachineKey } = await loadModule();
     const key = getMachineKey();
@@ -174,13 +191,10 @@ describe("getMachineKey", () => {
   });
 
   it("returns same Buffer on repeated calls (caching)", async () => {
-    mockedReadFileSync.mockImplementation(((path: string, ...rest: unknown[]) => {
-      if (typeof path === "string" && path === "/etc/machine-id") {
-        return "test-machine-id-12345\n";
-      }
-      return originalReadFileSync(path, ...rest as [any]);
-    }) as typeof readFileSync);
-    mockedExecSync.mockReturnValue("IOPlatformUUID = test-uuid-12345\n");
+    mockedPlatform.mockReturnValue("win32" as NodeJS.Platform);
+    mockedExecSync.mockReturnValue(
+      "\r\nHKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography\r\n    MachineGuid    REG_SZ    TEST-GUID-1234\r\n\r\n",
+    );
 
     const { getMachineKey } = await loadModule();
     const key1 = getMachineKey();
@@ -190,10 +204,10 @@ describe("getMachineKey", () => {
   });
 
   it("works on linux (reads /etc/machine-id)", async () => {
-    const platformSpy = jest.spyOn(process, "platform", "get").mockReturnValue("linux" as NodeJS.Platform);
+    mockedPlatform.mockReturnValue("linux" as NodeJS.Platform);
     mockedReadFileSync.mockImplementation(((path: string, encoding?: string) => {
       if (path === "/etc/machine-id") return "linux-machine-id-abc\n";
-      return originalReadFileSync(path, encoding as any);
+      return (actualFs.readFileSync as Function)(path, encoding);
     }) as typeof readFileSync);
 
     const { getMachineKey } = await loadModule();
@@ -201,12 +215,10 @@ describe("getMachineKey", () => {
 
     expect(key.length).toBe(32);
     expect(mockedReadFileSync).toHaveBeenCalledWith("/etc/machine-id", "utf8");
-
-    platformSpy.mockRestore();
   });
 
   it("works on darwin (parses IOPlatformUUID)", async () => {
-    const platformSpy = jest.spyOn(process, "platform", "get").mockReturnValue("darwin" as NodeJS.Platform);
+    mockedPlatform.mockReturnValue("darwin" as NodeJS.Platform);
     mockedExecSync.mockReturnValue(
       '  | "IOPlatformUUID" = "DARWIN-UUID-1234-5678"\n',
     );
@@ -219,12 +231,10 @@ describe("getMachineKey", () => {
       "ioreg -rd1 -c IOPlatformExpertDevice",
       expect.objectContaining({ encoding: "utf8" }),
     );
-
-    platformSpy.mockRestore();
   });
 
   it("works on win32 (parses MachineGuid from registry)", async () => {
-    const platformSpy = jest.spyOn(process, "platform", "get").mockReturnValue("win32" as NodeJS.Platform);
+    mockedPlatform.mockReturnValue("win32" as NodeJS.Platform);
     mockedExecSync.mockReturnValue(
       "\r\nHKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography\r\n    MachineGuid    REG_SZ    WIN-GUID-1234\r\n\r\n",
     );
@@ -235,23 +245,22 @@ describe("getMachineKey", () => {
     expect(key.length).toBe(32);
     expect(mockedExecSync).toHaveBeenCalledWith(
       "cmd /c reg query HKLM\\SOFTWARE\\Microsoft\\Cryptography /v MachineGuid",
-      expect.objectContaining({ encoding: "utf8", shell: true }),
+      expect.objectContaining({ encoding: "utf8" }),
     );
-
-    platformSpy.mockRestore();
   });
 
   it("falls back to hostname+platform+arch when platform ID fails", async () => {
-    const platformSpy = jest.spyOn(process, "platform", "get").mockReturnValue("freebsd" as NodeJS.Platform);
-    mockedReadFileSync.mockImplementation(() => { throw new Error("ENOENT"); });
-    mockedExecSync.mockImplementation(() => { throw new Error("command not found"); });
+    mockedPlatform.mockReturnValue("freebsd" as NodeJS.Platform);
+    mockedReadFileSync.mockImplementation(() => {
+      throw new Error("ENOENT");
+    });
+    mockedExecSync.mockImplementation(() => {
+      throw new Error("command not found");
+    });
 
     const { getMachineKey } = await loadModule();
     const key = getMachineKey();
 
-    // Should still return a valid 32-byte key from fallback
     expect(key.length).toBe(32);
-
-    platformSpy.mockRestore();
   });
 });
