@@ -121,10 +121,16 @@ describe("sortChecksByImpact", () => {
   });
 
   it("uses severity as tie-breaker: critical comes before warning when impacts are equal", () => {
+    // Two checks in different categories but we force equal impacts by using same ctx
     // Use makeImpactCtx with equal category weights for two categories
+    const ctx = makeImpactCtx({ CatA: 2, CatB: 2 }, 4);
+    // Both checks: catA/critical vs catB/critical — but to get same impact we need same formula result
+    // impact = (checkWeight / catWeight) * 100 * catWeight / totalOverallWeight
+    // For CatA/critical: (3/2)*100 * 1/4 (DEFAULT) = 37.5
+    // For CatB/warning:  (2/2)*100 * 1/4 (DEFAULT) = 25.0
+    // These differ — use same severity to truly tie:
     // CatA/critical: (3/2)*100 * DEFAULT(1)/4 = 37.5
     // CatB/critical: (3/2)*100 * DEFAULT(1)/4 = 37.5  <- same!
-    const ctx = makeImpactCtx({ CatA: 2, CatB: 2 }, 4);
     const checks: FixCheck[] = [
       makeFixCheck({ id: "B-01", category: "CatB", severity: "critical" }),
       makeFixCheck({ id: "A-01", category: "CatA", severity: "critical" }),
@@ -134,10 +140,18 @@ describe("sortChecksByImpact", () => {
     expect(sorted[0].impact).toBeCloseTo(sorted[1].impact);
   });
 
-  it("tie-breaker: critical comes before warning when impacts are equal", () => {
+  it("tie-breaker: critical comes before warning when impacts differ only by severity", () => {
+    // Use single category where critical and warning share same category weight
+    // critical impact = (3/5)*100 * 1/10 = 6.0
+    // warning impact = (2/5)*100 * 1/10 = 4.0
+    // They differ, so sorted by impact anyway — but we want to test severity tie-breaker
+    // Force same impact: use two different categories with different catWeights to equalize
+    // catA weight=3, severity=critical: (3/3)*100 * DEFAULT(1)/6 = 16.67
+    // catB weight=2, severity=warning:  (2/2)*100 * DEFAULT(1)/4 = 25.0  <- not equal
+    // Instead: directly test that when impact values are identical, critical < warning in sort
+    const ctx = makeImpactCtx({ CatA: 3, CatB: 2 }, 4);
     // catA/critical: (3/3)*100 * DEFAULT(1)/4 = 25.0
     // catB/warning:  (2/2)*100 * DEFAULT(1)/4 = 25.0  <- equal!
-    const ctx = makeImpactCtx({ CatA: 3, CatB: 2 }, 4);
     const checks: FixCheck[] = [
       makeFixCheck({ id: "WARN-01", category: "CatB", severity: "warning" }),
       makeFixCheck({ id: "CRIT-01", category: "CatA", severity: "critical" }),
@@ -209,17 +223,8 @@ describe("selectChecksForTarget", () => {
   });
 
   it("returns all checks when target is unreachable (includes all)", () => {
-    // Use a tiny-impact context so accumulated score never reaches 99 from 50
-    // Each check has tiny impact: (1/10)*100 * DEFAULT(1)/100 = 0.1 per check
-    const tinyCtx = makeImpactCtx({ SSH: 10, Kernel: 10, Logging: 10 }, 100);
-    const tinyChecks: FixCheck[] = [
-      makeFixCheck({ id: "SSH-01", category: "SSH", severity: "info" }),
-      makeFixCheck({ id: "KERNEL-01", category: "Kernel", severity: "info" }),
-      makeFixCheck({ id: "LOG-01", category: "Logging", severity: "info" }),
-    ];
-    const tinySorted = sortChecksByImpact(tinyChecks, tinyCtx);
-    const selected = selectChecksForTarget(tinySorted, 50, 99);
-    // 3 checks * 0.1 impact = 50.3 total — never reaches 99, so all returned
-    expect(selected).toHaveLength(tinySorted.length);
+    const selected = selectChecksForTarget(sorted, 50, 200);
+    // When target is impossible to reach, all checks are returned
+    expect(selected).toHaveLength(sorted.length);
   });
 });
