@@ -1,3 +1,5 @@
+import { writeFileSync } from "fs";
+import { join } from "path";
 import { z } from "zod";
 import { getServers } from "../../utils/config.js";
 import { runAudit } from "../../core/audit/index.js";
@@ -11,8 +13,10 @@ import {
   selectChecksForTarget,
   fixCommandsFromChecks,
 } from "../../core/audit/fix.js";
-import { tryHandlerDispatch } from "../../core/audit/handlers/index.js";
+import { tryHandlerDispatch, type DiffLine } from "../../core/audit/handlers/index.js";
 import { buildImpactContext } from "../../core/audit/scoring.js";
+import { filterChecksByProfile } from "../../core/audit/profiles.js";
+import { generateFixReport, fixReportFilename } from "../../utils/fixReport.js";
 import { backupServer } from "../../core/backup.js";
 import { isSafeMode } from "../../core/manage.js";
 import { sshExec } from "../../utils/ssh.js";
@@ -90,6 +94,20 @@ export const serverFixSchema = {
     .describe(
       "Apply SAFE fixes until score reaches this value (1-100). Requires action:'apply'. Mutually exclusive with top.",
     ),
+  profile: z
+    .enum(["web-server", "database", "mail-server"])
+    .optional()
+    .describe("Server profile to filter applicable checks (web-server, database, mail-server)"),
+  diff: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("Include per-fix diff preview in results"),
+  report: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("Generate markdown fix report file in current directory"),
 };
 
 /** Severity ordering for display (critical first) */
@@ -109,6 +127,9 @@ export async function handleServerFix(
     category?: string;
     top?: number;
     target?: number;
+    profile?: "web-server" | "database" | "mail-server";
+    diff?: boolean;
+    report?: boolean;
   },
   mcpServer?: McpServer,
 ): Promise<McpResponse> {
@@ -281,6 +302,11 @@ export async function handleServerFix(
       filteredChecks = filteredChecks.filter((c) => allowedIdSet.has(c.id));
     }
 
+    // Profile filter (D-05): applied after category/checks AND filters
+    if (params.profile) {
+      filteredChecks = filterChecksByProfile(filteredChecks, params.profile);
+    }
+
     // ── Early exit if no SAFE fixes after filter ──────────────────────────
     if (filteredChecks.length === 0) {
       return mcpSuccess({
@@ -359,6 +385,7 @@ export async function handleServerFix(
     await mcpLog(mcpServer, `Applying ${selectedChecks.length} safe fix(es)...`);
     const applied: string[] = [];
     const errors: string[] = [];
+    const collectedDiffs: Array<{ checkId: string; category: string; severity: string; diff?: DiffLine }> = [];
 
     for (const check of selectedChecks) {
       try {
@@ -371,7 +398,10 @@ export async function handleServerFix(
         }
         // Handler dispatch — bypasses shell metachar guard (D-05, D-06)
         const dispatch = await tryHandlerDispatch(server.ip, check, applied, errors);
-        if (dispatch.handled) continue;
+        if (dispatch.handled) {
+          collectedDiffs.push({ checkId: check.id, category: check.category, severity: check.severity, diff: dispatch.diff });
+          continue;
+        }
         if (!isFixCommandAllowed(check.fixCommand)) {
           errors.push(`${check.id}: fix command rejected`);
           continue;
@@ -381,6 +411,7 @@ export async function handleServerFix(
           errors.push(`${check.id}: command failed (exit ${sshResult.code})`);
         } else {
           applied.push(check.id);
+          collectedDiffs.push({ checkId: check.id, category: check.category, severity: check.severity });
         }
       } catch (err) {
         errors.push(`${check.id}: ${getErrorMessage(err)}`);
@@ -428,6 +459,36 @@ export async function handleServerFix(
         ? `Target ${params.target} not reached (got ${scoreAfter}). Remaining fixes are GUARDED/FORBIDDEN tier.`
         : undefined;
 
+    // Build diff summary if requested
+    const diffSummary = params.diff
+      ? collectedDiffs
+          .filter((d) => d.diff !== undefined)
+          .map((d) => `[${d.diff!.handlerType}] ${d.diff!.key}: ${d.diff!.before} -> ${d.diff!.after}`)
+      : undefined;
+
+    // Generate fix report if requested (FIXPRO-07)
+    let reportFile: string | undefined;
+    if (params.report) {
+      const timestamp = new Date().toISOString();
+      const date = timestamp.slice(0, 10);
+      const filename = fixReportFilename(server.name, date);
+      const reportContent = generateFixReport({
+        server: { name: server.name, ip: server.ip },
+        scoreBefore: auditResult.overallScore,
+        scoreAfter,
+        applied: collectedDiffs
+          .filter((d) => applied.includes(d.checkId))
+          .map((d) => ({ id: d.checkId, category: d.category, severity: d.severity, diff: d.diff })),
+        failed: errors.map((e) => ({ id: e.split(":")[0].trim(), error: e })),
+        skipped: [],
+        profile: params.profile,
+        dryRun: false,
+        timestamp,
+      });
+      writeFileSync(join(process.cwd(), filename), reportContent, "utf-8");
+      reportFile = filename;
+    }
+
     return mcpSuccess({
       dryRun: false,
       applied,
@@ -436,6 +497,8 @@ export async function handleServerFix(
       scoreBefore: auditResult.overallScore,
       scoreAfter,
       ...(targetWarning ? { targetWarning } : {}),
+      ...(diffSummary ? { diffSummary } : {}),
+      ...(reportFile ? { reportFile } : {}),
     });
   } catch (error: unknown) {
     return mcpError(getErrorMessage(error));
