@@ -15,7 +15,7 @@ jest.mock("os", () => {
   };
 });
 
-// Partial fs mock — only readFileSync for /etc/machine-id
+// Partial fs mock — readFileSync, existsSync, writeFileSync, mkdirSync
 const actualFs = jest.requireActual<typeof import("fs")>("fs");
 jest.mock("fs", () => {
   const actual = jest.requireActual<typeof import("fs")>("fs");
@@ -24,15 +24,20 @@ jest.mock("fs", () => {
     readFileSync: jest.fn((...args: unknown[]) =>
       (actual.readFileSync as Function)(...args),
     ),
+    existsSync: jest.fn(() => false),
+    writeFileSync: jest.fn(),
+    mkdirSync: jest.fn(),
   };
 });
 
 import { execSync } from "child_process";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync, writeFileSync } from "fs";
 import { platform } from "os";
 
 const mockedExecSync = execSync as jest.MockedFunction<typeof execSync>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;
+const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
+const mockedWriteFileSync = writeFileSync as jest.MockedFunction<typeof writeFileSync>;
 const mockedPlatform = platform as jest.MockedFunction<typeof platform>;
 
 // Reset module cache between tests to clear cached key
@@ -43,6 +48,9 @@ beforeEach(() => {
   mockedReadFileSync.mockImplementation((...args: unknown[]) =>
     (actualFs.readFileSync as Function)(...args),
   );
+  // Default: salt/fallback files don't exist (will be created)
+  mockedExistsSync.mockReturnValue(false);
+  mockedWriteFileSync.mockReturnValue(undefined);
 });
 
 async function loadModule() {
@@ -52,7 +60,7 @@ async function loadModule() {
     const actual = jest.requireActual<typeof import("os")>("os");
     return { ...actual, platform: mockedPlatform, hostname: jest.fn(() => "test-host"), arch: jest.fn(() => "x64") };
   });
-  jest.mock("fs", () => ({ ...actualFs, readFileSync: mockedReadFileSync }));
+  jest.mock("fs", () => ({ ...actualFs, readFileSync: mockedReadFileSync, existsSync: mockedExistsSync, writeFileSync: mockedWriteFileSync, mkdirSync: jest.fn() }));
   return await import("../../src/utils/encryption");
 }
 
@@ -249,9 +257,10 @@ describe("getMachineKey", () => {
     );
   });
 
-  it("falls back to hostname+platform+arch when platform ID fails", async () => {
+  it("falls back to persistent random UUID when platform ID fails", async () => {
     mockedPlatform.mockReturnValue("freebsd" as NodeJS.Platform);
-    mockedReadFileSync.mockImplementation(() => {
+    mockedReadFileSync.mockImplementation((path: unknown) => {
+      // Salt and fallback files don't exist yet — throw for all reads
       throw new Error("ENOENT");
     });
     mockedExecSync.mockImplementation(() => {
@@ -262,5 +271,24 @@ describe("getMachineKey", () => {
     const key = getMachineKey();
 
     expect(key.length).toBe(32);
+    // Should write fallback ID and salt files
+    expect(mockedWriteFileSync).toHaveBeenCalled();
+  });
+
+  it("uses per-installation random salt instead of hardcoded string", async () => {
+    mockedPlatform.mockReturnValue("win32" as NodeJS.Platform);
+    mockedExecSync.mockReturnValue(
+      "\r\nHKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography\r\n    MachineGuid    REG_SZ    TEST-GUID-1234\r\n\r\n",
+    );
+
+    const { getMachineKey } = await loadModule();
+    getMachineKey();
+
+    // Salt file should be written since existsSync returns false
+    expect(mockedWriteFileSync).toHaveBeenCalledWith(
+      expect.stringContaining(".encryption-salt"),
+      expect.any(String),
+      { mode: 0o600 },
+    );
   });
 });

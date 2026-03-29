@@ -48,7 +48,8 @@ export const fileAppendHandler: FixHandler = {
     }
 
     // Append via stdin to avoid local metachar issues (useStdin=true lets remote bash handle >>)
-    const appendCmd = raw(`echo '${line}' >> ${path}`);
+    const escapedLine = line.replace(/'/g, "'\\''");
+    const appendCmd = raw(`echo '${escapedLine}' >> ${path}`);
     const appendResult = await sshExec(ip, appendCmd, { useStdin: true });
     if (appendResult.code !== 0) {
       return { success: false, error: appendResult.stderr };
