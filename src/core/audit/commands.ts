@@ -658,6 +658,11 @@ function nginxSection(): string {
     `echo "$_NGX" | grep -iE 'error_log' | head -3 || echo 'N/A'`,
     // WAF detection (per D-02: ModSecurity + Coraza only)
     `echo "$_NGX" | grep -iE 'modsecurity[[:space:]]+on|modsecurityenabled|coraza' | head -3 || echo 'NO_WAF'`,
+    // WAF deep checks: ModSec config, CRS rules, IP ACL, data masking headers
+    `grep -rE "SecRuleEngine|SecRule" /etc/nginx/ /etc/modsecurity/ 2>/dev/null | head -20 || echo 'NO_MODSEC_CONFIG'`,
+    `ls /usr/share/modsecurity-crs/rules/ 2>/dev/null | wc -l || echo '0'`,
+    `echo "$_NGX" | grep -iE '^[[:space:]]*(deny|allow)[[:space:]]' | head -10 || echo 'NO_IP_ACL'`,
+    `echo "$_NGX" | grep -iE 'proxy_hide_header|more_clear_headers' | head -5 || echo 'NO_HEADER_FILTER'`,
   ].join("\n");
 }
 
