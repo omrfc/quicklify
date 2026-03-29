@@ -377,8 +377,10 @@ program
   .option("--category <list>", "Comma-separated category filter")
   .option("--rollback <id>", "Rollback a previous fix (fix ID or 'last')")
   .option("--history", "Show fix history for the server")
+  .option("--top <n>", "Apply top N highest-impact SAFE fixes (requires --safe)")
+  .option("--target <score>", "Apply SAFE fixes until score reaches target (requires --safe)")
   .action(
-    (server?: string, options?: { safe?: boolean; dryRun?: boolean; category?: string; rollback?: string; history?: boolean }) =>
+    (server?: string, options?: { safe?: boolean; dryRun?: boolean; category?: string; rollback?: string; history?: boolean; top?: string; target?: string }) =>
       fixSafeCommand(server, options ?? {}),
   );
 

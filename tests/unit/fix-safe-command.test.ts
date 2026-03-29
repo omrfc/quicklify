@@ -11,6 +11,7 @@ jest.mock("../../src/utils/serverSelect.js");
 jest.mock("../../src/utils/ssh.js");
 jest.mock("../../src/core/audit/index.js");
 jest.mock("../../src/core/audit/fix.js");
+jest.mock("../../src/core/audit/scoring.js");
 jest.mock("../../src/core/backup.js");
 jest.mock("../../src/utils/logger.js");
 jest.mock("../../src/core/audit/fix-history.js");
@@ -25,7 +26,11 @@ import {
   runScoreCheck,
   isFixCommandAllowed,
   collectFixCommands,
+  sortChecksByImpact,
+  selectChecksForTop,
+  selectChecksForTarget,
 } from "../../src/core/audit/fix.js";
+import { buildImpactContext } from "../../src/core/audit/scoring.js";
 import { backupServer } from "../../src/core/backup.js";
 import { logger, createSpinner } from "../../src/utils/logger.js";
 import {
@@ -59,6 +64,10 @@ const mockedRollbackFix = rollbackFix as jest.MockedFunction<typeof rollbackFix>
 const mockedSaveRollbackEntry = saveRollbackEntry as jest.MockedFunction<typeof saveRollbackEntry>;
 const mockedBackupRemoteCleanup = backupRemoteCleanup as jest.MockedFunction<typeof backupRemoteCleanup>;
 const mockedCollectFixCommands = collectFixCommands as jest.MockedFunction<typeof collectFixCommands>;
+const mockedSortChecksByImpact = sortChecksByImpact as jest.MockedFunction<typeof sortChecksByImpact>;
+const mockedSelectChecksForTop = selectChecksForTop as jest.MockedFunction<typeof selectChecksForTop>;
+const mockedSelectChecksForTarget = selectChecksForTarget as jest.MockedFunction<typeof selectChecksForTarget>;
+const mockedBuildImpactContext = buildImpactContext as jest.MockedFunction<typeof buildImpactContext>;
 
 // ─── Test Helpers ────────────────────────────────────────────────────────────
 
@@ -164,6 +173,17 @@ beforeEach(() => {
   mockedCollectFixCommands.mockReturnValue([
     { checkId: "KERN-01", fixCommand: "sysctl -w net.ipv4.tcp_syncookies=1" },
   ]);
+
+  // Default prioritization mocks — pass checks through with impact=5
+  mockedBuildImpactContext.mockReturnValue({
+    catWeightMap: new Map(),
+    totalOverallWeight: 100,
+  } as never);
+  mockedSortChecksByImpact.mockImplementation((checks) =>
+    checks.map((c) => ({ ...c, impact: 5 })),
+  );
+  mockedSelectChecksForTop.mockImplementation((sorted, n) => sorted.slice(0, n));
+  mockedSelectChecksForTarget.mockImplementation((sorted) => sorted);
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────

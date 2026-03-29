@@ -10,7 +10,12 @@ import {
   runScoreCheck,
   isFixCommandAllowed,
   collectFixCommands,
+  sortChecksByImpact,
+  selectChecksForTop,
+  selectChecksForTarget,
+  type ScoredFixCheck,
 } from "../core/audit/fix.js";
+import { buildImpactContext } from "../core/audit/scoring.js";
 import { backupServer } from "../core/backup.js";
 import { getErrorMessage } from "../utils/errorMapper.js";
 import {
@@ -39,8 +44,19 @@ export async function fixSafeCommand(
     category?: string;
     rollback?: string;
     history?: boolean;
+    top?: string;
+    target?: string;
   },
 ): Promise<void> {
+  // ── Flag validation (D-08, D-03, D-11) ─────────────────────────────────────
+  if (options.top !== undefined && options.target !== undefined) {
+    logger.error("--top ve --target birlikte kullanilamaz. Birini secin.");
+    return;
+  }
+  if ((options.top !== undefined || options.target !== undefined) && !options.safe) {
+    logger.error("--top / --target sadece --safe ile kullanilir.");
+    return;
+  }
   // ── History display (FIXPRO-02) ──────────────────────────────────────────
   if (options.history) {
     const server = await resolveServer(query, "Select a server:");
@@ -158,6 +174,8 @@ export async function fixSafeCommand(
     logger.info("  --dry-run           Preview fixes without applying");
     logger.info("  --rollback <id>     Rollback a fix by ID (or 'last')");
     logger.info("  --history           Show fix history for server");
+    logger.info("  --top <n>           Apply top N highest-impact SAFE fixes");
+    logger.info("  --target <score>    Apply SAFE fixes until score reaches target");
     logger.info(
       "  --guarded           Apply GUARDED tier fixes (available in v1.16)",
     );
@@ -197,11 +215,38 @@ export async function fixSafeCommand(
   const { safePlan, guardedCount, forbiddenCount, guardedIds } =
     previewSafeFixes(auditResult);
 
+  // ── Prioritization: sort + select by --top or --target (D-03, D-06, D-07) ──
+  const allSafeChecks = safePlan.groups.flatMap((g) => g.checks);
+  const impactCtx = buildImpactContext(auditResult.categories);
+  const sortedChecks = sortChecksByImpact(allSafeChecks, impactCtx);
+
+  let selectedChecks: ScoredFixCheck[];
+  if (options.top !== undefined) {
+    const n = parseInt(options.top, 10);
+    if (isNaN(n) || n <= 0) {
+      logger.error("--top degeri pozitif bir tam sayi olmalidir.");
+      return;
+    }
+    selectedChecks = selectChecksForTop(sortedChecks, n);
+  } else if (options.target !== undefined) {
+    const target = parseInt(options.target, 10);
+    if (isNaN(target) || target < 1 || target > 100) {
+      logger.error("--target degeri 1-100 arasinda olmalidir.");
+      return;
+    }
+    if (auditResult.overallScore >= target) {
+      logger.info(
+        `Mevcut skor ${auditResult.overallScore}, hedef ${target} — fix gerekmez.`,
+      );
+      return;
+    }
+    selectedChecks = selectChecksForTarget(sortedChecks, auditResult.overallScore, target);
+  } else {
+    selectedChecks = sortedChecks;
+  }
+
   // Check if anything to fix
-  const safeCount = safePlan.groups.reduce(
-    (sum, g) => sum + g.checks.length,
-    0,
-  );
+  const safeCount = selectedChecks.length;
   if (safeCount === 0) {
     logger.info("No SAFE tier fixes available.");
     if (guardedCount > 0) {
@@ -218,32 +263,30 @@ export async function fixSafeCommand(
   }
 
   // Render preview (always shown before dry-run or live)
-  const totalEstimatedImpact = safePlan.groups.reduce(
-    (sum, g) => sum + g.estimatedImpact,
+  const totalEstimatedImpact = selectedChecks.reduce(
+    (sum, c) => sum + c.impact,
     0,
   );
 
   logger.title("Safe Fix Preview");
   logger.info("");
   logger.info(
-    `  SAFE fixes to apply:  ${safeCount} checks (+${totalEstimatedImpact} pts estimated)`,
+    `  SAFE fixes to apply:  ${safeCount} checks (+${totalEstimatedImpact.toFixed(1)} pts estimated)`,
   );
   logger.info(
     "  ──────────────────────────────────────────────",
   );
 
-  for (const group of safePlan.groups) {
-    for (const check of group.checks) {
-      const severityColor =
-        check.severity === "critical"
-          ? chalk.red
-          : check.severity === "warning"
-            ? chalk.yellow
-            : chalk.blue;
-      logger.info(
-        `  ${severityColor(`[${check.severity}]`.padEnd(12))} ${check.id.padEnd(22)} ${check.category} / ${check.name}`,
-      );
-    }
+  for (const check of selectedChecks) {
+    const severityColor =
+      check.severity === "critical"
+        ? chalk.red
+        : check.severity === "warning"
+          ? chalk.yellow
+          : chalk.blue;
+    logger.info(
+      `  ${severityColor(`[${check.severity}]`.padEnd(12))} ${check.id.padEnd(22)} ${check.category} / ${check.name}`,
+    );
   }
 
   logger.info("");
@@ -297,45 +340,44 @@ export async function fixSafeCommand(
 
   // Generate fix ID and create remote backup (per D-01, D-03)
   const fixId = generateFixId(ip);
-  const fixCommands = collectFixCommands(safePlan);
+  // Back up only the files affected by selected (prioritized) checks
+  const fixCommands = selectedChecks.map((c) => ({ checkId: c.id, fixCommand: c.fixCommand }));
   const remoteBackupSpinner = createSpinner("Creating remote file backup...");
   remoteBackupSpinner.start();
   const remoteBackupPath = await backupFilesBeforeFix(ip, fixId, fixCommands);
   remoteBackupSpinner.stop();
 
-  // Apply SAFE fixes
+  // Apply SAFE fixes (prioritized)
   const fixSpinner = createSpinner("Applying safe fixes...");
   fixSpinner.start();
   const applied: string[] = [];
   const errors: string[] = [];
 
-  for (const group of safePlan.groups) {
-    for (const check of group.checks) {
-      try {
-        // Pre-condition check (lockout prevention)
-        if (check.preCondition) {
-          const preCheck = await sshExec(ip, raw(check.preCondition));
-          if (preCheck.code !== 0) {
-            errors.push(`${check.id}: pre-condition failed`);
-            continue;
-          }
-        }
-        // Whitelist + shell metachar guard
-        if (!isFixCommandAllowed(check.fixCommand)) {
-          errors.push(`${check.id}: fix command rejected`);
+  for (const check of selectedChecks) {
+    try {
+      // Pre-condition check (lockout prevention)
+      if (check.preCondition) {
+        const preCheck = await sshExec(ip, raw(check.preCondition));
+        if (preCheck.code !== 0) {
+          errors.push(`${check.id}: pre-condition failed`);
           continue;
         }
-        const sshResult = await sshExec(ip, raw(check.fixCommand));
-        if (sshResult.code !== 0) {
-          errors.push(
-            `${check.id}: command failed (exit ${sshResult.code})`,
-          );
-        } else {
-          applied.push(check.id);
-        }
-      } catch (err) {
-        errors.push(`${check.id}: ${getErrorMessage(err)}`);
       }
+      // Whitelist + shell metachar guard
+      if (!isFixCommandAllowed(check.fixCommand)) {
+        errors.push(`${check.id}: fix command rejected`);
+        continue;
+      }
+      const sshResult = await sshExec(ip, raw(check.fixCommand));
+      if (sshResult.code !== 0) {
+        errors.push(
+          `${check.id}: command failed (exit ${sshResult.code})`,
+        );
+      } else {
+        applied.push(check.id);
+      }
+    } catch (err) {
+      errors.push(`${check.id}: ${getErrorMessage(err)}`);
     }
   }
   fixSpinner.stop();
@@ -374,9 +416,19 @@ export async function fixSafeCommand(
     if (newScore !== null) {
       const delta = newScore - auditResult.overallScore;
       const sign = delta >= 0 ? "+" : "";
+      const skippedCount = allSafeChecks.length - selectedChecks.length;
       logger.success(
-        `Score: ${auditResult.overallScore} \u2192 ${newScore} (${sign}${delta})`,
+        `Score: ${auditResult.overallScore} \u2192 ${newScore} (${sign}${delta}) | Applied: ${applied.length} | Skipped: ${skippedCount} (GUARDED: ${guardedCount}, FORBIDDEN: ${forbiddenCount})`,
       );
+      // D-06: --target unreachable warning
+      if (options.target !== undefined) {
+        const target = parseInt(options.target, 10);
+        if (!isNaN(target) && newScore < target) {
+          logger.info(
+            `Hedef: ${target}, ulasilan: ${newScore}. Kalan fix'ler GUARDED/FORBIDDEN tier'da.`,
+          );
+        }
+      }
     }
   }
 
