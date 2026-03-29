@@ -19,6 +19,7 @@ jest.mock("../../src/utils/config");
 jest.mock("../../src/core/audit/index");
 jest.mock("../../src/core/audit/fix");
 jest.mock("../../src/core/audit/fix-history");
+jest.mock("../../src/core/audit/scoring");
 jest.mock("../../src/core/backup");
 jest.mock("../../src/core/manage");
 jest.mock("../../src/utils/ssh");
@@ -32,6 +33,7 @@ import * as config from "../../src/utils/config";
 import * as auditIndex from "../../src/core/audit/index";
 import * as fix from "../../src/core/audit/fix";
 import * as fixHistory from "../../src/core/audit/fix-history";
+import * as scoring from "../../src/core/audit/scoring";
 import * as backup from "../../src/core/backup";
 import * as manage from "../../src/core/manage";
 import * as ssh from "../../src/utils/ssh";
@@ -42,6 +44,7 @@ const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedAudit = auditIndex as jest.Mocked<typeof auditIndex>;
 const mockedFix = fix as jest.Mocked<typeof fix>;
 const mockedFixHistory = fixHistory as jest.Mocked<typeof fixHistory>;
+const mockedScoring = scoring as jest.Mocked<typeof scoring>;
 const mockedBackup = backup as jest.Mocked<typeof backup>;
 const mockedManage = manage as jest.Mocked<typeof manage>;
 const mockedSsh = ssh as jest.Mocked<typeof ssh>;
@@ -197,6 +200,17 @@ beforeEach(() => {
   mockedFix.collectFixCommands.mockReturnValue([
     { checkId: "KERN-SYNCOOKIES", fixCommand: "sysctl -w net.ipv4.tcp_syncookies=1" },
   ]);
+
+  // Default prioritization mocks — pass checks through with impact=5
+  mockedScoring.buildImpactContext.mockReturnValue({
+    catWeightMap: new Map(),
+    totalOverallWeight: 100,
+  } as never);
+  mockedFix.sortChecksByImpact.mockImplementation((checks) =>
+    checks.map((c) => ({ ...c, impact: 5 })),
+  );
+  mockedFix.selectChecksForTop.mockImplementation((sorted, n) => sorted.slice(0, n));
+  mockedFix.selectChecksForTarget.mockImplementation((sorted) => sorted);
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -693,6 +707,98 @@ describe("MCP server_fix tool", () => {
       });
 
       expect(result.isError).toBe(true);
+    });
+  });
+
+  // ── top/target prioritization params ────────────────────────────────────
+
+  describe("top/target prioritization", () => {
+    const fiveCheckPlan = {
+      safePlan: {
+        groups: [{
+          severity: "warning" as const,
+          checks: [
+            makeFixCheck("CHECK-01", "Kernel"),
+            makeFixCheck("CHECK-02", "Kernel"),
+            makeFixCheck("CHECK-03", "Kernel"),
+            makeFixCheck("CHECK-04", "Kernel"),
+            makeFixCheck("CHECK-05", "Kernel"),
+          ],
+          estimatedImpact: 25,
+        }],
+      },
+      guardedCount: 0,
+      forbiddenCount: 0,
+      guardedIds: [],
+    };
+
+    it("top param slices apply list to N checks", async () => {
+      mockedFix.previewSafeFixes.mockReturnValue(fiveCheckPlan as never);
+      mockedFix.sortChecksByImpact.mockImplementation((checks) =>
+        checks.map((c) => ({ ...c, impact: 5 })),
+      );
+      mockedFix.selectChecksForTop.mockImplementation((sorted, n) => sorted.slice(0, n));
+
+      const result = await handleServerFix({ dryRun: false, top: 3 });
+
+      expect(result.isError).toBeUndefined();
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect(Array.isArray(parsed.applied)).toBe(true);
+      expect((parsed.applied as string[]).length).toBeLessThanOrEqual(3);
+    });
+
+    it("target param stops at score threshold", async () => {
+      const lowScoreAudit = { ...defaultAuditResult, overallScore: 60 };
+      mockedAudit.runAudit.mockResolvedValue({
+        success: true,
+        data: lowScoreAudit as never,
+      });
+      mockedFix.previewSafeFixes.mockReturnValue(fiveCheckPlan as never);
+      mockedFix.sortChecksByImpact.mockImplementation((checks) =>
+        checks.map((c) => ({ ...c, impact: 5 })),
+      );
+      mockedFix.selectChecksForTarget.mockImplementation((sorted) => sorted.slice(0, 3));
+
+      const result = await handleServerFix({ dryRun: false, target: 75 });
+
+      expect(result.isError).toBeUndefined();
+      expect(mockedFix.selectChecksForTarget).toHaveBeenCalledWith(
+        expect.any(Array),
+        60,
+        75,
+      );
+    });
+
+    it("top and target together returns error", async () => {
+      const result = await handleServerFix({ top: 3, target: 80 });
+
+      expect(result.isError).toBe(true);
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect(String(parsed.error)).toContain("mutually exclusive");
+    });
+
+    it("target already met returns info message without applying fixes", async () => {
+      const highScoreAudit = { ...defaultAuditResult, overallScore: 85 };
+      mockedAudit.runAudit.mockResolvedValue({
+        success: true,
+        data: highScoreAudit as never,
+      });
+
+      const result = await handleServerFix({ dryRun: false, target: 80 });
+
+      expect(result.isError).toBeUndefined();
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect(String(parsed.message)).toContain("already meets target");
+      expect(mockedSsh.sshExec).not.toHaveBeenCalled();
+    });
+
+    it("top without action=apply is ignored for history action", async () => {
+      const result = await handleServerFix({ action: "history", top: 3 });
+
+      expect(result.isError).toBeUndefined();
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect(parsed.action).toBe("history");
+      expect(mockedFix.sortChecksByImpact).not.toHaveBeenCalled();
     });
   });
 

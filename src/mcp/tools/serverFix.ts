@@ -7,7 +7,11 @@ import {
   isFixCommandAllowed,
   resolveTier,
   collectFixCommands,
+  sortChecksByImpact,
+  selectChecksForTop,
+  selectChecksForTarget,
 } from "../../core/audit/fix.js";
+import { buildImpactContext } from "../../core/audit/scoring.js";
 import { backupServer } from "../../core/backup.js";
 import { isSafeMode } from "../../core/manage.js";
 import { sshExec } from "../../utils/ssh.js";
@@ -69,6 +73,23 @@ export const serverFixSchema = {
     .describe(
       "Category name to filter fixes (e.g. 'Kernel'). AND-filtered with checks if both provided.",
     ),
+  top: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe(
+      "Apply top N highest-impact SAFE fixes. Requires action:'apply'. Mutually exclusive with target.",
+    ),
+  target: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe(
+      "Apply SAFE fixes until score reaches this value (1-100). Requires action:'apply'. Mutually exclusive with top.",
+    ),
 };
 
 /** Severity ordering for display (critical first) */
@@ -86,6 +107,8 @@ export async function handleServerFix(
     rollbackId?: string;
     checks?: string[];
     category?: string;
+    top?: number;
+    target?: number;
   },
   mcpServer?: McpServer,
 ): Promise<McpResponse> {
@@ -186,6 +209,11 @@ export async function handleServerFix(
       });
     }
 
+    // ── top/target mutual exclusion validation (D-08) ─────────────────────
+    if (params.top !== undefined && params.target !== undefined) {
+      return mcpError("top and target are mutually exclusive. Use one or the other.");
+    }
+
     // ── SAFE_MODE + dryRun resolution ─────────────────────────────────────
     const effectiveDryRun = (params.dryRun ?? true) || isSafeMode();
     const safeModeForcedDryRun =
@@ -267,11 +295,33 @@ export async function handleServerFix(
       });
     }
 
+    // ── Prioritization: sort + select by top/target (D-03, D-06, D-07) ───
+    const impactCtx = buildImpactContext(auditResult.categories);
+    const sortedChecks = sortChecksByImpact(filteredChecks, impactCtx);
+    let selectedChecks = sortedChecks;
+
+    if (params.top !== undefined) {
+      selectedChecks = selectChecksForTop(sortedChecks, params.top);
+    } else if (params.target !== undefined) {
+      if (auditResult.overallScore >= params.target) {
+        return mcpSuccess({
+          dryRun: effectiveDryRun,
+          applied: [],
+          message: `Current score ${auditResult.overallScore} already meets target ${params.target} — no fixes needed.`,
+          scoreBefore: auditResult.overallScore,
+          scoreAfter: auditResult.overallScore,
+          guardedCount,
+          forbiddenCount,
+        });
+      }
+      selectedChecks = selectChecksForTarget(sortedChecks, auditResult.overallScore, params.target);
+    }
+
     // ── DRY RUN response ──────────────────────────────────────────────────
     if (effectiveDryRun) {
       const previewGroups = SEVERITY_ORDER.map((sev) => ({
         severity: sev,
-        checks: filteredChecks.filter((c) => c.severity === sev),
+        checks: selectedChecks.filter((c) => c.severity === sev),
       })).filter((g) => g.checks.length > 0);
 
       return mcpSuccess({
@@ -297,7 +347,8 @@ export async function handleServerFix(
 
     // ── LIVE FIX — remote file backup + fix ID (D-01, D-03) ──────────────
     const fixId = generateFixId(server.ip);
-    const fixCommands = collectFixCommands(safePlan);
+    // Back up only the files affected by selected (prioritized) checks
+    const fixCommands = selectedChecks.map((c) => ({ checkId: c.id, fixCommand: c.fixCommand }));
     await mcpLog(mcpServer, "Creating remote file backup...");
     const remoteBackupPath = await backupFilesBeforeFix(
       server.ip,
@@ -306,11 +357,11 @@ export async function handleServerFix(
     );
 
     // ── LIVE FIX — execute ────────────────────────────────────────────────
-    await mcpLog(mcpServer, `Applying ${filteredChecks.length} safe fix(es)...`);
+    await mcpLog(mcpServer, `Applying ${selectedChecks.length} safe fix(es)...`);
     const applied: string[] = [];
     const errors: string[] = [];
 
-    for (const check of filteredChecks) {
+    for (const check of selectedChecks) {
       try {
         if (check.preCondition) {
           const preCheck = await sshExec(server.ip, raw(check.preCondition));
@@ -369,6 +420,12 @@ export async function handleServerFix(
     // ── LIVE FIX — prune old backups ──────────────────────────────────────
     await backupRemoteCleanup(server.ip);
 
+    // D-06: target unreachable warning
+    const targetWarning =
+      params.target !== undefined && scoreAfter !== null && scoreAfter < params.target
+        ? `Target ${params.target} not reached (got ${scoreAfter}). Remaining fixes are GUARDED/FORBIDDEN tier.`
+        : undefined;
+
     return mcpSuccess({
       dryRun: false,
       applied,
@@ -376,6 +433,7 @@ export async function handleServerFix(
       rejectedChecks,
       scoreBefore: auditResult.overallScore,
       scoreAfter,
+      ...(targetWarning ? { targetWarning } : {}),
     });
   } catch (error: unknown) {
     return mcpError(getErrorMessage(error));
