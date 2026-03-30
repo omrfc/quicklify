@@ -29,6 +29,8 @@ import {
   backupFilesBeforeFix,
   rollbackFix,
   backupRemoteCleanup,
+  rollbackAllFixes,
+  rollbackToFix,
 } from "../core/audit/fix-history.js";
 
 /**
@@ -45,6 +47,8 @@ export async function fixSafeCommand(
     dryRun?: boolean;
     category?: string;
     rollback?: string;
+    rollbackAll?: boolean;
+    rollbackTo?: string;
     history?: boolean;
     top?: string;
     target?: string;
@@ -70,6 +74,12 @@ export async function fixSafeCommand(
   // --report requires --safe (per D-13)
   if (options.report && !options.safe) {
     logger.error("--report requires --safe. Run: kastell fix --safe --report --server <server>");
+    return;
+  }
+  // ── Rollback mutual exclusion (FIX-01, FIX-02) ───────────────────────────
+  const rollbackFlags = [options.rollback, options.rollbackAll, options.rollbackTo].filter(Boolean).length;
+  if (rollbackFlags > 1) {
+    logger.error("--rollback, --rollback-all, and --rollback-to are mutually exclusive. Use one.");
     return;
   }
   // ── History display (FIXPRO-02) ──────────────────────────────────────────
@@ -180,6 +190,90 @@ export async function fixSafeCommand(
     return;
   }
 
+  // ── Rollback-All (FIX-01) ────────────────────────────────────────────────
+  if (options.rollbackAll) {
+    const server = await resolveServer(query, "Select a server to rollback:");
+    if (!server) return;
+    const { ip, name } = server;
+    const platform = server.platform ?? server.mode ?? "bare";
+
+    if (!checkSshAvailable()) {
+      logger.error("SSH client not found. Please install OpenSSH.");
+      return;
+    }
+
+    const rollbackSpinner = createSpinner("Rolling back all fixes...");
+    rollbackSpinner.start();
+    const { rolledBack, errors: rbErrors } = await rollbackAllFixes(ip, name);
+    rollbackSpinner.stop();
+
+    if (rolledBack.length === 0 && rbErrors.length === 0) {
+      logger.info("No applied fixes found — nothing to roll back.");
+      return;
+    }
+
+    if (rolledBack.length > 0) {
+      logger.success(`Rolled back: ${rolledBack.join(", ")}`);
+    }
+    if (rbErrors.length > 0) {
+      logger.error(`Errors: ${rbErrors.join("; ")}`);
+    }
+
+    if (rolledBack.length > 0) {
+      const scoreSpinner = createSpinner("Verifying score...");
+      scoreSpinner.start();
+      const auditRes = await runAudit(ip, name, platform);
+      scoreSpinner.stop();
+      if (auditRes.success && auditRes.data) {
+        logger.info(`Score after rollback: ${auditRes.data.overallScore}`);
+      }
+    }
+
+    return;
+  }
+
+  // ── Rollback-To (FIX-02) ─────────────────────────────────────────────────
+  if (options.rollbackTo) {
+    const server = await resolveServer(query, "Select a server to rollback:");
+    if (!server) return;
+    const { ip, name } = server;
+    const platform = server.platform ?? server.mode ?? "bare";
+
+    if (!checkSshAvailable()) {
+      logger.error("SSH client not found. Please install OpenSSH.");
+      return;
+    }
+
+    const rollbackSpinner = createSpinner(`Rolling back to ${options.rollbackTo}...`);
+    rollbackSpinner.start();
+    const { rolledBack, errors: rbErrors } = await rollbackToFix(ip, options.rollbackTo);
+    rollbackSpinner.stop();
+
+    if (rolledBack.length === 0 && rbErrors.length > 0) {
+      logger.error(`Errors: ${rbErrors.join("; ")}`);
+      return;
+    }
+
+    if (rolledBack.length > 0) {
+      logger.success(`Rolled back: ${rolledBack.join(", ")}`);
+    }
+    if (rbErrors.length > 0) {
+      logger.error(`Errors: ${rbErrors.join("; ")}`);
+    }
+
+    if (rolledBack.length > 0) {
+      const scoreSpinner = createSpinner("Verifying score...");
+      scoreSpinner.start();
+      const auditRes = await runAudit(ip, name, platform);
+      scoreSpinner.stop();
+      if (auditRes.success && auditRes.data) {
+        logger.info(`Score after rollback: ${auditRes.data.overallScore}`);
+      }
+    }
+
+    return;
+  }
+
   // Gate check (D-06): --safe flag is required
   if (!options.safe) {
     logger.info("Usage: kastell fix --safe --server <name>");
@@ -188,6 +282,8 @@ export async function fixSafeCommand(
     );
     logger.info("  --dry-run           Preview fixes without applying");
     logger.info("  --rollback <id>     Rollback a fix by ID (or 'last')");
+    logger.info("  --rollback-all      Rollback all applied fixes for server");
+    logger.info("  --rollback-to <id>  Rollback all fixes from newest down to given fix ID");
     logger.info("  --history           Show fix history for server");
     logger.info("  --top <n>           Apply top N highest-impact SAFE fixes");
     logger.info("  --target <score>    Apply SAFE fixes until score reaches target");

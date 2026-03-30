@@ -51,6 +51,8 @@ import {
   backupFilesBeforeFix,
   rollbackFix,
   backupRemoteCleanup,
+  rollbackAllFixes,
+  rollbackToFix,
 } from "../../src/core/audit/fix-history.js";
 import inquirer from "inquirer";
 import type { FixHistoryEntry } from "../../src/core/audit/types.js";
@@ -71,6 +73,8 @@ const mockedGetLastFixId = getLastFixId as jest.MockedFunction<typeof getLastFix
 const mockedBackupFilesBeforeFix = backupFilesBeforeFix as jest.MockedFunction<typeof backupFilesBeforeFix>;
 const mockedRollbackFix = rollbackFix as jest.MockedFunction<typeof rollbackFix>;
 const mockedSaveRollbackEntry = saveRollbackEntry as jest.MockedFunction<typeof saveRollbackEntry>;
+const mockedRollbackAllFixes = rollbackAllFixes as jest.MockedFunction<typeof rollbackAllFixes>;
+const mockedRollbackToFix = rollbackToFix as jest.MockedFunction<typeof rollbackToFix>;
 const mockedBackupRemoteCleanup = backupRemoteCleanup as jest.MockedFunction<typeof backupRemoteCleanup>;
 const mockedFixCommandsFromChecks = fixCommandsFromChecks as jest.MockedFunction<typeof fixCommandsFromChecks>;
 const mockedSortChecksByImpact = sortChecksByImpact as jest.MockedFunction<typeof sortChecksByImpact>;
@@ -180,6 +184,8 @@ beforeEach(() => {
   mockedBackupFilesBeforeFix.mockResolvedValue("/root/.kastell/fix-backups/fix-2026-03-29-001");
   mockedRollbackFix.mockResolvedValue({ restored: [], errors: [] });
   mockedBackupRemoteCleanup.mockResolvedValue(undefined);
+  mockedRollbackAllFixes.mockResolvedValue({ rolledBack: [], errors: [] });
+  mockedRollbackToFix.mockResolvedValue({ rolledBack: [], errors: [] });
   mockedFixCommandsFromChecks.mockReturnValue([
     { checkId: "KERN-01", fixCommand: "sysctl -w net.ipv4.tcp_syncookies=1" },
   ]);
@@ -1144,6 +1150,144 @@ describe("fixSafeCommand", () => {
       );
 
       consoleSpy.mockRestore();
+    });
+  });
+
+  // ── rollback-all flag ───────────────────────────────────────────────────────
+
+  describe("--rollback-all flag", () => {
+    it("calls rollbackAllFixes and logs success with rolled-back IDs", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+      mockedRollbackAllFixes.mockResolvedValue({ rolledBack: ["fix-001", "fix-002"], errors: [] });
+      mockedRunAudit.mockResolvedValue({ success: true, data: makeResult([], 60) });
+
+      await fixSafeCommand(undefined, { rollbackAll: true });
+
+      expect(mockedRollbackAllFixes).toHaveBeenCalledWith("1.2.3.4", "test-server");
+      expect(mockedLogger.success).toHaveBeenCalledWith(
+        expect.stringContaining("fix-001"),
+      );
+    });
+
+    it("logs info when no applied fixes found (noop)", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+      mockedRollbackAllFixes.mockResolvedValue({ rolledBack: [], errors: [] });
+
+      await fixSafeCommand(undefined, { rollbackAll: true });
+
+      expect(mockedLogger.info).toHaveBeenCalledWith(
+        expect.stringContaining("No applied fixes found"),
+      );
+    });
+
+    it("runs post-rollback re-audit when fixes were rolled back", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+      mockedRollbackAllFixes.mockResolvedValue({ rolledBack: ["fix-001"], errors: [] });
+      mockedRunAudit.mockResolvedValue({ success: true, data: makeResult([], 60) });
+
+      await fixSafeCommand(undefined, { rollbackAll: true });
+
+      expect(mockedRunAudit).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns early if SSH not available", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(false);
+
+      await fixSafeCommand(undefined, { rollbackAll: true });
+
+      expect(mockedRollbackAllFixes).not.toHaveBeenCalled();
+      expect(mockedLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining("SSH client not found"),
+      );
+    });
+
+    it("logs errors from rollbackAllFixes", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+      mockedRollbackAllFixes.mockResolvedValue({ rolledBack: ["fix-001"], errors: ["fix-002: backup not found"] });
+      mockedRunAudit.mockResolvedValue({ success: true, data: makeResult([], 60) });
+
+      await fixSafeCommand(undefined, { rollbackAll: true });
+
+      expect(mockedLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining("fix-002: backup not found"),
+      );
+    });
+  });
+
+  // ── rollback-to flag ────────────────────────────────────────────────────────
+
+  describe("--rollback-to flag", () => {
+    it("calls rollbackToFix with the target fix-id", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+      mockedRollbackToFix.mockResolvedValue({ rolledBack: ["fix-2026-03-29-001"], errors: [] });
+      mockedRunAudit.mockResolvedValue({ success: true, data: makeResult([], 60) });
+
+      await fixSafeCommand(undefined, { rollbackTo: "fix-2026-03-29-001" });
+
+      expect(mockedRollbackToFix).toHaveBeenCalledWith("1.2.3.4", "fix-2026-03-29-001");
+      expect(mockedLogger.success).toHaveBeenCalledWith(
+        expect.stringContaining("fix-2026-03-29-001"),
+      );
+    });
+
+    it("logs errors when fix-id not found", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+      mockedRollbackToFix.mockResolvedValue({ rolledBack: [], errors: ["Fix not found or not in applied state: fix-bad"] });
+
+      await fixSafeCommand(undefined, { rollbackTo: "fix-bad" });
+
+      expect(mockedLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining("Fix not found"),
+      );
+    });
+
+    it("runs post-rollback re-audit when fixes were rolled back", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+      mockedRollbackToFix.mockResolvedValue({ rolledBack: ["fix-001"], errors: [] });
+      mockedRunAudit.mockResolvedValue({ success: true, data: makeResult([], 60) });
+
+      await fixSafeCommand(undefined, { rollbackTo: "fix-001" });
+
+      expect(mockedRunAudit).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ── mutual exclusion ────────────────────────────────────────────────────────
+
+  describe("rollback mutual exclusion", () => {
+    it("rejects when both --rollback and --rollback-all used", async () => {
+      await fixSafeCommand(undefined, { rollback: "fix-001", rollbackAll: true });
+
+      expect(mockedLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining("mutually exclusive"),
+      );
+      expect(mockedResolveServer).not.toHaveBeenCalled();
+    });
+
+    it("rejects when both --rollback and --rollback-to used", async () => {
+      await fixSafeCommand(undefined, { rollback: "fix-001", rollbackTo: "fix-002" });
+
+      expect(mockedLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining("mutually exclusive"),
+      );
+      expect(mockedResolveServer).not.toHaveBeenCalled();
+    });
+
+    it("rejects when both --rollback-all and --rollback-to used", async () => {
+      await fixSafeCommand(undefined, { rollbackAll: true, rollbackTo: "fix-001" });
+
+      expect(mockedLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining("mutually exclusive"),
+      );
+      expect(mockedResolveServer).not.toHaveBeenCalled();
     });
   });
 });
