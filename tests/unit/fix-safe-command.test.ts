@@ -38,7 +38,7 @@ import {
   tryHandlerDispatch,
 } from "../../src/core/audit/handlers/index.js";
 import { buildImpactContext } from "../../src/core/audit/scoring.js";
-import { filterChecksByProfile, isValidProfile, loadCustomProfiles, PROFILES } from "../../src/core/audit/profiles.js";
+import { filterChecksByProfile, isValidProfile, listAllProfileNames } from "../../src/core/audit/profiles.js";
 import { generateFixReport, fixReportFilename } from "../../src/utils/fixReport.js";
 import { backupServer } from "../../src/core/backup.js";
 import { logger, createSpinner } from "../../src/utils/logger.js";
@@ -211,13 +211,7 @@ beforeEach(() => {
   (filterChecksByProfile as jest.MockedFunction<typeof filterChecksByProfile>).mockImplementation(
     (checks) => checks,
   );
-  (loadCustomProfiles as jest.MockedFunction<typeof loadCustomProfiles>).mockReturnValue({});
-  (PROFILES as unknown as jest.Mocked<typeof PROFILES>) &&
-    Object.defineProperty(
-      require("../../src/core/audit/profiles.js"),
-      "PROFILES",
-      { value: { "web-server": [], "database": [], "mail-server": [] }, configurable: true },
-    );
+  (listAllProfileNames as jest.MockedFunction<typeof listAllProfileNames>).mockReturnValue(["web-server", "database", "mail-server"]);
 
   // Default fixReport mocks
   (generateFixReport as jest.MockedFunction<typeof generateFixReport>).mockReturnValue("# Report\n");

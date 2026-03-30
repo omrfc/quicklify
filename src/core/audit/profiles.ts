@@ -6,7 +6,7 @@
  * Category names MUST match CHECK_REGISTRY names exactly (see checks/index.ts).
  */
 
-import { readFileSync, existsSync } from "fs";
+import { readFileSync } from "fs";
 import { join } from "path";
 import { z } from "zod";
 import { CONFIG_DIR } from "../../utils/config.js";
@@ -77,7 +77,6 @@ export type CustomProfile = { checks: string[] };
 export type CustomProfiles = Record<string, CustomProfile>;
 
 export function loadCustomProfiles(): CustomProfiles {
-  if (!existsSync(FIX_PROFILES_FILE)) return {};
   try {
     const data = readFileSync(FIX_PROFILES_FILE, "utf-8");
     const result = customProfileSchema.safeParse(JSON.parse(data));
@@ -92,6 +91,11 @@ export function isValidProfile(name: string): boolean {
   if (name in PROFILES) return true;
   const custom = loadCustomProfiles();
   return name in custom;
+}
+
+/** Lists all available profile names (built-in + custom) */
+export function listAllProfileNames(): string[] {
+  return [...Object.keys(PROFILES), ...Object.keys(loadCustomProfiles())];
 }
 
 /**

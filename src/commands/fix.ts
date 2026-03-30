@@ -17,7 +17,7 @@ import {
 } from "../core/audit/fix.js";
 import { tryHandlerDispatch, type CollectedDiff } from "../core/audit/handlers/index.js";
 import { buildImpactContext } from "../core/audit/scoring.js";
-import { filterChecksByProfile, isValidProfile, loadCustomProfiles, PROFILES } from "../core/audit/profiles.js";
+import { filterChecksByProfile, isValidProfile, listAllProfileNames } from "../core/audit/profiles.js";
 import { writeFixReport } from "../utils/fixReport.js";
 import { backupServer } from "../core/backup.js";
 import { getErrorMessage } from "../utils/errorMapper.js";
@@ -265,9 +265,7 @@ export async function fixSafeCommand(
   let profileFilteredChecks = allSafeChecks;
   if (options.profile !== undefined) {
     if (!isValidProfile(options.profile)) {
-      const custom = loadCustomProfiles();
-      const allProfiles = [...Object.keys(PROFILES), ...Object.keys(custom)];
-      logger.error(`Unknown profile: "${options.profile}". Available: ${allProfiles.join(", ")}`);
+      logger.error(`Unknown profile: "${options.profile}". Available: ${listAllProfileNames().join(", ")}`);
       return;
     }
     profileFilteredChecks = filterChecksByProfile(allSafeChecks, options.profile);

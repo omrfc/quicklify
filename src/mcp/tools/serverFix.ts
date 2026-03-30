@@ -13,7 +13,7 @@ import {
 } from "../../core/audit/fix.js";
 import { tryHandlerDispatch, type CollectedDiff } from "../../core/audit/handlers/index.js";
 import { buildImpactContext } from "../../core/audit/scoring.js";
-import { filterChecksByProfile, isValidProfile, loadCustomProfiles, PROFILES } from "../../core/audit/profiles.js";
+import { filterChecksByProfile, isValidProfile, listAllProfileNames } from "../../core/audit/profiles.js";
 import { writeFixReport } from "../../utils/fixReport.js";
 import { backupServer } from "../../core/backup.js";
 import { isSafeMode } from "../../core/manage.js";
@@ -339,9 +339,7 @@ export async function handleServerFix(
     // Profile filter (D-05): applied after category/checks AND filters
     if (params.profile) {
       if (!isValidProfile(params.profile)) {
-        const custom = loadCustomProfiles();
-        const allProfiles = [...Object.keys(PROFILES), ...Object.keys(custom)];
-        return mcpError(`Unknown profile: "${params.profile}". Available: ${allProfiles.join(", ")}`);
+        return mcpError(`Unknown profile: "${params.profile}". Available: ${listAllProfileNames().join(", ")}`);
       }
       filteredChecks = filterChecksByProfile(filteredChecks, params.profile);
     }

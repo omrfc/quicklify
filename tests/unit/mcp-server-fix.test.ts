@@ -224,12 +224,7 @@ beforeEach(() => {
   // Default profiles mock — pass through for valid built-in profiles
   mockedProfiles.isValidProfile.mockReturnValue(true);
   mockedProfiles.filterChecksByProfile.mockImplementation((checks) => checks);
-  mockedProfiles.loadCustomProfiles.mockReturnValue({});
-  (mockedProfiles as unknown as { PROFILES: Record<string, readonly string[]> }).PROFILES = {
-    "web-server": [],
-    "database": [],
-    "mail-server": [],
-  };
+  mockedProfiles.listAllProfileNames.mockReturnValue(["web-server", "database", "mail-server"]);
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -1048,7 +1043,7 @@ describe("MCP server_fix tool", () => {
   describe("custom profile validation", () => {
     it("returns mcpError with Available list when profile is unknown", async () => {
       mockedProfiles.isValidProfile.mockReturnValue(false);
-      mockedProfiles.loadCustomProfiles.mockReturnValue({ "custom-one": { checks: ["CHECK-A"] } });
+      mockedProfiles.listAllProfileNames.mockReturnValue(["web-server", "database", "mail-server", "custom-one"]);
 
       const result = await handleServerFix({ profile: "nonexistent-profile" });
 

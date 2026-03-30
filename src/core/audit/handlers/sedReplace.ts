@@ -41,18 +41,15 @@ export const sedReplaceHandler: FixHandler = {
     const oldPattern = params.oldPattern as string;
     const newValue = params.newValue as string;
 
-    // Step 1: Read current file content
     const catResult = await sshExec(ip, cmd("cat", path));
     if (catResult.code !== 0) {
       return { success: false, error: catResult.stderr };
     }
 
-    // Step 2: Check if oldPattern exists in any line
     const lines = catResult.stdout.split("\n");
     const matchIndex = lines.findIndex((line) => line.includes(oldPattern));
 
     if (matchIndex === -1) {
-      // Check if newValue is already present (idempotent)
       const hasNewValue = lines.some((line) => line.includes(newValue));
       if (hasNewValue) {
         return { success: true, skipped: true };
@@ -63,7 +60,6 @@ export const sedReplaceHandler: FixHandler = {
       };
     }
 
-    // Step 3: Apply sed replacement
     const originalLine = lines[matchIndex];
     const sedCmd = `sed -i 's|${escapeSedPipe(oldPattern)}|${escapeSedPipe(newValue)}|' ${path}`;
     const applyResult = await sshExec(ip, raw(sedCmd), { useStdin: true });
@@ -72,7 +68,6 @@ export const sedReplaceHandler: FixHandler = {
       return { success: false, error: applyResult.stderr };
     }
 
-    // Step 4: Build rollback step (reverse sed)
     const rollbackStep: RollbackStep = {
       rollback: async (rollbackIp: string) => {
         const reverseSedCmd = `sed -i 's|${escapeSedPipe(newValue)}|${escapeSedPipe(oldPattern)}|' ${path}`;
@@ -80,7 +75,6 @@ export const sedReplaceHandler: FixHandler = {
       },
     };
 
-    // Step 5: Build diff
     const diff: DiffLine = {
       handlerType: "sed-replace",
       key: path,
