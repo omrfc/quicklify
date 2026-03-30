@@ -39,6 +39,7 @@ import { notifyCommand } from "./commands/notify.js";
 import { fleetCommand } from "./commands/fleet.js";
 import { botCommand } from "./commands/bot.js";
 import { fixSafeCommand } from "./commands/fix.js";
+import { scheduleCommand } from "./commands/schedule.js";
 import { changelogCommand } from "./commands/changelog.js";
 import { printHeader, printQuickHelp } from "./cli/header.js";
 
@@ -389,6 +390,7 @@ program
       fixSafeCommand(server, options ?? {}),
   );
 
+program.addCommand(scheduleCommand());
 notifyCommand(program);
 fleetCommand(program);
 botCommand(program);

@@ -39,6 +39,7 @@ Commands:
   audit [options] [server-name]            Run a security audit on a server
   evidence [options] [server]              Collect forensic evidence package from a server
   fix [options] [server]                   Apply safe auto-fixes from security audit (SAFE tier only)
+  schedule                                 Schedule automatic fix and audit runs (local cron + SSH)
   notify                                   Manage notification channels
   fleet [options]                          Show health and security posture of all registered servers
   bot                                      Telegram bot management
