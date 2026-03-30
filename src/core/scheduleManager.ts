@@ -11,8 +11,6 @@ import { CONFIG_DIR } from "../utils/config.js";
 import { sanitizedEnv } from "../utils/ssh.js";
 import { dispatchWithCooldown } from "../core/notify.js";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export type ScheduleType = "fix" | "audit";
 
 export interface LocalCronResult {
@@ -22,7 +20,6 @@ export interface LocalCronResult {
   command?: string;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 
 export const SCHEDULE_MARKERS = {
   fix: "# kastell-fix-schedule",
@@ -32,7 +29,6 @@ export const SCHEDULE_MARKERS = {
 const SCHEDULE_LOGS_DIR = join(CONFIG_DIR, "schedule-logs");
 const LOG_RETENTION_DAYS = 30;
 
-// ─── Composite Key Helpers ────────────────────────────────────────────────────
 
 export function scheduleKey(server: string, type: ScheduleType): string {
   return `${server}:${type}`;
@@ -47,7 +43,6 @@ export function parseScheduleKey(key: string): { server: string; type: ScheduleT
   return { server, type: maybeType };
 }
 
-// ─── Server Name Sanitization ─────────────────────────────────────────────────
 
 export function sanitizeServerName(name: string): string {
   if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
@@ -58,7 +53,6 @@ export function sanitizeServerName(name: string): string {
   return name;
 }
 
-// ─── Kastell Binary Path Resolution ──────────────────────────────────────────
 
 export function resolveKastellBin(): string {
   const argv1 = process.argv[1];
@@ -67,7 +61,6 @@ export function resolveKastellBin(): string {
   return argv1;
 }
 
-// ─── Local Crontab Management ─────────────────────────────────────────────────
 
 export function installLocalCron(
   cronExpr: string,
@@ -142,7 +135,6 @@ export function listLocalCron(
   return results;
 }
 
-// ─── Log Writing ──────────────────────────────────────────────────────────────
 
 export function writeScheduleLog(
   type: ScheduleType,
@@ -153,25 +145,23 @@ export function writeScheduleLog(
 
   const now = new Date();
   const isoTimestamp = now.toISOString();
-  const dateStr = now.toISOString().slice(0, 10);
+  const dateStr = isoTimestamp.slice(0, 10);
   const logFile = join(SCHEDULE_LOGS_DIR, `${type}-${serverName}-${dateStr}.log`);
 
+  const hasDelta = result.scoreBefore !== undefined && result.scoreAfter !== undefined;
+  const delta = hasDelta ? result.scoreAfter! - result.scoreBefore! : undefined;
+
   let line = `[${isoTimestamp}] applied=${result.applied} failed=${result.failed}`;
-  if (result.scoreBefore !== undefined && result.scoreAfter !== undefined) {
-    const delta = result.scoreAfter - result.scoreBefore;
-    line += ` scoreDelta=${delta}`;
-  }
+  if (delta !== undefined) line += ` scoreDelta=${delta}`;
   line += "\n";
 
   appendFileSync(logFile, line);
 
   const summaryMessage =
     `Schedule ${type} complete: applied=${result.applied} failed=${result.failed}` +
-    (result.scoreBefore !== undefined && result.scoreAfter !== undefined
-      ? ` scoreDelta=${result.scoreAfter - result.scoreBefore}`
-      : "");
+    (delta !== undefined ? ` scoreDelta=${delta}` : "");
 
-  void dispatchWithCooldown(serverName, `schedule-${type}`, summaryMessage);
+  dispatchWithCooldown(serverName, `schedule-${type}`, summaryMessage).catch(() => {});
 
   cleanOldScheduleLogs();
 }
@@ -181,7 +171,7 @@ export function cleanOldScheduleLogs(): void {
   let files: string[];
 
   try {
-    files = readdirSync(SCHEDULE_LOGS_DIR) as string[];
+    files = readdirSync(SCHEDULE_LOGS_DIR);
   } catch {
     return;
   }

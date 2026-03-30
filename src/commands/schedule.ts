@@ -10,88 +10,59 @@ import {
   type ScheduleType,
 } from "../core/scheduleManager.js";
 
+function installScheduleAction(type: ScheduleType, exampleCron: string) {
+  return async (opts: { server?: string; cron?: string }) => {
+    if (!opts.cron) {
+      logger.error(`Cron expression required. Use --cron '${exampleCron}'`);
+      return;
+    }
+
+    const validation = validateCronExpr(opts.cron);
+    if (!validation.valid) {
+      logger.error(`Invalid cron expression: ${validation.error}`);
+      return;
+    }
+
+    const server = await resolveServer(opts.server, `Select a server to schedule ${type} for:`);
+    if (!server) return;
+
+    const result = installLocalCron(opts.cron, server.name, type);
+
+    if (!result.success) {
+      logger.error(`Failed to install ${type} schedule: ${result.error}`);
+      return;
+    }
+
+    if (result.windowsFallback) {
+      console.log(chalk.yellow("Windows detected. Schedule saved. Run this command with Task Scheduler:"));
+      console.log(chalk.white(`  ${result.command}`));
+    } else {
+      logger.success(`${type === "fix" ? "Fix" : "Audit"} schedule installed for ${server.name}: ${opts.cron}`);
+    }
+
+    logger.info(`Note: Your machine must be running at the scheduled time for the ${type} to execute.`);
+  };
+}
+
 export function scheduleCommand(): Command {
   const schedule = new Command("schedule").description(
     "Schedule automatic fix and audit runs (local cron + SSH)",
   );
 
-  // ─── fix subcommand ───────────────────────────────────────────────────────────
   schedule
     .command("fix")
     .description("Install a local cron schedule for kastell fix --safe runs")
     .option("--server <name>", "Server name to schedule fixes for")
     .option("--cron <expr>", "Cron expression (e.g. '0 3 * * *' for 3am daily)")
-    .action(async (opts: { server?: string; cron?: string }) => {
-      if (!opts.cron) {
-        logger.error("Cron expression required. Use --cron '0 3 * * *'");
-        return;
-      }
+    .action(installScheduleAction("fix", "0 3 * * *"));
 
-      const validation = validateCronExpr(opts.cron);
-      if (!validation.valid) {
-        logger.error(`Invalid cron expression: ${validation.error}`);
-        return;
-      }
-
-      const server = await resolveServer(opts.server, "Select a server to schedule fixes for:");
-      if (!server) return;
-
-      const result = installLocalCron(opts.cron, server.name, "fix");
-
-      if (!result.success) {
-        logger.error(`Failed to install fix schedule: ${result.error}`);
-        return;
-      }
-
-      if (result.windowsFallback) {
-        console.log(chalk.yellow("Windows detected. Schedule saved. Run this command with Task Scheduler:"));
-        console.log(chalk.white(`  ${result.command}`));
-      } else {
-        logger.success(`Fix schedule installed for ${server.name}: ${opts.cron}`);
-      }
-
-      logger.info("Note: Your machine must be running at the scheduled time for the fix to execute.");
-    });
-
-  // ─── audit subcommand ─────────────────────────────────────────────────────────
   schedule
     .command("audit")
     .description("Install a local cron schedule for kastell audit runs")
     .option("--server <name>", "Server name to schedule audits for")
     .option("--cron <expr>", "Cron expression (e.g. '0 6 * * 1' for 6am every Monday)")
-    .action(async (opts: { server?: string; cron?: string }) => {
-      if (!opts.cron) {
-        logger.error("Cron expression required. Use --cron '0 6 * * 1'");
-        return;
-      }
+    .action(installScheduleAction("audit", "0 6 * * 1"));
 
-      const validation = validateCronExpr(opts.cron);
-      if (!validation.valid) {
-        logger.error(`Invalid cron expression: ${validation.error}`);
-        return;
-      }
-
-      const server = await resolveServer(opts.server, "Select a server to schedule audits for:");
-      if (!server) return;
-
-      const result = installLocalCron(opts.cron, server.name, "audit");
-
-      if (!result.success) {
-        logger.error(`Failed to install audit schedule: ${result.error}`);
-        return;
-      }
-
-      if (result.windowsFallback) {
-        console.log(chalk.yellow("Windows detected. Schedule saved. Run this command with Task Scheduler:"));
-        console.log(chalk.white(`  ${result.command}`));
-      } else {
-        logger.success(`Audit schedule installed for ${server.name}: ${opts.cron}`);
-      }
-
-      logger.info("Note: Your machine must be running at the scheduled time for the fix to execute.");
-    });
-
-  // ─── list subcommand ──────────────────────────────────────────────────────────
   schedule
     .command("list")
     .description("List all installed fix/audit schedules")
@@ -118,7 +89,6 @@ export function scheduleCommand(): Command {
       }
     });
 
-  // ─── remove subcommand ────────────────────────────────────────────────────────
   schedule
     .command("remove")
     .description("Remove an installed fix or audit schedule")
