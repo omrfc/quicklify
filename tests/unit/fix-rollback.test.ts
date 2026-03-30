@@ -1,6 +1,8 @@
 import {
   backupFilesBeforeFix,
   rollbackFix,
+  rollbackAllFixes,
+  rollbackToFix,
   backupRemoteCleanup,
   saveFixHistory,
   REMOTE_BACKUP_BASE,
@@ -8,8 +10,19 @@ import {
 import { fixCommandsFromChecks } from "../../src/core/audit/fix.js";
 import type { FixCheck } from "../../src/core/audit/fix.js";
 import * as ssh from "../../src/utils/ssh.js";
+import * as fs from "fs";
+import type { FixHistoryEntry } from "../../src/core/audit/types.js";
 
 jest.mock("../../src/utils/ssh.js");
+jest.mock("fs");
+jest.mock("../../src/utils/config.js", () => ({
+  CONFIG_DIR: "/home/user/.kastell",
+}));
+jest.mock("../../src/utils/fileLock.js", () => ({
+  withFileLock: jest.fn((_path: string, fn: () => void) => { fn(); }),
+}));
+
+const mockedFs = fs as jest.Mocked<typeof fs>;
 
 const mockedSshExec = ssh.sshExec as jest.MockedFunction<typeof ssh.sshExec>;
 
@@ -284,6 +297,202 @@ describe("handler dispatch — history integration (D-09)", () => {
     };
     expect(saveArgs.status).toBe("failed");
     expect(saveArgs.checks).toEqual([]);
+  });
+});
+
+function makeEntry(overrides: Partial<FixHistoryEntry> = {}): FixHistoryEntry {
+  return {
+    fixId: "fix-2026-03-29-001",
+    serverIp: "1.2.3.4",
+    serverName: "test-server",
+    timestamp: "2026-03-29T10:00:00.000Z",
+    checks: ["SSH-01"],
+    scoreBefore: 60,
+    scoreAfter: 70,
+    status: "applied",
+    backupPath: `${REMOTE_BACKUP_BASE}/fix-2026-03-29-001`,
+    ...overrides,
+  };
+}
+
+describe("rollbackAllFixes", () => {
+  function setupHistory(entries: FixHistoryEntry[]): void {
+    mockedFs.existsSync.mockReturnValue(true);
+    mockedFs.readFileSync.mockReturnValue(JSON.stringify(entries));
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Default: empty history
+    mockedFs.existsSync.mockReturnValue(false);
+    // Mock renameSync / writeFileSync to avoid actual file writes in saveRollbackEntry
+    mockedFs.writeFileSync.mockImplementation(() => undefined);
+    mockedFs.mkdirSync.mockImplementation(() => undefined);
+    mockedFs.renameSync.mockImplementation(() => undefined);
+  });
+
+  it("reverts all applied fixes in reverse-chronological order", async () => {
+    const entryA = makeEntry({ fixId: "fix-A", backupPath: `${REMOTE_BACKUP_BASE}/fix-A`, serverIp: "1.2.3.4", timestamp: "2026-03-29T10:00:00.000Z" });
+    const entryB = makeEntry({ fixId: "fix-B", backupPath: `${REMOTE_BACKUP_BASE}/fix-B`, serverIp: "1.2.3.4", timestamp: "2026-03-29T11:00:00.000Z" });
+    const entryC = makeEntry({ fixId: "fix-C", backupPath: `${REMOTE_BACKUP_BASE}/fix-C`, serverIp: "1.2.3.4", timestamp: "2026-03-29T12:00:00.000Z" });
+
+    setupHistory([entryA, entryB, entryC]);
+
+    mockedSshExec
+      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" })) // C: test -d
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // C: test -f restore-commands.sh
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // C: find files (empty)
+      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" })) // B: test -d
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // B: test -f restore-commands.sh
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // B: find files (empty)
+      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" })) // A: test -d
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // A: test -f restore-commands.sh
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }));       // A: find files (empty)
+
+    const result = await rollbackAllFixes("1.2.3.4", "test-server");
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.rolledBack).toEqual(["fix-C", "fix-B", "fix-A"]);
+  });
+
+  it("returns empty arrays when no applied fixes exist (noop)", async () => {
+    mockedFs.existsSync.mockReturnValue(false);
+
+    const result = await rollbackAllFixes("1.2.3.4", "test-server");
+
+    expect(result.rolledBack).toEqual([]);
+    expect(result.errors).toEqual([]);
+    // No SSH calls for rollback
+    expect(mockedSshExec).not.toHaveBeenCalled();
+  });
+
+  it("calls saveRollbackEntry (writes to file) for each successfully rolled-back fix", async () => {
+    const entryA = makeEntry({ fixId: "fix-A", backupPath: `${REMOTE_BACKUP_BASE}/fix-A`, serverIp: "1.2.3.4" });
+    const entryB = makeEntry({ fixId: "fix-B", backupPath: `${REMOTE_BACKUP_BASE}/fix-B`, serverIp: "1.2.3.4" });
+
+    setupHistory([entryA, entryB]);
+
+    mockedSshExec
+      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" })) // B: test -d
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // B: no restore script
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // B: no files
+      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" })) // A: test -d
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // A: no restore script
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }));       // A: no files
+
+    const result = await rollbackAllFixes("1.2.3.4", "test-server");
+
+    // Both fixes rolled back
+    expect(result.rolledBack).toEqual(["fix-B", "fix-A"]);
+    // writeFileSync called for each saveRollbackEntry (atomic write via tmp file)
+    expect(mockedFs.writeFileSync).toHaveBeenCalledTimes(2);
+  });
+
+  it("continues on individual failure and collects errors", async () => {
+    const entryA = makeEntry({ fixId: "fix-A", backupPath: `${REMOTE_BACKUP_BASE}/fix-A`, serverIp: "1.2.3.4" });
+    const entryB = makeEntry({ fixId: "fix-B", backupPath: `${REMOTE_BACKUP_BASE}/fix-B`, serverIp: "1.2.3.4" });
+    const entryC = makeEntry({ fixId: "fix-C", backupPath: `${REMOTE_BACKUP_BASE}/fix-C`, serverIp: "1.2.3.4" });
+
+    setupHistory([entryA, entryB, entryC]);
+
+    mockedSshExec
+      // C: success
+      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" })) // test -d
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // no restore script
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // no files
+      // B: backup dir missing (fail)
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // test -d: no "exists"
+      // A: success
+      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" })) // test -d
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // no restore script
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }));       // no files
+
+    const result = await rollbackAllFixes("1.2.3.4", "test-server");
+
+    expect(result.rolledBack).toContain("fix-C");
+    expect(result.rolledBack).toContain("fix-A");
+    expect(result.errors.some((e) => e.startsWith("fix-B:"))).toBe(true);
+  });
+});
+
+describe("rollbackToFix", () => {
+  function setupHistory(entries: FixHistoryEntry[]): void {
+    mockedFs.existsSync.mockReturnValue(true);
+    mockedFs.readFileSync.mockReturnValue(JSON.stringify(entries));
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedFs.existsSync.mockReturnValue(false);
+    mockedFs.writeFileSync.mockImplementation(() => undefined);
+    mockedFs.mkdirSync.mockImplementation(() => undefined);
+    mockedFs.renameSync.mockImplementation(() => undefined);
+  });
+
+  it("reverts from newest to target fix inclusive (does not revert older entries)", async () => {
+    const entryA = makeEntry({ fixId: "fix-A", backupPath: `${REMOTE_BACKUP_BASE}/fix-A`, serverIp: "1.2.3.4" });
+    const entryB = makeEntry({ fixId: "fix-B", backupPath: `${REMOTE_BACKUP_BASE}/fix-B`, serverIp: "1.2.3.4" });
+    const entryC = makeEntry({ fixId: "fix-C", backupPath: `${REMOTE_BACKUP_BASE}/fix-C`, serverIp: "1.2.3.4" });
+
+    setupHistory([entryA, entryB, entryC]);
+
+    mockedSshExec
+      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" })) // C: test -d
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // C: no restore script
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // C: no files
+      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" })) // B: test -d
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // B: no restore script
+      .mockResolvedValueOnce(makeSshResult({ stdout: "" }));       // B: no files
+
+    const result = await rollbackToFix("1.2.3.4", "fix-B");
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.rolledBack).toEqual(["fix-C", "fix-B"]);
+    expect(result.rolledBack).not.toContain("fix-A");
+  });
+
+  it("returns error for unknown fix-id", async () => {
+    const entryA = makeEntry({ fixId: "fix-A", serverIp: "1.2.3.4" });
+    setupHistory([entryA]);
+
+    const result = await rollbackToFix("1.2.3.4", "fix-UNKNOWN");
+
+    expect(result.rolledBack).toEqual([]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("Fix not found or not in applied state");
+    expect(result.errors[0]).toContain("fix-UNKNOWN");
+  });
+
+  it("returns error for fix-id that exists but is already rolled-back (only applied entries are targets)", async () => {
+    const entryA = makeEntry({ fixId: "fix-A", status: "rolled-back", serverIp: "1.2.3.4" });
+    setupHistory([entryA]);
+
+    const result = await rollbackToFix("1.2.3.4", "fix-A");
+
+    expect(result.rolledBack).toEqual([]);
+    expect(result.errors.some((e) => e.includes("Fix not found or not in applied state"))).toBe(true);
+  });
+});
+
+describe("backupFilesBeforeFix — BUG-01", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedSshExec.mockResolvedValue(makeSshResult());
+  });
+
+  it("should create REMOTE_BACKUP_BASE before per-fix subdir (BUG-01)", async () => {
+    const fixId = "fix-2026-03-29-001";
+    await backupFilesBeforeFix("1.2.3.4", fixId, []);
+
+    const calls = mockedSshExec.mock.calls.map(([, cmd]) => String(cmd));
+    const cmdStr = calls[0];
+    // Both mkdir commands present
+    expect(cmdStr).toContain(`mkdir -p ${REMOTE_BACKUP_BASE}`);
+    expect(cmdStr).toContain(`mkdir -p ${REMOTE_BACKUP_BASE}/${fixId}`);
+    // REMOTE_BACKUP_BASE mkdir appears BEFORE the per-fix subdir mkdir
+    const basePos = cmdStr.indexOf(`mkdir -p ${REMOTE_BACKUP_BASE} `);
+    const subdirPos = cmdStr.indexOf(`mkdir -p ${REMOTE_BACKUP_BASE}/${fixId}`);
+    expect(basePos).toBeLessThan(subdirPos);
   });
 });
 

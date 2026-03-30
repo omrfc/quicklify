@@ -218,7 +218,8 @@ export async function backupFilesBeforeFix(
   }
 
   // Single SSH call: create backup dir + mirror dirs + copy files
-  const cmds = [`mkdir -p ${backupDir}`];
+  // BUG-01: explicitly create REMOTE_BACKUP_BASE before per-fix subdir
+  const cmds = [`mkdir -p ${REMOTE_BACKUP_BASE}`, `mkdir -p ${backupDir}`];
   for (const fp of allFilePaths) {
     cmds.push(`mkdir -p ${backupDir}$(dirname ${fp})`);
     cmds.push(`test -f ${fp} && cp ${fp} ${backupDir}${fp} || true`);
@@ -278,6 +279,72 @@ export async function rollbackFix(
   }
 
   return { restored, errors };
+}
+
+/**
+ * Roll back all applied fixes for a server in reverse-chronological order.
+ * Continues on individual failure, collecting all errors.
+ * Each successfully reverted fix gets a separate rolled-back history entry.
+ */
+export async function rollbackAllFixes(
+  ip: string,
+  _serverName: string,
+): Promise<{ rolledBack: string[]; errors: string[] }> {
+  const history = loadFixHistory(ip);
+  const toRollback = history
+    .filter((e) => e.status === "applied")
+    .reverse();
+
+  const rolledBack: string[] = [];
+  const errors: string[] = [];
+
+  for (const entry of toRollback) {
+    const { restored, errors: rbErrors } = await rollbackFix(ip, entry.backupPath);
+    if (rbErrors.length === 0 || restored.length > 0) {
+      await saveRollbackEntry(entry, null);
+      rolledBack.push(entry.fixId);
+    } else {
+      errors.push(...rbErrors.map((e) => `${entry.fixId}: ${e}`));
+    }
+  }
+
+  return { rolledBack, errors };
+}
+
+/**
+ * Roll back all fixes from newest down to and including the target fix-id.
+ * Returns error if target fix-id is not found or not in applied state.
+ */
+export async function rollbackToFix(
+  ip: string,
+  targetFixId: string,
+): Promise<{ rolledBack: string[]; errors: string[] }> {
+  const history = loadFixHistory(ip);
+  const applied = history.filter((e) => e.status === "applied");
+
+  const targetIdx = applied.findIndex((e) => e.fixId === targetFixId);
+  if (targetIdx === -1) {
+    return {
+      rolledBack: [],
+      errors: [`Fix not found or not in applied state: ${targetFixId}`],
+    };
+  }
+
+  const toRollback = applied.slice(targetIdx).reverse();
+  const rolledBack: string[] = [];
+  const errors: string[] = [];
+
+  for (const entry of toRollback) {
+    const { restored, errors: rbErrors } = await rollbackFix(ip, entry.backupPath);
+    if (rbErrors.length === 0 || restored.length > 0) {
+      await saveRollbackEntry(entry, null);
+      rolledBack.push(entry.fixId);
+    } else {
+      errors.push(...rbErrors.map((e) => `${entry.fixId}: ${e}`));
+    }
+  }
+
+  return { rolledBack, errors };
 }
 
 /**
