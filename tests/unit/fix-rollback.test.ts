@@ -349,7 +349,7 @@ describe("rollbackAllFixes", () => {
       .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // A: test -f restore-commands.sh
       .mockResolvedValueOnce(makeSshResult({ stdout: "" }));       // A: find files (empty)
 
-    const result = await rollbackAllFixes("1.2.3.4", "test-server");
+    const result = await rollbackAllFixes("1.2.3.4");
 
     expect(result.errors).toHaveLength(0);
     expect(result.rolledBack).toEqual(["fix-C", "fix-B", "fix-A"]);
@@ -358,7 +358,7 @@ describe("rollbackAllFixes", () => {
   it("returns empty arrays when no applied fixes exist (noop)", async () => {
     mockedFs.existsSync.mockReturnValue(false);
 
-    const result = await rollbackAllFixes("1.2.3.4", "test-server");
+    const result = await rollbackAllFixes("1.2.3.4");
 
     expect(result.rolledBack).toEqual([]);
     expect(result.errors).toEqual([]);
@@ -380,7 +380,7 @@ describe("rollbackAllFixes", () => {
       .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // A: no restore script
       .mockResolvedValueOnce(makeSshResult({ stdout: "" }));       // A: no files
 
-    const result = await rollbackAllFixes("1.2.3.4", "test-server");
+    const result = await rollbackAllFixes("1.2.3.4");
 
     // Both fixes rolled back
     expect(result.rolledBack).toEqual(["fix-B", "fix-A"]);
@@ -407,7 +407,7 @@ describe("rollbackAllFixes", () => {
       .mockResolvedValueOnce(makeSshResult({ stdout: "" }))        // no restore script
       .mockResolvedValueOnce(makeSshResult({ stdout: "" }));       // no files
 
-    const result = await rollbackAllFixes("1.2.3.4", "test-server");
+    const result = await rollbackAllFixes("1.2.3.4");
 
     expect(result.rolledBack).toContain("fix-C");
     expect(result.rolledBack).toContain("fix-A");

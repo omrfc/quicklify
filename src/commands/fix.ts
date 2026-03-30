@@ -192,85 +192,17 @@ export async function fixSafeCommand(
 
   // ── Rollback-All (FIX-01) ────────────────────────────────────────────────
   if (options.rollbackAll) {
-    const server = await resolveServer(query, "Select a server to rollback:");
-    if (!server) return;
-    const { ip, name } = server;
-    const platform = server.platform ?? server.mode ?? "bare";
-
-    if (!checkSshAvailable()) {
-      logger.error("SSH client not found. Please install OpenSSH.");
-      return;
-    }
-
-    const rollbackSpinner = createSpinner("Rolling back all fixes...");
-    rollbackSpinner.start();
-    const { rolledBack, errors: rbErrors } = await rollbackAllFixes(ip, name);
-    rollbackSpinner.stop();
-
-    if (rolledBack.length === 0 && rbErrors.length === 0) {
-      logger.info("No applied fixes found — nothing to roll back.");
-      return;
-    }
-
-    if (rolledBack.length > 0) {
-      logger.success(`Rolled back: ${rolledBack.join(", ")}`);
-    }
-    if (rbErrors.length > 0) {
-      logger.error(`Errors: ${rbErrors.join("; ")}`);
-    }
-
-    if (rolledBack.length > 0) {
-      const scoreSpinner = createSpinner("Verifying score...");
-      scoreSpinner.start();
-      const auditRes = await runAudit(ip, name, platform);
-      scoreSpinner.stop();
-      if (auditRes.success && auditRes.data) {
-        logger.info(`Score after rollback: ${auditRes.data.overallScore}`);
-      }
-    }
-
+    await executeBulkRollback(query, "Rolling back all fixes...", (ip) =>
+      rollbackAllFixes(ip),
+    );
     return;
   }
 
   // ── Rollback-To (FIX-02) ─────────────────────────────────────────────────
   if (options.rollbackTo) {
-    const server = await resolveServer(query, "Select a server to rollback:");
-    if (!server) return;
-    const { ip, name } = server;
-    const platform = server.platform ?? server.mode ?? "bare";
-
-    if (!checkSshAvailable()) {
-      logger.error("SSH client not found. Please install OpenSSH.");
-      return;
-    }
-
-    const rollbackSpinner = createSpinner(`Rolling back to ${options.rollbackTo}...`);
-    rollbackSpinner.start();
-    const { rolledBack, errors: rbErrors } = await rollbackToFix(ip, options.rollbackTo);
-    rollbackSpinner.stop();
-
-    if (rolledBack.length === 0 && rbErrors.length > 0) {
-      logger.error(`Errors: ${rbErrors.join("; ")}`);
-      return;
-    }
-
-    if (rolledBack.length > 0) {
-      logger.success(`Rolled back: ${rolledBack.join(", ")}`);
-    }
-    if (rbErrors.length > 0) {
-      logger.error(`Errors: ${rbErrors.join("; ")}`);
-    }
-
-    if (rolledBack.length > 0) {
-      const scoreSpinner = createSpinner("Verifying score...");
-      scoreSpinner.start();
-      const auditRes = await runAudit(ip, name, platform);
-      scoreSpinner.stop();
-      if (auditRes.success && auditRes.data) {
-        logger.info(`Score after rollback: ${auditRes.data.overallScore}`);
-      }
-    }
-
+    await executeBulkRollback(query, `Rolling back to ${options.rollbackTo}...`, (ip) =>
+      rollbackToFix(ip, options.rollbackTo!),
+    );
     return;
   }
 
@@ -605,4 +537,48 @@ export async function fixSafeCommand(
 
   // Prune old backups (retention policy)
   await backupRemoteCleanup(ip);
+}
+
+/** Shared scaffold for --rollback-all and --rollback-to CLI handlers. */
+async function executeBulkRollback(
+  query: string | undefined,
+  spinnerLabel: string,
+  coreFn: (ip: string) => Promise<{ rolledBack: string[]; errors: string[] }>,
+): Promise<void> {
+  const server = await resolveServer(query, "Select a server to rollback:");
+  if (!server) return;
+  const { ip, name } = server;
+  const platform = server.platform ?? server.mode ?? "bare";
+
+  if (!checkSshAvailable()) {
+    logger.error("SSH client not found. Please install OpenSSH.");
+    return;
+  }
+
+  const rollbackSpinner = createSpinner(spinnerLabel);
+  rollbackSpinner.start();
+  const { rolledBack, errors: rbErrors } = await coreFn(ip);
+  rollbackSpinner.stop();
+
+  if (rolledBack.length === 0 && rbErrors.length === 0) {
+    logger.info("No applied fixes found — nothing to roll back.");
+    return;
+  }
+
+  if (rolledBack.length > 0) {
+    logger.success(`Rolled back: ${rolledBack.join(", ")}`);
+  }
+  if (rbErrors.length > 0) {
+    logger.error(`Errors: ${rbErrors.join("; ")}`);
+  }
+
+  if (rolledBack.length > 0) {
+    const scoreSpinner = createSpinner("Verifying score...");
+    scoreSpinner.start();
+    const auditRes = await runAudit(ip, name, platform);
+    scoreSpinner.stop();
+    if (auditRes.success && auditRes.data) {
+      logger.info(`Score after rollback: ${auditRes.data.overallScore}`);
+    }
+  }
 }

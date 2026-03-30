@@ -1164,7 +1164,7 @@ describe("fixSafeCommand", () => {
 
       await fixSafeCommand(undefined, { rollbackAll: true });
 
-      expect(mockedRollbackAllFixes).toHaveBeenCalledWith("1.2.3.4", "test-server");
+      expect(mockedRollbackAllFixes).toHaveBeenCalledWith("1.2.3.4");
       expect(mockedLogger.success).toHaveBeenCalledWith(
         expect.stringContaining("fix-001"),
       );

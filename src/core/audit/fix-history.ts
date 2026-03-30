@@ -281,25 +281,17 @@ export async function rollbackFix(
   return { restored, errors };
 }
 
-/**
- * Roll back all applied fixes for a server in reverse-chronological order.
- * Continues on individual failure, collecting all errors.
- * Each successfully reverted fix gets a separate rolled-back history entry.
- */
-export async function rollbackAllFixes(
+/** Execute rollback loop over entries in order, continuing on failure. */
+async function executeRollbackLoop(
   ip: string,
-  _serverName: string,
+  entries: FixHistoryEntry[],
 ): Promise<{ rolledBack: string[]; errors: string[] }> {
-  const history = loadFixHistory(ip);
-  const toRollback = history
-    .filter((e) => e.status === "applied")
-    .reverse();
-
   const rolledBack: string[] = [];
   const errors: string[] = [];
 
-  for (const entry of toRollback) {
+  for (const entry of entries) {
     const { restored, errors: rbErrors } = await rollbackFix(ip, entry.backupPath);
+    // Partial success counts — at least one file restored is enough to record as rolled-back
     if (rbErrors.length === 0 || restored.length > 0) {
       await saveRollbackEntry(entry, null);
       rolledBack.push(entry.fixId);
@@ -309,6 +301,21 @@ export async function rollbackAllFixes(
   }
 
   return { rolledBack, errors };
+}
+
+/**
+ * Roll back all applied fixes for a server in reverse-chronological order.
+ * Continues on individual failure, collecting all errors.
+ */
+export async function rollbackAllFixes(
+  ip: string,
+): Promise<{ rolledBack: string[]; errors: string[] }> {
+  const history = loadFixHistory(ip);
+  const toRollback = history
+    .filter((e) => e.status === "applied")
+    .reverse();
+
+  return executeRollbackLoop(ip, toRollback);
 }
 
 /**
@@ -330,21 +337,7 @@ export async function rollbackToFix(
     };
   }
 
-  const toRollback = applied.slice(targetIdx).reverse();
-  const rolledBack: string[] = [];
-  const errors: string[] = [];
-
-  for (const entry of toRollback) {
-    const { restored, errors: rbErrors } = await rollbackFix(ip, entry.backupPath);
-    if (rbErrors.length === 0 || restored.length > 0) {
-      await saveRollbackEntry(entry, null);
-      rolledBack.push(entry.fixId);
-    } else {
-      errors.push(...rbErrors.map((e) => `${entry.fixId}: ${e}`));
-    }
-  }
-
-  return { rolledBack, errors };
+  return executeRollbackLoop(ip, applied.slice(targetIdx).reverse());
 }
 
 /**
