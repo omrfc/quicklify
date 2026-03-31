@@ -38,10 +38,12 @@ function readSecretsFile(): Record<string, string> {
     }
     // Plaintext legacy — will be migrated on next write
     return parsed as Record<string, string>;
-  } catch {
-    process.stderr.write(
-      "[warn] Notify secret decryption failed — re-enter secrets with 'kastell notify add'\n",
-    );
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      process.stderr.write(
+        "[warn] Notify secret decryption failed — re-enter secrets with 'kastell notify add'\n",
+      );
+    }
     return {};
   }
 }

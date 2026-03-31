@@ -26,7 +26,7 @@ export function getServers(): ServerRecord[] {
   try {
     data = readFileSync(SERVERS_FILE, "utf-8");
   } catch (err: unknown) {
-    if (err && typeof err === "object" && "code" in err && (err as { code: string }).code === "ENOENT") {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
       return [];
     }
     throw err;

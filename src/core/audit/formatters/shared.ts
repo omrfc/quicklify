@@ -21,7 +21,7 @@ export function progressBar(score: number, width: number = 10): string {
 }
 
 /** Map audit severity to a chalk color function */
-export function severityChalk(severity: Severity): typeof chalk.red {
+export function severityChalk(severity: Severity): (text: string) => string {
   switch (severity) {
     case "critical": return chalk.red;
     case "warning":  return chalk.yellow;
