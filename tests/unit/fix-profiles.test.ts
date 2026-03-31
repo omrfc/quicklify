@@ -9,6 +9,7 @@ import {
   filterChecksByProfile,
   isValidProfile,
   loadCustomProfiles,
+  clearCustomProfilesCache,
 } from "../../src/core/audit/profiles.js";
 import type { ProfileName } from "../../src/core/audit/profiles.js";
 import * as fs from "fs";
@@ -215,6 +216,7 @@ describe("filterChecksByProfile", () => {
 
 describe("loadCustomProfiles", () => {
   beforeEach(() => {
+    clearCustomProfilesCache();
     jest.restoreAllMocks();
   });
 
@@ -248,6 +250,7 @@ describe("loadCustomProfiles", () => {
 
 describe("isValidProfile with custom profiles", () => {
   beforeEach(() => {
+    clearCustomProfilesCache();
     mockedFs.existsSync.mockReturnValue(true);
     mockedFs.readFileSync.mockReturnValue(
       JSON.stringify({ "nginx-hardened": { checks: ["SSH-01"] } }),
@@ -284,6 +287,7 @@ describe("filterChecksByProfile with custom profiles", () => {
   ];
 
   beforeEach(() => {
+    clearCustomProfilesCache();
     mockedFs.existsSync.mockReturnValue(true);
     mockedFs.readFileSync.mockReturnValue(
       JSON.stringify({ "nginx-hardened": { checks: ["SSH-01", "KERN-01"] } }),

@@ -14,7 +14,7 @@ interface NgxCheckDef {
   id: string;
   name: string;
   severity: Severity;
-  check: (output: string) => { passed: boolean; currentValue: string };
+  check: (output: string, noWaf?: boolean) => { passed: boolean; currentValue: string };
   expectedValue: string;
   fixCommand: string;
   safeToAutoFix?: FixTier;
@@ -190,6 +190,14 @@ function isNoWaf(output: string): boolean {
 
 const WAF_SKIP_MSG = "WAF not installed \u2014 advanced checks skipped";
 
+const RE_IP_ACL = /^\s*(deny|allow)\s+(?!all\b)/im;
+const RE_RATE_LIMIT_ID = /SecRule\s+(IP:|REQUEST_HEADERS|REMOTE_ADDR)[^;]*id['":\s]*9\d{2}/i;
+const RE_RATE_LIMIT_GT = /SecRule\s+\S+\s+["'][^'"]*@gt\s+\d+/i;
+const RE_BOT_CRS = /REQUEST-913|scanner-detection|bot-detection/i;
+const RE_BOT_UA_MAP = /map\s+\$http_user_agent/i;
+const RE_CHALLENGE_MODSEC = /redirect:\/captcha|redirect:\/challenge|SecAction.*challenge/i;
+const RE_CHALLENGE_NGINX = /error_page.*challenge/i;
+
 const WAF_DEEP_CHECKS: NgxCheckDef[] = [
   {
     id: "NGX-WAF-IP-ACL",
@@ -200,7 +208,7 @@ const WAF_DEEP_CHECKS: NgxCheckDef[] = [
         return { passed: false, currentValue: "No IP ACL rules found (deny/allow directives absent)" };
       }
       // Match deny or allow directives (excluding 'allow all' which is too permissive)
-      if (/^\s*(deny|allow)\s+(?!all\b)/im.test(output)) {
+      if (RE_IP_ACL.test(output)) {
         return { passed: true, currentValue: "IP ACL rules configured (deny/allow directives present)" };
       }
       return { passed: false, currentValue: "No IP ACL rules found (deny/allow directives absent)" };
@@ -215,13 +223,11 @@ const WAF_DEEP_CHECKS: NgxCheckDef[] = [
     id: "NGX-WAF-RATE-LIMIT",
     name: "WAF rate limit rules active",
     severity: "info",
-    check: (output) => {
-      if (isNoWaf(output)) {
+    check: (output, noWaf) => {
+      if (noWaf) {
         return { passed: true, currentValue: WAF_SKIP_MSG };
       }
-      // Look for SecRule with rate-related patterns (IP: prefix or id:900 range)
-      if (/SecRule\s+(IP:|REQUEST_HEADERS|REMOTE_ADDR)[^;]*id['":\s]*9\d{2}/i.test(output) ||
-          /SecRule\s+\S+\s+["'][^'"]*@gt\s+\d+/i.test(output)) {
+      if (RE_RATE_LIMIT_ID.test(output) || RE_RATE_LIMIT_GT.test(output)) {
         return { passed: true, currentValue: "ModSecurity rate limit rules active" };
       }
       return { passed: false, currentValue: "No ModSecurity rate limit rules found" };
@@ -237,8 +243,8 @@ const WAF_DEEP_CHECKS: NgxCheckDef[] = [
     id: "NGX-WAF-INPUT-SANITIZE",
     name: "SecRuleEngine active (On or DetectionOnly)",
     severity: "info",
-    check: (output) => {
-      if (isNoWaf(output)) {
+    check: (output, noWaf) => {
+      if (noWaf) {
         return { passed: true, currentValue: WAF_SKIP_MSG };
       }
       if (/SecRuleEngine\s+(On|DetectionOnly)/i.test(output)) {
@@ -257,8 +263,8 @@ const WAF_DEEP_CHECKS: NgxCheckDef[] = [
     id: "NGX-WAF-DETECTION-ENGINE",
     name: "CRS rules installed (>0 rule files)",
     severity: "info",
-    check: (output) => {
-      if (isNoWaf(output)) {
+    check: (output, noWaf) => {
+      if (noWaf) {
         return { passed: true, currentValue: WAF_SKIP_MSG };
       }
       // The CRS rule count comes from `ls /usr/share/modsecurity-crs/rules/ | wc -l`
@@ -300,12 +306,12 @@ const WAF_DEEP_CHECKS: NgxCheckDef[] = [
     id: "NGX-WAF-BOT-DETECT",
     name: "Bot detection rules configured (ModSec CRS 913 or UA map)",
     severity: "info",
-    check: (output) => {
-      if (isNoWaf(output)) {
+    check: (output, noWaf) => {
+      if (noWaf) {
         return { passed: true, currentValue: WAF_SKIP_MSG };
       }
-      const hasCrsBot = /REQUEST-913|scanner-detection|bot-detection/i.test(output);
-      const hasUaMap = /map\s+\$http_user_agent/i.test(output);
+      const hasCrsBot = RE_BOT_CRS.test(output);
+      const hasUaMap = RE_BOT_UA_MAP.test(output);
       if (hasCrsBot || hasUaMap) {
         const detected = [hasCrsBot && "CRS 913 rules", hasUaMap && "UA map"].filter(Boolean).join(" + ");
         return { passed: true, currentValue: `Bot detection configured (${detected})` };
@@ -323,12 +329,12 @@ const WAF_DEEP_CHECKS: NgxCheckDef[] = [
     id: "NGX-WAF-CHALLENGE-MODE",
     name: "Challenge mode configured (JS PoW/CAPTCHA redirect)",
     severity: "info",
-    check: (output) => {
-      if (isNoWaf(output)) {
+    check: (output, noWaf) => {
+      if (noWaf) {
         return { passed: true, currentValue: WAF_SKIP_MSG };
       }
-      const hasModSecChallenge = /redirect:\/captcha|redirect:\/challenge|SecAction.*challenge/i.test(output);
-      const hasNginxChallenge = /error_page.*challenge/i.test(output);
+      const hasModSecChallenge = RE_CHALLENGE_MODSEC.test(output);
+      const hasNginxChallenge = RE_CHALLENGE_NGINX.test(output);
       if (hasModSecChallenge || hasNginxChallenge) {
         return { passed: true, currentValue: "Challenge mode configured (redirect/CAPTCHA pattern detected)" };
       }
@@ -363,8 +369,10 @@ export const parseNginxChecks: CheckParser = (
     return makeSkippedChecks(ALL_CHECKS, CATEGORY, reason);
   }
 
+  const noWaf = isNoWaf(sectionOutput);
+
   return ALL_CHECKS.map((def) => {
-    const { passed, currentValue } = def.check(sectionOutput);
+    const { passed, currentValue } = def.check(sectionOutput, noWaf);
     return {
       id: def.id,
       category: CATEGORY,

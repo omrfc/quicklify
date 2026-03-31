@@ -76,13 +76,23 @@ const customProfileSchema = z.record(
 export type CustomProfile = { checks: string[] };
 export type CustomProfiles = Record<string, CustomProfile>;
 
+let _customProfilesCache: CustomProfiles | null = null;
+
+/** Clear the custom profiles cache (for testing) */
+export function clearCustomProfilesCache(): void {
+  _customProfilesCache = null;
+}
+
 export function loadCustomProfiles(): CustomProfiles {
+  if (_customProfilesCache) return _customProfilesCache;
   try {
     const data = readFileSync(FIX_PROFILES_FILE, "utf-8");
     const result = customProfileSchema.safeParse(JSON.parse(data));
-    return result.success ? result.data : {};
+    _customProfilesCache = result.success ? result.data : {};
+    return _customProfilesCache;
   } catch {
-    return {};
+    _customProfilesCache = {};
+    return _customProfilesCache;
   }
 }
 

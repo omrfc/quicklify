@@ -1,6 +1,7 @@
 import inquirer from "inquirer";
 import chalk from "chalk";
 import { listAllProfileNames } from "../core/audit/profiles.js";
+import { isValidPort } from "../core/firewall.js";
 
 const BACK = "__back__";
 
@@ -232,10 +233,8 @@ async function promptFirewall(): Promise<string[] | null> {
         type: "input",
         name: "port",
         message: "Port number:",
-        validate: (v: string) => {
-          const n = Number(v);
-          return n >= 1 && n <= 65535 ? true : "Enter a valid port (1-65535)";
-        },
+        validate: (v: string) =>
+          isValidPort(Number(v)) || "Enter a valid port (1-65535)",
       },
     ]);
 
