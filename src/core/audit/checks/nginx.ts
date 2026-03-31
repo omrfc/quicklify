@@ -16,7 +16,7 @@ interface NgxCheckDef {
   severity: Severity;
   check: (output: string) => { passed: boolean; currentValue: string };
   expectedValue: string;
-  fixCommand: string;
+  fixCommand: string;
   safeToAutoFix?: FixTier;
   explain: string;
 }
@@ -294,6 +294,51 @@ const WAF_DEEP_CHECKS: NgxCheckDef[] = [
     explain:
       "Filtering sensitive response headers like X-Powered-By and X-AspNet-Version prevents information disclosure about the backend technology stack. Attackers use this information to target known vulnerabilities in specific framework versions. proxy_hide_header removes upstream headers, while more_clear_headers (from headers-more module) can remove any header.",
   },
+  {
+    id: "NGX-WAF-BOT-DETECT",
+    name: "Bot detection rules configured (ModSec CRS 913 or UA map)",
+    severity: "info",
+    check: (output) => {
+      if (isNoWaf(output)) {
+        return { passed: true, currentValue: "WAF not installed -- advanced checks skipped" };
+      }
+      const hasCrsBot = /REQUEST-913|scanner-detection|bot-detection/i.test(output);
+      const hasUaMap = /map\s+\$http_user_agent/i.test(output);
+      if (hasCrsBot || hasUaMap) {
+        const detected = [hasCrsBot && "CRS 913 rules", hasUaMap && "UA map"].filter(Boolean).join(" + ");
+        return { passed: true, currentValue: `Bot detection configured (${detected})` };
+      }
+      return { passed: false, currentValue: "No bot detection rules found (CRS 913 or UA map absent)" };
+    },
+    expectedValue: "Bot detection rules configured",
+    fixCommand:
+      "# Install OWASP CRS scanner-detection rules:\n# CRS includes REQUEST-913-SCANNER-DETECTION.conf\n# Or add nginx UA map: map $http_user_agent $bad_bot { ... }",
+    safeToAutoFix: "GUARDED",
+    explain:
+      "Bot detection rules identify and block automated scanning tools and known bad bots. OWASP CRS rules 913xxx detect scanners (Nmap, Nikto, etc.). Nginx UA map blocks by user agent string. Without bot detection, automated reconnaissance runs unchallenged.",
+  },
+  {
+    id: "NGX-WAF-CHALLENGE-MODE",
+    name: "Challenge mode configured (JS PoW/CAPTCHA redirect)",
+    severity: "info",
+    check: (output) => {
+      if (isNoWaf(output)) {
+        return { passed: true, currentValue: "WAF not installed -- advanced checks skipped" };
+      }
+      const hasModSecChallenge = /redirect:\/captcha|redirect:\/challenge|SecAction.*challenge/i.test(output);
+      const hasNginxChallenge = /error_page.*challenge/i.test(output);
+      if (hasModSecChallenge || hasNginxChallenge) {
+        return { passed: true, currentValue: "Challenge mode configured (redirect/CAPTCHA pattern detected)" };
+      }
+      return { passed: false, currentValue: "No challenge mode configured (no CAPTCHA/JS PoW redirect found)" };
+    },
+    expectedValue: "Challenge mode configured",
+    fixCommand:
+      "# Configure challenge mode:\n# ModSec: SecAction \"id:900700,phase:1,redirect:/captcha\"\n# Nginx: error_page 403 /challenge.html;",
+    safeToAutoFix: "GUARDED",
+    explain:
+      "Challenge mode (JS Proof-of-Work or CAPTCHA) gates suspicious requests before reaching the application, blocking automated attacks without permanent bans. It reduces false positives compared to outright denial. Configured via ModSec SecAction redirect rules or Nginx error_page directives.",
+  },
 ];
 
 const ALL_CHECKS: NgxCheckDef[] = [...NGX_CHECKS, WAF_CHECK, ...WAF_DEEP_CHECKS];
@@ -326,7 +371,7 @@ export const parseNginxChecks: CheckParser = (
       passed,
       currentValue,
       expectedValue: def.expectedValue,
-      fixCommand: def.fixCommand,
+      fixCommand: def.fixCommand,
       safeToAutoFix: def.safeToAutoFix,
       explain: def.explain,
     };

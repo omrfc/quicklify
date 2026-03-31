@@ -796,6 +796,12 @@ export const COMPLIANCE_MAP: Record<string, ComplianceRef[]> = {
   "NGX-WAF-DETECTED": [
     pci("6.4.2", "An automated technical solution is deployed to detect and prevent web-based attacks", "full"),
   ],
+  "NGX-WAF-BOT-DETECT": [
+    pci("6.4.2", "Automated bot detection via CRS 913 rules or UA map", "partial"),
+  ],
+  "NGX-WAF-CHALLENGE-MODE": [
+    pci("6.4.2", "Challenge mode for suspicious request verification", "partial"),
+  ],
   // NGX-GZIP-CONFIG and NGX-SERVER-HEADER intentionally excluded — no direct CIS/PCI-DSS control
 
   // --- DDoS Hardening (DDOS) --- Phase 89 ---

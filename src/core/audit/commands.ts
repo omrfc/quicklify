@@ -663,6 +663,12 @@ function nginxSection(): string {
     `ls /usr/share/modsecurity-crs/rules/ 2>/dev/null | wc -l || echo '0'`,
     `echo "$_NGX" | grep -iE '^[[:space:]]*(deny|allow)[[:space:]]' | head -10 || echo 'NO_IP_ACL'`,
     `echo "$_NGX" | grep -iE 'proxy_hide_header|more_clear_headers' | head -5 || echo 'NO_HEADER_FILTER'`,
+    // WAF bot detection: ModSec CRS 913 scanner rules + nginx UA map
+    `grep -rE "REQUEST-913|scanner-detection|bot-detection" /usr/share/modsecurity-crs/rules/ /etc/modsecurity/ /etc/modsecurity-crs/rules/ 2>/dev/null | head -5 || echo 'NO_BOT_RULES'`,
+    `echo "$_NGX" | grep -iE 'map\\s+\\$http_user_agent' | head -3 || echo 'NO_UA_MAP'`,
+    // WAF challenge mode: ModSec SecAction redirect + nginx error_page challenge
+    `grep -rE "redirect:/captcha|redirect:/challenge|SecAction.*challenge" /etc/modsecurity/ /etc/nginx/ 2>/dev/null | head -5 || echo 'NO_CHALLENGE_REDIRECT'`,
+    `echo "$_NGX" | grep -iE 'error_page.*403.*challenge|error_page.*challenge' | head -3 || echo 'NO_CHALLENGE_PAGE'`,
   ].join("\n");
 }
 
