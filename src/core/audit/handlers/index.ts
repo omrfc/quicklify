@@ -3,24 +3,25 @@
  * Provides matchHandler(), resolveHandlerChain(), executeHandlerChain() for
  * replacing shell-metachar-blocked fixCommands with safe TypeScript handlers.
  *
- * Handler registration order: sysctl, fileAppend, packageInstall, chmodChown
+ * Handler registration order: sysctl, fileAppend, packageInstall, chmodChown, aptUpgrade
  */
 
 import { sysctlHandler } from "./sysctl.js";
 import { fileAppendHandler } from "./fileAppend.js";
 import { packageInstallHandler } from "./packageInstall.js";
 import { chmodChownHandler } from "./chmodChown.js";
+import { aptUpgradeHandler } from "./aptUpgrade.js";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export interface HandlerParams {
-  type: "sysctl" | "file-append" | "package-install" | "chmod-chown";
+  type: "sysctl" | "file-append" | "package-install" | "chmod-chown" | "apt-upgrade";
   [key: string]: unknown;
 }
 
 /** Diff information collected during handler execution for --diff preview */
 export interface DiffLine {
-  handlerType: "sysctl" | "file-append" | "package-install" | "chmod-chown";
+  handlerType: "sysctl" | "file-append" | "package-install" | "chmod-chown" | "apt-upgrade";
   key: string;
   before: string;
   after: string;
@@ -58,6 +59,7 @@ const HANDLERS: FixHandler[] = [
   fileAppendHandler,
   packageInstallHandler,
   chmodChownHandler,
+  aptUpgradeHandler,
 ];
 
 // ─── matchHandler ──────────────────────────────────────────────────────────────
