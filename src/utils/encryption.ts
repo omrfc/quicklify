@@ -1,8 +1,9 @@
 import { randomBytes, createCipheriv, createDecipheriv, scryptSync, randomUUID } from "crypto";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { execSync } from "child_process";
-import { homedir, platform } from "os";
+import { platform } from "os";
 import { join } from "path";
+import { KASTELL_DIR } from "./paths.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -58,7 +59,6 @@ export function isEncryptedPayload(obj: unknown): obj is EncryptedPayload {
 
 // ─── Machine Key ─────────────────────────────────────────────────────────────
 
-const KASTELL_DIR = join(homedir(), ".kastell");
 const SALT_FILE = join(KASTELL_DIR, ".encryption-salt");
 const FALLBACK_ID_FILE = join(KASTELL_DIR, ".machine-id");
 

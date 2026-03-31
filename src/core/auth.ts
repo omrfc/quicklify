@@ -1,15 +1,15 @@
-import { homedir, platform } from "os";
+import { platform } from "os";
 import { join } from "path";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { SUPPORTED_PROVIDERS, PROVIDER_ENV_KEYS } from "../constants.js";
 import type { SupportedProvider } from "../constants.js";
 import { IS_ANDROID, loadKeyring, isKeychainAvailable as _isKeychainAvailable, getKeychainEntry as _getKeychainEntry } from "../utils/keyring.js";
 import { encryptData, decryptData, getMachineKey, isEncryptedPayload } from "../utils/encryption.js";
+import { KASTELL_DIR } from "../utils/paths.js";
 
 const SERVICE_NAME = "kastell";
 let _warnedPlaintext = false;
 
-const KASTELL_DIR = join(homedir(), ".kastell");
 const TOKENS_FILE = join(KASTELL_DIR, "tokens.json");
 
 function readTokensFile(): Record<string, string> {

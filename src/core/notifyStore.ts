@@ -1,15 +1,15 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
-import { homedir, platform } from "os";
+import { platform } from "os";
 import { join } from "path";
 import { storeToken, readToken } from "./tokenBuffer.js";
 import type { NotifyConfig } from "./notify.js";
 import { isKeychainAvailable as _isKeychainAvailable, getKeychainEntry as _getKeychainEntry } from "../utils/keyring.js";
 import { encryptData, decryptData, getMachineKey, isEncryptedPayload } from "../utils/encryption.js";
+import { KASTELL_DIR } from "../utils/paths.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const NOTIFY_SERVICE = "kastell-notify";
-const KASTELL_DIR = join(homedir(), ".kastell");
 const NOTIFY_CHANNELS_FILE = join(KASTELL_DIR, "notify-channels.json");
 const NOTIFY_SECRETS_FILE = join(KASTELL_DIR, "notify-secrets.json");
 const NOTIFY_LEGACY_FILE = join(KASTELL_DIR, "notify.json");
