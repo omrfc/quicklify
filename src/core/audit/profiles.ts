@@ -62,6 +62,11 @@ export const PROFILES: Record<ProfileName, readonly string[]> = {
   ],
 };
 
+/** Returns all profile names (built-in). Custom profiles would extend this list. */
+export function listAllProfileNames(): string[] {
+  return Object.keys(PROFILES);
+}
+
 /** Type guard: returns true if name is a valid ProfileName */
 export function isValidProfile(name: string): name is ProfileName {
   return name in PROFILES;
