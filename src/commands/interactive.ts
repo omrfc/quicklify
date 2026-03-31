@@ -1,5 +1,6 @@
 import inquirer from "inquirer";
 import chalk from "chalk";
+import { listAllProfileNames } from "../core/audit/profiles.js";
 
 const BACK = "__back__";
 
@@ -635,15 +636,83 @@ async function promptLock(): Promise<string[] | null> {
 }
 
 async function promptFix(): Promise<string[] | null> {
-  const mode = await promptList("Fix mode:", [
-    { name: "Dry run (preview safe fixes)", value: "dry-run" },
-    { name: "Apply safe fixes (backup + fix + verify)", value: "apply" },
+  const group = await promptList("Fix options:", [
+    { name: "Apply fixes", value: "apply" },
+    { name: "Fix history", value: "history" },
   ]);
-  if (!mode) return null;
+  if (!group) return null;
 
-  const args = ["fix", "--safe"];
-  if (mode === "dry-run") args.push("--dry-run");
-  return args;
+  if (group === "apply") {
+    const mode = await promptList("Apply mode:", [
+      { name: "Dry run (preview safe fixes)", value: "dry-run" },
+      { name: "Apply safe fixes (backup + fix + verify)", value: "apply" },
+      { name: "Apply with profile filter", value: "profile" },
+      { name: "Apply top N fixes by impact", value: "top" },
+      { name: "Apply until target score", value: "target" },
+    ]);
+    if (!mode) return null;
+
+    if (mode === "dry-run") return ["fix", "--safe", "--dry-run"];
+    if (mode === "apply") return ["fix", "--safe"];
+
+    if (mode === "profile") {
+      const profileNames = listAllProfileNames();
+      const choices = profileNames.map((p) => ({ name: p, value: p }));
+      const profile = await promptList("Fix profile:", choices);
+      if (!profile) return null;
+      return ["fix", "--safe", "--profile", profile];
+    }
+
+    if (mode === "top") {
+      const { n } = await inquirer.prompt([{
+        type: "input",
+        name: "n",
+        message: "Number of fixes to apply:",
+        validate: (v: string) => {
+          const num = Number(v);
+          return num >= 1 && Number.isInteger(num) ? true : "Enter a positive integer";
+        },
+      }]);
+      return ["fix", "--safe", "--top", n];
+    }
+
+    if (mode === "target") {
+      const { score } = await inquirer.prompt([{
+        type: "input",
+        name: "score",
+        message: "Target score (0-100):",
+        validate: (v: string) => {
+          const num = Number(v);
+          return num >= 0 && num <= 100 ? true : "Enter 0-100";
+        },
+      }]);
+      return ["fix", "--safe", "--target", score];
+    }
+  }
+
+  if (group === "history") {
+    const action = await promptList("History action:", [
+      { name: "View fix history", value: "view" },
+      { name: "Rollback a specific fix", value: "rollback" },
+      { name: "Rollback all fixes", value: "rollback-all" },
+    ]);
+    if (!action) return null;
+
+    if (action === "view") return ["fix", "--history"];
+    if (action === "rollback-all") return ["fix", "--rollback-all"];
+
+    if (action === "rollback") {
+      const { fixId } = await inquirer.prompt([{
+        type: "input",
+        name: "fixId",
+        message: "Fix ID (or 'last'):",
+        validate: (v: string) => (v.trim().length > 0 ? true : "Fix ID required"),
+      }]);
+      return ["fix", "--rollback", fixId];
+    }
+  }
+
+  return null;
 }
 
 async function promptEvidence(): Promise<string[] | null> {

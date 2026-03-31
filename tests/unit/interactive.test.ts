@@ -542,3 +542,121 @@ describe("interactiveMenu", () => {
     expect(await interactiveMenu()).toEqual(["health"]);
   });
 });
+
+// ─── promptFix — nested menu ─────────────────────────────────────────────────
+
+describe("promptFix — nested menu", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("apply dry-run: returns ['fix', '--safe', '--dry-run']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fix" })   // main menu selects fix
+      .mockResolvedValueOnce({ answer: "apply" }) // group: Apply fixes
+      .mockResolvedValueOnce({ answer: "dry-run" }); // mode: dry-run
+
+    expect(await interactiveMenu()).toEqual(["fix", "--safe", "--dry-run"]);
+  });
+
+  it("apply: returns ['fix', '--safe']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fix" })
+      .mockResolvedValueOnce({ answer: "apply" })
+      .mockResolvedValueOnce({ answer: "apply" });
+
+    expect(await interactiveMenu()).toEqual(["fix", "--safe"]);
+  });
+
+  it("apply profile web-server: returns ['fix', '--safe', '--profile', 'web-server']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fix" })
+      .mockResolvedValueOnce({ answer: "apply" })
+      .mockResolvedValueOnce({ answer: "profile" })
+      .mockResolvedValueOnce({ answer: "web-server" });
+
+    expect(await interactiveMenu()).toEqual(["fix", "--safe", "--profile", "web-server"]);
+  });
+
+  it("apply top 5: returns ['fix', '--safe', '--top', '5']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fix" })
+      .mockResolvedValueOnce({ answer: "apply" })
+      .mockResolvedValueOnce({ answer: "top" })
+      .mockResolvedValueOnce({ n: "5" });
+
+    expect(await interactiveMenu()).toEqual(["fix", "--safe", "--top", "5"]);
+  });
+
+  it("apply target 80: returns ['fix', '--safe', '--target', '80']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fix" })
+      .mockResolvedValueOnce({ answer: "apply" })
+      .mockResolvedValueOnce({ answer: "target" })
+      .mockResolvedValueOnce({ score: "80" });
+
+    expect(await interactiveMenu()).toEqual(["fix", "--safe", "--target", "80"]);
+  });
+
+  it("history view: returns ['fix', '--history']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fix" })
+      .mockResolvedValueOnce({ answer: "history" })
+      .mockResolvedValueOnce({ answer: "view" });
+
+    expect(await interactiveMenu()).toEqual(["fix", "--history"]);
+  });
+
+  it("history rollback specific: returns ['fix', '--rollback', 'last']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fix" })
+      .mockResolvedValueOnce({ answer: "history" })
+      .mockResolvedValueOnce({ answer: "rollback" })
+      .mockResolvedValueOnce({ fixId: "last" });
+
+    expect(await interactiveMenu()).toEqual(["fix", "--rollback", "last"]);
+  });
+
+  it("history rollback-all: returns ['fix', '--rollback-all']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fix" })
+      .mockResolvedValueOnce({ answer: "history" })
+      .mockResolvedValueOnce({ answer: "rollback-all" });
+
+    expect(await interactiveMenu()).toEqual(["fix", "--rollback-all"]);
+  });
+
+  it("back at group level: returns null", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fix" })
+      .mockResolvedValueOnce({ answer: "__back__" }) // promptList returns null
+      .mockResolvedValueOnce({ action: "exit" });
+
+    expect(await interactiveMenu()).toBeNull();
+  });
+
+  it("back at apply mode level: returns null", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fix" })
+      .mockResolvedValueOnce({ answer: "apply" })
+      .mockResolvedValueOnce({ answer: "__back__" }) // promptList returns null
+      .mockResolvedValueOnce({ action: "exit" });
+
+    expect(await interactiveMenu()).toBeNull();
+  });
+
+  it("back at history action level: returns null", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fix" })
+      .mockResolvedValueOnce({ answer: "history" })
+      .mockResolvedValueOnce({ answer: "__back__" }) // promptList returns null
+      .mockResolvedValueOnce({ action: "exit" });
+
+    expect(await interactiveMenu()).toBeNull();
+  });
+});
