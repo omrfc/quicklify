@@ -102,6 +102,7 @@ Options:
                       database, mail-server)
   --diff              Show per-fix diff preview after applying
   --report            Generate markdown fix report after applying fixes
+  --no-interactive    Skip confirmation prompt (for scheduled/automated runs)
   -h, --help          display help for command"
 `;
 

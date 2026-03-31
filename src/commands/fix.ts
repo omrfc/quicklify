@@ -56,6 +56,7 @@ export async function fixSafeCommand(
     profile?: string;
     diff?: boolean;
     report?: boolean;
+    interactive?: boolean;
   },
 ): Promise<void> {
   // ── Flag validation (D-08, D-03, D-11, D-05, D-13) ─────────────────────────
@@ -362,16 +363,18 @@ export async function fixSafeCommand(
     return;
   }
 
-  // Confirm with user
-  const { confirm } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "confirm",
-      message: `Apply ${safeCount} SAFE fix(es)? (backup will be created first)`,
-      default: false,
-    },
-  ]);
-  if (!confirm) return;
+  // Confirm with user (skip in non-interactive mode for scheduled/automated runs)
+  if (options.interactive !== false) {
+    const { confirm } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "confirm",
+        message: `Apply ${safeCount} SAFE fix(es)? (backup will be created first)`,
+        default: false,
+      },
+    ]);
+    if (!confirm) return;
+  }
 
   // Backup (FIX-03, D-07 hard abort)
   const backupSpinner = createSpinner("Creating backup...");
