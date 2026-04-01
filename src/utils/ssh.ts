@@ -1,6 +1,7 @@
 import { spawn, spawnSync, type ChildProcess } from "child_process";
-import { existsSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
+import { tmpdir } from "os";
 import type { SshCommand } from "./sshCommand.js";
 
 /** Default SSH connect timeout in seconds */
@@ -287,10 +288,12 @@ function sshExecInner(
     // When useStdin is true, pipe the command via stdin to avoid Windows
     // argument escaping that corrupts long multi-line commands with special chars.
     // SSH receives "bash -s" as remote command, actual script arrives via stdin.
+    // ControlMaster args are injected when a master connection is active for this IP.
     const sshArgs = [
       "-o", `StrictHostKeyChecking=${getHostKeyPolicy()}`,
       "-o", "BatchMode=yes",
       "-o", `ConnectTimeout=${SSH_CONNECT_TIMEOUT}`,
+      ...getControlArgs(ip),
       `root@${ip}`,
       ...(useStdin ? ["bash", "-s"] : [command]),
     ];
@@ -366,4 +369,98 @@ export function sshExec(
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   assertValidIp(ip);
   return sshExecInner(ip, command, false, opts?.timeoutMs ?? SSH_EXEC_TIMEOUT_MS, opts?.useStdin ?? false);
+}
+
+// ─── SSH ControlMaster (connection multiplexing) ─────────────────────────────
+
+/** Active master socket paths keyed by IP */
+const activeMasters = new Map<string, string>();
+
+function controlSocketPath(ip: string): string {
+  const dir = join(tmpdir(), "kastell-ssh");
+  mkdirSync(dir, { recursive: true });
+  return join(dir, `master-${ip}`);
+}
+
+/**
+ * Open a persistent SSH master connection for the given IP.
+ * Subsequent sshExec calls to the same IP will reuse this connection
+ * instead of opening new TCP+SSH handshakes (prevents MaxStartups exhaustion).
+ */
+export async function sshMasterOpen(ip: string): Promise<boolean> {
+  assertValidIp(ip);
+  if (activeMasters.has(ip)) return true;
+
+  const socketPath = controlSocketPath(ip);
+  const sshBin = resolveSshPath();
+
+  return new Promise((resolve) => {
+    const child = spawn(sshBin, [
+      "-o", `StrictHostKeyChecking=${getHostKeyPolicy()}`,
+      "-o", "BatchMode=yes",
+      "-o", `ConnectTimeout=${SSH_CONNECT_TIMEOUT}`,
+      "-o", "ControlMaster=yes",
+      "-o", `ControlPath=${socketPath}`,
+      "-o", "ControlPersist=300",
+      "-N",
+      `root@${ip}`,
+    ], {
+      stdio: "ignore",
+      detached: true,
+      env: sanitizedEnv(),
+    });
+
+    // Give master time to establish, then probe
+    const timer = setTimeout(() => {
+      // Check if socket was created (master is ready)
+      if (existsSync(socketPath)) {
+        activeMasters.set(ip, socketPath);
+        child.unref();
+        resolve(true);
+      } else {
+        killChild(child);
+        resolve(false);
+      }
+    }, 5000);
+
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
+
+    child.on("close", (code) => {
+      // If master exits before our timer, it failed
+      if (!activeMasters.has(ip)) {
+        clearTimeout(timer);
+        resolve(false);
+      }
+    });
+  });
+}
+
+/**
+ * Close the SSH master connection for the given IP.
+ */
+export function sshMasterClose(ip: string): void {
+  const socketPath = activeMasters.get(ip);
+  if (!socketPath) return;
+
+  try {
+    const sshBin = resolveSshPath();
+    spawnSync(sshBin, [
+      "-o", `ControlPath=${socketPath}`,
+      "-O", "exit",
+      `root@${ip}`,
+    ], { stdio: "ignore", timeout: 5000, env: sanitizedEnv() });
+  } catch {
+    // Best-effort cleanup
+  }
+  activeMasters.delete(ip);
+}
+
+/** Returns ControlPath args if a master is active for this IP */
+export function getControlArgs(ip: string): string[] {
+  const socketPath = activeMasters.get(ip);
+  if (!socketPath) return [];
+  return ["-o", "ControlMaster=no", "-o", `ControlPath=${socketPath}`];
 }

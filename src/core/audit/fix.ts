@@ -6,7 +6,7 @@
 import type { AuditResult, AuditCheck, Severity, FixTier } from "./types.js";
 import { SEVERITY_WEIGHTS, CATEGORY_WEIGHTS, DEFAULT_CATEGORY_WEIGHT, buildImpactContext, calculateCategoryScore, calculateOverallScore } from "./scoring.js";
 import type { ImpactContext } from "./scoring.js";
-import { sshExec } from "../../utils/ssh.js";
+import { sshExec, sshMasterOpen, sshMasterClose } from "../../utils/ssh.js";
 import { raw } from "../../utils/sshCommand.js";
 import { logger } from "../../utils/logger.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
@@ -311,6 +311,9 @@ export async function runFix(
     };
   }
 
+  // Open SSH master connection to prevent MaxStartups exhaustion (D-23)
+  await sshMasterOpen(ip);
+
   const applied: string[] = [];
   const skipped: string[] = [];
   const errors: string[] = [];
@@ -362,6 +365,9 @@ export async function runFix(
       }
     }
   }
+
+  // Close SSH master connection (D-23)
+  sshMasterClose(ip);
 
   return { applied, skipped, errors };
 }

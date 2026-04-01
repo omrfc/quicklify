@@ -17,7 +17,7 @@ import { filterChecksByProfile, isValidProfile, listAllProfileNames } from "../.
 import { writeFixReport } from "../../utils/fixReport.js";
 import { backupServer } from "../../core/backup.js";
 import { isSafeMode } from "../../core/manage.js";
-import { sshExec } from "../../utils/ssh.js";
+import { sshExec, sshMasterOpen, sshMasterClose } from "../../utils/ssh.js";
 import { raw } from "../../utils/sshCommand.js";
 import {
   loadFixHistory,
@@ -420,6 +420,10 @@ export async function handleServerFix(
 
     // ── LIVE FIX — execute ────────────────────────────────────────────────
     await mcpLog(mcpServer, `Applying ${selectedChecks.length} safe fix(es)...`);
+
+    // Open SSH master connection to prevent MaxStartups exhaustion (D-23)
+    await sshMasterOpen(server.ip);
+
     const applied: string[] = [];
     const errors: string[] = [];
     const collectedDiffs: CollectedDiff[] = [];
@@ -454,6 +458,9 @@ export async function handleServerFix(
         errors.push(`${check.id}: ${getErrorMessage(err)}`);
       }
     }
+
+    // Close SSH master connection (D-23)
+    sshMasterClose(server.ip);
 
     // ── LIVE FIX — score delta ────────────────────────────────────────────
     let scoreAfter: number | null = null;
