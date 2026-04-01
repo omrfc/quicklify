@@ -162,8 +162,8 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "/etc/hosts.deny missing or no default deny",
     expectedValue: "/etc/hosts.deny contains ALL : ALL",
     fixCommand: "echo 'ALL: ALL' >> /etc/hosts.deny",
-    safeToAutoFix: "SAFE",
-    explain: "A default deny rule in hosts.deny blocks all TCP wrapper-controlled services unless explicitly allowed.",
+    safeToAutoFix: "GUARDED",
+    explain: "A default deny rule in hosts.deny blocks all TCP wrapper-controlled services unless explicitly allowed. GUARDED: must ensure sshd is in hosts.allow first — applying without it locks out SSH.",
   };
 
   // NET-08: IPv6 disabled if not needed
