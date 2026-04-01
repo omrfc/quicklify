@@ -9,6 +9,7 @@ import {
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { requireManagedMode } from "../../utils/modeGuard.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
+import { isSafeMode } from "../../core/manage.js";
 import {
   handleSecureSetup,
   handleSecureAudit,
@@ -49,6 +50,9 @@ export const serverSecureSchema = {
 
 type Action = z.infer<typeof serverSecureSchema.action>;
 
+/** Actions that only read state — never blocked by SAFE_MODE */
+const READ_ONLY_ACTIONS: readonly Action[] = ["secure-audit", "firewall-status", "domain-check", "domain-info"];
+
 export async function handleServerSecure(params: {
   action: Action;
   server?: string;
@@ -76,6 +80,14 @@ export async function handleServerSecure(params: {
       return mcpError(
         "Multiple servers found. Specify which server to use.",
         `Available: ${servers.map((s) => s.name).join(", ")}`,
+      );
+    }
+
+    // SAFE_MODE guard: block mutating actions, allow read-only
+    if (!READ_ONLY_ACTIONS.includes(params.action) && isSafeMode()) {
+      return mcpError(
+        `${params.action} is disabled in SAFE_MODE`,
+        "Set KASTELL_SAFE_MODE=false to enable server modifications. Read-only actions (secure-audit, firewall-status, domain-check, domain-info) remain available.",
       );
     }
 

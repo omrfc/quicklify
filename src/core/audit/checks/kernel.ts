@@ -214,8 +214,8 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "net.ipv4.ip_forward = 0",
     fixCommand: "sysctl -w net.ipv4.ip_forward=0 && echo 'net.ipv4.ip_forward=0' >> /etc/sysctl.d/99-kastell.conf",
-    safeToAutoFix: "SAFE",
-    explain: "IP forwarding should be disabled on servers that are not routers to prevent packet routing abuse.",
+    safeToAutoFix: "GUARDED",
+    explain: "IP forwarding should be disabled on servers that are not routers to prevent packet routing abuse. GUARDED: disabling may break Docker networking or SSH on misconfigured setups.",
   };
 
   // KRN-11: Reverse path filter (net.ipv4.conf.all.rp_filter >= 1)
@@ -329,8 +329,8 @@ export const parseKernelChecks: CheckParser = (sectionOutput: string, _platform:
         : "Unable to determine",
     expectedValue: "kernel.modules_disabled = 1",
     fixCommand: "sysctl -w kernel.modules_disabled=1 && echo 'kernel.modules_disabled=1' >> /etc/sysctl.d/99-kastell.conf",
-    safeToAutoFix: "SAFE",
-    explain: "Disabling kernel module loading prevents attackers from loading malicious kernel modules after system startup.",
+    safeToAutoFix: "GUARDED",
+    explain: "Disabling kernel module loading prevents attackers from loading malicious kernel modules after system startup. GUARDED: irreversible until reboot, may prevent required module loading.",
   };
 
   // KRN-17: IPv6 forwarding disabled (net.ipv6.conf.all.forwarding = 0)

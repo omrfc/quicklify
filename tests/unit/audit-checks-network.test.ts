@@ -1252,9 +1252,9 @@ describe("parseNetworkChecks", () => {
       expect(c.explain).toContain("IPv6");
     });
 
-    it("safeToAutoFix is SAFE", () => {
+    it("safeToAutoFix is GUARDED", () => {
       const c = parseNetworkChecks(secureOutput, "bare").find((c) => c.id === "NET-IPV6-DISABLED")!;
-      expect(c.safeToAutoFix).toBe("SAFE");
+      expect(c.safeToAutoFix).toBe("GUARDED");
     });
   });
 

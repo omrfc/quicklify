@@ -2,6 +2,8 @@
  * Sysctl fix handler.
  * Applies sysctl -w key=value via programmatic SSH — no shell metacharacters.
  * Implements idempotency (skip if already set) and atomic rollback.
+ * Network-related sysctl changes include post-apply SSH connectivity check
+ * to prevent SSH lockout (D-20).
  */
 
 import { sshExec } from "../../../utils/ssh.js";
@@ -9,6 +11,20 @@ import { cmd } from "../../../utils/sshCommand.js";
 import type { FixHandler, HandlerParams, HandlerResult, RollbackStep, DiffLine } from "./index.js";
 
 const SYSCTL_REGEX = /^sysctl\s+-w\s+([\w.]+)=([\w.]+)$/;
+
+function isNetworkSysctl(key: string): boolean {
+  return key.startsWith("net.");
+}
+
+/** Quick SSH connectivity probe — returns true if SSH is still responsive */
+async function sshProbe(ip: string): Promise<boolean> {
+  try {
+    const result = await sshExec(ip, cmd("echo", "ok"), { timeoutMs: 5_000 });
+    return result.stdout.trim() === "ok";
+  } catch {
+    return false;
+  }
+}
 
 export const sysctlHandler: FixHandler = {
   match(fixCommand: string): HandlerParams | null {
@@ -24,30 +40,44 @@ export const sysctlHandler: FixHandler = {
     const key = params.key as string;
     const value = params.value as string;
 
-    // Read current runtime value
     const readResult = await sshExec(ip, cmd("sysctl", "-n", key));
     const currentValue = readResult.stdout.trim();
 
-    // Idempotency: skip if already correct (D-12)
+    // D-12: idempotency
     if (currentValue === value) {
       return { success: true, skipped: true };
     }
 
-    // Apply new value
     const applyResult = await sshExec(ip, cmd("sysctl", "-w", `${key}=${value}`));
     if (applyResult.code !== 0) {
       return { success: false, error: applyResult.stderr };
     }
 
-    // Capture old value for atomic rollback (D-08)
-    const oldValue = currentValue;
+    // D-08: atomic rollback support
+    const rollbackCmd = cmd("sysctl", "-w", `${key}=${currentValue}`);
     const rollbackStep: RollbackStep = {
       rollback: async (rollbackIp: string) => {
-        await sshExec(rollbackIp, cmd("sysctl", "-w", `${key}=${oldValue}`));
+        await sshExec(rollbackIp, rollbackCmd);
       },
     };
 
-    const diff: DiffLine = { handlerType: "sysctl", key, before: oldValue, after: value };
+    // D-20: SSH connectivity check for network-related sysctl changes
+    if (isNetworkSysctl(key)) {
+      const alive = await sshProbe(ip);
+      if (!alive) {
+        try {
+          await sshExec(ip, rollbackCmd, { timeoutMs: 5_000 });
+        } catch {
+          // Best-effort — SSH may be fully broken
+        }
+        return {
+          success: false,
+          error: `SSH connectivity lost after applying ${key}=${value} — rolled back to ${currentValue}`,
+        };
+      }
+    }
+
+    const diff: DiffLine = { handlerType: "sysctl", key, before: currentValue, after: value };
     return { success: true, rollbackStep, diff };
   },
 };

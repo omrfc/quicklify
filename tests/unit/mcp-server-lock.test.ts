@@ -1,9 +1,14 @@
 import * as config from "../../src/utils/config";
 import * as lockCore from "../../src/core/lock";
 import { handleServerLock } from "../../src/mcp/tools/serverLock";
+import * as manage from "../../src/core/manage";
 
 jest.mock("../../src/utils/config");
 jest.mock("../../src/core/lock");
+jest.mock("../../src/core/manage", () => ({
+  ...jest.requireActual("../../src/core/manage"),
+  isSafeMode: jest.fn().mockReturnValue(false),
+}));
 
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedLock = lockCore as jest.Mocked<typeof lockCore>;
@@ -333,5 +338,48 @@ describe("malformed params", () => {
   it("returns mcpError for unmatched server string", async () => {
     const result = await handleServerLock({ server: "999.999.999.999", production: true });
     expect(result.isError).toBe(true);
+  });
+});
+
+// ─── SAFE_MODE ───────────────────────────────────────────────────────────────
+
+describe("MCP server_lock — SAFE_MODE", () => {
+  const mockedManage = manage as jest.Mocked<typeof manage>;
+
+  it("should block production hardening in SAFE_MODE", async () => {
+    mockedManage.isSafeMode.mockReturnValue(true);
+    mockedConfig.getServers.mockReturnValue([sampleServer] as never);
+    mockedConfig.findServer.mockReturnValue(sampleServer as never);
+
+    const result = await handleServerLock({ server: "my-server", production: true });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(data.error).toContain("SAFE_MODE");
+    expect(mockedLock.applyLock).not.toHaveBeenCalled();
+  });
+
+  it("should allow dryRun preview in SAFE_MODE", async () => {
+    mockedManage.isSafeMode.mockReturnValue(true);
+    mockedConfig.getServers.mockReturnValue([sampleServer] as never);
+    mockedConfig.findServer.mockReturnValue(sampleServer as never);
+    mockedLock.applyLock.mockResolvedValue(sampleLockResult);
+
+    const result = await handleServerLock({ server: "my-server", production: true, dryRun: true });
+
+    expect(result.isError).toBeUndefined();
+    expect(mockedLock.applyLock).toHaveBeenCalled();
+  });
+
+  it("should allow production hardening when SAFE_MODE is off", async () => {
+    mockedManage.isSafeMode.mockReturnValue(false);
+    mockedConfig.getServers.mockReturnValue([sampleServer] as never);
+    mockedConfig.findServer.mockReturnValue(sampleServer as never);
+    mockedLock.applyLock.mockResolvedValue(sampleLockResult);
+
+    const result = await handleServerLock({ server: "my-server", production: true });
+
+    expect(result.isError).toBeUndefined();
+    expect(mockedLock.applyLock).toHaveBeenCalled();
   });
 });

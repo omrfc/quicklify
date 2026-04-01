@@ -8,6 +8,7 @@ import {
   type McpResponse,
 } from "../utils.js";
 import { getErrorMessage } from "../../utils/errorMapper.js";
+import { isSafeMode } from "../../core/manage.js";
 
 export const serverGuardSchema = {
   server: z.string().optional().describe("Server name or IP. Auto-selected if only one server exists."),
@@ -37,6 +38,14 @@ export async function handleServerGuard(params: {
       return mcpError(
         "Multiple servers found. Specify which server to use.",
         `Available: ${servers.map((s) => s.name).join(", ")}`,
+      );
+    }
+
+    // SAFE_MODE guard: block start/stop, allow status
+    if (params.action !== "status" && isSafeMode()) {
+      return mcpError(
+        `Guard ${params.action} is disabled in SAFE_MODE`,
+        "Set KASTELL_SAFE_MODE=false to enable guard start/stop. Use action:'status' to check guard state safely.",
       );
     }
 

@@ -14,10 +14,12 @@ import {
 } from "../../src/core/audit/handlers/index.js";
 import { sysctlHandler } from "../../src/core/audit/handlers/sysctl.js";
 import { fileAppendHandler } from "../../src/core/audit/handlers/fileAppend.js";
+import { fileWriteHandler } from "../../src/core/audit/handlers/fileWrite.js";
 import { packageInstallHandler } from "../../src/core/audit/handlers/packageInstall.js";
 import { chmodChownHandler } from "../../src/core/audit/handlers/chmodChown.js";
 import { sedReplaceHandler } from "../../src/core/audit/handlers/sedReplace.js";
 import { aptUpgradeHandler } from "../../src/core/audit/handlers/aptUpgrade.js";
+import { systemctlHandler } from "../../src/core/audit/handlers/systemctl.js";
 
 const mockedSshExec = sshExec as jest.MockedFunction<typeof sshExec>;
 
@@ -961,5 +963,183 @@ describe("aptUpgradeHandler", () => {
       expect(chain!.length).toBe(1);
       expect(chain![0].params).toEqual({ type: "apt-upgrade", action: "upgrade" });
     });
+  });
+});
+
+// ─── Sysctl SSH connectivity check (D-20) ───────────────────────────────────
+
+// ─── fileWriteHandler ─────────────────────────────────────────────────────────
+
+describe("fileWriteHandler", () => {
+  describe("match", () => {
+    it("matches echo with single quotes and >", () => {
+      const result = fileWriteHandler.match("echo 'sshd: ALL' > /etc/hosts.allow");
+      expect(result).not.toBeNull();
+      expect(result!.line).toBe("sshd: ALL");
+      expect(result!.path).toBe("/etc/hosts.allow");
+    });
+
+    it("matches echo with double quotes and >", () => {
+      const result = fileWriteHandler.match('echo "content" > /etc/test.conf');
+      expect(result).not.toBeNull();
+    });
+
+    it("does NOT match >> (append)", () => {
+      const result = fileWriteHandler.match("echo 'line' >> /etc/test.conf");
+      expect(result).toBeNull();
+    });
+
+    it("does NOT match without path", () => {
+      const result = fileWriteHandler.match("echo 'hello'");
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("execute", () => {
+    beforeEach(() => mockedSshExec.mockReset());
+
+    it("writes content and returns success", async () => {
+      mockedSshExec
+        .mockResolvedValueOnce({ stdout: "old content", stderr: "", code: 0 })  // cat
+        .mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 });             // write
+
+      const params = { type: "file-write" as const, line: "new content", path: "/etc/test.conf" };
+      const result = await fileWriteHandler.execute(MOCK_IP, params);
+
+      expect(result.success).toBe(true);
+      expect(result.diff).toBeDefined();
+    });
+
+    it("skips when content already matches", async () => {
+      mockedSshExec
+        .mockResolvedValueOnce({ stdout: "exact content\n", stderr: "", code: 0 });
+
+      const params = { type: "file-write" as const, line: "exact content", path: "/etc/test.conf" };
+      const result = await fileWriteHandler.execute(MOCK_IP, params);
+
+      expect(result.success).toBe(true);
+      expect(result.skipped).toBe(true);
+    });
+  });
+});
+
+// ─── systemctlHandler ─────────────────────────────────────────────────────────
+
+describe("systemctlHandler", () => {
+  describe("match", () => {
+    it.each([
+      ["systemctl restart sshd", "restart", "sshd"],
+      ["systemctl enable auditd", "enable", "auditd"],
+      ["systemctl start auditd", "start", "auditd"],
+      ["systemctl reload docker", "reload", "docker"],
+      ["systemctl enable --now nftables", "enable", "nftables"],
+    ])("matches %s", (cmd, action, service) => {
+      const result = systemctlHandler.match(cmd);
+      expect(result).not.toBeNull();
+      expect(result!.action).toBe(action);
+      expect(result!.service).toBe(service);
+    });
+
+    it("does NOT match systemctl status", () => {
+      expect(systemctlHandler.match("systemctl status sshd")).toBeNull();
+    });
+
+    it("does NOT match without service name", () => {
+      expect(systemctlHandler.match("systemctl restart")).toBeNull();
+    });
+  });
+
+  describe("execute", () => {
+    beforeEach(() => mockedSshExec.mockReset());
+
+    it("runs systemctl and returns success", async () => {
+      mockedSshExec.mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 });
+
+      const params = { type: "systemctl" as const, action: "restart", now: false, service: "sshd" };
+      const result = await systemctlHandler.execute(MOCK_IP, params);
+
+      expect(result.success).toBe(true);
+    });
+
+    it("returns error on failure", async () => {
+      mockedSshExec.mockResolvedValueOnce({ stdout: "", stderr: "Unit not found", code: 5 });
+
+      const params = { type: "systemctl" as const, action: "start", now: false, service: "missing" };
+      const result = await systemctlHandler.execute(MOCK_IP, params);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Unit not found");
+    });
+  });
+});
+
+// ─── Handler chain integration: new handlers ──────────────────────────────────
+
+describe("resolveHandlerChain — new handler integration", () => {
+  it("resolves fileWrite + systemctl chain", () => {
+    const chain = resolveHandlerChain("echo 'sshd: ALL' > /etc/hosts.allow && systemctl restart sshd");
+    expect(chain).not.toBeNull();
+    expect(chain!.length).toBe(2);
+  });
+
+  it("resolves fileWrite + chmod chain", () => {
+    const chain = resolveHandlerChain("echo '0 3 * * * root /usr/sbin/aide --check' > /etc/cron.d/aide && chmod 644 /etc/cron.d/aide");
+    expect(chain).not.toBeNull();
+    expect(chain!.length).toBe(2);
+  });
+
+  it("resolves systemctl enable + systemctl start chain", () => {
+    const chain = resolveHandlerChain("systemctl enable auditd && systemctl start auditd");
+    expect(chain).not.toBeNull();
+    expect(chain!.length).toBe(2);
+  });
+});
+
+describe("sysctlHandler — SSH connectivity check for network sysctl", () => {
+  beforeEach(() => {
+    mockedSshExec.mockReset();
+  });
+
+  it("probes SSH after applying network sysctl and succeeds when alive", async () => {
+    // 1st call: read current value, 2nd: apply, 3rd: SSH probe
+    mockedSshExec
+      .mockResolvedValueOnce({ stdout: "0", stderr: "", code: 0 })   // read current
+      .mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 })    // apply
+      .mockResolvedValueOnce({ stdout: "ok", stderr: "", code: 0 }); // SSH probe
+
+    const params = { type: "sysctl" as const, key: "net.ipv4.tcp_syncookies", value: "1" };
+    const result = await sysctlHandler.execute(MOCK_IP, params);
+
+    expect(result.success).toBe(true);
+    expect(mockedSshExec).toHaveBeenCalledTimes(3);
+  });
+
+  it("rolls back and fails when SSH probe fails after network sysctl", async () => {
+    // 1st: read current, 2nd: apply, 3rd: SSH probe (returns non-ok), 4th: rollback attempt
+    mockedSshExec
+      .mockResolvedValueOnce({ stdout: "1", stderr: "", code: 0 })    // read current (value=1, we want 0)
+      .mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 })     // apply
+      .mockResolvedValueOnce({ stdout: "", stderr: "", code: 1 })     // probe: no "ok" output
+      .mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 });    // rollback
+
+    const params = { type: "sysctl" as const, key: "net.ipv4.conf.all.send_redirects", value: "0" };
+    const result = await sysctlHandler.execute(MOCK_IP, params);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("SSH connectivity lost");
+    expect(result.error).toContain("rolled back");
+  });
+
+  it("does NOT probe SSH for non-network sysctl (kernel.*)", async () => {
+    mockedSshExec
+      .mockResolvedValueOnce({ stdout: "0", stderr: "", code: 0 })  // read current
+      .mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 });   // apply
+
+    const params = { type: "sysctl" as const, key: "kernel.randomize_va_space", value: "2" };
+    const result = await sysctlHandler.execute(MOCK_IP, params);
+
+    expect(result.success).toBe(true);
+    // Only 2 calls: read + apply, no probe
+    expect(mockedSshExec).toHaveBeenCalledTimes(2);
   });
 });

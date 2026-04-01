@@ -181,8 +181,8 @@ export const parseNetworkChecks: CheckParser = (sectionOutput: string, platform:
         : "Unable to determine",
     expectedValue: "net.ipv6.conf.all.disable_ipv6 = 1",
     fixCommand: "sysctl -w net.ipv6.conf.all.disable_ipv6=1 && echo 'net.ipv6.conf.all.disable_ipv6=1' >> /etc/sysctl.conf",
-    safeToAutoFix: "SAFE",
-    explain: "Disabling IPv6 if not in use reduces attack surface and avoids misconfigured IPv6 stack vulnerabilities.",
+    safeToAutoFix: "GUARDED",
+    explain: "Disabling IPv6 if not in use reduces attack surface and avoids misconfigured IPv6 stack vulnerabilities. GUARDED: may break SSH if server uses IPv6 for connectivity.",
   };
 
   // NET-09: Send redirects disabled

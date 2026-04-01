@@ -3,26 +3,28 @@
  * Provides matchHandler(), resolveHandlerChain(), executeHandlerChain() for
  * replacing shell-metachar-blocked fixCommands with safe TypeScript handlers.
  *
- * Handler registration order: sysctl, fileAppend, packageInstall, chmodChown, aptUpgrade
+ * Handler registration order: sysctl, fileAppend, fileWrite, packageInstall, chmodChown, sedReplace, aptUpgrade, systemctl
  */
 
 import { sysctlHandler } from "./sysctl.js";
 import { fileAppendHandler } from "./fileAppend.js";
+import { fileWriteHandler } from "./fileWrite.js";
 import { packageInstallHandler } from "./packageInstall.js";
 import { chmodChownHandler } from "./chmodChown.js";
 import { sedReplaceHandler } from "./sedReplace.js";
 import { aptUpgradeHandler } from "./aptUpgrade.js";
+import { systemctlHandler } from "./systemctl.js";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export interface HandlerParams {
-  type: "sysctl" | "file-append" | "package-install" | "chmod-chown" | "sed-replace" | "apt-upgrade";
+  type: "sysctl" | "file-append" | "file-write" | "package-install" | "chmod-chown" | "sed-replace" | "apt-upgrade" | "systemctl";
   [key: string]: unknown;
 }
 
 /** Diff information collected during handler execution for --diff preview */
 export interface DiffLine {
-  handlerType: "sysctl" | "file-append" | "package-install" | "chmod-chown" | "sed-replace" | "apt-upgrade";
+  handlerType: "sysctl" | "file-append" | "file-write" | "package-install" | "chmod-chown" | "sed-replace" | "apt-upgrade" | "systemctl";
   key: string;
   before: string;
   after: string;
@@ -58,10 +60,12 @@ export interface FixHandler {
 const HANDLERS: FixHandler[] = [
   sysctlHandler,
   fileAppendHandler,
+  fileWriteHandler,
   packageInstallHandler,
   chmodChownHandler,
   sedReplaceHandler,
   aptUpgradeHandler,
+  systemctlHandler,
 ];
 
 // ─── matchHandler ──────────────────────────────────────────────────────────────

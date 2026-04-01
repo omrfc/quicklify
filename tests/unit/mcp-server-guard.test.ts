@@ -1,9 +1,14 @@
 import * as config from "../../src/utils/config";
 import * as guardCore from "../../src/core/guard";
 import { handleServerGuard } from "../../src/mcp/tools/serverGuard";
+import * as manage from "../../src/core/manage";
 
 jest.mock("../../src/utils/config");
 jest.mock("../../src/core/guard");
+jest.mock("../../src/core/manage", () => ({
+  ...jest.requireActual("../../src/core/manage"),
+  isSafeMode: jest.fn().mockReturnValue(false),
+}));
 
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedGuard = guardCore as jest.Mocked<typeof guardCore>;
@@ -214,5 +219,49 @@ describe("malformed params", () => {
     mockedConfig.findServer.mockReturnValue(sampleServer as never);
     const result = await handleServerGuard({ server: "my-server", action: null as unknown as Parameters<typeof handleServerGuard>[0]["action"] });
     expect(result.isError).toBe(true);
+  });
+});
+
+// ─── SAFE_MODE ───────────────────────────────────────────────────────────────
+
+describe("MCP server_guard — SAFE_MODE", () => {
+  const mockedManage = manage as jest.Mocked<typeof manage>;
+
+  it("should block start in SAFE_MODE", async () => {
+    mockedManage.isSafeMode.mockReturnValue(true);
+    mockedConfig.getServers.mockReturnValue([sampleServer] as never);
+    mockedConfig.findServer.mockReturnValue(sampleServer as never);
+
+    const result = await handleServerGuard({ server: "my-server", action: "start" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(data.error).toContain("SAFE_MODE");
+    expect(mockedGuard.startGuard).not.toHaveBeenCalled();
+  });
+
+  it("should block stop in SAFE_MODE", async () => {
+    mockedManage.isSafeMode.mockReturnValue(true);
+    mockedConfig.getServers.mockReturnValue([sampleServer] as never);
+    mockedConfig.findServer.mockReturnValue(sampleServer as never);
+
+    const result = await handleServerGuard({ server: "my-server", action: "stop" });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(data.error).toContain("SAFE_MODE");
+    expect(mockedGuard.stopGuard).not.toHaveBeenCalled();
+  });
+
+  it("should allow status in SAFE_MODE", async () => {
+    mockedManage.isSafeMode.mockReturnValue(true);
+    mockedConfig.getServers.mockReturnValue([sampleServer] as never);
+    mockedConfig.findServer.mockReturnValue(sampleServer as never);
+    mockedGuard.guardStatus.mockResolvedValue({ success: true, isActive: false, breaches: [], logTail: "" });
+
+    const result = await handleServerGuard({ server: "my-server", action: "status" });
+
+    expect(result.isError).toBeUndefined();
+    expect(mockedGuard.guardStatus).toHaveBeenCalled();
   });
 });
