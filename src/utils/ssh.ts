@@ -125,16 +125,18 @@ export function assertValidIp(ip: string): void {
   }
 }
 
+/** Env key substrings that indicate secrets — stripped from subprocess env */
+const SECRET_PATTERNS = [
+  "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL",
+  "API_KEY", "APIKEY", "AUTH_KEY", "AUTHKEY",
+  "PRIVATE_KEY", "ACCESS_KEY",
+];
+
 export function sanitizedEnv(): NodeJS.ProcessEnv {
   const env = { ...process.env };
   for (const key of Object.keys(env)) {
     const upper = key.toUpperCase();
-    if (
-      upper.includes("TOKEN") ||
-      upper.includes("SECRET") ||
-      upper.includes("PASSWORD") ||
-      upper.includes("CREDENTIAL")
-    ) {
+    if (SECRET_PATTERNS.some((p) => upper.includes(p))) {
       delete env[key];
     }
   }

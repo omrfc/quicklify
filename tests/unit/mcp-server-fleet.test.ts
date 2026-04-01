@@ -46,6 +46,7 @@ const sampleRows: FleetRow[] = [
 beforeEach(() => {
   jest.resetAllMocks();
   // Re-setup errorMapper after reset (resetAllMocks clears implementations)
+  mockedErrorMapper.sanitizeStderr.mockImplementation((s: string) => s);
   mockedErrorMapper.getErrorMessage.mockImplementation((err: unknown) =>
     err instanceof Error ? err.message : String(err),
   );
@@ -166,6 +167,7 @@ describe("malformed params", () => {
   beforeEach(() => {
     jest.resetAllMocks();
     mockedConfig.getServers.mockReturnValue([] as never);
+    mockedErrorMapper.sanitizeStderr.mockImplementation((s: string) => s);
     mockedErrorMapper.getErrorMessage.mockImplementation((err: unknown) =>
       err instanceof Error ? err.message : String(err),
     );

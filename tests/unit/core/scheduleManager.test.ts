@@ -1,5 +1,5 @@
-import { execSync } from "child_process";
-import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync } from "fs";
+import { spawnSync } from "child_process";
+import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from "fs";
 import {
   scheduleKey,
   parseScheduleKey,
@@ -13,13 +13,14 @@ import {
   SCHEDULE_MARKERS,
 } from "../../../src/core/scheduleManager";
 
-jest.mock("child_process", () => ({ execSync: jest.fn() }));
+jest.mock("child_process", () => ({ spawnSync: jest.fn() }));
 jest.mock("fs", () => ({
   appendFileSync: jest.fn(),
   mkdirSync: jest.fn(),
   readdirSync: jest.fn(),
   statSync: jest.fn(),
   unlinkSync: jest.fn(),
+  writeFileSync: jest.fn(),
 }));
 jest.mock("../../../src/core/backupSchedule.js", () => ({
   validateCronExpr: jest.fn(() => ({ valid: true })),
@@ -34,12 +35,13 @@ jest.mock("../../../src/core/notify.js", () => ({
 import * as backupSchedule from "../../../src/core/backupSchedule";
 import * as notify from "../../../src/core/notify";
 
-const mockedExecSync = execSync as jest.MockedFunction<typeof execSync>;
+const mockedSpawnSync = spawnSync as jest.MockedFunction<typeof spawnSync>;
 const mockedAppendFileSync = appendFileSync as jest.MockedFunction<typeof appendFileSync>;
 const mockedMkdirSync = mkdirSync as jest.MockedFunction<typeof mkdirSync>;
 const mockedReaddirSync = readdirSync as jest.MockedFunction<typeof readdirSync>;
 const mockedStatSync = statSync as jest.MockedFunction<typeof statSync>;
 const mockedUnlinkSync = unlinkSync as jest.MockedFunction<typeof unlinkSync>;
+const mockedWriteFileSync = writeFileSync as jest.MockedFunction<typeof writeFileSync>;
 const mockedValidateCronExpr = backupSchedule.validateCronExpr as jest.MockedFunction<typeof backupSchedule.validateCronExpr>;
 const mockedSaveSchedule = backupSchedule.saveSchedule as jest.MockedFunction<typeof backupSchedule.saveSchedule>;
 const mockedRemoveSchedule = backupSchedule.removeSchedule as jest.MockedFunction<typeof backupSchedule.removeSchedule>;
@@ -192,12 +194,12 @@ describe("SCHEDULE_MARKERS", () => {
 // ─── installLocalCron ────────────────────────────────────────────────────────
 
 describe("installLocalCron", () => {
-  it("returns windowsFallback:true on win32 without calling execSync", () => {
+  it("returns windowsFallback:true on win32 without calling spawnSync", () => {
     setPlatform("win32");
     const result = installLocalCron("0 3 * * *", "my-server", "fix");
     expect(result.success).toBe(true);
     expect(result.windowsFallback).toBe(true);
-    expect(mockedExecSync).not.toHaveBeenCalled();
+    expect(mockedSpawnSync).not.toHaveBeenCalled();
   });
 
   it("saves to schedules.json on win32", () => {
@@ -215,43 +217,52 @@ describe("installLocalCron", () => {
 
   it("uses fix command with --safe --no-interactive on linux for fix type", () => {
     setPlatform("linux");
+    mockedSpawnSync.mockReturnValue({ status: 0, stdout: "", stderr: "", pid: 0, output: [], signal: null } as never);
     installLocalCron("0 3 * * *", "my-server", "fix");
-    const call = mockedExecSync.mock.calls[0][0] as string;
-    expect(call).toContain("fix --safe --server");
-    expect(call).toContain("--no-interactive");
-    expect(call).toContain("my-server");
+    const written = mockedWriteFileSync.mock.calls[0][1] as string;
+    expect(written).toContain("fix --safe --server");
+    expect(written).toContain("--no-interactive");
+    expect(written).toContain("my-server");
   });
 
   it("uses audit command with --json on linux for audit type", () => {
     setPlatform("linux");
+    mockedSpawnSync.mockReturnValue({ status: 0, stdout: "", stderr: "", pid: 0, output: [], signal: null } as never);
     installLocalCron("0 3 * * *", "my-server", "audit");
-    const call = mockedExecSync.mock.calls[0][0] as string;
-    expect(call).toContain("audit --server");
-    expect(call).toContain("--json");
-    expect(call).toContain("my-server");
+    const written = mockedWriteFileSync.mock.calls[0][1] as string;
+    expect(written).toContain("audit --server");
+    expect(written).toContain("--json");
+    expect(written).toContain("my-server");
   });
 
   it("includes kastell-fix-schedule marker in cron entry for fix type", () => {
     setPlatform("linux");
+    mockedSpawnSync.mockReturnValue({ status: 0, stdout: "", stderr: "", pid: 0, output: [], signal: null } as never);
     installLocalCron("0 3 * * *", "my-server", "fix");
-    const call = mockedExecSync.mock.calls[0][0] as string;
-    expect(call).toContain("# kastell-fix-schedule");
+    const written = mockedWriteFileSync.mock.calls[0][1] as string;
+    expect(written).toContain("# kastell-fix-schedule");
   });
 
   it("includes kastell-audit-schedule marker in cron entry for audit type", () => {
     setPlatform("linux");
+    mockedSpawnSync.mockReturnValue({ status: 0, stdout: "", stderr: "", pid: 0, output: [], signal: null } as never);
     installLocalCron("0 3 * * *", "my-server", "audit");
-    const call = mockedExecSync.mock.calls[0][0] as string;
-    expect(call).toContain("# kastell-audit-schedule");
+    const written = mockedWriteFileSync.mock.calls[0][1] as string;
+    expect(written).toContain("# kastell-audit-schedule");
   });
 
-  it("uses crontab -l | grep -v | crontab - pattern", () => {
+  it("uses spawnSync crontab -l then crontab tmpFile pattern", () => {
     setPlatform("linux");
+    mockedSpawnSync.mockReturnValue({ status: 0, stdout: "", stderr: "", pid: 0, output: [], signal: null } as never);
     installLocalCron("0 3 * * *", "my-server", "fix");
-    const call = mockedExecSync.mock.calls[0][0] as string;
-    expect(call).toContain("crontab -l 2>/dev/null");
-    expect(call).toContain("grep -v");
-    expect(call).toContain("| crontab -");
+    // First call: crontab -l (read current)
+    expect(mockedSpawnSync.mock.calls[0][0]).toBe("crontab");
+    expect(mockedSpawnSync.mock.calls[0][1]).toEqual(["-l"]);
+    // Second call: crontab tmpFile (install)
+    expect(mockedSpawnSync.mock.calls[1][0]).toBe("crontab");
+    expect((mockedSpawnSync.mock.calls[1][1] as string[])[0]).toContain(".crontab-tmp");
+    // Temp file cleaned up
+    expect(mockedUnlinkSync).toHaveBeenCalled();
   });
 
   it("returns error when cron expression is invalid", () => {
@@ -271,6 +282,7 @@ describe("installLocalCron", () => {
 
   it("saves to schedules.json on linux", () => {
     setPlatform("linux");
+    mockedSpawnSync.mockReturnValue({ status: 0, stdout: "", stderr: "", pid: 0, output: [], signal: null } as never);
     installLocalCron("0 3 * * *", "my-server", "fix");
     expect(mockedSaveSchedule).toHaveBeenCalledWith("my-server:fix", "0 3 * * *");
   });
@@ -281,30 +293,36 @@ describe("installLocalCron", () => {
 describe("removeLocalCron", () => {
   it("calls removeSchedule with composite key", () => {
     setPlatform("linux");
+    mockedSpawnSync.mockReturnValue({ status: 0, stdout: "", stderr: "", pid: 0, output: [], signal: null } as never);
     removeLocalCron("my-server", "fix");
     expect(mockedRemoveSchedule).toHaveBeenCalledWith("my-server:fix");
   });
 
-  it("builds grep -v command with fix marker on linux", () => {
+  it("filters out fix marker lines via temp file on linux", () => {
     setPlatform("linux");
+    mockedSpawnSync.mockReturnValue({ status: 0, stdout: "0 3 * * * kastell fix # kastell-fix-schedule\n0 4 * * * other\n", stderr: "", pid: 0, output: [], signal: null } as never);
     removeLocalCron("my-server", "fix");
-    const call = mockedExecSync.mock.calls[0][0] as string;
-    expect(call).toContain("grep -v");
-    expect(call).toContain("# kastell-fix-schedule");
-    expect(call).toContain("| crontab -");
+    // Should write filtered content to temp file (marker line removed)
+    const written = mockedWriteFileSync.mock.calls[0][1] as string;
+    expect(written).not.toContain("# kastell-fix-schedule");
+    expect(written).toContain("other");
+    // Should call crontab with temp file
+    expect(mockedSpawnSync.mock.calls[1][0]).toBe("crontab");
+    expect((mockedSpawnSync.mock.calls[1][1] as string[])[0]).toContain(".crontab-tmp");
   });
 
-  it("builds grep -v command with audit marker on linux", () => {
+  it("filters out audit marker lines via temp file on linux", () => {
     setPlatform("linux");
+    mockedSpawnSync.mockReturnValue({ status: 0, stdout: "0 3 * * * kastell audit # kastell-audit-schedule\n", stderr: "", pid: 0, output: [], signal: null } as never);
     removeLocalCron("my-server", "audit");
-    const call = mockedExecSync.mock.calls[0][0] as string;
-    expect(call).toContain("# kastell-audit-schedule");
+    const written = mockedWriteFileSync.mock.calls[0][1] as string;
+    expect(written).not.toContain("# kastell-audit-schedule");
   });
 
-  it("does not call execSync on win32", () => {
+  it("does not call spawnSync on win32", () => {
     setPlatform("win32");
     removeLocalCron("my-server", "fix");
-    expect(mockedExecSync).not.toHaveBeenCalled();
+    expect(mockedSpawnSync).not.toHaveBeenCalled();
   });
 
   it("still calls removeSchedule on win32", () => {
@@ -354,11 +372,11 @@ describe("listLocalCron", () => {
     expect(result[0].server).toBe("my-server");
   });
 
-  it("does not call execSync (reads from schedules.json only)", () => {
+  it("does not call spawnSync (reads from schedules.json only)", () => {
     setPlatform("win32");
     mockedGetSchedules.mockReturnValue({ "my-server:fix": "0 3 * * *" });
     listLocalCron();
-    expect(mockedExecSync).not.toHaveBeenCalled();
+    expect(mockedSpawnSync).not.toHaveBeenCalled();
   });
 });
 

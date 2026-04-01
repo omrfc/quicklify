@@ -108,8 +108,9 @@ describe("backupFilesBeforeFix", () => {
     await backupFilesBeforeFix("1.2.3.4", "fix-2026-03-29-001", fixCommands);
 
     const calls = mockedSshExec.mock.calls.map(([, cmd]) => String(cmd));
-    // No restore-commands.sh for non-sysctl fixes
-    const restoreCalls = calls.filter(c => c.includes("restore-commands.sh"));
+    // No sysctl-generated restore-commands.sh for non-sysctl fixes
+    // The sha256 guard line ("test -f ... && sha256sum ... || true") always runs but is a no-op
+    const restoreCalls = calls.filter(c => c.includes("restore-commands.sh") && !c.includes("sha256sum"));
     expect(restoreCalls).toHaveLength(0);
   });
 
@@ -154,8 +155,10 @@ describe("rollbackFix", () => {
 
   it("should run restore-commands.sh when it exists", async () => {
     mockedSshExec
-      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" }))  // test -d backupPath
-      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" }))  // test -f restore-commands.sh
+      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" }))    // test -d backupPath
+      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" }))    // test -f restore-commands.sh
+      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" }))    // test -f restore-commands.sha256
+      .mockResolvedValueOnce(makeSshResult({ stdout: "verified" }))  // sha256sum -c verify
       .mockResolvedValueOnce(makeSshResult({ stdout: "", code: 0 })) // bash restore-commands.sh
       .mockResolvedValueOnce(makeSshResult({ stdout: "" }));         // find files (empty)
 
@@ -167,8 +170,10 @@ describe("rollbackFix", () => {
 
   it("should record error if restore-commands.sh fails", async () => {
     mockedSshExec
-      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" }))   // test -d backupPath
-      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" }))   // test -f restore-commands.sh
+      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" }))    // test -d backupPath
+      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" }))    // test -f restore-commands.sh
+      .mockResolvedValueOnce(makeSshResult({ stdout: "exists" }))    // test -f restore-commands.sha256
+      .mockResolvedValueOnce(makeSshResult({ stdout: "verified" }))  // sha256sum -c verify
       .mockResolvedValueOnce(makeSshResult({ stdout: "", code: 1 })) // bash restore-commands.sh FAILS
       .mockResolvedValueOnce(makeSshResult({ stdout: "" }));         // find files (empty)
 

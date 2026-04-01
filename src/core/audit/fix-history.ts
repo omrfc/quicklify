@@ -236,6 +236,8 @@ export async function backupFilesBeforeFix(
   for (const param of sysctlParams) {
     cmds.push(`echo "sysctl -w ${param}=$(sysctl -n ${param})" >> ${backupDir}/restore-commands.sh`);
   }
+  // Write SHA256 checksum of restore script for integrity verification during rollback
+  cmds.push(`test -f ${backupDir}/restore-commands.sh && sha256sum ${backupDir}/restore-commands.sh > ${backupDir}/restore-commands.sha256 || true`);
   await sshExec(ip, raw(cmds.join(" && ")));
 
   return backupDir;
@@ -259,9 +261,18 @@ export async function rollbackFix(
     return { restored, errors };
   }
 
-  // Restore sysctl values if restore script exists
+  // Restore sysctl values if restore script exists (with integrity check)
   const hasScript = await sshExec(ip, raw(`test -f ${backupPath}/restore-commands.sh && echo exists`));
   if (hasScript.stdout.includes("exists")) {
+    // Verify SHA256 integrity before executing
+    const hasChecksum = await sshExec(ip, raw(`test -f ${backupPath}/restore-commands.sha256 && echo exists`));
+    if (hasChecksum.stdout.includes("exists")) {
+      const verifyResult = await sshExec(ip, raw(`cd ${backupPath} && sha256sum -c restore-commands.sha256 --status && echo verified`));
+      if (!verifyResult.stdout.includes("verified")) {
+        errors.push("restore-commands.sh integrity check FAILED — script may have been tampered with");
+        return { restored, errors };
+      }
+    }
     const scriptResult = await sshExec(ip, raw(`bash ${backupPath}/restore-commands.sh`));
     if (scriptResult.code === 0) {
       restored.push("restore-commands.sh");

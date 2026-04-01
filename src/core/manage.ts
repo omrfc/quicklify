@@ -7,7 +7,6 @@ import { getProviderToken } from "./tokens.js";
 import { detectPlatform } from "../adapters/factory.js";
 import type { ServerRecord, ServerMode, Platform } from "../types/index.js";
 import { SUPPORTED_PROVIDERS, invalidProviderError, COOLIFY_PORT, DOKPLOY_PORT } from "../constants.js";
-import chalk from "chalk";
 
 // Re-export from dedicated module for backward compatibility
 export { isSafeMode } from "../utils/safeMode.js";

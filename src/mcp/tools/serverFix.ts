@@ -37,7 +37,7 @@ import {
   mcpLog,
   type McpResponse,
 } from "../utils.js";
-import { getErrorMessage } from "../../utils/errorMapper.js";
+import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 export const serverFixSchema = {
@@ -536,7 +536,7 @@ export async function handleServerFix(
       ...(reportFile ? { reportFile } : {}),
     });
   } catch (error: unknown) {
-    return mcpError(getErrorMessage(error));
+    return mcpError(sanitizeStderr(getErrorMessage(error)));
   }
 }
 

@@ -1,5 +1,5 @@
-import { execSync } from "child_process";
-import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync } from "fs";
+import { spawnSync } from "child_process";
+import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from "fs";
 import { join } from "path";
 import {
   validateCronExpr,
@@ -12,6 +12,27 @@ import { sanitizedEnv } from "../utils/ssh.js";
 import { dispatchWithCooldown } from "../core/notify.js";
 
 export type ScheduleType = "fix" | "audit";
+
+const CRONTAB_TMP = join(CONFIG_DIR, ".crontab-tmp");
+
+/** Read current crontab, filter lines by marker, optionally add new entry, install via temp file */
+function updateCrontab(marker: string, newEntry?: string): { success: boolean; error?: string } {
+  const current = spawnSync("crontab", ["-l"], { encoding: "utf8", env: sanitizedEnv() });
+  const lines = (current.status === 0 ? current.stdout : "")
+    .split("\n")
+    .filter((line) => !line.includes(marker));
+  if (newEntry) lines.push(newEntry);
+  writeFileSync(CRONTAB_TMP, lines.join("\n") + "\n", { mode: 0o600 });
+  try {
+    const install = spawnSync("crontab", [CRONTAB_TMP], { encoding: "utf8", env: sanitizedEnv() });
+    if (install.status !== 0) {
+      return { success: false, error: install.stderr || "crontab update failed" };
+    }
+    return { success: true };
+  } finally {
+    try { unlinkSync(CRONTAB_TMP); } catch { /* already cleaned */ }
+  }
+}
 
 export interface LocalCronResult {
   success: boolean;
@@ -91,10 +112,10 @@ export function installLocalCron(
 
   const marker = SCHEDULE_MARKERS[type];
   const entry = `${cronExpr} ${command} ${marker}`;
-  const cronInstallCmd = `(crontab -l 2>/dev/null | grep -v '${marker}'; echo '${entry}') | crontab -`;
 
   try {
-    execSync(cronInstallCmd, { env: sanitizedEnv() });
+    const result = updateCrontab(marker, entry);
+    if (!result.success) return result;
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : String(err) };
   }
@@ -107,9 +128,9 @@ export function removeLocalCron(serverName: string, type: ScheduleType): LocalCr
   const marker = SCHEDULE_MARKERS[type];
 
   if (process.platform !== "win32") {
-    const cronRemoveCmd = `(crontab -l 2>/dev/null | grep -v '${marker}') | crontab -`;
     try {
-      execSync(cronRemoveCmd, { env: sanitizedEnv() });
+      const result = updateCrontab(marker);
+      if (!result.success) return result;
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) };
     }

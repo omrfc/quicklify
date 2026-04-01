@@ -8,7 +8,7 @@ import {
   mcpLog,
   type McpResponse,
 } from "../utils.js";
-import { getErrorMessage } from "../../utils/errorMapper.js";
+import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
 import { isSafeMode } from "../../core/manage.js";
 import type { Platform } from "../../types/index.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -95,6 +95,6 @@ export async function handleServerLock(params: {
       scoreAfter: result.scoreAfter,
     });
   } catch (error: unknown) {
-    return mcpError(getErrorMessage(error));
+    return mcpError(sanitizeStderr(getErrorMessage(error)));
   }
 }

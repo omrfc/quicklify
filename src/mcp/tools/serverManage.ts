@@ -134,6 +134,12 @@ export async function handleServerManage(params: {
       }
 
       case "remove": {
+        if (isSafeMode()) {
+          return mcpError(
+            "Remove is disabled in SAFE_MODE",
+            "Set KASTELL_SAFE_MODE=false to enable server removal from local config.",
+          );
+        }
         if (!params.server) {
           const servers = getServers();
           if (servers.length === 0) {

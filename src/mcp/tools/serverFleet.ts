@@ -2,7 +2,7 @@ import { z } from "zod";
 import { getServers } from "../../utils/config.js";
 import { runFleet } from "../../core/fleet.js";
 import { mcpSuccess, mcpError, type McpResponse } from "../utils.js";
-import { getErrorMessage } from "../../utils/errorMapper.js";
+import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
 
 export const serverFleetSchema = {
   sort: z
@@ -27,6 +27,6 @@ export async function handleServerFleet(params: {
 
     return mcpSuccess({ servers: rows.length, rows });
   } catch (error: unknown) {
-    return mcpError(getErrorMessage(error));
+    return mcpError(sanitizeStderr(getErrorMessage(error)));
   }
 }

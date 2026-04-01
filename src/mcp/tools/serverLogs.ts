@@ -9,7 +9,7 @@ import {
   mcpError,
   type McpResponse,
 } from "../utils.js";
-import { getErrorMessage } from "../../utils/errorMapper.js";
+import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
 import type { LogService } from "../../core/logs.js";
 
 export const serverLogsSchema = {
@@ -174,6 +174,6 @@ export async function handleServerLogs(params: {
       }
     }
   } catch (error: unknown) {
-    return mcpError(getErrorMessage(error));
+    return mcpError(sanitizeStderr(getErrorMessage(error)));
   }
 }

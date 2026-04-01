@@ -73,17 +73,17 @@
     "url": "https://github.com/sponsors/omrfc"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
-    "@napi-rs/keyring": "^1.2.0",
-    "axios": "^1.13.6",
-    "chalk": "^5.6.2",
-    "commander": "^14.0.3",
-    "grammy": "^1.41.1",
-    "inquirer": "^12.3.2",
-    "js-yaml": "^4.1.1",
-    "ora": "^9.3.0",
-    "p-limit": "^7.3.0",
-    "zod": "^4.3.6"
+    "@modelcontextprotocol/sdk": "1.27.1",
+    "@napi-rs/keyring": "1.2.0",
+    "axios": "1.13.6",
+    "chalk": "5.6.2",
+    "commander": "14.0.3",
+    "grammy": "1.41.1",
+    "inquirer": "12.11.1",
+    "js-yaml": "4.1.1",
+    "ora": "9.3.0",
+    "p-limit": "7.3.0",
+    "zod": "4.3.6"
   },
   "overrides": {
     "minimatch": "^10.2.4"

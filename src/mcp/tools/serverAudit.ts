@@ -8,7 +8,7 @@ import {
   mcpLog,
   type McpResponse,
 } from "../utils.js";
-import { getErrorMessage } from "../../utils/errorMapper.js";
+import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
 import { calculateComplianceDetail } from "../../core/audit/compliance/scoring.js";
 import { FRAMEWORK_KEY_MAP } from "../../core/audit/compliance/types.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -160,6 +160,6 @@ export async function handleServerAudit(params: {
 
     return mcpSuccess(responseData);
   } catch (error: unknown) {
-    return mcpError(getErrorMessage(error));
+    return mcpError(sanitizeStderr(getErrorMessage(error)));
   }
 }

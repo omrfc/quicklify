@@ -7,7 +7,7 @@ import {
   mcpError,
   type McpResponse,
 } from "../utils.js";
-import { getErrorMessage } from "../../utils/errorMapper.js";
+import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
 import { isSafeMode } from "../../core/manage.js";
 
 export const serverGuardSchema = {
@@ -90,6 +90,6 @@ export async function handleServerGuard(params: {
         return mcpError(`Invalid action: ${String(params.action)}`, "Valid actions: start, stop, status");
     }
   } catch (error: unknown) {
-    return mcpError(getErrorMessage(error));
+    return mcpError(sanitizeStderr(getErrorMessage(error)));
   }
 }

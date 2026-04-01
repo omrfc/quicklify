@@ -15,7 +15,7 @@ import {
   mcpError,
   type McpResponse,
 } from "../utils.js";
-import { getErrorMessage } from "../../utils/errorMapper.js";
+import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
 
 export const serverMaintainSchema = {
   action: z.enum(["update", "restart", "maintain"]).describe(
@@ -230,6 +230,6 @@ export async function handleServerMaintain(params: {
       }
     }
   } catch (error: unknown) {
-    return mcpError(getErrorMessage(error));
+    return mcpError(sanitizeStderr(getErrorMessage(error)));
   }
 }

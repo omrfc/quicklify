@@ -8,7 +8,7 @@ import {
 } from "../utils.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { requireManagedMode } from "../../utils/modeGuard.js";
-import { getErrorMessage } from "../../utils/errorMapper.js";
+import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
 import { isSafeMode } from "../../core/manage.js";
 import {
   handleSecureSetup,
@@ -117,6 +117,6 @@ export async function handleServerSecure(params: {
       }
     }
   } catch (error: unknown) {
-    return mcpError(getErrorMessage(error));
+    return mcpError(sanitizeStderr(getErrorMessage(error)));
   }
 }

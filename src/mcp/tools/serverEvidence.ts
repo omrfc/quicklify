@@ -12,7 +12,7 @@ import {
   mcpError,
   type McpResponse,
 } from "../utils.js";
-import { getErrorMessage } from "../../utils/errorMapper.js";
+import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
 
 export const serverEvidenceSchema = {
   server: z
@@ -99,6 +99,6 @@ export async function handleServerEvidence(params: {
       manifestPath,
     });
   } catch (error: unknown) {
-    return mcpError(getErrorMessage(error));
+    return mcpError(sanitizeStderr(getErrorMessage(error)));
   }
 }

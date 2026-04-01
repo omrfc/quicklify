@@ -10,7 +10,7 @@ import {
   mcpError,
   type McpResponse,
 } from "../utils.js";
-import { getErrorMessage } from "../../utils/errorMapper.js";
+import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
 
 export const serverDoctorSchema = {
   server: z.string().optional().describe("Server name or IP. Auto-selected if only one server exists."),
@@ -128,6 +128,6 @@ export async function handleServerDoctor(params: {
       findings: findingLines,
     });
   } catch (error: unknown) {
-    return mcpError(getErrorMessage(error));
+    return mcpError(sanitizeStderr(getErrorMessage(error)));
   }
 }

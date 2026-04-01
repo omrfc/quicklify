@@ -3,7 +3,7 @@ import { getServers, findServer } from "../../utils/config.js";
 import { checkServerStatus, checkAllServersStatus } from "../../core/status.js";
 import { getAdapter, resolvePlatform } from "../../adapters/factory.js";
 import { getProviderToken, collectProviderTokensFromEnv } from "../../core/tokens.js";
-import { getErrorMessage } from "../../utils/errorMapper.js";
+import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
 import { isBareServer } from "../../utils/modeGuard.js";
 import { sshExec, isHostKeyMismatch } from "../../utils/ssh.js";
 import { raw } from "../../utils/sshCommand.js";
@@ -399,6 +399,6 @@ export async function handleServerInfo(params: {
         );
     }
   } catch (error: unknown) {
-    return mcpError(getErrorMessage(error));
+    return mcpError(sanitizeStderr(getErrorMessage(error)));
   }
 }
