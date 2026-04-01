@@ -5,6 +5,30 @@ import { isValidPort } from "../core/firewall.js";
 
 const BACK = "__back__";
 
+// ─── Shared validators ──────────────────────────────────────────────────────
+
+const validateRequired = (msg: string) => (v: string) =>
+  v.trim().length > 0 ? true : msg;
+
+const validateScore = (v: string) => {
+  const num = Number(v);
+  return num >= 0 && num <= 100 ? true : "Enter 0-100";
+};
+
+const validateColonPair = (msg: string) => (v: string) => {
+  const parts = v.split(":");
+  return parts.length === 2 && parts[0].length > 0 && parts[1].length > 0
+    ? true
+    : msg;
+};
+
+const SCHEDULE_COMMANDS: Record<string, string> = {
+  "schedule-fix": "fix",
+  "schedule-audit": "audit",
+  "schedule-list": "list",
+  "schedule-remove": "remove",
+};
+
 interface MenuAction {
   name: string;
   value: string;
@@ -82,6 +106,16 @@ const MENU: MenuCategory[] = [
     actions: [
       { name: "Manage notifications", value: "notify", description: "Add Telegram or Discord/Slack webhook for alerts" },
       { name: "Start Telegram bot", value: "bot", description: "Start Telegram bot for read-only server commands (foreground)" },
+    ],
+  },
+  {
+    label: "Scheduling",
+    emoji: "\u23F0",
+    actions: [
+      { name: "Schedule automatic fix runs", value: "schedule-fix", description: "Install a local cron for periodic kastell fix --safe" },
+      { name: "Schedule automatic audit runs", value: "schedule-audit", description: "Install a local cron for periodic kastell audit" },
+      { name: "List installed schedules", value: "schedule-list", description: "Show all fix/audit schedules" },
+      { name: "Remove a schedule", value: "schedule-remove", description: "Remove an installed fix or audit schedule" },
     ],
   },
   {
@@ -295,11 +329,13 @@ async function promptDomain(): Promise<string[] | null> {
 async function promptSnapshot(): Promise<string[] | null> {
   const sub = await promptList("Snapshot action:", [
     { name: "List snapshots", value: "list" },
+    { name: "List all servers' snapshots", value: "list-all" },
     { name: "Create a snapshot", value: "create" },
     { name: "Restore from snapshot", value: "restore" },
     { name: "Delete a snapshot", value: "delete" },
   ]);
   if (!sub) return null;
+  if (sub === "list-all") return ["snapshot", "list", "--all"];
   return ["snapshot", sub];
 }
 
@@ -318,10 +354,14 @@ async function promptMaintain(): Promise<string[] | null> {
   const mode = await promptList("Maintenance mode:", [
     { name: "Full cycle (update + reboot)", value: "full" },
     { name: "Skip reboot (business hours)", value: "skip-reboot" },
+    { name: "All servers at once", value: "all" },
+    { name: "Dry run (preview steps)", value: "dry-run" },
   ]);
   if (!mode) return null;
   const args = ["maintain"];
   if (mode === "skip-reboot") args.push("--skip-reboot");
+  else if (mode === "all") args.push("--all");
+  else if (mode === "dry-run") args.push("--dry-run");
   return args;
 }
 
@@ -329,10 +369,12 @@ async function promptStatus(): Promise<string[] | null> {
   const mode = await promptList("Status check:", [
     { name: "Single server", value: "single" },
     { name: "All servers at once", value: "all" },
+    { name: "With auto-restart if platform is down", value: "autostart" },
   ]);
   if (!mode) return null;
   const args = ["status"];
   if (mode === "all") args.push("--all");
+  if (mode === "autostart") args.push("--autostart");
   return args;
 }
 
@@ -354,8 +396,13 @@ async function promptDoctor(): Promise<string[] | null> {
     { name: "Interactive fix mode", value: "fix" },
     { name: "Auto-fix (diagnose + fix all)", value: "auto-fix" },
     { name: "Auto-fix dry run (preview only)", value: "auto-fix-dry" },
+    { name: "JSON output", value: "json" },
+    { name: "Check local tokens (no server)", value: "check-tokens" },
   ]);
   if (!mode) return null;
+  if (mode === "check-tokens") return ["doctor", "--check-tokens"];
+  if (mode === "json") return ["doctor", "--fresh", "--json"];
+
   const args = ["doctor"];
   if (mode === "fresh") args.push("--fresh");
   if (mode === "fix") {
@@ -424,11 +471,32 @@ async function promptBackup(): Promise<string[] | null> {
   const sub = await promptList("Backup action:", [
     { name: "Create a new backup", value: "create" },
     { name: "Backup all servers", value: "all" },
+    { name: "Dry run (preview)", value: "dry-run" },
+    { name: "Manage backup schedule", value: "schedule" },
   ]);
   if (!sub) return null;
 
+  if (sub === "schedule") {
+    const schedAction = await promptList("Backup schedule:", [
+      { name: "Set cron schedule", value: "set" },
+      { name: "List current schedule", value: "list" },
+      { name: "Remove schedule", value: "remove" },
+    ]);
+    if (!schedAction) return null;
+    if (schedAction === "list") return ["backup", "--schedule", "list"];
+    if (schedAction === "remove") return ["backup", "--schedule", "remove"];
+    const { cron } = await inquirer.prompt([{
+      type: "input",
+      name: "cron",
+      message: "Cron expression (e.g. 0 2 * * *):",
+      validate: validateRequired("Cron expression required"),
+    }]);
+    return ["backup", "--schedule", cron];
+  }
+
   const args = ["backup"];
   if (sub === "all") args.push("--all");
+  if (sub === "dry-run") args.push("--dry-run");
   return args;
 }
 
@@ -443,7 +511,7 @@ async function promptImport(): Promise<string[] | null> {
       type: "input",
       name: "path",
       message: "Path to JSON file to import:",
-      validate: (v: string) => (v.trim().length > 0 ? true : "File path is required"),
+      validate: validateRequired("File path is required"),
     },
   ]);
   return ["import", path];
@@ -458,6 +526,14 @@ async function promptAudit(): Promise<string[] | null> {
     { name: "List all checks (no scan)", value: "list-checks" },
     { name: "Run with compliance profile", value: "profile" },
     { name: "Compliance framework report", value: "compliance" },
+    { name: "Save snapshot", value: "snapshot" },
+    { name: "List saved snapshots", value: "snapshots" },
+    { name: "Compare two servers", value: "compare" },
+    { name: "Score trend over time", value: "trend" },
+    { name: "Watch mode (auto-refresh)", value: "watch" },
+    { name: "Audit unregistered server by IP", value: "host" },
+    { name: "CI gate (exit 1 if below threshold)", value: "threshold" },
+    { name: "Generate report (HTML/Markdown)", value: "report" },
   ]);
   if (!mode) return null;
 
@@ -469,12 +545,7 @@ async function promptAudit(): Promise<string[] | null> {
         type: "input",
         name: "diffRef",
         message: "Diff reference (e.g. pre-upgrade:latest or pre-upgrade:post-upgrade):",
-        validate: (v: string) => {
-          const parts = v.split(":");
-          return parts.length === 2 && parts[0].length > 0 && parts[1].length > 0
-            ? true
-            : "Format: before:after (e.g. pre-upgrade:latest)";
-        },
+        validate: validateColonPair("Format: before:after (e.g. pre-upgrade:latest)"),
       },
     ]);
     return ["audit", "--diff", diffRef];
@@ -492,6 +563,80 @@ async function promptAudit(): Promise<string[] | null> {
   }
 
   if (mode === "list-checks") return ["audit", "--list-checks"];
+
+  if (mode === "snapshot") {
+    const { snapName } = await inquirer.prompt([
+      { type: "input", name: "snapName", message: "Snapshot name (leave empty for auto):", default: "" },
+    ]);
+    return snapName ? ["audit", "--snapshot", snapName] : ["audit", "--snapshot"];
+  }
+
+  if (mode === "snapshots") return ["audit", "--snapshots"];
+
+  if (mode === "compare") {
+    const { compareRef } = await inquirer.prompt([
+      {
+        type: "input",
+        name: "compareRef",
+        message: "Compare (server1:server2):",
+        validate: validateColonPair("Format: server1:server2"),
+      },
+    ]);
+    return ["audit", "--compare", compareRef];
+  }
+
+  if (mode === "trend") {
+    const days = await promptList("Time range:", [
+      { name: "Last 7 days", value: "7" },
+      { name: "Last 30 days", value: "30" },
+      { name: "All time", value: "0" },
+    ]);
+    if (!days) return null;
+    return days === "0" ? ["audit", "--trend"] : ["audit", "--trend", "--days", days];
+  }
+
+  if (mode === "watch") {
+    const interval = await promptList("Refresh interval:", [
+      { name: "30 seconds", value: "30" },
+      { name: "60 seconds", value: "60" },
+      { name: "300 seconds (5 min)", value: "300" },
+    ]);
+    if (!interval) return null;
+    return ["audit", "--watch", interval];
+  }
+
+  if (mode === "host") {
+    const { hostAddr } = await inquirer.prompt([
+      {
+        type: "input",
+        name: "hostAddr",
+        message: "Server address (user@ip):",
+        validate: (v: string) => (v.includes("@") ? true : "Format: user@ip"),
+      },
+    ]);
+    return ["audit", "--host", hostAddr];
+  }
+
+  if (mode === "threshold") {
+    const { thresholdScore } = await inquirer.prompt([
+      {
+        type: "input",
+        name: "thresholdScore",
+        message: "Minimum score (exit 1 if below):",
+        validate: validateScore,
+      },
+    ]);
+    return ["audit", "--threshold", thresholdScore];
+  }
+
+  if (mode === "report") {
+    const reportFormat = await promptList("Report format:", [
+      { name: "Markdown (.md)", value: "md" },
+      { name: "HTML (.html)", value: "html" },
+    ]);
+    if (!reportFormat) return null;
+    return ["audit", "--report", reportFormat];
+  }
 
   if (mode === "profile") {
     const profile = await promptList("Compliance profile:", [
@@ -625,11 +770,13 @@ async function promptLock(): Promise<string[] | null> {
   const mode = await promptList("Lock mode:", [
     { name: "Dry run (preview changes)", value: "dry-run" },
     { name: "Apply production hardening", value: "production" },
+    { name: "Apply production (skip confirmation)", value: "production-force" },
   ]);
   if (!mode) return null;
 
   const args = ["lock"];
   if (mode === "dry-run") args.push("--dry-run");
+  else if (mode === "production-force") args.push("--production", "--force");
   else args.push("--production");
   return args;
 }
@@ -646,13 +793,18 @@ async function promptFix(): Promise<string[] | null> {
       { name: "Dry run (preview safe fixes)", value: "dry-run" },
       { name: "Apply safe fixes (backup + fix + verify)", value: "apply" },
       { name: "Apply with profile filter", value: "profile" },
+      { name: "Apply with category filter", value: "category" },
       { name: "Apply top N fixes by impact", value: "top" },
       { name: "Apply until target score", value: "target" },
+      { name: "Apply with diff preview", value: "diff" },
+      { name: "Apply and generate report", value: "report" },
     ]);
     if (!mode) return null;
 
     if (mode === "dry-run") return ["fix", "--safe", "--dry-run"];
     if (mode === "apply") return ["fix", "--safe"];
+    if (mode === "diff") return ["fix", "--safe", "--diff"];
+    if (mode === "report") return ["fix", "--safe", "--report"];
 
     if (mode === "profile") {
       const profileNames = listAllProfileNames();
@@ -660,6 +812,16 @@ async function promptFix(): Promise<string[] | null> {
       const profile = await promptList("Fix profile:", choices);
       if (!profile) return null;
       return ["fix", "--safe", "--profile", profile];
+    }
+
+    if (mode === "category") {
+      const { cats } = await inquirer.prompt([{
+        type: "input",
+        name: "cats",
+        message: "Category filter (comma-separated, e.g. Auth,Kernel):",
+        validate: validateRequired("Enter at least one category"),
+      }]);
+      return ["fix", "--safe", "--category", cats];
     }
 
     if (mode === "top") {
@@ -680,10 +842,7 @@ async function promptFix(): Promise<string[] | null> {
         type: "input",
         name: "score",
         message: "Target score (0-100):",
-        validate: (v: string) => {
-          const num = Number(v);
-          return num >= 0 && num <= 100 ? true : "Enter 0-100";
-        },
+        validate: validateScore,
       }]);
       return ["fix", "--safe", "--target", score];
     }
@@ -694,18 +853,29 @@ async function promptFix(): Promise<string[] | null> {
       { name: "View fix history", value: "view" },
       { name: "Rollback a specific fix", value: "rollback" },
       { name: "Rollback all fixes", value: "rollback-all" },
+      { name: "Rollback down to a specific fix", value: "rollback-to" },
     ]);
     if (!action) return null;
 
     if (action === "view") return ["fix", "--history"];
     if (action === "rollback-all") return ["fix", "--rollback-all"];
 
+    if (action === "rollback-to") {
+      const { fixId } = await inquirer.prompt([{
+        type: "input",
+        name: "fixId",
+        message: "Rollback down to fix ID:",
+        validate: validateRequired("Fix ID required"),
+      }]);
+      return ["fix", "--rollback-to", fixId];
+    }
+
     if (action === "rollback") {
       const { fixId } = await inquirer.prompt([{
         type: "input",
         name: "fixId",
         message: "Fix ID (or 'last'):",
-        validate: (v: string) => (v.trim().length > 0 ? true : "Fix ID required"),
+        validate: validateRequired("Fix ID required"),
       }]);
       return ["fix", "--rollback", fixId];
     }
@@ -718,8 +888,15 @@ async function promptEvidence(): Promise<string[] | null> {
   const action = await promptList("Evidence collection:", [
     { name: "Collect with default label", value: "default" },
     { name: "Collect with custom label", value: "custom" },
+    { name: "Collect (overwrite existing)", value: "force" },
+    { name: "Collect (JSON manifest output)", value: "json" },
   ]);
   if (!action) return null;
+
+  const args = ["evidence"];
+
+  if (action === "force") args.push("--force");
+  if (action === "json") args.push("--json");
 
   if (action === "custom") {
     const { name } = await inquirer.prompt([
@@ -730,9 +907,31 @@ async function promptEvidence(): Promise<string[] | null> {
         default: "manual",
       },
     ]);
-    return ["evidence", "--name", name];
+    args.push("--name", name);
+  } else {
+    args.push("--name", "manual");
   }
-  return ["evidence", "--name", "manual"];
+
+  const options = await promptList("Collection options:", [
+    { name: "Full collection (default)", value: "full" },
+    { name: "Skip Docker data", value: "no-docker" },
+    { name: "Skip system info", value: "no-sysinfo" },
+    { name: "Skip Docker + system info", value: "no-both" },
+  ]);
+  if (!options) return null;
+
+  if (options === "no-docker" || options === "no-both") args.push("--no-docker");
+  if (options === "no-sysinfo" || options === "no-both") args.push("--no-sysinfo");
+
+  const lines = await promptList("Log lines to collect:", [
+    { name: "100 lines", value: "100" },
+    { name: "500 lines (default)", value: "500" },
+    { name: "1000 lines", value: "1000" },
+  ]);
+  if (!lines) return null;
+  if (lines !== "500") args.push("--lines", lines);
+
+  return args;
 }
 
 async function promptGuard(): Promise<string[] | null> {
@@ -754,6 +953,21 @@ async function promptNotify(): Promise<string[] | null> {
   ]);
   if (!sub) return null;
   return ["notify", sub];
+}
+
+async function promptFleet(): Promise<string[] | null> {
+  const mode = await promptList("Fleet output:", [
+    { name: "Dashboard (default)", value: "default" },
+    { name: "JSON output", value: "json" },
+    { name: "Sort by score", value: "sort-score" },
+    { name: "Sort by provider", value: "sort-provider" },
+  ]);
+  if (!mode) return null;
+  const args = ["fleet"];
+  if (mode === "json") args.push("--json");
+  if (mode === "sort-score") args.push("--sort", "score");
+  if (mode === "sort-provider") args.push("--sort", "provider");
+  return args;
 }
 
 async function promptCompletions(): Promise<string[] | null> {
@@ -789,13 +1003,14 @@ const SUB_PROMPTS: Record<string, () => Promise<string[] | null>> = {
   fix: promptFix,
   evidence: promptEvidence,
   guard: promptGuard,
+  fleet: promptFleet,
   notify: promptNotify,
   completions: promptCompletions,
 };
 
 const DIRECT_COMMANDS = new Set([
   "list", "add", "destroy", "restart", "remove", "restore", "export", "config",
-  "health", "fleet", "backup-list", "version", "changelog",
+  "health", "backup-list", "version", "changelog",
 ]);
 
 export async function interactiveMenu(): Promise<string[] | null> {
@@ -818,6 +1033,7 @@ export async function interactiveMenu(): Promise<string[] | null> {
     // Special compound commands
     if (action === "backup-list") return ["backup", "list"];
     if (action === "bot") return ["bot", "start"];
+    if (action in SCHEDULE_COMMANDS) return ["schedule", SCHEDULE_COMMANDS[action]];
 
     if (DIRECT_COMMANDS.has(action)) {
       return [action];

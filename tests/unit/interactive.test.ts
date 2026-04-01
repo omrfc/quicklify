@@ -541,6 +541,43 @@ describe("interactiveMenu", () => {
     // health is not in SUB_PROMPTS either, so it falls through
     expect(await interactiveMenu()).toEqual(["health"]);
   });
+
+  // ─── Schedule commands (compound mapping) ────────────────────────────────────
+
+  it("schedule-fix: returns ['schedule', 'fix']", async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ action: "schedule-fix" });
+    expect(await interactiveMenu()).toEqual(["schedule", "fix"]);
+  });
+
+  it("schedule-audit: returns ['schedule', 'audit']", async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ action: "schedule-audit" });
+    expect(await interactiveMenu()).toEqual(["schedule", "audit"]);
+  });
+
+  it("schedule-list: returns ['schedule', 'list']", async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ action: "schedule-list" });
+    expect(await interactiveMenu()).toEqual(["schedule", "list"]);
+  });
+
+  it("schedule-remove: returns ['schedule', 'remove']", async () => {
+    mockedInquirer.prompt.mockResolvedValueOnce({ action: "schedule-remove" });
+    expect(await interactiveMenu()).toEqual(["schedule", "remove"]);
+  });
+});
+
+// ─── buildSearchSource — schedule items ────────────────────────────────────────
+
+describe("buildSearchSource — schedule items", () => {
+  it("matches schedule-fix by search term 'schedule'", () => {
+    const choices = buildSearchSource("schedule");
+    expect(choices.some((c: unknown) => typeof c === "object" && c !== null && "value" in c && (c as { value: string }).value === "schedule-fix")).toBe(true);
+    expect(choices.some((c: unknown) => typeof c === "object" && c !== null && "value" in c && (c as { value: string }).value === "schedule-audit")).toBe(true);
+  });
+
+  it("matches schedule-fix by description 'cron'", () => {
+    const choices = buildSearchSource("cron");
+    expect(choices.some((c: unknown) => typeof c === "object" && c !== null && "value" in c && (c as { value: string }).value === "schedule-fix")).toBe(true);
+  });
 });
 
 // ─── promptFix — nested menu ─────────────────────────────────────────────────
@@ -658,5 +695,269 @@ describe("promptFix — nested menu", () => {
       .mockResolvedValueOnce({ action: "exit" });
 
     expect(await interactiveMenu()).toBeNull();
+  });
+
+  it("apply with category filter: returns ['fix', '--safe', '--category', 'Auth']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fix" })
+      .mockResolvedValueOnce({ answer: "apply" })
+      .mockResolvedValueOnce({ answer: "category" })
+      .mockResolvedValueOnce({ cats: "Auth" });
+
+    expect(await interactiveMenu()).toEqual(["fix", "--safe", "--category", "Auth"]);
+  });
+
+  it("apply with diff: returns ['fix', '--safe', '--diff']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fix" })
+      .mockResolvedValueOnce({ answer: "apply" })
+      .mockResolvedValueOnce({ answer: "diff" });
+
+    expect(await interactiveMenu()).toEqual(["fix", "--safe", "--diff"]);
+  });
+
+  it("apply with report: returns ['fix', '--safe', '--report']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fix" })
+      .mockResolvedValueOnce({ answer: "apply" })
+      .mockResolvedValueOnce({ answer: "report" });
+
+    expect(await interactiveMenu()).toEqual(["fix", "--safe", "--report"]);
+  });
+
+  it("history rollback-to: returns ['fix', '--rollback-to', 'fix-2026-04-01-001']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fix" })
+      .mockResolvedValueOnce({ answer: "history" })
+      .mockResolvedValueOnce({ answer: "rollback-to" })
+      .mockResolvedValueOnce({ fixId: "fix-2026-04-01-001" });
+
+    expect(await interactiveMenu()).toEqual(["fix", "--rollback-to", "fix-2026-04-01-001"]);
+  });
+});
+
+// ─── New prompt functions — audit extras ─────────────────────────────────────
+
+describe("promptAudit — new modes", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("snapshot with name: returns ['audit', '--snapshot', 'pre-upgrade']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "audit" })
+      .mockResolvedValueOnce({ answer: "snapshot" })
+      .mockResolvedValueOnce({ snapName: "pre-upgrade" });
+
+    expect(await interactiveMenu()).toEqual(["audit", "--snapshot", "pre-upgrade"]);
+  });
+
+  it("snapshots list: returns ['audit', '--snapshots']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "audit" })
+      .mockResolvedValueOnce({ answer: "snapshots" });
+
+    expect(await interactiveMenu()).toEqual(["audit", "--snapshots"]);
+  });
+
+  it("compare: returns ['audit', '--compare', 'srv1:srv2']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "audit" })
+      .mockResolvedValueOnce({ answer: "compare" })
+      .mockResolvedValueOnce({ compareRef: "srv1:srv2" });
+
+    expect(await interactiveMenu()).toEqual(["audit", "--compare", "srv1:srv2"]);
+  });
+
+  it("trend 7 days: returns ['audit', '--trend', '--days', '7']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "audit" })
+      .mockResolvedValueOnce({ answer: "trend" })
+      .mockResolvedValueOnce({ answer: "7" });
+
+    expect(await interactiveMenu()).toEqual(["audit", "--trend", "--days", "7"]);
+  });
+
+  it("trend all time: returns ['audit', '--trend']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "audit" })
+      .mockResolvedValueOnce({ answer: "trend" })
+      .mockResolvedValueOnce({ answer: "0" });
+
+    expect(await interactiveMenu()).toEqual(["audit", "--trend"]);
+  });
+
+  it("watch 60s: returns ['audit', '--watch', '60']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "audit" })
+      .mockResolvedValueOnce({ answer: "watch" })
+      .mockResolvedValueOnce({ answer: "60" });
+
+    expect(await interactiveMenu()).toEqual(["audit", "--watch", "60"]);
+  });
+
+  it("host: returns ['audit', '--host', 'root@1.2.3.4']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "audit" })
+      .mockResolvedValueOnce({ answer: "host" })
+      .mockResolvedValueOnce({ hostAddr: "root@1.2.3.4" });
+
+    expect(await interactiveMenu()).toEqual(["audit", "--host", "root@1.2.3.4"]);
+  });
+
+  it("threshold: returns ['audit', '--threshold', '70']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "audit" })
+      .mockResolvedValueOnce({ answer: "threshold" })
+      .mockResolvedValueOnce({ thresholdScore: "70" });
+
+    expect(await interactiveMenu()).toEqual(["audit", "--threshold", "70"]);
+  });
+
+  it("report md: returns ['audit', '--report', 'md']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "audit" })
+      .mockResolvedValueOnce({ answer: "report" })
+      .mockResolvedValueOnce({ answer: "md" });
+
+    expect(await interactiveMenu()).toEqual(["audit", "--report", "md"]);
+  });
+});
+
+// ─── New prompt functions — other commands ───────────────────────────────────
+
+describe("New prompt additions", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("doctor check-tokens: returns ['doctor', '--check-tokens']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "doctor" })
+      .mockResolvedValueOnce({ answer: "check-tokens" });
+
+    expect(await interactiveMenu()).toEqual(["doctor", "--check-tokens"]);
+  });
+
+  it("doctor json: returns ['doctor', '--fresh', '--json']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "doctor" })
+      .mockResolvedValueOnce({ answer: "json" });
+
+    expect(await interactiveMenu()).toEqual(["doctor", "--fresh", "--json"]);
+  });
+
+  it("lock production-force: returns ['lock', '--production', '--force']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "lock" })
+      .mockResolvedValueOnce({ answer: "production-force" });
+
+    expect(await interactiveMenu()).toEqual(["lock", "--production", "--force"]);
+  });
+
+  it("maintain all: returns ['maintain', '--all']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "maintain" })
+      .mockResolvedValueOnce({ answer: "all" });
+
+    expect(await interactiveMenu()).toEqual(["maintain", "--all"]);
+  });
+
+  it("maintain dry-run: returns ['maintain', '--dry-run']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "maintain" })
+      .mockResolvedValueOnce({ answer: "dry-run" });
+
+    expect(await interactiveMenu()).toEqual(["maintain", "--dry-run"]);
+  });
+
+  it("status autostart: returns ['status', '--autostart']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "status" })
+      .mockResolvedValueOnce({ answer: "autostart" });
+
+    expect(await interactiveMenu()).toEqual(["status", "--autostart"]);
+  });
+
+  it("snapshot list-all: returns ['snapshot', 'list', '--all']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "snapshot" })
+      .mockResolvedValueOnce({ answer: "list-all" });
+
+    expect(await interactiveMenu()).toEqual(["snapshot", "list", "--all"]);
+  });
+
+  it("fleet json: returns ['fleet', '--json']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fleet" })
+      .mockResolvedValueOnce({ answer: "json" });
+
+    expect(await interactiveMenu()).toEqual(["fleet", "--json"]);
+  });
+
+  it("fleet sort by score: returns ['fleet', '--sort', 'score']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "fleet" })
+      .mockResolvedValueOnce({ answer: "sort-score" });
+
+    expect(await interactiveMenu()).toEqual(["fleet", "--sort", "score"]);
+  });
+
+  it("backup dry-run: returns ['backup', '--dry-run']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "backup" })
+      .mockResolvedValueOnce({ answer: "dry-run" });
+
+    expect(await interactiveMenu()).toEqual(["backup", "--dry-run"]);
+  });
+
+  it("backup schedule list: returns ['backup', '--schedule', 'list']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "backup" })
+      .mockResolvedValueOnce({ answer: "schedule" })
+      .mockResolvedValueOnce({ answer: "list" });
+
+    expect(await interactiveMenu()).toEqual(["backup", "--schedule", "list"]);
+  });
+
+  it("backup schedule set cron: returns ['backup', '--schedule', '0 2 * * *']", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "backup" })
+      .mockResolvedValueOnce({ answer: "schedule" })
+      .mockResolvedValueOnce({ answer: "set" })
+      .mockResolvedValueOnce({ cron: "0 2 * * *" });
+
+    expect(await interactiveMenu()).toEqual(["backup", "--schedule", "0 2 * * *"]);
+  });
+
+  it("evidence force with full collection: returns ['evidence', '--force', ...]", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "evidence" })
+      .mockResolvedValueOnce({ answer: "force" })
+      .mockResolvedValueOnce({ answer: "full" })
+      .mockResolvedValueOnce({ answer: "500" });
+
+    expect(await interactiveMenu()).toEqual(["evidence", "--force", "--name", "manual"]);
+  });
+
+  it("evidence custom with no-docker + 1000 lines", async () => {
+    mockedInquirer.prompt
+      .mockResolvedValueOnce({ action: "evidence" })
+      .mockResolvedValueOnce({ answer: "custom" })
+      .mockResolvedValueOnce({ name: "pre-incident" })
+      .mockResolvedValueOnce({ answer: "no-docker" })
+      .mockResolvedValueOnce({ answer: "1000" });
+
+    expect(await interactiveMenu()).toEqual(["evidence", "--name", "pre-incident", "--no-docker", "--lines", "1000"]);
   });
 });
