@@ -397,6 +397,10 @@ export async function sshMasterOpen(ip: string): Promise<boolean> {
   const socketPath = controlSocketPath(ip);
   const sshBin = resolveSshPath();
 
+  // Clean up stale socket from previous run (existsSync unreliable for sockets on Windows)
+  spawnSync(sshBin, ["-o", `ControlPath=${socketPath}`, "-O", "exit", `root@${ip}`],
+    { stdio: "ignore", timeout: 3000, env: sanitizedEnv() });
+
   return new Promise((resolve) => {
     const child = spawn(sshBin, [
       "-o", `StrictHostKeyChecking=${getHostKeyPolicy()}`,
@@ -413,10 +417,23 @@ export async function sshMasterOpen(ip: string): Promise<boolean> {
       env: sanitizedEnv(),
     });
 
-    // Give master time to establish, then probe
-    const timer = setTimeout(() => {
-      // Check if socket was created (master is ready)
-      if (existsSync(socketPath)) {
+    let spawnFailed = false;
+    child.on("error", () => { spawnFailed = true; });
+    // Note: child.on("close") fires when the parent SSH forks into background (exit 0).
+    // This does NOT mean the master failed — it means it daemonized. Only trust -O check.
+
+    // Give master time to establish, then verify with -O check
+    setTimeout(() => {
+      if (spawnFailed) { resolve(false); return; }
+
+      // Verify master is alive via -O check (existsSync fails for Unix sockets on Windows)
+      const check = spawnSync(sshBin, [
+        "-o", `ControlPath=${socketPath}`,
+        "-O", "check",
+        `root@${ip}`,
+      ], { stdio: "pipe", timeout: 5000, env: sanitizedEnv() });
+
+      if (check.status === 0) {
         activeMasters.set(ip, socketPath);
         child.unref();
         resolve(true);
@@ -424,20 +441,7 @@ export async function sshMasterOpen(ip: string): Promise<boolean> {
         killChild(child);
         resolve(false);
       }
-    }, 5000);
-
-    child.on("error", () => {
-      clearTimeout(timer);
-      resolve(false);
-    });
-
-    child.on("close", (code) => {
-      // If master exits before our timer, it failed
-      if (!activeMasters.has(ip)) {
-        clearTimeout(timer);
-        resolve(false);
-      }
-    });
+    }, 3000);
   });
 }
 
