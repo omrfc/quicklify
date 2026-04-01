@@ -52,8 +52,8 @@ export function isFixCommandAllowed(command: string): boolean {
 /** Categories where auto-fix is NEVER allowed regardless of check-level tier (D-02) */
 export const FORBIDDEN_CATEGORIES = new Set(["SSH", "Firewall", "Docker"]);
 
-/** Network sysctl fix commands are auto-promoted to GUARDED to prevent cumulative SSH breakage (D-21) */
-const NETWORK_SYSCTL_PATTERN = /sysctl\s+-w\s+net\./;
+/** All sysctl fix commands are auto-promoted to GUARDED to prevent SSH breakage (D-21) */
+const SYSCTL_FIX_PATTERN = /sysctl\s+-w\s+/;
 
 /** Commands that terminate the SSH session — must never run mid-fix-loop (D-22) */
 const SESSION_KILLING_COMMANDS = ["reboot", "shutdown", "poweroff", "halt", "init 0", "init 6"];
@@ -61,7 +61,7 @@ const SESSION_KILLING_COMMANDS = ["reboot", "shutdown", "poweroff", "halt", "ini
 /**
  * Resolve the effective fix tier for a check.
  * Category-level FORBIDDEN override trumps check-level field (D-02).
- * Network sysctl fixes are promoted SAFE→GUARDED to prevent cumulative SSH breakage (D-21).
+ * All sysctl fixes are promoted SAFE→GUARDED to prevent SSH breakage (D-21).
  * Reboot/shutdown commands are promoted SAFE→GUARDED to prevent mid-fix session loss (D-22).
  * Undefined safeToAutoFix defaults to GUARDED (D-04 safety net).
  */
@@ -69,8 +69,8 @@ export function resolveTier(check: AuditCheck, categoryName: string): FixTier {
   if (FORBIDDEN_CATEGORIES.has(categoryName)) return "FORBIDDEN";
   const tier = check.safeToAutoFix ?? "GUARDED";
   if (tier !== "SAFE" || !check.fixCommand) return tier;
-  // D-21: network sysctl changes can cumulatively break SSH
-  if (NETWORK_SYSCTL_PATTERN.test(check.fixCommand)) return "GUARDED";
+  // D-21: sysctl changes can cumulatively break SSH connectivity
+  if (SYSCTL_FIX_PATTERN.test(check.fixCommand)) return "GUARDED";
   // D-22: reboot/shutdown kills SSH session mid-fix
   if (SESSION_KILLING_COMMANDS.some((c) => check.fixCommand!.trim() === c)) return "GUARDED";
   return tier;

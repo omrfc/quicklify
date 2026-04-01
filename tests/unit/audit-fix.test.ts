@@ -516,13 +516,13 @@ describe("resolveTier mutation-killer", () => {
     expect(resolveTier(netCheck, "Kernel")).toBe("GUARDED");
   });
 
-  it("does NOT promote non-network sysctl (kernel.*) SAFE fix commands", () => {
+  it("promotes ALL sysctl -w commands (including kernel.*) to GUARDED", () => {
     const kernelCheck = {
       ...baseCheck,
       safeToAutoFix: "SAFE" as const,
       fixCommand: "sysctl -w kernel.randomize_va_space=2 && echo 'kernel.randomize_va_space=2' >> /etc/sysctl.conf",
     };
-    expect(resolveTier(kernelCheck, "Kernel")).toBe("SAFE");
+    expect(resolveTier(kernelCheck, "Kernel")).toBe("GUARDED");
   });
 
   it("does NOT promote non-sysctl SAFE fix commands", () => {
@@ -566,7 +566,7 @@ describe("previewSafeFixes mutation-killer", () => {
   it("counts GUARDED and FORBIDDEN correctly", () => {
     const result = makeResult([
       makeCategory("Kernel", [
-        makeCheck({ id: "K-01", severity: "warning", passed: false, fixCommand: "sysctl -w x=1", safeToAutoFix: "SAFE" }),
+        makeCheck({ id: "K-01", severity: "warning", passed: false, fixCommand: "chmod 600 /test", safeToAutoFix: "SAFE" }),
         makeCheck({ id: "K-02", severity: "warning", passed: false, fixCommand: "sysctl -w y=2", safeToAutoFix: "GUARDED" }),
       ]),
       makeCategory("SSH", [
@@ -583,8 +583,8 @@ describe("previewSafeFixes mutation-killer", () => {
   it("only includes SAFE tier checks in safePlan", () => {
     const result = makeResult([
       makeCategory("Kernel", [
-        makeCheck({ id: "K-01", severity: "warning", passed: false, fixCommand: "sysctl -w x=1", safeToAutoFix: "SAFE" }),
-        makeCheck({ id: "K-02", severity: "warning", passed: false, fixCommand: "sysctl -w y=2", safeToAutoFix: "FORBIDDEN" }),
+        makeCheck({ id: "K-01", severity: "warning", passed: false, fixCommand: "chmod 600 /test", safeToAutoFix: "SAFE" }),
+        makeCheck({ id: "K-02", severity: "warning", passed: false, fixCommand: "chmod 700 /root", safeToAutoFix: "FORBIDDEN" }),
       ]),
     ]);
 
