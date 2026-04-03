@@ -98,9 +98,7 @@ export async function handleServerDoctor(params: {
     const format = params.format ?? "summary";
 
     if (format === "json") {
-      return {
-        content: [{ type: "text", text: JSON.stringify(doctorResult) }],
-      };
+      return mcpSuccess(doctorResult as unknown as Record<string, unknown>, { largeResult: true });
     }
 
     // summary format: group findings by severity

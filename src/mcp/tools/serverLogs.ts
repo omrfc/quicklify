@@ -132,7 +132,7 @@ export async function handleServerLogs(params: {
           lines,
           logs: result.logs,
           suggested_actions: suggestedActions,
-        });
+        }, { largeResult: true });
       }
 
       case "monitor": {

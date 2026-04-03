@@ -395,7 +395,7 @@ export async function handleServerFix(
         guardedCount,
         forbiddenCount,
         scoreBefore: auditResult.overallScore,
-      });
+      }, { largeResult: true });
     }
 
     // ── LIVE FIX — backup first (D-02, hard abort on failure) ────────────
@@ -534,7 +534,7 @@ export async function handleServerFix(
       ...(targetWarning ? { targetWarning } : {}),
       ...(diffSummary ? { diffSummary } : {}),
       ...(reportFile ? { reportFile } : {}),
-    });
+    }, { largeResult: true });
   } catch (error: unknown) {
     return mcpError(sanitizeStderr(getErrorMessage(error)));
   }

@@ -77,9 +77,7 @@ export async function handleServerAudit(params: {
         const detail = calculateComplianceDetail(auditResult.categories);
         jsonResult.complianceDetail = detail.filter((d) => d.framework === fw);
       }
-      return {
-        content: [{ type: "text", text: JSON.stringify(jsonResult) }],
-      };
+      return mcpSuccess(jsonResult, { largeResult: true });
     }
 
     if (format === "score") {
@@ -158,7 +156,7 @@ export async function handleServerAudit(params: {
       responseData.skippedCategories = auditResult.skippedCategories;
     }
 
-    return mcpSuccess(responseData);
+    return mcpSuccess(responseData, { largeResult: true });
   } catch (error: unknown) {
     return mcpError(sanitizeStderr(getErrorMessage(error)));
   }

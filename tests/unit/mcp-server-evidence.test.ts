@@ -181,6 +181,7 @@ describe("handleServerEvidence", () => {
         totalFiles: expect.any(Number),
         manifestPath: expect.any(String),
       }),
+      { largeResult: true },
     );
   });
 

@@ -16,8 +16,14 @@ export function getMcpVersion(): string {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+export type McpContentBlock = {
+  type: "text";
+  text: string;
+  _meta?: Record<string, unknown>;
+};
+
 export type McpResponse = {
-  content: Array<{ type: "text"; text: string }>;
+  content: Array<McpContentBlock>;
   isError?: boolean;
 };
 
@@ -58,13 +64,25 @@ export function resolveServerForMcp(
 
 // ─── mcpSuccess ──────────────────────────────────────────────────────────────
 
+/** Default max result size for large MCP tool outputs (500K chars). */
+const LARGE_RESULT_SIZE = 500_000;
+
 /**
  * Wrap a success payload in the standard MCP response shape.
+ *
+ * Pass `largeResult: true` to annotate the content block with
+ * `_meta["anthropic/maxResultSizeChars"]` (500K), preventing Claude Code
+ * from truncating large outputs like audit JSON or evidence data.
  */
-export function mcpSuccess(data: Record<string, unknown>): McpResponse {
-  return {
-    content: [{ type: "text", text: JSON.stringify({ ...data, _kastell_version: _version }) }],
+export function mcpSuccess(data: Record<string, unknown>, opts?: { largeResult?: boolean }): McpResponse {
+  const block: McpContentBlock = {
+    type: "text",
+    text: JSON.stringify({ ...data, _kastell_version: _version }),
   };
+  if (opts?.largeResult) {
+    block._meta = { "anthropic/maxResultSizeChars": LARGE_RESULT_SIZE };
+  }
+  return { content: [block] };
 }
 
 // ─── mcpError ────────────────────────────────────────────────────────────────
