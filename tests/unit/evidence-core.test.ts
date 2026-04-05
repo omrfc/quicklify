@@ -9,8 +9,8 @@ import * as fs from "fs";
 import * as crypto from "crypto";
 
 jest.mock("fs");
-jest.mock("../../src/utils/config.js", () => ({
-  CONFIG_DIR: "/home/user/.kastell",
+jest.mock("../../src/utils/paths.js", () => ({
+  KASTELL_DIR: "/home/user/.kastell",
 }));
 jest.mock("../../src/utils/ssh.js", () => ({
   sshExec: jest.fn(),

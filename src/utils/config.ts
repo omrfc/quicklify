@@ -107,7 +107,4 @@ export function findServers(query: string): ServerRecord[] {
   return servers.filter((s) => s.name === query);
 }
 
-// Exported for testing
-/** @deprecated Use KASTELL_DIR from ./paths.js — kept for backward compat */
-const CONFIG_DIR = KASTELL_DIR;
-export { CONFIG_DIR, SERVERS_FILE, BACKUPS_DIR };
+export { SERVERS_FILE, BACKUPS_DIR };

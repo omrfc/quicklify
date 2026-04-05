@@ -3,7 +3,7 @@ import { join } from "path";
 import { z } from "zod";
 import { sshExec, assertValidIp } from "../utils/ssh.js";
 import { raw, type SshCommand } from "../utils/sshCommand.js";
-import { CONFIG_DIR } from "../utils/config.js";
+import { KASTELL_DIR } from "../utils/paths.js";
 import { warnIfPermissionError } from "../utils/fileLock.js";
 import { dispatchWithCooldown } from "./notify.js";
 import { listSnapshots, loadSnapshot } from "./audit/snapshot.js";
@@ -48,7 +48,7 @@ export const GUARD_AUDIT_STALENESS_MS = 24 * 60 * 60 * 1000; // 24 hours
 export const SCORE_DROP_WARNING_THRESHOLD = 5;
 export const SCORE_DROP_CRITICAL_THRESHOLD = 10;
 
-const GUARD_STATE_FILE = join(CONFIG_DIR, "guard-state.json");
+const GUARD_STATE_FILE = join(KASTELL_DIR, "guard-state.json");
 
 // ─── Local State Persistence ──────────────────────────────────────────────────
 
@@ -70,14 +70,14 @@ export function getGuardStates(): Record<string, GuardStateEntry> {
 }
 
 export function saveGuardState(serverName: string, entry: GuardStateEntry): void {
-  mkdirSync(CONFIG_DIR, { recursive: true });
+  mkdirSync(KASTELL_DIR, { recursive: true });
   const states = getGuardStates();
   states[serverName] = entry;
   writeFileSync(GUARD_STATE_FILE, JSON.stringify(states, null, 2), { mode: 0o600 });
 }
 
 export function removeGuardState(serverName: string): void {
-  mkdirSync(CONFIG_DIR, { recursive: true });
+  mkdirSync(KASTELL_DIR, { recursive: true });
   const states = getGuardStates();
   delete states[serverName];
   writeFileSync(GUARD_STATE_FILE, JSON.stringify(states, null, 2), { mode: 0o600 });

@@ -1,7 +1,8 @@
 import { spawnSync } from "child_process";
 import { existsSync, accessSync, constants } from "fs";
 import axios from "axios";
-import { getServers, CONFIG_DIR } from "../utils/config.js";
+import { getServers } from "../utils/config.js";
+import { KASTELL_DIR } from "../utils/paths.js";
 import { checkSshAvailable } from "../utils/ssh.js";
 import { PROVIDER_REGISTRY, DOCTOR_TIMEOUT_MS } from "../constants.js";
 import { logger } from "../utils/logger.js";
@@ -116,14 +117,14 @@ function checkKastellVersion(version?: string): CheckResult {
 }
 
 function checkConfigDir(): CheckResult {
-  if (!existsSync(CONFIG_DIR)) {
-    return { name: "Config Dir", status: "warn", detail: `${CONFIG_DIR} (not created yet)` };
+  if (!existsSync(KASTELL_DIR)) {
+    return { name: "Config Dir", status: "warn", detail: `${KASTELL_DIR} (not created yet)` };
   }
   try {
-    accessSync(CONFIG_DIR, constants.R_OK | constants.W_OK);
-    return { name: "Config Dir", status: "pass", detail: CONFIG_DIR };
+    accessSync(KASTELL_DIR, constants.R_OK | constants.W_OK);
+    return { name: "Config Dir", status: "pass", detail: KASTELL_DIR };
   } catch {
-    return { name: "Config Dir", status: "fail", detail: `${CONFIG_DIR} (not writable)` };
+    return { name: "Config Dir", status: "fail", detail: `${KASTELL_DIR} (not writable)` };
   }
 }
 

@@ -3,8 +3,8 @@ import type { AuditResult, AuditHistoryEntry } from "../../src/core/audit/types.
 import * as fs from "fs";
 
 jest.mock("fs");
-jest.mock("../../src/utils/config.js", () => ({
-  CONFIG_DIR: "/home/user/.kastell",
+jest.mock("../../src/utils/paths.js", () => ({
+  KASTELL_DIR: "/home/user/.kastell",
 }));
 jest.mock("../../src/utils/fileLock", () => ({
   withFileLock: jest.fn((_path: string, fn: () => unknown) => fn()),

@@ -3,7 +3,7 @@ import { join } from "path";
 import { z } from "zod";
 import { sshExec, assertValidIp } from "../utils/ssh.js";
 import { raw, type SshCommand } from "../utils/sshCommand.js";
-import { CONFIG_DIR } from "../utils/config.js";
+import { KASTELL_DIR } from "../utils/paths.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,7 +22,7 @@ export interface ListScheduleResult {
 
 // ─── Local Schedule Persistence ──────────────────────────────────────────────
 
-const SCHEDULES_FILE = join(CONFIG_DIR, "schedules.json");
+const SCHEDULES_FILE = join(KASTELL_DIR, "schedules.json");
 
 const schedulesSchema = z.record(z.string(), z.string());
 
@@ -37,14 +37,14 @@ export function getSchedules(): Record<string, string> {
 }
 
 export function saveSchedule(serverName: string, cronExpr: string): void {
-  mkdirSync(CONFIG_DIR, { recursive: true });
+  mkdirSync(KASTELL_DIR, { recursive: true });
   const schedules = getSchedules();
   schedules[serverName] = cronExpr;
   writeFileSync(SCHEDULES_FILE, JSON.stringify(schedules, null, 2), { mode: 0o600 });
 }
 
 export function removeSchedule(serverName: string): void {
-  mkdirSync(CONFIG_DIR, { recursive: true });
+  mkdirSync(KASTELL_DIR, { recursive: true });
   const schedules = getSchedules();
   delete schedules[serverName];
   writeFileSync(SCHEDULES_FILE, JSON.stringify(schedules, null, 2), { mode: 0o600 });

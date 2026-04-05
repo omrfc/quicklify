@@ -7,13 +7,13 @@ import {
   removeSchedule,
   getSchedules,
 } from "../core/backupSchedule.js";
-import { CONFIG_DIR } from "../utils/config.js";
+import { KASTELL_DIR } from "../utils/paths.js";
 import { sanitizedEnv } from "../utils/ssh.js";
 import { dispatchWithCooldown } from "../core/notify.js";
 
 export type ScheduleType = "fix" | "audit";
 
-const CRONTAB_TMP = join(CONFIG_DIR, ".crontab-tmp");
+const CRONTAB_TMP = join(KASTELL_DIR, ".crontab-tmp");
 
 /** Read current crontab, filter lines by marker, optionally add new entry, install via temp file */
 function updateCrontab(marker: string, newEntry?: string): { success: boolean; error?: string } {
@@ -47,7 +47,7 @@ export const SCHEDULE_MARKERS = {
   audit: "# kastell-audit-schedule",
 } as const;
 
-const SCHEDULE_LOGS_DIR = join(CONFIG_DIR, "schedule-logs");
+const SCHEDULE_LOGS_DIR = join(KASTELL_DIR, "schedule-logs");
 const LOG_RETENTION_DAYS = 30;
 
 

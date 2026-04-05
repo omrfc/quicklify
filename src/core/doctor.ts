@@ -7,7 +7,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "fs";
 import { join } from "path";
-import { CONFIG_DIR } from "../utils/config.js";
+import { KASTELL_DIR } from "../utils/paths.js";
 import { assertValidIp, sshExec } from "../utils/ssh.js";
 import { raw } from "../utils/sshCommand.js";
 import { loadAuditHistory } from "./audit/history.js";
@@ -38,7 +38,7 @@ export interface DoctorResult {
 
 /** Path to the local per-server metrics history file */
 export function metricsHistoryPath(serverIp: string): string {
-  return join(CONFIG_DIR, `doctor-metrics-${serverIp.replace(/\./g, "-")}.json`);
+  return join(KASTELL_DIR, `doctor-metrics-${serverIp.replace(/\./g, "-")}.json`);
 }
 
 /** Load cached MetricSnapshot history for a server. Returns [] on missing/corrupt file. */

@@ -46,6 +46,4 @@ export function resetDefaults(): void {
   writeFileSync(DEFAULTS_FILE, JSON.stringify({}, null, 2), { mode: 0o600 });
 }
 
-/** @deprecated Use KASTELL_DIR from ./paths.js — kept for backward compat */
-const CONFIG_DIR = KASTELL_DIR;
-export { CONFIG_DIR, DEFAULTS_FILE, VALID_KEYS };
+export { DEFAULTS_FILE, VALID_KEYS };

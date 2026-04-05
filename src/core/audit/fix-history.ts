@@ -13,7 +13,7 @@ import {
 } from "fs";
 import { join } from "path";
 import { z } from "zod";
-import { CONFIG_DIR } from "../../utils/config.js";
+import { KASTELL_DIR } from "../../utils/paths.js";
 import { withFileLock, warnIfPermissionError } from "../../utils/fileLock.js";
 import { sshExec } from "../../utils/ssh.js";
 import { raw } from "../../utils/sshCommand.js";
@@ -29,7 +29,7 @@ const MAX_ENTRIES_PER_SERVER = 100;
 
 /** Get fix history file path lazily to support testing */
 function getFixHistoryPath(): string {
-  return join(CONFIG_DIR, FIX_HISTORY_FILENAME);
+  return join(KASTELL_DIR, FIX_HISTORY_FILENAME);
 }
 
 /**
@@ -82,8 +82,8 @@ export async function saveFixHistory(entry: FixHistoryEntry): Promise<void> {
   const historyFile = getFixHistoryPath();
 
   await withFileLock(historyFile, () => {
-    if (!existsSync(CONFIG_DIR)) {
-      mkdirSync(CONFIG_DIR, { recursive: true });
+    if (!existsSync(KASTELL_DIR)) {
+      mkdirSync(KASTELL_DIR, { recursive: true });
     }
 
     let entries: FixHistoryEntry[] = [];

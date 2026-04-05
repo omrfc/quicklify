@@ -15,7 +15,7 @@ import {
 } from "fs";
 import { join } from "path";
 import { z } from "zod";
-import { CONFIG_DIR } from "../../utils/config.js";
+import { KASTELL_DIR } from "../../utils/paths.js";
 import { withFileLock } from "../../utils/fileLock.js";
 import type { AuditResult, SnapshotFile, SnapshotListEntry } from "./types.js";
 
@@ -97,7 +97,7 @@ const snapshotFileV2Schema = z.object({
 /** Get the snapshot directory for a server IP (dots replaced with hyphens) */
 function getSnapshotDir(serverIp: string): string {
   const safeIp = serverIp.replace(/\./g, "-");
-  return join(CONFIG_DIR, "snapshots", safeIp);
+  return join(KASTELL_DIR, "snapshots", safeIp);
 }
 
 /** Sanitize a snapshot name: only [a-zA-Z0-9_-], max 64 chars */

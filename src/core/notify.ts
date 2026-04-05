@@ -4,13 +4,13 @@ import { z } from "zod";
 import axios from "axios";
 import chalk from "chalk";
 import inquirer from "inquirer";
-import { CONFIG_DIR } from "../utils/config.js";
+import { KASTELL_DIR } from "../utils/paths.js";
 import { createSpinner } from "../utils/logger.js";
 import { loadNotifyChannels, saveNotifyChannel, removeNotifyChannel } from "./notifyStore.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const COOLDOWN_FILE = join(CONFIG_DIR, "notify-cooldown.json");
+const COOLDOWN_FILE = join(KASTELL_DIR, "notify-cooldown.json");
 const COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
 const NOTIFY_TIMEOUT_MS = 10_000;
 
@@ -162,7 +162,7 @@ export function loadCooldownState(): Record<string, string> {
 }
 
 export function saveCooldownState(state: Record<string, string>): void {
-  mkdirSync(CONFIG_DIR, { recursive: true });
+  mkdirSync(KASTELL_DIR, { recursive: true });
   writeFileSync(COOLDOWN_FILE, JSON.stringify(state, null, 2), { mode: 0o600 });
 }
 

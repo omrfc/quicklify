@@ -15,8 +15,8 @@ import type { FixHistoryEntry } from "../../src/core/audit/types.js";
 
 jest.mock("../../src/utils/ssh.js");
 jest.mock("fs");
-jest.mock("../../src/utils/config.js", () => ({
-  CONFIG_DIR: "/home/user/.kastell",
+jest.mock("../../src/utils/paths.js", () => ({
+  KASTELL_DIR: "/home/user/.kastell",
 }));
 jest.mock("../../src/utils/fileLock.js", () => ({
   withFileLock: jest.fn((_path: string, fn: () => void) => { fn(); }),

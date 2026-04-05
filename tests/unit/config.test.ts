@@ -5,8 +5,8 @@ import {
   removeServer,
   findServer,
   SERVERS_FILE,
-  CONFIG_DIR,
 } from "../../src/utils/config";
+import { KASTELL_DIR } from "../../src/utils/paths";
 import * as fs from "fs";
 
 jest.mock("fs");
@@ -380,7 +380,7 @@ describe("config", () => {
 
   describe("constants", () => {
     it("should have correct config paths", () => {
-      expect(CONFIG_DIR).toContain(".kastell");
+      expect(KASTELL_DIR).toContain(".kastell");
       expect(SERVERS_FILE).toContain("servers.json");
     });
   });

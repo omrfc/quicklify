@@ -5,19 +5,19 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { CONFIG_DIR } from "../../utils/config.js";
+import { KASTELL_DIR } from "../../utils/paths.js";
 
 export interface BotOffset {
   lastUpdateId: number;
   savedAt: string;
 }
 
-const OFFSET_FILE = join(CONFIG_DIR, "telegram-bot-offset.json");
+const OFFSET_FILE = join(KASTELL_DIR, "telegram-bot-offset.json");
 const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
-/** Ensure CONFIG_DIR exists. Call once at startup, not per-save. */
+/** Ensure KASTELL_DIR exists. Call once at startup, not per-save. */
 export function ensureOffsetDir(): void {
-  if (!existsSync(CONFIG_DIR)) mkdirSync(CONFIG_DIR, { recursive: true });
+  if (!existsSync(KASTELL_DIR)) mkdirSync(KASTELL_DIR, { recursive: true });
 }
 
 /** Load the last saved offset. Returns null if file is missing or corrupt. */

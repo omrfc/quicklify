@@ -16,7 +16,7 @@ import { join, resolve } from "path";
 
 import { sshExec } from "../utils/ssh.js";
 import { withFileLock } from "../utils/fileLock.js";
-import { CONFIG_DIR } from "../utils/config.js";
+import { KASTELL_DIR } from "../utils/paths.js";
 import { getErrorMessage } from "../utils/errorMapper.js";
 import {
   buildEvidenceBatchCommand,
@@ -156,7 +156,7 @@ export async function collectEvidence(
   if (opts.output) {
     evidenceDir = resolve(opts.output, dirName);
   } else {
-    evidenceDir = join(CONFIG_DIR, "evidence", serverName, dirName);
+    evidenceDir = join(KASTELL_DIR, "evidence", serverName, dirName);
   }
 
   // Check for existing directory

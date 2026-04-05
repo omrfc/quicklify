@@ -14,7 +14,7 @@ import {
 } from "fs";
 import { join } from "path";
 import { z } from "zod";
-import { CONFIG_DIR } from "../../utils/config.js";
+import { KASTELL_DIR } from "../../utils/paths.js";
 import { withFileLock } from "../../utils/fileLock.js";
 import type {
   AuditResult,
@@ -28,7 +28,7 @@ const HISTORY_FILENAME = "audit-history.json";
 
 /** Get history file path lazily to support testing */
 function getHistoryPath(): string {
-  return join(CONFIG_DIR, HISTORY_FILENAME);
+  return join(KASTELL_DIR, HISTORY_FILENAME);
 }
 
 /** Max history entries per server to prevent unbounded growth */
@@ -82,8 +82,8 @@ export async function saveAuditHistory(result: AuditResult): Promise<void> {
 
   await withFileLock(historyFile, () => {
     // Ensure config directory exists
-    if (!existsSync(CONFIG_DIR)) {
-      mkdirSync(CONFIG_DIR, { recursive: true });
+    if (!existsSync(KASTELL_DIR)) {
+      mkdirSync(KASTELL_DIR, { recursive: true });
     }
 
     // Load existing history

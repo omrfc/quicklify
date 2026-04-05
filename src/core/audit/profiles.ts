@@ -9,7 +9,7 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import { z } from "zod";
-import { CONFIG_DIR } from "../../utils/config.js";
+import { KASTELL_DIR } from "../../utils/paths.js";
 import type { AuditCheck } from "./types.js";
 
 export type ProfileName = "web-server" | "database" | "mail-server";
@@ -66,7 +66,7 @@ export const PROFILES: Record<ProfileName, readonly string[]> = {
   ],
 };
 
-const FIX_PROFILES_FILE = join(CONFIG_DIR, "fix-profiles.json");
+const FIX_PROFILES_FILE = join(KASTELL_DIR, "fix-profiles.json");
 
 const customProfileSchema = z.record(
   z.string(),

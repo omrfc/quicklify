@@ -11,7 +11,9 @@ jest.mock("../../src/utils/logger");
 // These are used by existing backup logic — mock to avoid side effects
 jest.mock("../../src/utils/config", () => ({
   getServers: jest.fn(() => []),
-  CONFIG_DIR: "/tmp/kastell-test",
+}));
+jest.mock("../../src/utils/paths", () => ({
+  KASTELL_DIR: "/tmp/kastell-test",
 }));
 jest.mock("../../src/utils/modeGuard", () => ({
   isBareServer: jest.fn(() => false),

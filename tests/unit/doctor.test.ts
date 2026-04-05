@@ -31,7 +31,9 @@ jest.mock("../../src/utils/serverSelect", () => ({
 
 jest.mock("../../src/utils/config", () => ({
   getServers: jest.fn(() => []),
-  CONFIG_DIR: "/home/test/.kastell",
+}));
+jest.mock("../../src/utils/paths", () => ({
+  KASTELL_DIR: "/home/test/.kastell",
 }));
 
 jest.mock("../../src/core/doctor", () => ({
