@@ -26,6 +26,10 @@ describe("SCP utilities", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   describe("assertSafePath", () => {
     it("should accept safe paths", () => {
       expect(() => assertSafePath("/tmp/backup.tar.gz")).not.toThrow();
@@ -87,7 +91,6 @@ describe("SCP utilities", () => {
       jest.advanceTimersByTime(5000);
       await expect(promise).rejects.toThrow("SCP download timeout");
       expect(proc.kill).toHaveBeenCalledWith("SIGTERM");
-      jest.useRealTimers();
     });
   });
 
@@ -126,7 +129,6 @@ describe("SCP utilities", () => {
       jest.advanceTimersByTime(5000);
       await expect(promise).rejects.toThrow("SCP upload timeout");
       expect(proc.kill).toHaveBeenCalledWith("SIGTERM");
-      jest.useRealTimers();
     });
   });
 });

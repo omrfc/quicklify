@@ -58,7 +58,7 @@ jest.mock("../../src/core/deploy", () => ({
   deployServer: jest.fn().mockResolvedValue(undefined),
 }));
 
-const BACK = "__BACK__";
+const BACK = prompts.BACK_SIGNAL;
 
 describe("init wizard back-navigation", () => {
   beforeEach(() => {

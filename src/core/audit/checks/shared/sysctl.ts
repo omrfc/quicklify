@@ -13,5 +13,5 @@
 export function extractSysctlValue(output: string, key: string): string | null {
   const regex = new RegExp(`${key.replace(/\./g, "\\.")}\\s*=\\s*(\\S+)`, "m");
   const match = output.match(regex);
-  return match ? match[1].trim() : null;
+  return match ? match[1] : null;
 }

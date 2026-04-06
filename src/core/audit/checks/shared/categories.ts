@@ -1,6 +1,6 @@
 /**
  * Audit category name constants.
- * Single source of truth for all 31 CHECK_REGISTRY category name strings.
+ * Single source of truth for CHECK_REGISTRY category name strings.
  * Using as-const prevents typos in new check files and enables type narrowing.
  */
 
