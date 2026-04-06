@@ -5,6 +5,7 @@
 
 import type { AuditCategory, CheckParser, ComplianceRef } from "../types.js";
 import { calculateCategoryScore } from "../scoring.js";
+import { AUDIT_CATEGORIES } from "./shared/categories.js";
 import { parseSSHChecks } from "./ssh.js";
 import { parseFirewallChecks } from "./firewall.js";
 import { parseUpdatesChecks } from "./updates.js";
@@ -45,37 +46,37 @@ export interface CategoryEntry {
 
 /** Check registry — maps section names to parser functions */
 export const CHECK_REGISTRY: CategoryEntry[] = [
-  { name: "SSH", sectionName: "SSH", parser: parseSSHChecks },
-  { name: "Firewall", sectionName: "FIREWALL", parser: parseFirewallChecks },
-  { name: "Updates", sectionName: "UPDATES", parser: parseUpdatesChecks },
-  { name: "Auth", sectionName: "AUTH", parser: parseAuthChecks },
-  { name: "Docker", sectionName: "DOCKER", parser: parseDockerChecks },
-  { name: "Network", sectionName: "NETWORK", parser: parseNetworkChecks },
-  { name: "Filesystem", sectionName: "FILESYSTEM", parser: parseFilesystemChecks },
-  { name: "Logging", sectionName: "LOGGING", parser: parseLoggingChecks },
-  { name: "Kernel", sectionName: "KERNEL", parser: parseKernelChecks },
-  { name: "Accounts", sectionName: "ACCOUNTS", parser: parseAccountsChecks },
-  { name: "Services", sectionName: "SERVICES", parser: parseServicesChecks },
-  { name: "Boot", sectionName: "BOOT", parser: parseBootChecks },
-  { name: "Scheduling", sectionName: "SCHEDULING", parser: parseSchedulingChecks },
-  { name: "Time", sectionName: "TIME", parser: parseTimeChecks },
-  { name: "Banners", sectionName: "BANNERS", parser: parseBannersChecks },
-  { name: "Crypto", sectionName: "CRYPTO", parser: parseCryptoChecks },
-  { name: "File Integrity", sectionName: "FILEINTEGRITY", parser: parseFileIntegrityChecks },
-  { name: "Malware", sectionName: "MALWARE", parser: parseMalwareChecks },
-  { name: "MAC", sectionName: "MAC", parser: parseMACChecks },
-  { name: "Memory", sectionName: "MEMORY", parser: parseMemoryChecks },
-  { name: "Secrets", sectionName: "SECRETS", parser: parseSecretsChecks },
-  { name: "Cloud Metadata", sectionName: "CLOUDMETA", parser: parseCloudMetaChecks },
-  { name: "Supply Chain", sectionName: "SUPPLYCHAIN", parser: parseSupplyChainChecks },
-  { name: "Backup Hygiene", sectionName: "BACKUP", parser: parseBackupChecks },
-  { name: "Resource Limits", sectionName: "RESOURCELIMITS", parser: parseResourceLimitsChecks },
-  { name: "Incident Readiness", sectionName: "INCIDENTREADY", parser: parseIncidentReadyChecks },
-  { name: "DNS Security", sectionName: "DNS", parser: parseDnsChecks },
-  { name: "TLS Hardening", sectionName: "TLSHARDENING", parser: parseTlsChecks },
-  { name: "HTTP Security Headers", sectionName: "HTTPHEADERS", parser: parseHttpHeadersChecks },
-  { name: "WAF & Reverse Proxy", sectionName: "NGINX", parser: parseNginxChecks },
-  { name: "DDoS Hardening", sectionName: "DDOS", parser: parseDdosChecks },
+  { name: AUDIT_CATEGORIES.SSH, sectionName: "SSH", parser: parseSSHChecks },
+  { name: AUDIT_CATEGORIES.FIREWALL, sectionName: "FIREWALL", parser: parseFirewallChecks },
+  { name: AUDIT_CATEGORIES.UPDATES, sectionName: "UPDATES", parser: parseUpdatesChecks },
+  { name: AUDIT_CATEGORIES.AUTH, sectionName: "AUTH", parser: parseAuthChecks },
+  { name: AUDIT_CATEGORIES.DOCKER, sectionName: "DOCKER", parser: parseDockerChecks },
+  { name: AUDIT_CATEGORIES.NETWORK, sectionName: "NETWORK", parser: parseNetworkChecks },
+  { name: AUDIT_CATEGORIES.FILESYSTEM, sectionName: "FILESYSTEM", parser: parseFilesystemChecks },
+  { name: AUDIT_CATEGORIES.LOGGING, sectionName: "LOGGING", parser: parseLoggingChecks },
+  { name: AUDIT_CATEGORIES.KERNEL, sectionName: "KERNEL", parser: parseKernelChecks },
+  { name: AUDIT_CATEGORIES.ACCOUNTS, sectionName: "ACCOUNTS", parser: parseAccountsChecks },
+  { name: AUDIT_CATEGORIES.SERVICES, sectionName: "SERVICES", parser: parseServicesChecks },
+  { name: AUDIT_CATEGORIES.BOOT, sectionName: "BOOT", parser: parseBootChecks },
+  { name: AUDIT_CATEGORIES.SCHEDULING, sectionName: "SCHEDULING", parser: parseSchedulingChecks },
+  { name: AUDIT_CATEGORIES.TIME, sectionName: "TIME", parser: parseTimeChecks },
+  { name: AUDIT_CATEGORIES.BANNERS, sectionName: "BANNERS", parser: parseBannersChecks },
+  { name: AUDIT_CATEGORIES.CRYPTO, sectionName: "CRYPTO", parser: parseCryptoChecks },
+  { name: AUDIT_CATEGORIES.FILE_INTEGRITY, sectionName: "FILEINTEGRITY", parser: parseFileIntegrityChecks },
+  { name: AUDIT_CATEGORIES.MALWARE, sectionName: "MALWARE", parser: parseMalwareChecks },
+  { name: AUDIT_CATEGORIES.MAC, sectionName: "MAC", parser: parseMACChecks },
+  { name: AUDIT_CATEGORIES.MEMORY, sectionName: "MEMORY", parser: parseMemoryChecks },
+  { name: AUDIT_CATEGORIES.SECRETS, sectionName: "SECRETS", parser: parseSecretsChecks },
+  { name: AUDIT_CATEGORIES.CLOUD_METADATA, sectionName: "CLOUDMETA", parser: parseCloudMetaChecks },
+  { name: AUDIT_CATEGORIES.SUPPLY_CHAIN, sectionName: "SUPPLYCHAIN", parser: parseSupplyChainChecks },
+  { name: AUDIT_CATEGORIES.BACKUP_HYGIENE, sectionName: "BACKUP", parser: parseBackupChecks },
+  { name: AUDIT_CATEGORIES.RESOURCE_LIMITS, sectionName: "RESOURCELIMITS", parser: parseResourceLimitsChecks },
+  { name: AUDIT_CATEGORIES.INCIDENT_READINESS, sectionName: "INCIDENTREADY", parser: parseIncidentReadyChecks },
+  { name: AUDIT_CATEGORIES.DNS_SECURITY, sectionName: "DNS", parser: parseDnsChecks },
+  { name: AUDIT_CATEGORIES.TLS_HARDENING, sectionName: "TLSHARDENING", parser: parseTlsChecks },
+  { name: AUDIT_CATEGORIES.HTTP_HEADERS, sectionName: "HTTPHEADERS", parser: parseHttpHeadersChecks },
+  { name: AUDIT_CATEGORIES.WAF, sectionName: "NGINX", parser: parseNginxChecks },
+  { name: AUDIT_CATEGORIES.DDOS, sectionName: "DDOS", parser: parseDdosChecks },
 ];
 
 /** Named separator pattern used between sections in SSH batch output */

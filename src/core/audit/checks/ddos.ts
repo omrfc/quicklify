@@ -5,14 +5,9 @@
  */
 
 import type { AuditCheck, CheckParser } from "../types.js";
+import { extractSysctlValue } from "./shared/sysctl.js";
 
 const CATEGORY = "DDoS Hardening";
-
-function extractSysctlValue(output: string, key: string): string | null {
-  const regex = new RegExp(`${key.replace(/\./g, "\\.")}\\s*=\\s*(\\S+)`, "m");
-  const match = output.match(regex);
-  return match ? match[1].trim() : null;
-}
 
 export const parseDdosChecks: CheckParser = (sectionOutput: string, platform: string): AuditCheck[] => {
   const isNA = !sectionOutput || sectionOutput.trim() === "N/A" || sectionOutput.trim() === "";
