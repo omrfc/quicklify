@@ -20,7 +20,6 @@ export interface SecurityLogEntry {
 }
 
 const DEFAULT_MAX_BYTES = 10 * 1024 * 1024; // 10MB
-let _dirEnsured = false;
 
 function rotateIfNeeded(maxBytes: number): void {
   try {
@@ -38,10 +37,7 @@ export function logSecurityEvent(
   options?: { maxBytes?: number }
 ): void {
   try {
-    if (!_dirEnsured) {
-      mkdirSync(KASTELL_DIR, { recursive: true });
-      _dirEnsured = true;
-    }
+    mkdirSync(KASTELL_DIR, { recursive: true });
     rotateIfNeeded(options?.maxBytes ?? DEFAULT_MAX_BYTES);
 
     const fullEntry: SecurityLogEntry = {
