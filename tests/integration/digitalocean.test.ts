@@ -543,7 +543,7 @@ describe("DigitalOceanProvider", () => {
   describe("getServerStatus", () => {
     it('should return "running" for an active droplet (normalized from DO "active")', async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { droplet: { status: "active" } },
+        data: { droplet: { id: 12345, status: "active" } },
       });
 
       const status = await provider.getServerStatus("12345");
@@ -553,7 +553,7 @@ describe("DigitalOceanProvider", () => {
 
     it('should return "new" for a new droplet', async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { droplet: { status: "new" } },
+        data: { droplet: { id: 12345, status: "new" } },
       });
 
       const status = await provider.getServerStatus("12345");
@@ -563,7 +563,7 @@ describe("DigitalOceanProvider", () => {
 
     it("should call correct API endpoint with droplet ID", async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { droplet: { status: "active" } },
+        data: { droplet: { id: 99999, status: "active" } },
       });
 
       await provider.getServerStatus("99999");
@@ -864,8 +864,8 @@ describe("DigitalOceanProvider", () => {
           },
         });
         mockedAxios.get
-          .mockResolvedValueOnce({ data: { droplet: { status: "new" } } })
-          .mockResolvedValueOnce({ data: { droplet: { status: "active" } } });
+          .mockResolvedValueOnce({ data: { droplet: { id: 88001, status: "new" } } })
+          .mockResolvedValueOnce({ data: { droplet: { id: 88001, status: "active" } } });
         mockedAxios.delete.mockResolvedValueOnce({});
 
         const created = await provider.createServer(serverConfig);

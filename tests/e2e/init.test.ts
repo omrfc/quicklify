@@ -130,7 +130,7 @@ describe("initCommand E2E", () => {
         .mockResolvedValueOnce(hetznerServerTypesResponse) // getAvailableServerTypes (selection)
         .mockResolvedValueOnce(hetznerLocationsResponse) // getAvailableLocations (confirmDeployment)
         .mockResolvedValueOnce(hetznerServerTypesResponse) // getAvailableServerTypes (confirmDeployment)
-        .mockResolvedValueOnce({ data: { server: { status: "running" } } }); // getServerStatus
+        .mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } }); // getServerStatus
 
       // Mock: createServer succeeds
       mockedAxios.post.mockResolvedValueOnce({
@@ -244,7 +244,7 @@ describe("initCommand E2E", () => {
       // getServerStatus returns "initializing" for all 30 attempts (never becomes "running")
       for (let i = 0; i < 31; i++) {
         mockedAxios.get.mockResolvedValueOnce({
-          data: { server: { status: "initializing" } },
+          data: { server: { id: 456, status: "initializing" } },
         });
       }
 
@@ -296,7 +296,7 @@ describe("initCommand E2E", () => {
         .mockResolvedValueOnce(hetznerLocationsResponse) // getAvailableLocations (confirmDeployment)
         .mockResolvedValueOnce(hetznerServerTypesResponse) // getAvailableServerTypes (confirmDeployment)
         .mockResolvedValueOnce(hetznerServerTypesResponse) // getAvailableServerTypes (retry selection)
-        .mockResolvedValueOnce({ data: { server: { status: "running" } } }); // getServerStatus
+        .mockResolvedValueOnce({ data: { server: { id: 789, status: "running" } } }); // getServerStatus
 
       // Mock: first createServer fails (unsupported), second succeeds
       mockedAxios.post
@@ -338,7 +338,7 @@ describe("initCommand E2E", () => {
         .mockResolvedValueOnce(hetznerServerTypesResponse) // getAvailableServerTypes (selection)
         .mockResolvedValueOnce(hetznerLocationsResponse) // getAvailableLocations (confirmDeployment)
         .mockResolvedValueOnce(hetznerServerTypesResponse) // getAvailableServerTypes (confirmDeployment)
-        .mockResolvedValueOnce({ data: { server: { status: "running" } } }); // getServerStatus
+        .mockResolvedValueOnce({ data: { server: { id: 111, status: "running" } } }); // getServerStatus
 
       mockedAxios.post
         .mockRejectedValueOnce(new Error("Failed to create server: server name is already used"))
@@ -379,7 +379,7 @@ describe("initCommand E2E", () => {
         .mockResolvedValueOnce(hetznerServerTypesResponse) // getAvailableServerTypes (confirmDeployment)
         .mockResolvedValueOnce(hetznerLocationsResponse) // getAvailableLocations (retry)
         .mockResolvedValueOnce(hetznerServerTypesResponse) // getAvailableServerTypes (retry)
-        .mockResolvedValueOnce({ data: { server: { status: "running" } } }); // getServerStatus
+        .mockResolvedValueOnce({ data: { server: { id: 222, status: "running" } } }); // getServerStatus
 
       mockedAxios.post
         .mockRejectedValueOnce(new Error("Failed to create server: location disabled"))
@@ -465,7 +465,7 @@ describe("initCommand E2E", () => {
         .mockResolvedValueOnce(doSizesResponse) // getAvailableServerTypes (selection)
         .mockResolvedValueOnce(doRegionsResponse) // getAvailableLocations (confirmDeployment)
         .mockResolvedValueOnce(doSizesResponse) // getAvailableServerTypes (confirmDeployment)
-        .mockResolvedValueOnce({ data: { droplet: { status: "active" } } }); // getServerStatus → DO returns "active", normalized to "running"
+        .mockResolvedValueOnce({ data: { droplet: { id: 555, status: "active" } } }); // getServerStatus → DO returns "active", normalized to "running"
 
       // Mock: createServer succeeds
       mockedAxios.post.mockResolvedValueOnce({
@@ -557,7 +557,7 @@ describe("initCommand E2E", () => {
       // validateToken
       mockedAxios.get
         .mockResolvedValueOnce({ data: { servers: [] } })
-        .mockResolvedValueOnce({ data: { server: { status: "running" } } });
+        .mockResolvedValueOnce({ data: { server: { id: 999, status: "running" } } });
 
       mockedAxios.post.mockResolvedValueOnce({
         data: {

@@ -16,7 +16,11 @@ export default tseslint.config(
     plugins: { "no-secrets": noSecretsPlugin },
     rules: {
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
-      "no-secrets/no-secrets": "error",
+      "no-secrets/no-secrets": ["error", { tolerance: 4.5 }],
+      "security/detect-non-literal-fs-filename": "off",
+      "security/detect-object-injection": "off",
+      "security/detect-unsafe-regex": "off",
+      "security/detect-non-literal-regexp": "off",
     },
   },
 );

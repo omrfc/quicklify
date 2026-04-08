@@ -72,7 +72,7 @@ describe("security-init E2E", () => {
     it("should set process.title to 'kastell' when --token flag is used", async () => {
       mockedAxios.get
         .mockResolvedValueOnce({ data: { servers: [] } })
-        .mockResolvedValueOnce({ data: { server: { status: "running" } } });
+        .mockResolvedValueOnce({ data: { server: { id: 101, status: "running" } } });
 
       mockedAxios.post.mockResolvedValueOnce({
         data: {
@@ -98,7 +98,7 @@ describe("security-init E2E", () => {
     it("should show warning about --token being visible in shell history", async () => {
       mockedAxios.get
         .mockResolvedValueOnce({ data: { servers: [] } })
-        .mockResolvedValueOnce({ data: { server: { status: "running" } } });
+        .mockResolvedValueOnce({ data: { server: { id: 101, status: "running" } } });
 
       mockedAxios.post.mockResolvedValueOnce({
         data: {
@@ -204,7 +204,7 @@ describe("security-init E2E", () => {
 
       mockedAxios.get
         .mockResolvedValueOnce({ data: { servers: [] } })
-        .mockResolvedValueOnce({ data: { server: { status: "running" } } });
+        .mockResolvedValueOnce({ data: { server: { id: 101, status: "running" } } });
 
       mockedAxios.post.mockResolvedValueOnce({
         data: {

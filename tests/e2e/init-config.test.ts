@@ -51,7 +51,7 @@ const mockedFs = fs as jest.Mocked<typeof fs>;
 function setupHetznerSuccess(ip = "99.88.77.66") {
   mockedAxios.get
     .mockResolvedValueOnce({ data: { servers: [] } }) // validateToken
-    .mockResolvedValueOnce({ data: { server: { status: "running" } } }); // getServerStatus
+    .mockResolvedValueOnce({ data: { server: { id: 101, status: "running" } } }); // getServerStatus
 
   mockedAxios.post.mockResolvedValueOnce({
     data: {
@@ -67,7 +67,7 @@ function setupHetznerSuccess(ip = "99.88.77.66") {
 function setupDOSuccess(ip = "55.44.33.22") {
   mockedAxios.get
     .mockResolvedValueOnce({ data: { account: { status: "active" } } }) // validateToken
-    .mockResolvedValueOnce({ data: { droplet: { status: "active" } } }); // getServerStatus
+    .mockResolvedValueOnce({ data: { droplet: { id: 202, status: "active" } } }); // getServerStatus
 
   mockedAxios.post.mockResolvedValueOnce({
     data: {

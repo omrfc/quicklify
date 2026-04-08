@@ -432,7 +432,7 @@ describe("LinodeProvider", () => {
   describe("getServerStatus", () => {
     it('should return "running" for a running server', async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { status: "running" },
+        data: { id: 12345678, status: "running" },
       });
 
       const status = await provider.getServerStatus("12345678");
@@ -442,7 +442,7 @@ describe("LinodeProvider", () => {
 
     it('should return "offline" for an offline server', async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { status: "offline" },
+        data: { id: 12345678, status: "offline" },
       });
 
       const status = await provider.getServerStatus("12345678");
@@ -452,7 +452,7 @@ describe("LinodeProvider", () => {
 
     it("should call correct API endpoint with server ID", async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { status: "running" },
+        data: { id: 99999, status: "running" },
       });
 
       await provider.getServerStatus("99999");
@@ -1110,8 +1110,8 @@ describe("LinodeProvider", () => {
           data: { id: 456, ipv4: ["4.5.6.7"], status: "provisioning" },
         });
         mockedAxios.get
-          .mockResolvedValueOnce({ data: { status: "provisioning" } })
-          .mockResolvedValueOnce({ data: { status: "running" } });
+          .mockResolvedValueOnce({ data: { id: 456, status: "provisioning" } })
+          .mockResolvedValueOnce({ data: { id: 456, status: "running" } });
         mockedAxios.delete.mockResolvedValueOnce({});
 
         const created = await provider.createServer(serverConfig);

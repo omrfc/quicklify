@@ -55,7 +55,7 @@ describe("initCommand Non-Interactive", () => {
   it("should deploy with all options (hetzner)", async () => {
     mockedAxios.get
       .mockResolvedValueOnce({ data: { servers: [] } }) // validateToken
-      .mockResolvedValueOnce({ data: { server: { status: "running" } } }); // getServerStatus
+      .mockResolvedValueOnce({ data: { server: { id: 1, status: "running" } } }); // getServerStatus
 
     mockedAxios.post.mockResolvedValueOnce({
       data: {
@@ -85,7 +85,7 @@ describe("initCommand Non-Interactive", () => {
   it("should deploy with all options (digitalocean)", async () => {
     mockedAxios.get
       .mockResolvedValueOnce({ data: { account: { status: "active" } } }) // validateToken
-      .mockResolvedValueOnce({ data: { droplet: { status: "active" } } }); // getServerStatus
+      .mockResolvedValueOnce({ data: { droplet: { id: 1, status: "active" } } }); // getServerStatus
 
     mockedAxios.post.mockResolvedValueOnce({
       data: {
@@ -138,7 +138,7 @@ describe("initCommand Non-Interactive", () => {
     mockedAxios.get
       .mockResolvedValueOnce({ data: { servers: [] } })
       .mockResolvedValueOnce({ data: { server_types: [] } }) // getAvailableServerTypes fallback
-      .mockResolvedValueOnce({ data: { server: { status: "running" } } });
+      .mockResolvedValueOnce({ data: { server: { id: 1, status: "running" } } });
 
     // Prompt for size
     mockedInquirer.prompt.mockResolvedValueOnce({ size: "cax11" });
@@ -168,7 +168,7 @@ describe("initCommand Non-Interactive", () => {
   it("should prompt for missing name when other options provided", async () => {
     mockedAxios.get
       .mockResolvedValueOnce({ data: { servers: [] } })
-      .mockResolvedValueOnce({ data: { server: { status: "running" } } });
+      .mockResolvedValueOnce({ data: { server: { id: 1, status: "running" } } });
 
     // Prompt for name
     mockedInquirer.prompt.mockResolvedValueOnce({ serverName: "prompted-name" });
@@ -197,7 +197,7 @@ describe("initCommand Non-Interactive", () => {
   it("should handle server IP pending (DO assigns later)", async () => {
     mockedAxios.get
       .mockResolvedValueOnce({ data: { account: { status: "active" } } })
-      .mockResolvedValueOnce({ data: { droplet: { status: "active" } } })
+      .mockResolvedValueOnce({ data: { droplet: { id: 1, status: "active" } } })
       // getServerDetails for IP refresh
       .mockResolvedValueOnce({
         data: {
@@ -264,7 +264,7 @@ describe("initCommand Non-Interactive", () => {
     // Never becomes "running"
     for (let i = 0; i < 31; i++) {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { server: { status: "initializing" } },
+        data: { server: { id: 600, status: "initializing" } },
       });
     }
 
@@ -285,7 +285,7 @@ describe("initCommand Non-Interactive", () => {
 
     mockedAxios.get
       .mockResolvedValueOnce({ data: { servers: [] } }) // validateToken
-      .mockResolvedValueOnce({ data: { server: { status: "running" } } }); // getServerStatus
+      .mockResolvedValueOnce({ data: { server: { id: 1, status: "running" } } }); // getServerStatus
 
     mockedAxios.post.mockResolvedValueOnce({
       data: {
@@ -315,7 +315,7 @@ describe("initCommand Non-Interactive", () => {
 
     mockedAxios.get
       .mockResolvedValueOnce({ data: { account: { status: "active" } } }) // validateToken
-      .mockResolvedValueOnce({ data: { droplet: { status: "active" } } }); // getServerStatus
+      .mockResolvedValueOnce({ data: { droplet: { id: 1, status: "active" } } }); // getServerStatus
 
     mockedAxios.post.mockResolvedValueOnce({
       data: {
@@ -345,7 +345,7 @@ describe("initCommand Non-Interactive", () => {
 
     mockedAxios.get
       .mockResolvedValueOnce({ data: { servers: [] } })
-      .mockResolvedValueOnce({ data: { server: { status: "running" } } });
+      .mockResolvedValueOnce({ data: { server: { id: 1, status: "running" } } });
 
     mockedAxios.post.mockResolvedValueOnce({
       data: {
@@ -378,7 +378,7 @@ describe("initCommand Non-Interactive", () => {
     // validateToken + getServerStatus
     mockedAxios.get
       .mockResolvedValueOnce({ data: { servers: [] } })
-      .mockResolvedValueOnce({ data: { server: { status: "running" } } });
+      .mockResolvedValueOnce({ data: { server: { id: 1, status: "running" } } });
     mockedAxios.post.mockResolvedValueOnce({
       data: {
         server: {
@@ -420,7 +420,7 @@ describe("initCommand Non-Interactive", () => {
 
       // getServerStatus → already running
       mockedAxios.get.mockResolvedValueOnce({
-        data: { instance: { power_status: "running", server_status: "ok" } },
+        data: { instance: { id: "vultr-timeout", power_status: "running", server_status: "ok" } },
       });
 
       // getServerDetails: 40 calls all returning 0.0.0.0
@@ -463,7 +463,7 @@ describe("initCommand Non-Interactive", () => {
 
       // getServerStatus → running
       mockedAxios.get.mockResolvedValueOnce({
-        data: { instance: { power_status: "running", server_status: "ok" } },
+        data: { instance: { id: "vultr-delayed", power_status: "running", server_status: "ok" } },
       });
 
       // getServerDetails: 3 calls returning 0.0.0.0, then IP assigned
@@ -512,13 +512,13 @@ describe("initCommand Non-Interactive", () => {
       // getServerStatus: first 2 calls → provisioning, then ok
       mockedAxios.get
         .mockResolvedValueOnce({
-          data: { instance: { power_status: "running", server_status: "installingbooting" } },
+          data: { instance: { id: "vultr-prov", power_status: "running", server_status: "installingbooting" } },
         })
         .mockResolvedValueOnce({
-          data: { instance: { power_status: "running", server_status: "installingbooting" } },
+          data: { instance: { id: "vultr-prov", power_status: "running", server_status: "installingbooting" } },
         })
         .mockResolvedValueOnce({
-          data: { instance: { power_status: "running", server_status: "ok" } },
+          data: { instance: { id: "vultr-prov", power_status: "running", server_status: "ok" } },
         });
 
       await initCommand({
@@ -538,7 +538,7 @@ describe("initCommand Non-Interactive", () => {
   it("should show onboarding next steps after successful deploy", async () => {
     mockedAxios.get
       .mockResolvedValueOnce({ data: { servers: [] } })
-      .mockResolvedValueOnce({ data: { server: { status: "running" } } });
+      .mockResolvedValueOnce({ data: { server: { id: 1, status: "running" } } });
 
     mockedAxios.post.mockResolvedValueOnce({
       data: {

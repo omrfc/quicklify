@@ -357,7 +357,7 @@ describe("VultrProvider", () => {
   describe("getServerStatus", () => {
     it('should return "running" for a running server', async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { instance: { power_status: "running" } },
+        data: { instance: { id: "inst-abc-123", power_status: "running" } },
       });
 
       const status = await provider.getServerStatus("inst-abc-123");
@@ -367,7 +367,7 @@ describe("VultrProvider", () => {
 
     it('should return "stopped" for a stopped server', async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { instance: { power_status: "stopped" } },
+        data: { instance: { id: "inst-abc-123", power_status: "stopped" } },
       });
 
       const status = await provider.getServerStatus("inst-abc-123");
@@ -377,7 +377,7 @@ describe("VultrProvider", () => {
 
     it("should call correct API endpoint with server ID", async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { instance: { power_status: "running" } },
+        data: { instance: { id: "inst-99999", power_status: "running" } },
       });
 
       await provider.getServerStatus("inst-99999");
@@ -392,7 +392,7 @@ describe("VultrProvider", () => {
 
     it('should return "provisioning" when power is running but server_status is not ok', async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { instance: { power_status: "running", server_status: "installingbooting" } },
+        data: { instance: { id: "inst-abc-123", power_status: "running", server_status: "installingbooting" } },
       });
 
       const status = await provider.getServerStatus("inst-abc-123");
@@ -402,7 +402,7 @@ describe("VultrProvider", () => {
 
     it('should return "running" when power_status is running and server_status is ok', async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { instance: { power_status: "running", server_status: "ok" } },
+        data: { instance: { id: "inst-abc-123", power_status: "running", server_status: "ok" } },
       });
 
       const status = await provider.getServerStatus("inst-abc-123");
@@ -412,7 +412,7 @@ describe("VultrProvider", () => {
 
     it('should return "provisioning" when server_status is "none"', async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { instance: { power_status: "running", server_status: "none" } },
+        data: { instance: { id: "inst-abc-123", power_status: "running", server_status: "none" } },
       });
 
       const status = await provider.getServerStatus("inst-abc-123");
@@ -422,7 +422,7 @@ describe("VultrProvider", () => {
 
     it('should return "provisioning" when server_status is "locked"', async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { instance: { power_status: "running", server_status: "locked" } },
+        data: { instance: { id: "inst-abc-123", power_status: "running", server_status: "locked" } },
       });
 
       const status = await provider.getServerStatus("inst-abc-123");
@@ -432,7 +432,7 @@ describe("VultrProvider", () => {
 
     it('should return "running" when server_status is null (backward compat)', async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { instance: { power_status: "running", server_status: null } },
+        data: { instance: { id: "inst-abc-123", power_status: "running", server_status: null } },
       });
 
       const status = await provider.getServerStatus("inst-abc-123");
@@ -996,10 +996,10 @@ describe("VultrProvider", () => {
         });
         mockedAxios.get
           .mockResolvedValueOnce({
-            data: { instance: { power_status: "running", server_status: "installingbooting" } },
+            data: { instance: { id: "uuid-123", power_status: "running", server_status: "installingbooting" } },
           })
           .mockResolvedValueOnce({
-            data: { instance: { power_status: "running", server_status: "ok" } },
+            data: { instance: { id: "uuid-123", power_status: "running", server_status: "ok" } },
           });
         mockedAxios.delete.mockResolvedValueOnce({});
 

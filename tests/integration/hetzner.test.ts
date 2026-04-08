@@ -619,7 +619,7 @@ describe("HetznerProvider", () => {
   describe("getServerStatus", () => {
     it('should return "running" for a running server', async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { server: { status: "running" } },
+        data: { server: { id: 12345, status: "running" } },
       });
 
       const status = await provider.getServerStatus("12345");
@@ -629,7 +629,7 @@ describe("HetznerProvider", () => {
 
     it('should return "initializing" for a new server', async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { server: { status: "initializing" } },
+        data: { server: { id: 12345, status: "initializing" } },
       });
 
       const status = await provider.getServerStatus("12345");
@@ -639,7 +639,7 @@ describe("HetznerProvider", () => {
 
     it("should call correct API endpoint with server ID", async () => {
       mockedAxios.get.mockResolvedValueOnce({
-        data: { server: { status: "running" } },
+        data: { server: { id: 99999, status: "running" } },
       });
 
       await provider.getServerStatus("99999");
@@ -958,8 +958,8 @@ describe("HetznerProvider", () => {
           },
         });
         mockedAxios.get
-          .mockResolvedValueOnce({ data: { server: { status: "initializing" } } })
-          .mockResolvedValueOnce({ data: { server: { status: "running" } } });
+          .mockResolvedValueOnce({ data: { server: { id: 99001, status: "initializing" } } })
+          .mockResolvedValueOnce({ data: { server: { id: 99001, status: "running" } } });
         mockedAxios.delete.mockResolvedValueOnce({});
 
         const created = await provider.createServer(serverConfig);

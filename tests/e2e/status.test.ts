@@ -37,7 +37,7 @@ describe("statusCommand E2E", () => {
     mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "test-token" });
 
     mockedAxios.get
-      .mockResolvedValueOnce({ data: { server: { status: "running" } } })
+      .mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } })
       .mockResolvedValueOnce({ status: 200 });
 
     await statusCommand("1.2.3.4");
@@ -52,7 +52,7 @@ describe("statusCommand E2E", () => {
     mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "test-token" });
 
     mockedAxios.get
-      .mockResolvedValueOnce({ data: { server: { status: "running" } } })
+      .mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } })
       .mockRejectedValueOnce(new Error("ECONNREFUSED"));
 
     await statusCommand("coolify-test");
@@ -68,7 +68,7 @@ describe("statusCommand E2E", () => {
     mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "do-token" });
 
     mockedAxios.get
-      .mockResolvedValueOnce({ data: { droplet: { status: "active" } } })
+      .mockResolvedValueOnce({ data: { droplet: { id: 555, status: "active" } } })
       .mockResolvedValueOnce({ status: 200 });
 
     await statusCommand("10.20.30.40");
@@ -83,7 +83,7 @@ describe("statusCommand E2E", () => {
     mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "test-token" });
 
     mockedAxios.get
-      .mockResolvedValueOnce({ data: { server: { status: "running" } } })
+      .mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } })
       .mockResolvedValueOnce({ status: 200 });
 
     await statusCommand("1.2.3.4");
@@ -102,7 +102,7 @@ describe("statusCommand E2E", () => {
     mockedInquirer.prompt.mockResolvedValueOnce({ apiToken: "test-token" });
 
     mockedAxios.get
-      .mockResolvedValueOnce({ data: { server: { status: "running" } } })
+      .mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } })
       .mockResolvedValueOnce({ status: 200 });
 
     await statusCommand("1.2.3.4");

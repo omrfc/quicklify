@@ -115,7 +115,7 @@ describe("maintainCommand", () => {
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // getServerStatus returns "off"
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "off" } } });
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "off" } } });
 
     await maintainCommand("1.2.3.4");
 
@@ -153,7 +153,7 @@ describe("maintainCommand", () => {
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // getServerStatus returns "running"
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
 
     // sshExec update fails
     mockedSsh.sshExec.mockResolvedValueOnce({ code: 1, stdout: "", stderr: "update error" });
@@ -175,7 +175,7 @@ describe("maintainCommand", () => {
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // getServerStatus returns "running"
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
 
     // sshExec throws
     mockedSsh.sshExec.mockRejectedValueOnce(new Error("SSH connection lost"));
@@ -197,7 +197,7 @@ describe("maintainCommand", () => {
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // getServerStatus returns "running"
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
 
     // sshExec throws with matching SSH pattern
     mockedSsh.sshExec.mockRejectedValueOnce(new Error("Connection refused"));
@@ -218,7 +218,7 @@ describe("maintainCommand", () => {
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: getServerStatus returns "running"
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
 
     // Step 2: update succeeds
     mockedSsh.sshExec.mockResolvedValueOnce({ code: 0, stdout: "ok", stderr: "" });
@@ -242,7 +242,7 @@ describe("maintainCommand", () => {
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: getServerStatus "running"
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
 
     // Step 2: update succeeds
     mockedSsh.sshExec.mockResolvedValueOnce({ code: 0, stdout: "updated", stderr: "" });
@@ -254,7 +254,7 @@ describe("maintainCommand", () => {
     mockedAxios.post.mockResolvedValueOnce({ data: { action: { id: 1 } } });
 
     // Step 5: getServerStatus "running" after reboot
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
 
     // Step 5: Coolify health after reboot
     mockedAxios.get.mockResolvedValueOnce({ status: 200 });
@@ -280,7 +280,7 @@ describe("maintainCommand", () => {
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: getServerStatus "running"
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
 
     // Step 2: update succeeds
     mockedSsh.sshExec.mockResolvedValueOnce({ code: 0, stdout: "updated", stderr: "" });
@@ -308,7 +308,7 @@ describe("maintainCommand", () => {
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: running
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
     // Step 2: update OK
     mockedSsh.sshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
     // Step 3: health OK
@@ -333,7 +333,7 @@ describe("maintainCommand", () => {
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: running
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
     // Step 2: update OK
     mockedSsh.sshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
     // Step 3: health OK
@@ -341,7 +341,7 @@ describe("maintainCommand", () => {
     // Step 4: reboot OK
     mockedAxios.post.mockResolvedValueOnce({ data: { action: { id: 1 } } });
     // Core's rebootAndWait polls — server never comes back (all polls return "off")
-    mockedAxios.get.mockResolvedValue({ data: { server: { status: "off" } } });
+    mockedAxios.get.mockResolvedValue({ data: { server: { id: 123, status: "off" } } });
 
     await maintainCommand("1.2.3.4");
 
@@ -361,7 +361,7 @@ describe("maintainCommand", () => {
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: running
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
     // Step 2: update OK
     mockedSsh.sshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
     // Step 3: health check pass
@@ -369,7 +369,7 @@ describe("maintainCommand", () => {
     // Step 4: reboot OK
     mockedAxios.post.mockResolvedValueOnce({ data: { action: { id: 1 } } });
     // Step 5: server is running
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
     // Step 5: Coolify health check fails (all polls)
     mockedAxios.get.mockRejectedValue(new Error("ECONNREFUSED"));
 
@@ -447,7 +447,7 @@ describe("maintainCommand", () => {
         .mockResolvedValueOnce({ apiToken: "test-token" });
 
       // Step 1: running
-      mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+      mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
       // Step 2: update OK
       mockedSsh.sshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
       // Step 3: health OK
@@ -455,7 +455,7 @@ describe("maintainCommand", () => {
       // Step 4: reboot
       mockedAxios.post.mockResolvedValueOnce({ data: { action: { id: 1 } } });
       // Step 5: server running
-      mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+      mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
       // Step 5: coolify OK
       mockedAxios.get.mockResolvedValueOnce({ status: 200 });
 
@@ -476,7 +476,7 @@ describe("maintainCommand", () => {
         .mockResolvedValueOnce({ apiToken: "test-token" });
 
       // Step 1: running
-      mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+      mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
       // Step 2: update OK
       mockedSsh.sshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
       // Step 3: health OK
@@ -500,7 +500,7 @@ describe("maintainCommand", () => {
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: running
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
     // Step 2: update OK
     mockedSsh.sshExec.mockResolvedValueOnce({ code: 0, stdout: "", stderr: "" });
     // Step 3: health OK
@@ -527,7 +527,7 @@ describe("maintainCommand", () => {
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: not running
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "off" } } });
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "off" } } });
 
     await maintainCommand("1.2.3.4");
 
@@ -580,7 +580,7 @@ describe("maintainCommand", () => {
       // Step 0: snapshot cost estimate (fails -> skipped)
       mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
       // Step 1: not running (keeps test short)
-      mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "off" } } });
+      mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "off" } } });
 
       await maintainCommand("1.2.3.4");
 
@@ -599,7 +599,7 @@ describe("maintainCommand", () => {
     // Step 0: snapshot cost estimate (fails -> skipped)
     mockedAxios.get.mockRejectedValueOnce(new Error("snapshot cost"));
     // Step 1: running
-    mockedAxios.get.mockResolvedValueOnce({ data: { server: { status: "running" } } });
+    mockedAxios.get.mockResolvedValueOnce({ data: { server: { id: 123, status: "running" } } });
     // Step 2: update fails with stderr
     mockedSsh.sshExec.mockResolvedValueOnce({
       code: 1,
