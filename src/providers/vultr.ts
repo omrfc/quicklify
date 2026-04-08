@@ -2,6 +2,9 @@ import { z } from "zod";
 import { apiClient, stripSensitiveData, withProviderErrorHandling, assertValidServerId, uploadSshKeyWithConflict, type CloudProvider } from "./base.js";
 import { withRetry } from "../utils/retry.js";
 
+import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
+import { VULTR_UBUNTU_OS_ID, formatSnapshotCost } from "../constants.js";
+
 export const VultrInstanceSchema = z.object({
   instance: z.object({
     id: z.string(),
@@ -10,8 +13,6 @@ export const VultrInstanceSchema = z.object({
     server_status: z.string().nullable().optional(),
   }),
 });
-import type { Region, ServerSize, ServerConfig, ServerResult, SnapshotInfo, ServerMode } from "../types/index.js";
-import { VULTR_UBUNTU_OS_ID, formatSnapshotCost } from "../constants.js";
 
 interface VultrPlan {
   id: string;

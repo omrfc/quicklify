@@ -34,7 +34,7 @@ export async function withRetry<T>(
       let delayMs: number;
 
       if (status === 429) {
-        const retryAfter = (error as import("axios").AxiosError).response?.headers["retry-after"];
+        const retryAfter = axios.isAxiosError(error) ? error.response?.headers["retry-after"] : undefined;
         if (retryAfter) {
           const parsed = parseInt(retryAfter, 10);
           if (Number.isFinite(parsed) && parsed > 0) {
