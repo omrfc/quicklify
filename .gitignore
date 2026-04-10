@@ -163,3 +163,5 @@ servers.json
 # Stryker mutation testing
 reports/mutation/
 .stryker-tmp/
+
+.mindlore/
