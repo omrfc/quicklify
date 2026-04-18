@@ -155,7 +155,7 @@ LESSONS.md
 .planning/
 
 # Superpowers plans (agent-driven development)
-docs/superpowers/
+# docs/superpowers/  # TEMPORARILY REMOVED FOR REVERT COMMIT
 
 # Kastell user config & export
 kastell.yml
