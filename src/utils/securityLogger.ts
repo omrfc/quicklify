@@ -58,3 +58,14 @@ export function logSecurityEvent(
 export function detectCaller(): SecurityLogCaller {
   return process.env["KASTELL_CALLER"] === "mcp" ? "mcp" : "cli";
 }
+
+export class SecurityLogger {
+  static warn(message: string, context?: Record<string, unknown>): void {
+    // Fallback warn for modules that can't use logSecurityEvent
+    try {
+      console.warn(`[SECURITY] ${message}`, context ?? {});
+    } catch {
+      // Silent fail - security logging must never crash the main operation
+    }
+  }
+}
