@@ -1,4 +1,4 @@
-import { mkdirSync, existsSync, writeFileSync, readFileSync, readdirSync, rmSync } from "fs";
+import { mkdirSync, existsSync, readFileSync, readdirSync, rmSync } from "fs";
 import { join, resolve } from "path";
 import { sshExec, assertValidIp } from "../utils/ssh.js";
 import { BACKUPS_DIR } from "../utils/paths.js";
@@ -9,6 +9,7 @@ import { isBareServer } from "../utils/modeGuard.js";
 import { debugLog } from "../utils/logger.js";
 import { formatTimestamp, getBackupDir } from "../utils/backupPath.js";
 import { scpDownload, scpUpload } from "../utils/scp.js";
+import { secureMkdirSync, secureWriteFileSync } from "../utils/secureWrite.js";
 import {
   buildBareConfigTarCommand, buildBareRestoreConfigCommand,
   buildBareCleanupCommand, buildStartCoolifyCommand,
@@ -111,7 +112,7 @@ export async function createBareBackup(
     // Step 2: Download
     const timestamp = formatTimestamp(new Date());
     const backupPath = join(getBackupDir(serverName), timestamp);
-    mkdirSync(backupPath, { recursive: true, mode: 0o700 });
+    secureMkdirSync(backupPath);
 
     const dl = await scpDownload(ip, "/tmp/bare-config.tar.gz", join(backupPath, "bare-config.tar.gz"));
     if (dl.code !== 0) {
@@ -131,7 +132,7 @@ export async function createBareBackup(
       files: ["bare-config.tar.gz"],
       mode: "bare",
     };
-    writeFileSync(join(backupPath, "manifest.json"), JSON.stringify(manifest, null, 2), { mode: 0o600 });
+    secureWriteFileSync(join(backupPath, "manifest.json"), JSON.stringify(manifest, null, 2));
 
     // Step 4: Cleanup remote
     await sshExec(ip, buildBareCleanupCommand()).catch((e) => debugLog?.("bare backup cleanup failed:", e));

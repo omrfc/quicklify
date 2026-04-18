@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, cpSync, writeFileSync } from "fs";
+import { existsSync, cpSync } from "fs";
+import { secureMkdirSync, secureWriteFileSync } from "./secureWrite.js";
 import { homedir } from "os";
 import { join } from "path";
 import chalk from "chalk";
@@ -25,9 +26,9 @@ export function migrateConfigIfNeeded(): void {
   }
 
   try {
-    mkdirSync(NEW_CONFIG_DIR, { recursive: true, mode: 0o700 });
+    secureMkdirSync(NEW_CONFIG_DIR, { recursive: true });
     cpSync(OLD_CONFIG_DIR, NEW_CONFIG_DIR, { recursive: true });
-    writeFileSync(MIGRATED_FLAG, new Date().toISOString(), { mode: 0o600 });
+    secureWriteFileSync(MIGRATED_FLAG, new Date().toISOString());
     console.warn(
       chalk.yellow(
         "Migrated config from ~/.quicklify to ~/.kastell. You can safely remove ~/.quicklify.",

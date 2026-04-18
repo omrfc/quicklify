@@ -47,6 +47,11 @@ jest.mock("child_process", () => ({
   spawn: jest.fn(),
   execSync: jest.fn(),
 }));
+jest.mock("../../src/utils/secureWrite", () => ({
+  secureWriteFileSync: jest.fn(),
+  secureMkdirSync: jest.fn(),
+  clearCache: jest.fn(),
+}));
 jest.mock("../../src/utils/config");
 jest.mock("../../src/utils/ssh");
 jest.mock("../../src/utils/providerFactory");

@@ -1,15 +1,16 @@
-import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { readFileSync } from "fs";
 import { join } from "path";
 import type { KastellConfig } from "../types/index.js";
 import { SUPPORTED_PROVIDERS, invalidProviderError } from "../constants.js";
 import { KASTELL_DIR } from "./paths.js";
+import { secureMkdirSync, secureWriteFileSync } from "./secureWrite.js";
 
 const DEFAULTS_FILE = join(KASTELL_DIR, "config.json");
 
 const VALID_KEYS = ["provider", "region", "size", "name"];
 
 function ensureConfigDir(): void {
-  mkdirSync(KASTELL_DIR, { recursive: true, mode: 0o700 });
+  secureMkdirSync(KASTELL_DIR, { recursive: true });
 }
 
 export function getDefaults(): KastellConfig {
@@ -33,7 +34,7 @@ export function setDefault(key: string, value: string): void {
   ensureConfigDir();
   const config = getDefaults();
   (config as Record<string, string>)[key] = value;
-  writeFileSync(DEFAULTS_FILE, JSON.stringify(config, null, 2), { mode: 0o600 });
+  secureWriteFileSync(DEFAULTS_FILE, JSON.stringify(config, null, 2));
 }
 
 export function getDefault(key: string): string | undefined {
@@ -43,7 +44,7 @@ export function getDefault(key: string): string | undefined {
 
 export function resetDefaults(): void {
   ensureConfigDir();
-  writeFileSync(DEFAULTS_FILE, JSON.stringify({}, null, 2), { mode: 0o600 });
+  secureWriteFileSync(DEFAULTS_FILE, JSON.stringify({}, null, 2));
 }
 
 export { DEFAULTS_FILE, VALID_KEYS };

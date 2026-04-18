@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { readFileSync } from "fs";
+import { secureMkdirSync, secureWriteFileSync } from "./secureWrite.js";
 import { join } from "path";
 import axios from "axios";
 import { logger } from "./logger.js";
@@ -61,8 +62,8 @@ function readCache(): UpdateCache | null {
 
 function writeCache(cache: UpdateCache): void {
   try {
-    mkdirSync(KASTELL_DIR, { recursive: true, mode: 0o700 });
-    writeFileSync(UPDATE_CHECK_FILE, JSON.stringify(cache), { mode: 0o600 });
+    secureMkdirSync(KASTELL_DIR, { recursive: true });
+    secureWriteFileSync(UPDATE_CHECK_FILE, JSON.stringify(cache));
   } catch {
     // Silently ignore write errors
   }

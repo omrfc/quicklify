@@ -7,7 +7,6 @@
 import { createHash } from "crypto";
 import {
   mkdirSync,
-  writeFileSync,
   existsSync,
   renameSync,
   rmSync,
@@ -18,6 +17,7 @@ import { sshExec } from "../utils/ssh.js";
 import { withFileLock } from "../utils/fileLock.js";
 import { KASTELL_DIR } from "../utils/paths.js";
 import { getErrorMessage } from "../utils/errorMapper.js";
+import { secureMkdirSync, secureWriteFileSync } from "../utils/secureWrite.js";
 import { ValidationError } from "../utils/errors.js";
 import {
   buildEvidenceBatchCommand,
@@ -103,7 +103,7 @@ function writeEvidenceFile(
   }
 
   const filePath = join(dir, filename);
-  writeFileSync(filePath, content, { mode: 0o600 });
+  secureWriteFileSync(filePath, content);
   const hash = sha256(content);
   entries.push({
     filename,
@@ -172,7 +172,7 @@ export async function collectEvidence(
   }
 
   // Create evidence directory
-  mkdirSync(evidenceDir, { recursive: true, mode: 0o700 });
+  secureMkdirSync(evidenceDir);
 
   // Build SSH batch command and matching filename list
   const buildOpts = { noDocker: opts.noDocker, noSysinfo: opts.noSysinfo };
@@ -228,9 +228,9 @@ export async function collectEvidence(
     await withFileLock(manifestPath, () => {
       const manifestTmp = manifestPath + ".tmp";
       const sha256SumsTmp = sha256SumsPath + ".tmp";
-      writeFileSync(manifestTmp, JSON.stringify(manifest, null, 2), { mode: 0o600 });
+      secureWriteFileSync(manifestTmp, JSON.stringify(manifest, null, 2));
       renameSync(manifestTmp, manifestPath);
-      writeFileSync(sha256SumsTmp, sha256SumsContent, { mode: 0o600 });
+      secureWriteFileSync(sha256SumsTmp, sha256SumsContent);
       renameSync(sha256SumsTmp, sha256SumsPath);
     });
   } catch (err: unknown) {

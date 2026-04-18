@@ -1,6 +1,7 @@
 import { spawnSync } from "child_process";
-import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from "fs";
+import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync } from "fs";
 import { join } from "path";
+import { secureWriteFileSync } from "../utils/secureWrite.js";
 import {
   validateCronExpr,
   saveSchedule,
@@ -23,7 +24,7 @@ function updateCrontab(marker: string, newEntry?: string): { success: boolean; e
     .split("\n")
     .filter((line) => !line.includes(marker));
   if (newEntry) lines.push(newEntry);
-  writeFileSync(CRONTAB_TMP, lines.join("\n") + "\n", { mode: 0o600 });
+  secureWriteFileSync(CRONTAB_TMP, lines.join("\n") + "\n");
   try {
     const install = spawnSync("crontab", [CRONTAB_TMP], { encoding: "utf8", env: sanitizedEnv() });
     if (install.status !== 0) {

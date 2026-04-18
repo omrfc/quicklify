@@ -18,7 +18,16 @@ jest.mock("../../src/utils/paths.js", () => ({
 jest.mock("../../src/utils/fileLock", () => ({
   withFileLock: jest.fn((_path: string, fn: () => unknown) => fn()),
 }));
+jest.mock("../../src/utils/secureWrite", () => ({
+  secureWriteFileSync: jest.fn(),
+  secureMkdirSync: jest.fn(),
+  clearCache: jest.fn(),
+}));
 
+const mockedSecureWrite = require("../../src/utils/secureWrite") as {
+  secureMkdirSync: jest.Mock;
+  secureWriteFileSync: jest.Mock;
+};
 const mockedFs = fs as jest.Mocked<typeof fs>;
 
 function makeAuditResult(overrides: Partial<AuditResult> = {}): AuditResult {
@@ -57,19 +66,17 @@ describe("saveSnapshot", () => {
   it("should replace dots with hyphens in directory name", async () => {
     await saveSnapshot(makeAuditResult({ serverIp: "10.0.0.1" }));
 
-    expect(mockedFs.mkdirSync).toHaveBeenCalled();
-    const mkdirPath = (mockedFs.mkdirSync as jest.Mock).mock.calls[0][0] as string;
+    expect(mockedSecureWrite.secureMkdirSync).toHaveBeenCalled();
+    const mkdirPath = mockedSecureWrite.secureMkdirSync.mock.calls[0][0] as string;
     expect(mkdirPath).toContain("10-0-0-1");
     expect(mkdirPath).not.toContain("10.0.0.1");
   });
 
-  it("should create directory with mode 0o700", async () => {
+  it("should create directory with secureMkdirSync", async () => {
     await saveSnapshot(makeAuditResult());
 
-    expect(mockedFs.mkdirSync).toHaveBeenCalledWith(
-      expect.stringContaining("snapshots"),
-      expect.objectContaining({ mode: 0o700 }),
-    );
+    expect(mockedSecureWrite.secureMkdirSync).toHaveBeenCalled();
+    expect(mockedSecureWrite.secureMkdirSync.mock.calls[0][0]).toContain("snapshots");
   });
 
   it("should produce JSON with schemaVersion: 2 (v2 schema)", async () => {

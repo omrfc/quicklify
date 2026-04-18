@@ -31,9 +31,15 @@ jest.mock("../../src/core/notifyStore.js", () => ({
   removeNotifySecret: jest.fn(),
 }));
 
+jest.mock("../../src/utils/secureWrite", () => ({
+  secureMkdirSync: jest.fn(),
+  secureWriteFileSync: jest.fn(),
+}));
+
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;
 const mockedWriteFileSync = writeFileSync as jest.MockedFunction<typeof writeFileSync>;
+const mockedSecureWriteFileSync = require("../../src/utils/secureWrite").secureWriteFileSync as jest.Mock;
 const mockedMkdirSync = mkdirSync as jest.MockedFunction<typeof mkdirSync>;
 const mockedAxiosPost = axios.post as jest.Mock;
 const mockedLoadNotifyChannels = loadNotifyChannels as jest.Mock;
@@ -321,10 +327,9 @@ describe("dispatchWithCooldown", () => {
 
     await dispatchWithCooldown("api", "ram", "RAM 95%");
 
-    expect(mockedWriteFileSync).toHaveBeenCalledWith(
+    expect(mockedSecureWriteFileSync).toHaveBeenCalledWith(
       expect.stringContaining("notify-cooldown.json"),
       expect.stringContaining("api:ram"),
-      { mode: 0o600 },
     );
   });
 
@@ -397,15 +402,15 @@ describe("loadCooldownState / saveCooldownState", () => {
   });
 
   it("saveCooldownState writes to notify-cooldown.json with mode 0o600", () => {
+    const mockedSecureMkdirSync = require("../../src/utils/secureWrite").secureMkdirSync as jest.Mock;
     const state = { "web:disk": new Date().toISOString() };
 
     saveCooldownState(state);
 
-    expect(mockedMkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
-    expect(mockedWriteFileSync).toHaveBeenCalledWith(
+    expect(mockedSecureMkdirSync).toHaveBeenCalledWith(expect.any(String));
+    expect(mockedSecureWriteFileSync).toHaveBeenCalledWith(
       expect.stringContaining("notify-cooldown.json"),
       JSON.stringify(state, null, 2),
-      { mode: 0o600 },
     );
   });
 });

@@ -3,9 +3,10 @@
  * Tracks the last processed update_id to prevent stale command replay on restart.
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { KASTELL_DIR } from "../../utils/paths.js";
+import { secureWriteFileSync, secureMkdirSync } from "../../utils/secureWrite.js";
 
 export interface BotOffset {
   lastUpdateId: number;
@@ -17,7 +18,7 @@ const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
 /** Ensure KASTELL_DIR exists. Call once at startup, not per-save. */
 export function ensureOffsetDir(): void {
-  if (!existsSync(KASTELL_DIR)) mkdirSync(KASTELL_DIR, { recursive: true });
+  if (!existsSync(KASTELL_DIR)) secureMkdirSync(KASTELL_DIR);
 }
 
 /** Load the last saved offset. Returns null if file is missing or corrupt. */
@@ -35,7 +36,7 @@ export function saveOffset(updateId: number): void {
     lastUpdateId: updateId,
     savedAt: new Date().toISOString(),
   };
-  writeFileSync(OFFSET_FILE, JSON.stringify(data, null, 2), { mode: 0o600 });
+  secureWriteFileSync(OFFSET_FILE, JSON.stringify(data, null, 2));
 }
 
 /** Check if the given savedAt timestamp is older than 24 hours. */

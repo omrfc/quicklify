@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync } from "fs";
 import * as config from "../../src/utils/config";
 import { exportCommand, importCommand } from "../../src/commands/transfer";
 
@@ -8,11 +8,16 @@ jest.mock("fs", () => ({
   mkdirSync: jest.fn(),
   existsSync: jest.fn(),
 }));
+jest.mock("../../src/utils/secureWrite", () => ({
+  secureWriteFileSync: jest.fn(),
+  secureMkdirSync: jest.fn(),
+}));
 jest.mock("../../src/utils/config");
 
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;
-const mockedWriteFileSync = writeFileSync as jest.MockedFunction<typeof writeFileSync>;
+const mockedSecureWrite = require("../../src/utils/secureWrite");
+const mockedSecureWriteFileSync = mockedSecureWrite.secureWriteFileSync as jest.MockedFunction<typeof mockedSecureWrite.secureWriteFileSync>;
 
 const sampleServer = {
   id: "123",
@@ -49,15 +54,15 @@ describe("security-transfer E2E", () => {
   });
 
   describe("export security", () => {
-    it("should create export file with mode 0o600 (owner read/write only)", async () => {
+    it("should call secureWriteFileSync with JSON string content", async () => {
       mockedConfig.getServers.mockReturnValue([sampleServer]);
 
       await exportCommand();
 
-      expect(mockedWriteFileSync).toHaveBeenCalledWith(
+      expect(mockedSecureWriteFileSync).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(String),
-        expect.objectContaining({ mode: 0o600 }),
+        expect.objectContaining({ encoding: "utf-8" }),
       );
     });
 
@@ -75,7 +80,7 @@ describe("security-transfer E2E", () => {
 
       await exportCommand();
 
-      const [, jsonContent] = mockedWriteFileSync.mock.calls[0] as [string, string, object];
+      const [, jsonContent] = mockedSecureWriteFileSync.mock.calls[0] as [string, string, object];
       const exported = JSON.parse(jsonContent);
 
       expect(exported).toHaveLength(2);
@@ -241,7 +246,7 @@ describe("security-transfer E2E", () => {
 
       await exportCommand("/tmp/roundtrip.json");
 
-      const [, exportedJson] = mockedWriteFileSync.mock.calls[0] as [string, string, object];
+      const [, exportedJson] = mockedSecureWriteFileSync.mock.calls[0] as [string, string, object];
 
       mockedReadFileSync.mockReturnValue(exportedJson);
       mockedConfig.getServers.mockReturnValue([]);
@@ -260,7 +265,7 @@ describe("security-transfer E2E", () => {
 
       await exportCommand();
 
-      expect(mockedWriteFileSync).not.toHaveBeenCalled();
+      expect(mockedSecureWriteFileSync).not.toHaveBeenCalled();
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("No servers to export");
     });

@@ -9,10 +9,15 @@ jest.mock("fs", () => ({
   existsSync: jest.fn(),
 }));
 jest.mock("../../src/utils/config");
+jest.mock("../../src/utils/secureWrite", () => ({
+  secureMkdirSync: jest.fn(),
+  secureWriteFileSync: jest.fn(),
+}));
 
 const mockedConfig = config as jest.Mocked<typeof config>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;
 const mockedWriteFileSync = writeFileSync as jest.MockedFunction<typeof writeFileSync>;
+const mockedSecureWriteFileSync = require("../../src/utils/secureWrite").secureWriteFileSync as jest.Mock;
 
 const sampleServer = {
   id: "123",
@@ -101,10 +106,10 @@ describe("transfer", () => {
 
       await exportCommand();
 
-      expect(mockedWriteFileSync).toHaveBeenCalledWith(
+      expect(mockedSecureWriteFileSync).toHaveBeenCalledWith(
         expect.stringContaining("kastell-export.json"),
         JSON.stringify([sampleServer], null, 2),
-        { encoding: "utf-8", mode: 0o600 },
+        expect.objectContaining({ encoding: "utf-8" }),
       );
     });
 
@@ -113,10 +118,10 @@ describe("transfer", () => {
 
       await exportCommand("/tmp/my-export.json");
 
-      expect(mockedWriteFileSync).toHaveBeenCalledWith(
+      expect(mockedSecureWriteFileSync).toHaveBeenCalledWith(
         expect.stringContaining("my-export.json"),
         expect.any(String),
-        { encoding: "utf-8", mode: 0o600 },
+        expect.objectContaining({ encoding: "utf-8" }),
       );
     });
 
@@ -127,12 +132,12 @@ describe("transfer", () => {
 
       const output = consoleSpy.mock.calls.map((c: any[]) => c.join(" ")).join("\n");
       expect(output).toContain("No servers to export");
-      expect(mockedWriteFileSync).not.toHaveBeenCalled();
+      expect(mockedSecureWriteFileSync).not.toHaveBeenCalled();
     });
 
     it("should handle write error", async () => {
       mockedConfig.getServers.mockReturnValue([sampleServer]);
-      mockedWriteFileSync.mockImplementation(() => {
+      mockedSecureWriteFileSync.mockImplementation(() => {
         throw new Error("Permission denied");
       });
 
@@ -146,7 +151,7 @@ describe("transfer", () => {
       mockedConfig.getServers.mockReturnValue([sampleServer]);
       const err = new Error("write failed") as NodeJS.ErrnoException;
       err.code = "EACCES";
-      mockedWriteFileSync.mockImplementation(() => {
+      mockedSecureWriteFileSync.mockImplementation(() => {
         throw err;
       });
 
@@ -157,7 +162,7 @@ describe("transfer", () => {
     });
 
     it("should show security warning after export", async () => {
-      mockedWriteFileSync.mockReset();
+      mockedSecureWriteFileSync.mockReset();
       mockedConfig.getServers.mockReturnValue([sampleServer]);
 
       await exportCommand();

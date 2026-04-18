@@ -21,10 +21,16 @@ jest.mock("fs", () => ({
 }));
 jest.mock("../../src/utils/ssh");
 
+jest.mock("../../src/utils/secureWrite", () => ({
+  secureMkdirSync: jest.fn(),
+  secureWriteFileSync: jest.fn(),
+}));
+
 const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;
 const mockedWriteFileSync = writeFileSync as jest.MockedFunction<typeof writeFileSync>;
+const mockedSecureWriteFileSync = require("../../src/utils/secureWrite").secureWriteFileSync as jest.Mock;
 
 const VALID_IP = "1.2.3.4";
 const SERVER_NAME = "my-server";
@@ -169,8 +175,8 @@ describe("saveSchedule", () => {
   it("writes merged schedules to file", () => {
     mockedExistsSync.mockReturnValue(false);
     saveSchedule(SERVER_NAME, CRON_EXPR);
-    expect(mockedWriteFileSync).toHaveBeenCalled();
-    const [, content] = mockedWriteFileSync.mock.calls[0];
+    expect(mockedSecureWriteFileSync).toHaveBeenCalled();
+    const [, content] = mockedSecureWriteFileSync.mock.calls[0];
     const parsed = JSON.parse(content as string);
     expect(parsed[SERVER_NAME]).toBe(CRON_EXPR);
   });
@@ -178,15 +184,17 @@ describe("saveSchedule", () => {
   it("writes with mode 0o600 for security", () => {
     mockedExistsSync.mockReturnValue(false);
     saveSchedule(SERVER_NAME, CRON_EXPR);
-    const [, , opts] = mockedWriteFileSync.mock.calls[0];
-    expect((opts as Record<string, unknown>).mode).toBe(0o600);
+    expect(mockedSecureWriteFileSync).toHaveBeenCalledWith(
+      expect.stringContaining("schedules.json"),
+      expect.any(String),
+    );
   });
 
   it("merges with existing schedules", () => {
     mockedExistsSync.mockReturnValue(true);
     mockedReadFileSync.mockReturnValue(JSON.stringify({ "other-server": "0 4 * * *" }));
     saveSchedule(SERVER_NAME, CRON_EXPR);
-    const [, content] = mockedWriteFileSync.mock.calls[0];
+    const [, content] = mockedSecureWriteFileSync.mock.calls[0];
     const parsed = JSON.parse(content as string);
     expect(parsed["other-server"]).toBe("0 4 * * *");
     expect(parsed[SERVER_NAME]).toBe(CRON_EXPR);
@@ -204,7 +212,7 @@ describe("removeSchedule", () => {
       JSON.stringify({ [SERVER_NAME]: CRON_EXPR, "other-server": "0 4 * * *" }),
     );
     removeSchedule(SERVER_NAME);
-    const [, content] = mockedWriteFileSync.mock.calls[0];
+    const [, content] = mockedSecureWriteFileSync.mock.calls[0];
     const parsed = JSON.parse(content as string);
     expect(parsed[SERVER_NAME]).toBeUndefined();
     expect(parsed["other-server"]).toBe("0 4 * * *");
@@ -213,7 +221,7 @@ describe("removeSchedule", () => {
   it("writes after removing even if server not found", () => {
     mockedExistsSync.mockReturnValue(false);
     removeSchedule("nonexistent-server");
-    expect(mockedWriteFileSync).toHaveBeenCalled();
+    expect(mockedSecureWriteFileSync).toHaveBeenCalled();
   });
 });
 
@@ -257,8 +265,8 @@ describe("scheduleBackup", () => {
 
     await scheduleBackup(VALID_IP, SERVER_NAME, CRON_EXPR);
 
-    expect(mockedWriteFileSync).toHaveBeenCalled();
-    const [, content] = mockedWriteFileSync.mock.calls[0];
+    expect(mockedSecureWriteFileSync).toHaveBeenCalled();
+    const [, content] = mockedSecureWriteFileSync.mock.calls[0];
     const parsed = JSON.parse(content as string);
     expect(parsed[SERVER_NAME]).toBe(CRON_EXPR);
   });
@@ -313,7 +321,7 @@ describe("scheduleBackup", () => {
 
     await scheduleBackup(VALID_IP, SERVER_NAME, CRON_EXPR);
 
-    expect(mockedWriteFileSync).not.toHaveBeenCalled();
+    expect(mockedSecureWriteFileSync).not.toHaveBeenCalled();
   });
 
   it("rejects when assertValidIp throws (invalid IP)", async () => {
@@ -461,8 +469,8 @@ describe("removeBackupSchedule", () => {
 
     await removeBackupSchedule(VALID_IP, SERVER_NAME);
 
-    expect(mockedWriteFileSync).toHaveBeenCalled();
-    const [, content] = mockedWriteFileSync.mock.calls[0];
+    expect(mockedSecureWriteFileSync).toHaveBeenCalled();
+    const [, content] = mockedSecureWriteFileSync.mock.calls[0];
     const parsed = JSON.parse(content as string);
     expect(parsed[SERVER_NAME]).toBeUndefined();
   });
@@ -492,6 +500,6 @@ describe("removeBackupSchedule", () => {
 
     await removeBackupSchedule(VALID_IP, SERVER_NAME);
 
-    expect(mockedWriteFileSync).not.toHaveBeenCalled();
+    expect(mockedSecureWriteFileSync).not.toHaveBeenCalled();
   });
 });

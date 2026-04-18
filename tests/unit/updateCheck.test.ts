@@ -8,6 +8,10 @@ jest.mock("os", () => ({
   homedir: () => "/mock-home",
 }));
 jest.mock("axios");
+jest.mock("../../src/utils/secureWrite", () => ({
+  secureWriteFileSync: jest.fn(),
+  secureMkdirSync: jest.fn(),
+}));
 
 const mockedFs = fs as jest.Mocked<typeof fs>;
 const mockedAxios = axios as jest.Mocked<typeof axios>;
@@ -164,10 +168,11 @@ describe("updateCheck", () => {
 
       await checkForUpdate("1.0.2");
 
-      expect(mockedFs.mkdirSync).toHaveBeenCalledWith(expect.stringContaining(".kastell"), {
-        recursive: true,
-        mode: 0o700,
-      });
+      const { secureMkdirSync } = require("../../src/utils/secureWrite");
+      expect(secureMkdirSync).toHaveBeenCalledWith(
+        expect.stringContaining(".kastell"),
+        { recursive: true },
+      );
     });
 
     it("should write cache after successful check", async () => {
@@ -179,10 +184,10 @@ describe("updateCheck", () => {
 
       await checkForUpdate("1.0.2");
 
-      expect(mockedFs.writeFileSync).toHaveBeenCalledWith(
+      const { secureWriteFileSync } = require("../../src/utils/secureWrite");
+      expect(secureWriteFileSync).toHaveBeenCalledWith(
         expect.stringContaining(".update-check"),
         expect.stringContaining('"latestVersion":"2.0.0"'),
-        { mode: 0o600 },
       );
     });
 

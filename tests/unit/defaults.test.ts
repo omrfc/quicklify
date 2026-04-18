@@ -5,11 +5,16 @@ jest.mock("os", () => ({
 jest.mock("fs", () => ({
   existsSync: jest.fn(),
   readFileSync: jest.fn(),
-  writeFileSync: jest.fn(),
   mkdirSync: jest.fn(),
 }));
 
-import { existsSync, readFileSync, writeFileSync } from "fs";
+jest.mock("../../src/utils/secureWrite", () => ({
+  secureMkdirSync: jest.fn(),
+  secureWriteFileSync: jest.fn(),
+}));
+
+import { existsSync, readFileSync } from "fs";
+import { secureWriteFileSync } from "../../src/utils/secureWrite";
 import {
   getDefaults,
   setDefault,
@@ -20,7 +25,7 @@ import {
 
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;
-const mockedWriteFileSync = writeFileSync as jest.MockedFunction<typeof writeFileSync>;
+const mockedSecureWriteFileSync = secureWriteFileSync as jest.MockedFunction<typeof secureWriteFileSync>;
 
 describe("defaults", () => {
   beforeEach(() => {
@@ -62,10 +67,9 @@ describe("defaults", () => {
     it("should write config to file", () => {
       mockedExistsSync.mockReturnValue(false);
       setDefault("provider", "hetzner");
-      expect(mockedWriteFileSync).toHaveBeenCalledWith(
+      expect(mockedSecureWriteFileSync).toHaveBeenCalledWith(
         expect.stringContaining("config.json"),
         expect.stringContaining('"provider": "hetzner"'),
-        { mode: 0o600 },
       );
     });
 
@@ -105,7 +109,7 @@ describe("defaults", () => {
 
       setDefault("region", "nbg1");
 
-      const written = mockedWriteFileSync.mock.calls[0][1] as string;
+      const written = mockedSecureWriteFileSync.mock.calls[0][1] as string;
       const parsed = JSON.parse(written);
       expect(parsed).toEqual({ provider: "hetzner", region: "nbg1" });
     });
@@ -129,10 +133,9 @@ describe("defaults", () => {
     it("should write empty object", () => {
       mockedExistsSync.mockReturnValue(true);
       resetDefaults();
-      expect(mockedWriteFileSync).toHaveBeenCalledWith(
+      expect(mockedSecureWriteFileSync).toHaveBeenCalledWith(
         expect.stringContaining("config.json"),
         "{}",
-        { mode: 0o600 },
       );
     });
   });

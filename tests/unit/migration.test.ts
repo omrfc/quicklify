@@ -9,6 +9,14 @@ jest.mock("os", () => ({
   homedir: () => "/mock-home",
 }));
 
+// Mock secureWrite to avoid platform-specific permission operations
+jest.mock("../../src/utils/secureWrite", () => ({
+  secureMkdirSync: jest.fn(),
+  secureWriteFileSync: jest.fn(),
+}));
+
+const mockSecureWrite = jest.requireMock("../../src/utils/secureWrite");
+
 // Mock chalk to avoid ANSI codes in test output
 jest.mock("chalk", () => {
   const chalkObj = {
@@ -74,9 +82,9 @@ describe("migrateConfigIfNeeded", () => {
     migrateConfigIfNeeded();
 
     // Should create new dir
-    expect(mockedFs.mkdirSync).toHaveBeenCalledWith(
+    expect(mockSecureWrite.secureMkdirSync).toHaveBeenCalledWith(
       expect.stringContaining(".kastell"),
-      expect.objectContaining({ recursive: true, mode: 0o700 }),
+      expect.objectContaining({ recursive: true }),
     );
     // Should copy contents
     expect(mockedFs.cpSync).toHaveBeenCalledWith(
@@ -85,10 +93,9 @@ describe("migrateConfigIfNeeded", () => {
       expect.objectContaining({ recursive: true }),
     );
     // Should write .migrated flag
-    expect(mockedFs.writeFileSync).toHaveBeenCalledWith(
+    expect(mockSecureWrite.secureWriteFileSync).toHaveBeenCalledWith(
       expect.stringContaining(".migrated"),
       expect.any(String),
-      expect.objectContaining({ mode: 0o600 }),
     );
   });
 

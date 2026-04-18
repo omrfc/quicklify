@@ -26,6 +26,7 @@ jest.mock("fs", () => ({
 jest.mock("child_process", () => ({
   spawn: jest.fn(),
   execSync: jest.fn(),
+  spawnSync: jest.fn().mockReturnValue({ status: 0, stderr: Buffer.alloc(0) }),
 }));
 jest.mock("../../src/utils/ssh");
 

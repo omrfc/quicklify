@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "fs";
+import { writeFileSync } from "fs";
 import { join } from "path";
 import axios from "axios";
 import { assertValidIp, sshExec } from "../utils/ssh.js";
@@ -8,6 +8,7 @@ import { HTTP_TIMEOUT_MS } from "../constants.js";
 import { formatTimestamp, getBackupDir } from "../utils/backupPath.js";
 import { scpDownload, scpUpload } from "../utils/scp.js";
 import { getErrorMessage, mapSshError, sanitizeStderr } from "../utils/errorMapper.js";
+import { secureMkdirSync } from "../utils/secureWrite.js";
 import type { BackupManifest, Platform } from "../types/index.js";
 import type {
   HealthResult,
@@ -183,7 +184,7 @@ export async function sharedCreateBackup(
     // Step 4: Create local directory and download
     const timestamp = formatTimestamp(new Date());
     const backupPath = join(getBackupDir(serverName), timestamp);
-    mkdirSync(backupPath, { recursive: true, mode: 0o700 });
+    secureMkdirSync(backupPath, { recursive: true });
 
     const dbDl = await scpDownload(
       ip,

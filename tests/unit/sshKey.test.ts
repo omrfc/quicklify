@@ -1,6 +1,7 @@
 import { readFileSync, existsSync, mkdirSync } from "fs";
 import { spawnSync } from "child_process";
 import { findLocalSshKey, generateSshKey, getSshKeyName } from "../../src/utils/sshKey";
+import { secureMkdirSync } from "../../src/utils/secureWrite";
 
 jest.mock("fs", () => ({
   readFileSync: jest.fn(),
@@ -13,11 +14,15 @@ jest.mock("child_process", () => ({
 jest.mock("os", () => ({
   homedir: jest.fn().mockReturnValue("/home/testuser"),
 }));
+jest.mock("../../src/utils/secureWrite", () => ({
+  secureMkdirSync: jest.fn(),
+}));
 
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;
 const mockedMkdirSync = mkdirSync as jest.MockedFunction<typeof mkdirSync>;
 const mockedSpawnSync = spawnSync as jest.MockedFunction<typeof spawnSync>;
+const mockedSecureMkdirSync = secureMkdirSync as jest.MockedFunction<typeof secureMkdirSync>;
 
 describe("sshKey", () => {
   beforeEach(() => {
@@ -84,9 +89,9 @@ describe("sshKey", () => {
         .mockReturnValueOnce(true); // pubkey exists
       mockedReadFileSync.mockReturnValue("ssh-ed25519 AAAAC3Nz kastell");
       generateSshKey();
-      expect(mockedMkdirSync).toHaveBeenCalledWith(
+      expect(mockedSecureMkdirSync).toHaveBeenCalledWith(
         expect.stringContaining(".ssh"),
-        expect.objectContaining({ mode: 0o700, recursive: true }),
+        expect.objectContaining({ recursive: true }),
       );
     });
 
