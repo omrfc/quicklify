@@ -1,15 +1,15 @@
-import { readFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { secureWriteFileSync } from "../../src/utils/secureWrite";
 import { loadOffset, saveOffset, isStale, ensureOffsetDir } from "../../src/core/bot/offset";
 
 jest.mock("fs", () => ({
   readFileSync: jest.fn(),
   existsSync: jest.fn(),
-  mkdirSync: jest.fn(),
 }));
 
 jest.mock("../../src/utils/secureWrite", () => ({
   secureWriteFileSync: jest.fn(),
+  secureMkdirSync: jest.fn(),
 }));
 
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
@@ -58,9 +58,9 @@ describe("saveOffset", () => {
 
   it("ensureOffsetDir creates config directory if missing", () => {
     mockedExistsSync.mockReturnValue(false);
-    const mockedMkdirSync = mkdirSync as jest.MockedFunction<typeof mkdirSync>;
+    const mockedSecureWrite = require("../../src/utils/secureWrite");
     ensureOffsetDir();
-    expect(mockedMkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
+    expect(mockedSecureWrite.secureMkdirSync).toHaveBeenCalledWith(expect.any(String));
   });
 });
 

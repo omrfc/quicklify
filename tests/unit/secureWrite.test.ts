@@ -76,17 +76,19 @@ beforeEach(async () => {
 // ─── ensureSecureDir ──────────────────────────────────────────────────────────
 
 describe("ensureSecureDir", () => {
-  it("should be no-op on repeated calls (lazy init)", async () => {
+  it("should skip repeated calls for same path but run for different path", async () => {
     await loadModule();
     const { ensureSecureDir } = secureWriteModule;
+
+    Object.defineProperty(process, "platform", { value: "linux", configurable: true });
 
     ensureSecureDir("/some/path");
     ensureSecureDir("/some/path");
     ensureSecureDir("/some/other/path");
 
-    // No fs operations expected — just sets a flag
-    expect(mockedMkdirSync).not.toHaveBeenCalled();
-    expect(mockedWriteFileSync).not.toHaveBeenCalled();
+    expect(mockedChmodSync).toHaveBeenCalledTimes(2);
+    expect(mockedChmodSync).toHaveBeenCalledWith("/some/path", 0o700);
+    expect(mockedChmodSync).toHaveBeenCalledWith("/some/other/path", 0o700);
   });
 
   it("should call chmodSync with 0o700 on first call (unix)", async () => {

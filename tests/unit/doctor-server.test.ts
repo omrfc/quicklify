@@ -739,7 +739,7 @@ describe("saveMetricsHistory mutation-killer", () => {
   it("creates directory if it doesn't exist", () => {
     mockedExistsSync.mockReturnValue(false);
     saveMetricsHistory(IP, []);
-    expect(mkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
+    expect(mockedSecureWrite.secureMkdirSync).toHaveBeenCalledWith(expect.any(String));
   });
 
   it("writes JSON with 2-space indent", () => {

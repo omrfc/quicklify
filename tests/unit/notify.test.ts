@@ -402,11 +402,12 @@ describe("loadCooldownState / saveCooldownState", () => {
   });
 
   it("saveCooldownState writes to notify-cooldown.json with mode 0o600", () => {
+    const mockedSecureMkdirSync = require("../../src/utils/secureWrite").secureMkdirSync as jest.Mock;
     const state = { "web:disk": new Date().toISOString() };
 
     saveCooldownState(state);
 
-    expect(mockedMkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
+    expect(mockedSecureMkdirSync).toHaveBeenCalledWith(expect.any(String));
     expect(mockedSecureWriteFileSync).toHaveBeenCalledWith(
       expect.stringContaining("notify-cooldown.json"),
       JSON.stringify(state, null, 2),

@@ -5,19 +5,17 @@ import { SecurityLogger } from "./securityLogger.js";
 
 export interface WriteFileOptions {
   encoding?: BufferEncoding;
-  mode?: number;
   flag?: string;
 }
 
-// Track whether secure dir has been initialized (lazy init)
-let secureDirInitialized = false;
+const securedDirs = new Set<string>();
 
 export function clearCache(): void {
-  secureDirInitialized = false;
+  securedDirs.clear();
 }
 
 export function ensureSecureDir(dirPath: string): void {
-  if (secureDirInitialized) {
+  if (securedDirs.has(dirPath)) {
     return;
   }
 
@@ -50,7 +48,7 @@ export function ensureSecureDir(dirPath: string): void {
     }
   }
 
-  secureDirInitialized = true;
+  securedDirs.add(dirPath);
 }
 
 export function secureWriteFileSync(

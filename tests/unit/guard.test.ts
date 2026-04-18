@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import * as sshUtils from "../../src/utils/ssh";
 import * as notifyModule from "../../src/core/notify";
 import * as snapshotModule from "../../src/core/audit/snapshot";
@@ -29,7 +29,6 @@ import {
 jest.mock("fs", () => ({
   readFileSync: jest.fn(),
   existsSync: jest.fn(),
-  mkdirSync: jest.fn(),
 }));
 jest.mock("../../src/utils/ssh");
 jest.mock("../../src/core/notify");
@@ -942,10 +941,10 @@ describe("getGuardStates mutation-killer", () => {
 describe("saveGuardState mutation-killer", () => {
   beforeEach(() => jest.resetAllMocks());
 
-  it("calls mkdirSync with recursive: true", () => {
+  it("calls secureMkdirSync", () => {
     mockedExistsSync.mockReturnValue(false);
     saveGuardState("test-srv", { installedAt: "2026-01-01", cronExpr: "*/5 * * * *" });
-    expect(mkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
+    expect(mockedSecureWrite.secureMkdirSync).toHaveBeenCalledWith(expect.any(String));
   });
 
   it("overwrites existing entry for same server", () => {
@@ -982,11 +981,10 @@ describe("removeGuardState mutation-killer", () => {
     expect(Object.keys(parsed)).toHaveLength(0);
   });
 
-  it("calls mkdirSync before writeFileSync", () => {
+  it("calls secureMkdirSync before secureWriteFileSync", () => {
     mockedExistsSync.mockReturnValue(false);
     removeGuardState("x");
-    const mockedMkdir = mkdirSync as jest.MockedFunction<typeof mkdirSync>;
-    const mkdirCallOrder = mockedMkdir.mock.invocationCallOrder[0];
+    const mkdirCallOrder = mockedSecureWrite.secureMkdirSync.mock.invocationCallOrder[0];
     const writeCallOrder = mockedWriteFileSync.mock.invocationCallOrder[0];
     expect(mkdirCallOrder).toBeLessThan(writeCallOrder);
   });

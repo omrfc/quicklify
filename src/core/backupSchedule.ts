@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { z } from "zod";
 import { sshExec, assertValidIp } from "../utils/ssh.js";
@@ -6,7 +6,7 @@ import { raw, type SshCommand } from "../utils/sshCommand.js";
 import { KASTELL_DIR } from "../utils/paths.js";
 import { ValidationError } from "../utils/errors.js";
 import { shellEscape } from "../utils/shellEscape.js";
-import { secureWriteFileSync } from "../utils/secureWrite.js";
+import { secureWriteFileSync, secureMkdirSync } from "../utils/secureWrite.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,14 +40,14 @@ export function getSchedules(): Record<string, string> {
 }
 
 export function saveSchedule(serverName: string, cronExpr: string): void {
-  mkdirSync(KASTELL_DIR, { recursive: true });
+  secureMkdirSync(KASTELL_DIR);
   const schedules = getSchedules();
   schedules[serverName] = cronExpr;
   secureWriteFileSync(SCHEDULES_FILE, JSON.stringify(schedules, null, 2));
 }
 
 export function removeSchedule(serverName: string): void {
-  mkdirSync(KASTELL_DIR, { recursive: true });
+  secureMkdirSync(KASTELL_DIR);
   const schedules = getSchedules();
   delete schedules[serverName];
   secureWriteFileSync(SCHEDULES_FILE, JSON.stringify(schedules, null, 2));
