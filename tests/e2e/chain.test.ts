@@ -11,6 +11,7 @@ jest.mock("../../src/utils/serverSelect.js");
 jest.mock("../../src/utils/config.js");
 jest.mock("../../src/utils/ssh.js");
 jest.mock("../../src/core/audit/index.js");
+jest.mock("../../src/core/audit/history.js");
 jest.mock("../../src/core/lock.js");
 jest.mock("../../src/core/manage.js");
 jest.mock("../../src/core/maintain.js");
