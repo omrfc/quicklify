@@ -1,8 +1,9 @@
-import { readFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { spawnSync } from "child_process";
 import { homedir } from "os";
 import { join } from "path";
 import { sanitizedEnv } from "./ssh.js";
+import { secureMkdirSync } from "./secureWrite.js";
 
 const SSH_KEY_FILES = ["id_ed25519.pub", "id_rsa.pub", "id_ecdsa.pub"];
 
@@ -31,7 +32,7 @@ export function generateSshKey(): string | null {
   try {
     // Ensure ~/.ssh directory exists
     if (!existsSync(sshDir)) {
-      mkdirSync(sshDir, { mode: 0o700, recursive: true });
+      secureMkdirSync(sshDir, { recursive: true });
     }
 
     // Generate key with no passphrase

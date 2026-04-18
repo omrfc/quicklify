@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { z } from "zod";
 import axios from "axios";
@@ -8,6 +8,7 @@ import { KASTELL_DIR } from "../utils/paths.js";
 import { ValidationError } from "../utils/errors.js";
 import { createSpinner } from "../utils/logger.js";
 import { loadNotifyChannels, saveNotifyChannel, removeNotifyChannel } from "./notifyStore.js";
+import { secureWriteFileSync } from "../utils/secureWrite.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -164,7 +165,7 @@ export function loadCooldownState(): Record<string, string> {
 
 export function saveCooldownState(state: Record<string, string>): void {
   mkdirSync(KASTELL_DIR, { recursive: true });
-  writeFileSync(COOLDOWN_FILE, JSON.stringify(state, null, 2), { mode: 0o600 });
+  secureWriteFileSync(COOLDOWN_FILE, JSON.stringify(state, null, 2));
 }
 
 export async function dispatchWithCooldown(

@@ -1,16 +1,20 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, existsSync, mkdirSync } from "fs";
+import { secureWriteFileSync } from "../../src/utils/secureWrite";
 import { loadOffset, saveOffset, isStale, ensureOffsetDir } from "../../src/core/bot/offset";
 
 jest.mock("fs", () => ({
   readFileSync: jest.fn(),
-  writeFileSync: jest.fn(),
   existsSync: jest.fn(),
   mkdirSync: jest.fn(),
 }));
 
+jest.mock("../../src/utils/secureWrite", () => ({
+  secureWriteFileSync: jest.fn(),
+}));
+
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;
-const mockedWriteFileSync = writeFileSync as jest.MockedFunction<typeof writeFileSync>;
+const mockedSecureWriteFileSync = secureWriteFileSync as jest.MockedFunction<typeof secureWriteFileSync>;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -44,12 +48,12 @@ describe("saveOffset", () => {
     const now = Date.now();
     saveOffset(99999);
 
-    expect(mockedWriteFileSync).toHaveBeenCalledTimes(1);
-    const [, content, options] = mockedWriteFileSync.mock.calls[0];
+    expect(mockedSecureWriteFileSync).toHaveBeenCalledTimes(1);
+    const [filePath, content] = mockedSecureWriteFileSync.mock.calls[0];
     const parsed = JSON.parse(content as string) as { lastUpdateId: number; savedAt: string };
     expect(parsed.lastUpdateId).toBe(99999);
     expect(new Date(parsed.savedAt).getTime()).toBeGreaterThanOrEqual(now - 1000);
-    expect(options).toEqual({ mode: 0o600 });
+    expect(filePath).toContain("offset.json");
   });
 
   it("ensureOffsetDir creates config directory if missing", () => {

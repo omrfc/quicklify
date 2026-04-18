@@ -9,11 +9,11 @@ import {
   readFileSync,
   writeFileSync,
   existsSync,
-  mkdirSync,
   renameSync,
   readdirSync,
 } from "fs";
 import { join } from "path";
+import { secureMkdirSync } from "../../utils/secureWrite.js";
 import { z } from "zod";
 import { KASTELL_DIR } from "../../utils/paths.js";
 import { withFileLock } from "../../utils/fileLock.js";
@@ -160,7 +160,7 @@ export async function saveSnapshot(
   const filePath = join(snapshotDir, filename);
 
   await withFileLock(filePath, () => {
-    mkdirSync(snapshotDir, { recursive: true, mode: 0o700 });
+    secureMkdirSync(snapshotDir, { recursive: true });
 
     const snapshotFile: SnapshotFile = {
       schemaVersion: SCHEMA_VERSION,

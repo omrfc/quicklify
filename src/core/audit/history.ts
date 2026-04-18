@@ -7,7 +7,6 @@
 
 import {
   readFileSync,
-  writeFileSync,
   existsSync,
   mkdirSync,
   renameSync,
@@ -16,6 +15,7 @@ import { join } from "path";
 import { z } from "zod";
 import { KASTELL_DIR } from "../../utils/paths.js";
 import { withFileLock } from "../../utils/fileLock.js";
+import { secureWriteFileSync } from "../../utils/secureWrite.js";
 import type {
   AuditResult,
   AuditHistoryEntry,
@@ -135,7 +135,7 @@ export async function saveAuditHistory(result: AuditResult): Promise<void> {
 
     // Write atomically via temp file + rename
     const tmpFile = historyFile + ".tmp";
-    writeFileSync(tmpFile, JSON.stringify(entries, null, 2), { encoding: "utf-8", mode: 0o600 });
+    secureWriteFileSync(tmpFile, JSON.stringify(entries, null, 2), { encoding: "utf-8" });
     renameSync(tmpFile, historyFile);
   });
 }

@@ -26,6 +26,7 @@ jest.mock("fs", () => ({
 jest.mock("child_process", () => ({
   spawn: jest.fn(),
   execSync: jest.fn(),
+  spawnSync: jest.fn().mockReturnValue({ status: 0, stderr: Buffer.alloc(0) }),
 }));
 jest.mock("../../src/utils/ssh");
 
@@ -33,6 +34,7 @@ const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockedWriteFileSync = writeFileSync as jest.MockedFunction<typeof writeFileSync>;
 const mockedSpawn = spawn as jest.MockedFunction<typeof spawn>;
+const mockedSecureWriteFileSync = require("../../src/utils/secureWrite").secureWriteFileSync as jest.Mock;
 
 function createMockProcess(code: number = 0, stderrData: string = "") {
   const proc = new MockChildProcess(code, 10);
@@ -147,8 +149,8 @@ describe("core/backup — bare backup/restore", () => {
 
       await createBareBackup("1.2.3.4", "bare-server", "hetzner");
 
-      expect(mockedWriteFileSync).toHaveBeenCalled();
-      const manifestCall = mockedWriteFileSync.mock.calls[0];
+      expect(mockedSecureWriteFileSync).toHaveBeenCalled();
+      const manifestCall = mockedSecureWriteFileSync.mock.calls[0];
       const manifestJson = JSON.parse(manifestCall[1] as string);
       expect(manifestJson.mode).toBe("bare");
     });
@@ -162,7 +164,7 @@ describe("core/backup — bare backup/restore", () => {
 
       await createBareBackup("1.2.3.4", "bare-server", "hetzner");
 
-      const manifestCall = mockedWriteFileSync.mock.calls[0];
+      const manifestCall = mockedSecureWriteFileSync.mock.calls[0];
       const manifestJson = JSON.parse(manifestCall[1] as string);
       expect(manifestJson.coolifyVersion).toBe("n/a");
     });
@@ -189,7 +191,7 @@ describe("core/backup — bare backup/restore", () => {
 
       await createBareBackup("1.2.3.4", "bare-server", "hetzner");
 
-      const manifestCall = mockedWriteFileSync.mock.calls[0];
+      const manifestCall = mockedSecureWriteFileSync.mock.calls[0];
       const manifestJson = JSON.parse(manifestCall[1] as string);
       expect(manifestJson.files).toEqual(["bare-config.tar.gz"]);
     });

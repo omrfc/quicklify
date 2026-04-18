@@ -36,6 +36,11 @@ jest.mock("fs", () => ({
 
 jest.mock("os", () => ({
   homedir: () => "/home/test",
+  userInfo: () => ({ username: "test", shell: "/bin/bash", homedir: "/home/test", uid: 1000, gid: 1000 }),
+}));
+jest.mock("../../src/utils/secureWrite", () => ({
+  secureWriteFileSync: jest.fn(),
+  secureMkdirSync: jest.fn(),
 }));
 
 jest.mock("../../src/utils/ssh");
@@ -45,8 +50,9 @@ const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
 const mockedHistory = auditHistory as jest.Mocked<typeof auditHistory>;
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;
-const mockedWriteFileSync = writeFileSync as jest.MockedFunction<typeof writeFileSync>;
 const mockedRenameSync = renameSync as jest.MockedFunction<typeof renameSync>;
+const mockedSecureWrite = require("../../src/utils/secureWrite");
+const mockedSecureWriteFileSync = mockedSecureWrite.secureWriteFileSync as jest.MockedFunction<typeof mockedSecureWrite.secureWriteFileSync>;
 
 const VALID_IP = "1.2.3.4";
 const SERVER_NAME = "my-server";
@@ -535,7 +541,7 @@ describe("runServerDoctor", () => {
     expect(result.success).toBe(true);
     expect(result.data!.usedFreshData).toBe(true);
     expect(mockedSsh.sshExec).toHaveBeenCalled();
-    expect(mockedWriteFileSync).toHaveBeenCalled();
+    expect(mockedSecureWriteFileSync).toHaveBeenCalled();
     expect(mockedRenameSync).toHaveBeenCalled();
   });
 
@@ -719,13 +725,13 @@ describe("saveMetricsHistory mutation-killer", () => {
     mockedExistsSync.mockReturnValue(true);
     const snap: MetricSnapshot = { timestamp: "2026-01-01T00:00:00Z", diskPct: 50, ramPct: 40, cpuLoad1: 1, ncpu: 2, auditScore: 80 };
     saveMetricsHistory(IP, [snap]);
-    expect(writeFileSync).toHaveBeenCalled();
-    expect(renameSync).toHaveBeenCalled();
-    // writeFileSync should write to .tmp path
-    const writePath = (writeFileSync as jest.Mock).mock.calls[0][0] as string;
+    expect(mockedSecureWriteFileSync).toHaveBeenCalled();
+    expect(mockedRenameSync).toHaveBeenCalled();
+    // secureWriteFileSync should write to .tmp path
+    const writePath = mockedSecureWriteFileSync.mock.calls[0][0] as string;
     expect(writePath).toContain(".tmp");
     // renameSync should move .tmp to final path
-    const [from, to] = (renameSync as jest.Mock).mock.calls[0];
+    const [from, to] = mockedRenameSync.mock.calls[0];
     expect(from).toContain(".tmp");
     expect(to).not.toContain(".tmp");
   });
@@ -740,7 +746,7 @@ describe("saveMetricsHistory mutation-killer", () => {
     mockedExistsSync.mockReturnValue(true);
     const snap: MetricSnapshot = { timestamp: "2026-01-01T00:00:00Z", diskPct: 50, ramPct: 40, cpuLoad1: 1, ncpu: 2, auditScore: 80 };
     saveMetricsHistory(IP, [snap]);
-    const content = (writeFileSync as jest.Mock).mock.calls[0][1] as string;
+    const content = mockedSecureWriteFileSync.mock.calls[0][1] as string;
     expect(content).toContain("\n  ");
   });
 });

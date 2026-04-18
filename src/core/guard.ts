@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { z } from "zod";
 import { sshExec, assertValidIp } from "../utils/ssh.js";
@@ -8,6 +8,7 @@ import { warnIfPermissionError } from "../utils/fileLock.js";
 import { ValidationError } from "../utils/errors.js";
 import { dispatchWithCooldown } from "./notify.js";
 import { listSnapshots, loadSnapshot } from "./audit/snapshot.js";
+import { secureWriteFileSync } from "../utils/secureWrite.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -74,14 +75,14 @@ export function saveGuardState(serverName: string, entry: GuardStateEntry): void
   mkdirSync(KASTELL_DIR, { recursive: true });
   const states = getGuardStates();
   states[serverName] = entry;
-  writeFileSync(GUARD_STATE_FILE, JSON.stringify(states, null, 2), { mode: 0o600 });
+  secureWriteFileSync(GUARD_STATE_FILE, JSON.stringify(states, null, 2));
 }
 
 export function removeGuardState(serverName: string): void {
   mkdirSync(KASTELL_DIR, { recursive: true });
   const states = getGuardStates();
   delete states[serverName];
-  writeFileSync(GUARD_STATE_FILE, JSON.stringify(states, null, 2), { mode: 0o600 });
+  secureWriteFileSync(GUARD_STATE_FILE, JSON.stringify(states, null, 2));
 }
 
 // ─── Command Builders ─────────────────────────────────────────────────────────

@@ -1,9 +1,10 @@
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync } from "fs";
 import { resolve } from "path";
 import { getServers, saveServer } from "../utils/config.js";
 import { logger } from "../utils/logger.js";
 import { getErrorMessage, mapFileSystemError } from "../utils/errorMapper.js";
 import { assertValidIp } from "../utils/ssh.js";
+import { secureWriteFileSync } from "../utils/secureWrite.js";
 import type { ServerRecord } from "../types/index.js";
 
 const REQUIRED_FIELDS: (keyof ServerRecord)[] = [
@@ -59,7 +60,7 @@ export async function exportCommand(filePath?: string): Promise<void> {
   const outPath = resolve(filePath || "kastell-export.json");
 
   try {
-    writeFileSync(outPath, JSON.stringify(servers, null, 2), { encoding: "utf-8", mode: 0o600 });
+    secureWriteFileSync(outPath, JSON.stringify(servers, null, 2), { encoding: "utf-8" });
     logger.success(`Exported ${servers.length} server(s) to ${outPath}`);
     logger.warning("This file contains server information. Store it securely.");
   } catch (error: unknown) {

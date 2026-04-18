@@ -1,5 +1,6 @@
 import { spawn, spawnSync, type ChildProcess } from "child_process";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync } from "fs";
+import { secureMkdirSync } from "./secureWrite.js";
 import { dirname, join } from "path";
 import { tmpdir } from "os";
 import type { SshCommand } from "./sshCommand.js";
@@ -385,7 +386,7 @@ function controlSocketPath(ip: string): string {
   // Unix-style paths — Node's os.tmpdir() returns Windows backslash paths
   // which SSH cannot use as socket paths.
   const dir = process.platform === "win32" ? "/tmp/kastell-ssh" : join(tmpdir(), "kastell-ssh");
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  secureMkdirSync(dir, { recursive: true });
   return `${dir}/master-${ip}`;
 }
 

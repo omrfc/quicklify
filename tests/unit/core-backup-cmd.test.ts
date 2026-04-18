@@ -15,6 +15,12 @@ jest.mock("child_process", () => ({
   execSync: jest.fn(),
 }));
 
+jest.mock("../../src/utils/secureWrite", () => ({
+  secureWriteFileSync: jest.fn(),
+  secureMkdirSync: jest.fn(),
+  clearCache: jest.fn(),
+}));
+
 jest.mock("../../src/utils/ssh", () => ({
   sshExec: jest.fn(),
   assertValidIp: jest.fn(),

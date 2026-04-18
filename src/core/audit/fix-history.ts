@@ -6,7 +6,6 @@
 
 import {
   readFileSync,
-  writeFileSync,
   existsSync,
   mkdirSync,
   renameSync,
@@ -17,6 +16,7 @@ import { KASTELL_DIR } from "../../utils/paths.js";
 import { withFileLock, warnIfPermissionError } from "../../utils/fileLock.js";
 import { sshExec } from "../../utils/ssh.js";
 import { raw } from "../../utils/sshCommand.js";
+import { secureWriteFileSync } from "../../utils/secureWrite.js";
 import type { FixHistoryEntry } from "./types.js";
 
 const FIX_HISTORY_FILENAME = "fix-history.json";
@@ -114,7 +114,7 @@ export async function saveFixHistory(entry: FixHistoryEntry): Promise<void> {
     }
 
     const tmpFile = historyFile + ".tmp";
-    writeFileSync(tmpFile, JSON.stringify(entries, null, 2), { encoding: "utf-8", mode: 0o600 });
+    secureWriteFileSync(tmpFile, JSON.stringify(entries, null, 2), { encoding: "utf-8" });
     renameSync(tmpFile, historyFile);
   });
 }

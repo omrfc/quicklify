@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, existsSync, mkdirSync } from "fs";
 import * as sshUtils from "../../src/utils/ssh";
 import * as notifyModule from "../../src/core/notify";
 import * as snapshotModule from "../../src/core/audit/snapshot";
@@ -28,13 +28,16 @@ import {
 
 jest.mock("fs", () => ({
   readFileSync: jest.fn(),
-  writeFileSync: jest.fn(),
   existsSync: jest.fn(),
   mkdirSync: jest.fn(),
 }));
 jest.mock("../../src/utils/ssh");
 jest.mock("../../src/core/notify");
 jest.mock("../../src/core/audit/snapshot");
+jest.mock("../../src/utils/secureWrite", () => ({
+  secureWriteFileSync: jest.fn(),
+  secureMkdirSync: jest.fn(),
+}));
 
 const mockedNotify = notifyModule as jest.Mocked<typeof notifyModule>;
 let mockedDispatchWithCooldown: jest.Mock;
@@ -43,7 +46,8 @@ const mockedSsh = sshUtils as jest.Mocked<typeof sshUtils>;
 const mockedSnapshot = snapshotModule as jest.Mocked<typeof snapshotModule>;
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;
-const mockedWriteFileSync = writeFileSync as jest.MockedFunction<typeof writeFileSync>;
+const mockedSecureWrite = require("../../src/utils/secureWrite");
+const mockedWriteFileSync = mockedSecureWrite.secureWriteFileSync as jest.MockedFunction<typeof mockedSecureWrite.secureWriteFileSync>;
 
 const VALID_IP = "1.2.3.4";
 const SERVER_NAME = "my-server";
@@ -249,11 +253,13 @@ describe("saveGuardState", () => {
     expect(parsed[SERVER_NAME]).toEqual({ installedAt: "2026-01-01T00:00:00Z", cronExpr: "*/5 * * * *" });
   });
 
-  it("writes with mode 0o600 for security", () => {
+  it("writes guard state via secureWriteFileSync", () => {
     mockedExistsSync.mockReturnValue(false);
     saveGuardState(SERVER_NAME, { installedAt: "2026-01-01T00:00:00Z", cronExpr: "*/5 * * * *" });
-    const [, , opts] = mockedWriteFileSync.mock.calls[0];
-    expect((opts as { mode: number }).mode).toBe(0o600);
+    expect(mockedWriteFileSync).toHaveBeenCalled();
+    const [, content] = mockedWriteFileSync.mock.calls[0];
+    const parsed = JSON.parse(content as string);
+    expect(parsed[SERVER_NAME]).toEqual({ installedAt: "2026-01-01T00:00:00Z", cronExpr: "*/5 * * * *" });
   });
 
   it("merges with existing guard states", () => {

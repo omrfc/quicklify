@@ -5,9 +5,10 @@
  * handles I/O (SSH, file cache) and delegates to the pure functions.
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "fs";
+import { readFileSync, existsSync, mkdirSync, renameSync } from "fs";
 import { join } from "path";
 import { KASTELL_DIR } from "../utils/paths.js";
+import { secureWriteFileSync } from "../utils/secureWrite.js";
 import { assertValidIp, sshExec } from "../utils/ssh.js";
 import { raw } from "../utils/sshCommand.js";
 import { loadAuditHistory } from "./audit/history.js";
@@ -63,7 +64,7 @@ export function saveMetricsHistory(serverIp: string, snapshots: MetricSnapshot[]
     mkdirSync(dir, { recursive: true });
   }
   const tmpFile = filePath + ".tmp";
-  writeFileSync(tmpFile, JSON.stringify(snapshots, null, 2), { encoding: "utf-8", mode: 0o600 });
+  secureWriteFileSync(tmpFile, JSON.stringify(snapshots, null, 2), { encoding: "utf-8" });
   renameSync(tmpFile, filePath);
 }
 
