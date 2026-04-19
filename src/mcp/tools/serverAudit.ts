@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { getServers } from "../../utils/config.js";
 import { runAudit } from "../../core/audit/index.js";
+import { filterAuditResult } from "../../core/audit/filter.js";
+import type { AuditFilter } from "../../core/audit/filter.js";
 import {
   resolveServerForMcp,
   mcpSuccess,
@@ -23,6 +25,8 @@ export const serverAuditSchema = {
   explain: z.boolean().optional().describe(
     "When true, include why + fix explanation for each failing check in summary format output. Capped at 10 checks."
   ),
+  category: z.string().optional().describe("Filter results to a specific category (e.g. 'SSH', 'Firewall', 'Docker')."),
+  severity: z.enum(["critical", "warning", "info"]).optional().describe("Filter checks by severity level."),
 };
 
 export async function handleServerAudit(params: {
@@ -30,6 +34,8 @@ export async function handleServerAudit(params: {
   format?: "summary" | "json" | "score";
   framework?: "cis-level1" | "cis-level2" | "pci-dss" | "hipaa";
   explain?: boolean;
+  category?: string;
+  severity?: "critical" | "warning" | "info";
 }, mcpServer?: McpServer): Promise<McpResponse> {
   try {
     const servers = getServers();
@@ -68,10 +74,19 @@ export async function handleServerAudit(params: {
     const auditResult = result.data;
     await mcpLog(mcpServer, `Audit complete, score: ${auditResult.overallScore}`);
 
+    // Apply category/severity filter if provided
+    let filteredResult = auditResult;
+    if (params.category || params.severity) {
+      const filter: AuditFilter = {};
+      if (params.category) filter.category = params.category;
+      if (params.severity) filter.severity = params.severity;
+      filteredResult = filterAuditResult(auditResult, filter);
+    }
+
     const format = params.format ?? "summary";
 
     if (format === "json") {
-      const jsonResult: Record<string, unknown> = { ...auditResult };
+      const jsonResult: Record<string, unknown> = { ...filteredResult };
       if (params.framework) {
         const fw = FRAMEWORK_KEY_MAP[params.framework];
         const detail = calculateComplianceDetail(auditResult.categories);
@@ -85,17 +100,17 @@ export async function handleServerAudit(params: {
     }
 
     // summary format: compact text for AI consumption
-    const categoryLines = auditResult.categories.map(
+    const categoryLines = filteredResult.categories.map(
       (c) => `  ${c.name}: ${c.score}/${c.maxScore}`,
     );
 
-    const quickWinLines = auditResult.quickWins.slice(0, 3).map(
+    const quickWinLines = filteredResult.quickWins.slice(0, 3).map(
       (qw) => `  - ${qw.description} (${qw.currentScore} -> ${qw.projectedScore})`,
     );
 
     const summaryParts = [
-      `Server: ${auditResult.serverName} (${auditResult.serverIp})`,
-      `Platform: ${auditResult.platform}`,
+      `Server: ${filteredResult.serverName} (${filteredResult.serverIp})`,
+      `Platform: ${filteredResult.platform}`,
       `Overall Score: ${auditResult.overallScore}/100`,
       "",
       "Categories:",
@@ -109,7 +124,7 @@ export async function handleServerAudit(params: {
     // Add compliance summary when framework param provided
     if (params.framework) {
       const fw = FRAMEWORK_KEY_MAP[params.framework];
-      const detail = calculateComplianceDetail(auditResult.categories);
+      const detail = calculateComplianceDetail(filteredResult.categories);
       const fwScore = detail.find((d) => d.framework === fw);
       if (fwScore) {
         summaryParts.push(
@@ -123,7 +138,7 @@ export async function handleServerAudit(params: {
 
     // Explain: append failing check details when explain param is set (summary format only)
     if (params.explain) {
-      const failingChecks = auditResult.categories
+      const failingChecks = filteredResult.categories
         .flatMap((c) => c.checks)
         .filter((ch) => !ch.passed && ch.explain);
       if (failingChecks.length > 0) {
@@ -141,7 +156,7 @@ export async function handleServerAudit(params: {
 
     summaryParts.push(
       "",
-      `Timestamp: ${auditResult.timestamp}`,
+      `Timestamp: ${filteredResult.timestamp}`,
     );
 
     const responseData: Record<string, unknown> = {
@@ -152,8 +167,8 @@ export async function handleServerAudit(params: {
       ],
     };
 
-    if (auditResult.skippedCategories && auditResult.skippedCategories.length > 0) {
-      responseData.skippedCategories = auditResult.skippedCategories;
+    if (filteredResult.skippedCategories && filteredResult.skippedCategories.length > 0) {
+      responseData.skippedCategories = filteredResult.skippedCategories;
     }
 
     return mcpSuccess(responseData, { largeResult: true });

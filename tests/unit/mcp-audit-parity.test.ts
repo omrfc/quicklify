@@ -1,0 +1,85 @@
+import { handleServerAudit } from "../../src/mcp/tools/serverAudit.js";
+
+// Mock core dependencies
+jest.mock("../../src/utils/config.js", () => ({
+  getServers: jest.fn(() => [
+    { id: "s1", name: "test-srv", provider: "hetzner", ip: "1.2.3.4", region: "nbg1", size: "cax11", mode: "bare", createdAt: "2026-01-01" },
+  ]),
+}));
+
+jest.mock("../../src/core/audit/index.js", () => ({
+  runAudit: jest.fn(() => Promise.resolve({
+    success: true,
+    data: {
+      serverName: "test-srv",
+      serverIp: "1.2.3.4",
+      platform: "bare",
+      overallScore: 65,
+      timestamp: "2026-04-19T10:00:00Z",
+      categories: [
+        {
+          name: "SSH",
+          score: 8,
+          maxScore: 10,
+          checks: [
+            { id: "SSH-001", name: "SSH key only", passed: true, severity: "critical", category: "SSH" },
+            { id: "SSH-002", name: "Root login disabled", passed: false, severity: "critical", category: "SSH", explain: "Root login is enabled" },
+          ],
+        },
+        {
+          name: "Firewall",
+          score: 5,
+          maxScore: 10,
+          checks: [
+            { id: "FW-001", name: "UFW enabled", passed: true, severity: "warning", category: "Firewall" },
+            { id: "FW-002", name: "Default deny", passed: false, severity: "warning", category: "Firewall", explain: "No default deny policy" },
+          ],
+        },
+      ],
+      quickWins: [],
+    },
+  })),
+}));
+
+jest.mock("../../src/core/audit/snapshot.js", () => ({
+  saveSnapshot: jest.fn(() => Promise.resolve()),
+  listSnapshots: jest.fn(() => Promise.resolve([])),
+}));
+
+jest.mock("../../src/core/audit/diff.js", () => ({
+  resolveSnapshotRef: jest.fn(),
+  diffAudits: jest.fn(),
+  formatDiffJson: jest.fn(() => "{}"),
+}));
+
+describe("MCP server_audit parity", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("category filter", () => {
+    it("filters audit result to specified category", async () => {
+      const result = await handleServerAudit({ category: "SSH", format: "json" });
+      expect(result.isError).toBeFalsy();
+      const data = JSON.parse((result.content as Array<{ text: string }>)[0].text);
+      expect(data.categories).toHaveLength(1);
+      expect(data.categories[0].name).toBe("SSH");
+    });
+
+    it("returns all categories when no category filter", async () => {
+      const result = await handleServerAudit({ format: "json" });
+      const data = JSON.parse((result.content as Array<{ text: string }>)[0].text);
+      expect(data.categories).toHaveLength(2);
+    });
+  });
+
+  describe("severity filter", () => {
+    it("filters checks to specified severity", async () => {
+      const result = await handleServerAudit({ severity: "critical", format: "json" });
+      expect(result.isError).toBeFalsy();
+      const data = JSON.parse((result.content as Array<{ text: string }>)[0].text);
+      const allChecks = data.categories.flatMap((c: { checks: unknown[] }) => c.checks);
+      expect(allChecks.every((ch: { severity: string }) => ch.severity === "critical")).toBe(true);
+    });
+  });
+});
