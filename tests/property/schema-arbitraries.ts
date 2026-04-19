@@ -15,13 +15,9 @@ export const ipArb = fc.tuple(
   fc.integer({ min: 1, max: 254 }),
 ).map(([a, b, c, d]) => `${a}.${b}.${c}.${d}`);
 
-// ISO timestamp arbitrary — fc.date() causes stack overflow with wide ranges, use string instead
-export const isoTimestampArb = fc.string({ minLength: 20, maxLength: 30 }).map((s) => {
-  // Generate valid ISO timestamps
-  const base = new Date(2020, 0, 1).getTime();
-  const offset = Math.floor(Math.random() * (new Date(2030, 11, 31).getTime() - base));
-  return new Date(base + offset).toISOString();
-});
+// ISO timestamp arbitrary — pure deterministic arbitrary using integer ms range
+export const isoTimestampArb = fc.integer({ min: 1577836800000, max: 1908393600000 })
+  .map((ms) => new Date(ms).toISOString());
 
 // Check ID arbitrary (e.g. "SSH-001", "FW-DENY")
 export const checkIdArb = fc.tuple(
@@ -81,20 +77,9 @@ export const snapshotV2Arb = fc.record({
   schemaVersion: fc.constant(2),
   name: fc.option(nonEmptyString(50), { nil: undefined }),
   savedAt: isoTimestampArb,
-  audit: fc.record({
-    serverName: fc.stringMatching(/^[a-z][a-z0-9-]{2,62}$/),
-    serverIp: ipArb,
-    platform: platformArb,
-    timestamp: isoTimestampArb,
-    overallScore: fc.integer({ min: 0, max: 100 }),
-    categories: fc.array(categoryArb, { minLength: 1, maxLength: 5 }),
-    quickWins: fc.array(quickWinArb),
-    skippedCategories: fc.option(fc.array(nonEmptyString(30), { minLength: 0, maxLength: 10 }), { nil: undefined }),
-    vpsType: fc.option(nonEmptyString(30), { nil: undefined }),
-    vpsAdjustedCount: fc.option(fc.integer({ min: 0, max: 1000 }), { nil: undefined }),
-    warnings: fc.option(fc.array(nonEmptyString(200), { maxLength: 10 }), { nil: undefined }),
-    auditVersion: nonEmptyString(20),
-  }),
+  audit: baseAuditArb.chain((audit) =>
+    fc.record({ auditVersion: nonEmptyString(20) }).map((extra) => ({ ...audit, ...extra }))
+  ),
 });
 
 // Guard state entry arbitrary
