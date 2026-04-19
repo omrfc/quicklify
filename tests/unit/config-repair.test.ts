@@ -78,4 +78,84 @@ describe("configRepair", () => {
       expect(result.status).toBe("missing");
     });
   });
+
+  describe("repairConfig", () => {
+    it("creates backup and drops invalid entries", () => {
+      writeFileSync(serversFile, JSON.stringify([
+        { id: "s1", name: "good", provider: "hetzner", ip: "1.2.3.4", region: "nbg1", size: "cax11", createdAt: "2026-01-01", mode: "coolify" },
+        { id: "s2", name: "bad" },
+      ]));
+      const result = repairConfig(serversFile);
+      expect(result.recoveredCount).toBe(1);
+      expect(result.droppedCount).toBe(1);
+      expect(result.backupPath).toMatch(/\.backup-/);
+
+      const repaired = JSON.parse(readFileSync(serversFile, "utf-8"));
+      expect(repaired).toHaveLength(1);
+      expect(repaired[0].name).toBe("good");
+    });
+
+    it("auto-fixes missing mode field with coolify default (legacy compat)", () => {
+      writeFileSync(serversFile, JSON.stringify([
+        { id: "s1", name: "legacy", provider: "hetzner", ip: "1.2.3.4", region: "nbg1", size: "cax11", createdAt: "2026-01-01" }
+      ]));
+      const result = repairConfig(serversFile);
+      expect(result.recoveredCount).toBe(1);
+      expect(result.droppedCount).toBe(0);
+      expect(result.autoFixedCount).toBe(1);
+
+      const repaired = JSON.parse(readFileSync(serversFile, "utf-8"));
+      expect(repaired[0].mode).toBe("coolify");
+    });
+
+    it("drops entries with unknown provider", () => {
+      writeFileSync(serversFile, JSON.stringify([
+        { id: "s1", name: "bad", provider: "unknown-cloud", ip: "1.2.3.4", region: "x", size: "y", createdAt: "2026-01-01", mode: "coolify" },
+        { id: "s2", name: "good", provider: "hetzner", ip: "5.6.7.8", region: "nbg1", size: "cax11", createdAt: "2026-01-01", mode: "coolify" },
+      ]));
+      const result = repairConfig(serversFile);
+      expect(result.recoveredCount).toBe(1);
+      expect(result.droppedCount).toBe(1);
+    });
+
+    it("handles completely invalid JSON by writing empty array", () => {
+      writeFileSync(serversFile, "not json at all");
+      const result = repairConfig(serversFile);
+      expect(result.recoveredCount).toBe(0);
+      expect(result.droppedCount).toBe(0);
+
+      const repaired = JSON.parse(readFileSync(serversFile, "utf-8"));
+      expect(repaired).toEqual([]);
+    });
+
+    it("handles non-array JSON by writing empty array", () => {
+      writeFileSync(serversFile, JSON.stringify({ obj: true }));
+      const result = repairConfig(serversFile);
+      expect(result.recoveredCount).toBe(0);
+
+      const repaired = JSON.parse(readFileSync(serversFile, "utf-8"));
+      expect(repaired).toEqual([]);
+    });
+
+    it("preserves backup of original file", () => {
+      const original = JSON.stringify([{ id: "s1", name: "bad" }]);
+      writeFileSync(serversFile, original);
+      const result = repairConfig(serversFile);
+
+      const backup = readFileSync(result.backupPath, "utf-8");
+      expect(backup).toBe(original);
+    });
+
+    it("prunes backups to keep only last 3", () => {
+      // Create 4 pre-existing backups
+      for (let i = 0; i < 4; i++) {
+        writeFileSync(serversFile + `.backup-2026-01-0${i + 1}`, "old");
+      }
+      writeFileSync(serversFile, JSON.stringify([]));
+      repairConfig(serversFile);
+
+      const backups = readdirSync(testDir).filter((f) => f.includes(".backup-"));
+      expect(backups.length).toBeLessThanOrEqual(3);
+    });
+  });
 });
