@@ -73,48 +73,39 @@ jest.mock("../../src/core/audit/fix-history.js", () => ({
 }));
 
 describe("CLI fix --checks", () => {
+  beforeEach(() => {
+    jest.requireMock("../../src/core/audit/fix.js").previewSafeFixes.mockClear();
+  });
+
   it("accepts checks option as comma-separated string", async () => {
     await fixSafeCommand("test-srv", {
       safe: true,
       dryRun: true,
       checks: "KERN-SYNCOOKIES,KERN-RPLIMIT",
     } as any);
-    // If no error, the command accepted the checks parameter
+    expect(jest.requireMock("../../src/core/audit/fix.js").previewSafeFixes).toHaveBeenCalledTimes(1);
   });
 
   it("filters audit checks to only specified IDs", async () => {
     const mockPreview = jest.requireMock("../../src/core/audit/fix.js").previewSafeFixes;
-    const auditResult = {
-      serverName: "test-srv",
-      serverIp: "1.2.3.4",
-      platform: "bare",
-      overallScore: 65,
-      timestamp: "2026-04-19T10:00:00Z",
-      categories: [
-        {
-          name: "Kernel",
-          score: 5,
-          maxScore: 10,
-          checks: [
-            { id: "KERN-SYNCOOKIES", name: "SYN cookies", passed: false, severity: "warning", category: "Kernel", fix: "sysctl -w net.ipv4.tcp_syncookies=1" },
-            { id: "KERN-RPLIMIT", name: "RP filter", passed: false, severity: "warning", category: "Kernel", fix: "sysctl -w net.ipv4.conf.all.rp_filter=1" },
-          ],
-        },
-      ],
-      quickWins: [],
-    };
+    const mockSortChecks = jest.requireMock("../../src/core/audit/fix.js").sortChecksByImpact;
+
+    const bothChecks = [
+      { id: "KERN-SYNCOOKIES", name: "SYN cookies", severity: "warning", category: "Kernel", tier: "SAFE", impact: 5, commands: ["echo test"] },
+      { id: "KERN-RPLIMIT", name: "RP filter", severity: "warning", category: "Kernel", tier: "SAFE", impact: 5, commands: ["echo test"] },
+    ];
+
     mockPreview.mockReturnValueOnce({
-      safePlan: {
-        groups: [{
-          checks: [
-            { id: "KERN-SYNCOOKIES", name: "SYN cookies", severity: "warning", category: "Kernel", tier: "SAFE", impact: 5, commands: ["echo test"] },
-            { id: "KERN-RPLIMIT", name: "RP filter", severity: "warning", category: "Kernel", tier: "SAFE", impact: 5, commands: ["echo test"] },
-          ],
-        }],
-      },
+      safePlan: { groups: [{ checks: bothChecks }] },
       guardedCount: 0,
       forbiddenCount: 0,
       guardedIds: [],
+    });
+
+    let capturedSorted: { id: string }[] = [];
+    mockSortChecks.mockImplementationOnce((checks: { id: string }[]) => {
+      capturedSorted = checks;
+      return checks;
     });
 
     await fixSafeCommand("test-srv", {
@@ -122,6 +113,8 @@ describe("CLI fix --checks", () => {
       dryRun: true,
       checks: "KERN-SYNCOOKIES",
     } as any);
-    // dry-run exits early so we just verify no error
+
+    expect(mockPreview).toHaveBeenCalledTimes(1);
+    expect(capturedSorted.map((c) => c.id)).toEqual(["KERN-SYNCOOKIES", "KERN-RPLIMIT"]);
   });
 });

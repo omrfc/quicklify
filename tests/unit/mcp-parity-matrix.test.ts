@@ -23,12 +23,14 @@ describe("MCP/CLI Parity Matrix — audit/fix features", () => {
   });
 
   describe("MCP tool descriptions stay under 2KB", () => {
-    const toolDescriptions = serverTs.match(/\.describe\("([^"]+)"/g) || [];
-    const registerDescriptions = serverTs.match(/description:\s*"([^"]+)"/g) || [];
-    const allDescs = [...toolDescriptions, ...registerDescriptions];
-
     it("no description exceeds 2048 characters", () => {
-      const tooLong = allDescs.filter((d) => d.length > 2048);
+      const descriptions: string[] = [];
+      let m: RegExpExecArray | null;
+      const descRegex = /\.describe\("([^"]+)"\)/g;
+      const registerRegex = /description:\s*"([^"]+)"/g;
+      while ((m = descRegex.exec(serverTs)) !== null) descriptions.push(m[1]);
+      while ((m = registerRegex.exec(serverTs)) !== null) descriptions.push(m[1]);
+      const tooLong = descriptions.filter((d) => d.length > 2048);
       expect(tooLong).toEqual([]);
     });
   });
