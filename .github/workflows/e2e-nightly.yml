@@ -1,0 +1,117 @@
+# .github/workflows/e2e-nightly.yml
+name: E2E Nightly
+
+on:
+  schedule:
+    - cron: '37 2 * * *'  # Her gece 02:37 UTC (kalabalık saatten kaçın)
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: 'Cloud provider'
+        required: false
+        default: 'hetzner'
+        type: choice
+        options:
+          - hetzner
+      server_size:
+        description: 'Server size'
+        required: false
+        default: 'cax11'
+        type: string
+      skip_destroy:
+        description: 'Skip server destroy (for debugging)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+  SERVER_NAME: 'e2e-test-${{ github.run_id }}'
+
+jobs:
+  e2e:
+    name: E2E — provision → lock → audit → destroy
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && vars.E2E_ENABLED == 'true') }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Check Hetzner token
+        id: check-token
+        run: |
+          if [ -z "${{ secrets.HETZNER_TOKEN }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::warning::HETZNER_TOKEN not configured — skipping E2E"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Provision server
+        if: steps.check-token.outputs.skip != 'true'
+        id: provision
+        env:
+          HETZNER_TOKEN: ${{ secrets.HETZNER_TOKEN }}
+        run: |
+          node dist/index.js provision \
+            --provider hetzner \
+            --name "$SERVER_NAME" \
+            --size "${{ inputs.server_size || 'cax11' }}" \
+            --region nbg1 \
+            --mode bare \
+            --yes
+          echo "provisioned=true" >> $GITHUB_OUTPUT
+
+      - name: Wait for SSH
+        if: steps.provision.outputs.provisioned == 'true'
+        run: |
+          echo "Waiting 120s for cloud-init..."
+          sleep 120
+          node dist/index.js info --action health --server "$SERVER_NAME"
+
+      - name: Lock server
+        if: steps.provision.outputs.provisioned == 'true'
+        env:
+          HETZNER_TOKEN: ${{ secrets.HETZNER_TOKEN }}
+        run: |
+          node dist/index.js lock "$SERVER_NAME" --production --force
+
+      - name: Audit server
+        if: steps.provision.outputs.provisioned == 'true'
+        env:
+          HETZNER_TOKEN: ${{ secrets.HETZNER_TOKEN }}
+        run: |
+          node dist/index.js audit "$SERVER_NAME" --format json > audit-result.json
+          SCORE=$(node -e "console.log(JSON.parse(require('fs').readFileSync('audit-result.json','utf8')).overallScore)")
+          echo "Audit score: $SCORE"
+          if [ "$SCORE" -lt 60 ]; then
+            echo "::error::Audit score $SCORE is below minimum 60"
+            exit 1
+          fi
+
+      - name: Upload audit result
+        if: steps.provision.outputs.provisioned == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-audit-result
+          path: audit-result.json
+          retention-days: 30
+
+      - name: Destroy server
+        if: always() && steps.provision.outputs.provisioned == 'true' && inputs.skip_destroy != true
+        env:
+          HETZNER_TOKEN: ${{ secrets.HETZNER_TOKEN }}
+          KASTELL_SAFE_MODE: 'false'
+        run: |
+          node dist/index.js destroy "$SERVER_NAME" --yes || true
