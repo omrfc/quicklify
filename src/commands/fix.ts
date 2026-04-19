@@ -301,14 +301,11 @@ export async function fixSafeCommand(
       return;
     }
     selectedChecks = selectChecksForTarget(sortedChecks, auditResult.overallScore, parsedTarget);
+  } else if (options.checks) {
+    const checkIds = new Set(options.checks.split(",").map((s) => s.trim()));
+    selectedChecks = sortedChecks.filter((c) => checkIds.has(c.id));
   } else {
-    // --checks filter: keep only specified check IDs
-    if (options.checks) {
-      const checkIds = new Set(options.checks.split(",").map((s) => s.trim()));
-      selectedChecks = sortedChecks.filter((c) => checkIds.has(c.id));
-    } else {
-      selectedChecks = sortedChecks;
-    }
+    selectedChecks = sortedChecks;
   }
 
   // Check if anything to fix

@@ -98,6 +98,8 @@ Options:
   --top <n>           Apply top N highest-impact SAFE fixes (requires --safe)
   --target <score>    Apply SAFE fixes until score reaches target (requires
                       --safe)
+  --checks <ids>      Comma-separated check IDs to fix (e.g.
+                      KERN-SYNCOOKIES,FW-DENY)
   --profile <name>    Apply only checks matching server profile (web-server,
                       database, mail-server)
   --diff              Show per-fix diff preview after applying

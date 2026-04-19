@@ -126,8 +126,8 @@ export async function handleServerAudit(params: {
     if (params.profile !== undefined) {
       if (!isValidProfile(params.profile)) {
         return mcpError(
-          "Invalid profile: " + params.profile,
-          "Available profiles: " + listAllProfileNames().join(", "),
+        `Invalid profile: ${params.profile}`,
+        `Available profiles: ${listAllProfileNames().join(", ")}`,
         );
       }
       filteredResult = {
@@ -144,7 +144,7 @@ export async function handleServerAudit(params: {
     // Threshold check (uses unfiltered auditResult.overallScore)
     if (params.threshold !== undefined && auditResult.overallScore < params.threshold) {
       return mcpError(
-        "Score " + auditResult.overallScore + " is below threshold " + params.threshold,
+        `Score ${auditResult.overallScore} is below threshold ${params.threshold}`,
         "Run server_fix to improve the score",
         [{ command: "server_fix { server: '" + server.name + "', dryRun: true }", reason: "Preview available fixes" }],
       );
