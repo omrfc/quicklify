@@ -384,12 +384,13 @@ program
   .option("--history", "Show fix history for the server")
   .option("--top <n>", "Apply top N highest-impact SAFE fixes (requires --safe)")
   .option("--target <score>", "Apply SAFE fixes until score reaches target (requires --safe)")
+  .option("--checks <ids>", "Comma-separated check IDs to fix (e.g. KERN-SYNCOOKIES,FW-DENY)")
   .option("--profile <name>", "Apply only checks matching server profile (web-server, database, mail-server)")
   .option("--diff", "Show per-fix diff preview after applying")
   .option("--report", "Generate markdown fix report after applying fixes")
   .option("--no-interactive", "Skip confirmation prompt (for scheduled/automated runs)")
   .action(
-    (server?: string, options?: { safe?: boolean; dryRun?: boolean; category?: string; rollback?: string; rollbackAll?: boolean; rollbackTo?: string; history?: boolean; top?: string; target?: string; profile?: string; diff?: boolean; report?: boolean; interactive?: boolean }) =>
+    (server?: string, options?: { safe?: boolean; dryRun?: boolean; category?: string; checks?: string; rollback?: string; rollbackAll?: boolean; rollbackTo?: string; history?: boolean; top?: string; target?: string; profile?: string; diff?: boolean; report?: boolean; interactive?: boolean }) =>
       fixSafeCommand(server, options ?? {}),
   );
 

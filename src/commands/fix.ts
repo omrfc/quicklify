@@ -47,6 +47,7 @@ export async function fixSafeCommand(
     safe?: boolean;
     dryRun?: boolean;
     category?: string;
+    checks?: string;
     rollback?: string;
     rollbackAll?: boolean;
     rollbackTo?: string;
@@ -301,7 +302,13 @@ export async function fixSafeCommand(
     }
     selectedChecks = selectChecksForTarget(sortedChecks, auditResult.overallScore, parsedTarget);
   } else {
-    selectedChecks = sortedChecks;
+    // --checks filter: keep only specified check IDs
+    if (options.checks) {
+      const checkIds = new Set(options.checks.split(",").map((s) => s.trim()));
+      selectedChecks = sortedChecks.filter((c) => checkIds.has(c.id));
+    } else {
+      selectedChecks = sortedChecks;
+    }
   }
 
   // Check if anything to fix
