@@ -162,7 +162,7 @@ Bare servers: use service 'system' or 'docker' for logs (not 'coolify'). server_
 
   server.registerTool("server_audit", {
     description:
-      "Run a security audit on a server. Scans 30 categories with 457 checks. Returns score (0-100), per-category scores, and quick wins. Formats: 'summary' (compact text), 'json' (full AuditResult), 'score' (number only). Supports compliance filtering: cis-level1, cis-level2, pci-dss, hipaa. Requires SSH access. For health trends use server_doctor instead.",
+      "Run a security audit on a server. Scans 30 categories with 457 checks. Returns score (0-100), per-category scores, and quick wins. Formats: 'summary' (compact text), 'json' (full AuditResult), 'score' (number only). Supports compliance filtering (cis-level1, cis-level2, pci-dss, hipaa), category/severity filtering, snapshot save/compare, threshold gate, and profile filtering. Requires SSH access. For health trends use server_doctor instead.",
     inputSchema: serverAuditSchema,
     annotations: {
       title: "Server Security Audit",

@@ -33,6 +33,9 @@ export const serverAuditSchema = {
   snapshot: z.union([z.boolean(), z.string()]).optional()
     .describe("Save audit snapshot. true for auto-name, string for custom name."),
   compare: z.string().optional().describe("Compare two snapshots: format before:after (e.g. pre-upgrade:latest)"),
+  threshold: z.number().int().min(1).max(100).optional()
+    .describe("Minimum passing score (1-100). Returns error if score is below threshold."),
+  profile: z.string().optional().describe("Server profile filter (web-server, database, mail-server)."),
 };
 
 export async function handleServerAudit(params: {
