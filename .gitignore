@@ -171,3 +171,6 @@ reports/mutation/
 .stryker-tmp/
 
 .mindlore/
+security-audit-report.md
+security-audit-report.json
+security-audit-report.sarif
