@@ -36,7 +36,7 @@ function getFixHistoryPath(): string {
  * Zod schema for a single fix history entry.
  * Uses .strict() to reject extra fields that would bloat the history file.
  */
-const fixHistoryEntrySchema = z.object({
+export const fixHistoryEntrySchema = z.object({
   fixId: z.string(),
   serverIp: z.string(),
   serverName: z.string(),

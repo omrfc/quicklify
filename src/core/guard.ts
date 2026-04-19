@@ -54,7 +54,7 @@ const GUARD_STATE_FILE = join(KASTELL_DIR, "guard-state.json");
 
 // ─── Local State Persistence ──────────────────────────────────────────────────
 
-const guardStateEntrySchema = z.object({
+export const guardStateEntrySchema = z.object({
   installedAt: z.string(),
   cronExpr: z.string(),
 });
