@@ -5,7 +5,7 @@ import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable } from "../utils/ssh.js";
 import { isBareServer } from "../utils/modeGuard.js";
 import { logger, createSpinner } from "../utils/logger.js";
-import { getErrorMessage, mapSshError } from "../utils/errorMapper.js";
+import { mapSshError, classifyError } from "../utils/errorMapper.js";
 import { isSafeMode } from "../core/manage.js";
 import { getAdapter } from "../adapters/factory.js";
 import { adapterDisplayName } from "../adapters/shared.js";
@@ -232,8 +232,12 @@ export async function restoreCommand(
     }
   } catch (error: unknown) {
     restoreSpinner.fail(`${platformLabel} restore failed`);
-    logger.error(getErrorMessage(error));
-    const hint = mapSshError(error, server.ip);
-    if (hint) logger.info(hint);
+    const classified = classifyError(error);
+    logger.error(classified.message);
+    if (classified.hint) logger.info(classified.hint);
+    if (!classified.isTyped) {
+      const hint = mapSshError(error, server.ip);
+      if (hint) logger.info(hint);
+    }
   }
 }
