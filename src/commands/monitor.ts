@@ -1,7 +1,7 @@
 import { resolveServer } from "../utils/serverSelect.js";
 import { checkSshAvailable, sshExec } from "../utils/ssh.js";
 import { logger, createSpinner } from "../utils/logger.js";
-import { getErrorMessage, mapSshError, classifyError } from "../utils/errorMapper.js";
+import { mapSshError, classifyError } from "../utils/errorMapper.js";
 import { buildMonitorCommand, parseMetrics } from "../core/logs.js";
 import type { SystemMetrics } from "../core/logs.js";
 
