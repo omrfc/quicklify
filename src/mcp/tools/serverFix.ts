@@ -39,6 +39,7 @@ import {
   type McpResponse,
 } from "../utils.js";
 import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
+import { saveBaselineSafe, loadBaseline, checkRegression } from "../../core/audit/regression.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 export const serverFixSchema = {
@@ -283,6 +284,15 @@ export async function handleServerFix(
     }
     const auditResult = result.data;
 
+    const baseline = loadBaseline(auditResult.serverIp);
+    const regression = baseline ? checkRegression(baseline, auditResult) : null;
+    const baselineRegression = regression ? {
+      regressions: regression.regressions,
+      newPasses: regression.newPasses,
+      baselineScore: regression.baselineScore,
+      currentScore: regression.currentScore,
+    } : null;
+
     // ── Build check index for O(1) lookups (used by FORBIDDEN rejection + affectedCats) ──
     const checkIndex = new Map<string, { categoryName: string }>();
     for (const cat of auditResult.categories) {
@@ -396,6 +406,7 @@ export async function handleServerFix(
         guardedCount,
         forbiddenCount,
         scoreBefore: auditResult.overallScore,
+        ...(baselineRegression ? { baselineRegression } : {}),
       }, { largeResult: true });
     }
 
@@ -495,6 +506,11 @@ export async function handleServerFix(
       backupPath: remoteBackupPath,
     });
 
+    // Only save when fixes were applied — a no-op fix run should not overwrite the baseline
+    if (applied.length > 0) {
+      await saveBaselineSafe(auditResult);
+    }
+
     // ── LIVE FIX — prune old backups ──────────────────────────────────────
     await backupRemoteCleanup(server.ip);
 
@@ -535,6 +551,7 @@ export async function handleServerFix(
       ...(targetWarning ? { targetWarning } : {}),
       ...(diffSummary ? { diffSummary } : {}),
       ...(reportFile ? { reportFile } : {}),
+      ...(baselineRegression ? { baselineRegression } : {}),
     }, { largeResult: true });
   } catch (error: unknown) {
     return mcpError(sanitizeStderr(getErrorMessage(error)));

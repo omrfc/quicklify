@@ -33,6 +33,7 @@ import {
   rollbackAllFixes,
   rollbackToFix,
 } from "../core/audit/fix-history.js";
+import { saveBaselineSafe, loadBaseline, checkRegression } from "../core/audit/regression.js";
 
 /**
  * `kastell fix --safe` command.
@@ -256,6 +257,19 @@ export async function fixSafeCommand(
   }
 
   const auditResult = result.data;
+
+  const baseline = loadBaseline(auditResult.serverIp);
+  if (baseline) {
+    const regression = checkRegression(baseline, auditResult);
+    if (regression.regressions.length > 0) {
+      logger.warning(
+        `Regression: ${regression.regressions.length} check(s) previously passed now fail: ${regression.regressions.join(", ")}`,
+      );
+    }
+    if (regression.newPasses.length > 0) {
+      logger.info(`New passes: ${regression.newPasses.length} check(s) now passing: ${regression.newPasses.join(", ")}`);
+    }
+  }
 
   // Filter SAFE fixes
   const { safePlan, guardedCount, forbiddenCount, guardedIds } =
@@ -507,6 +521,8 @@ export async function fixSafeCommand(
         );
       }
     }
+
+    await saveBaselineSafe(auditResult);
   }
 
   // Save to fix history (FIXPRO-02)

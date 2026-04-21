@@ -17,6 +17,7 @@ import { calculateComplianceDetail } from "../../core/audit/compliance/scoring.j
 import { FRAMEWORK_KEY_MAP } from "../../core/audit/compliance/types.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { filterChecksByProfile, isValidProfile, listAllProfileNames } from "../../core/audit/profiles.js";
+import { saveBaselineSafe, loadBaseline, checkRegression } from "../../core/audit/regression.js";
 
 
 export const serverAuditSchema = {
@@ -113,6 +114,9 @@ export async function handleServerAudit(params: {
     const auditResult = result.data;
     await mcpLog(mcpServer, `Audit complete, score: ${auditResult.overallScore}`);
 
+    const baseline = loadBaseline(auditResult.serverIp);
+    await saveBaselineSafe(auditResult, baseline);
+
     // Apply category/severity filter if provided
     let filteredResult = auditResult;
     if (params.category || params.severity) {
@@ -152,12 +156,22 @@ export async function handleServerAudit(params: {
 
     const format = params.format ?? "summary";
 
+    const regression = baseline ? checkRegression(baseline, auditResult) : null;
+
     if (format === "json") {
       const jsonResult: Record<string, unknown> = { ...filteredResult };
       if (params.framework) {
         const fw = FRAMEWORK_KEY_MAP[params.framework];
         const detail = calculateComplianceDetail(filteredResult.categories);
         jsonResult.complianceDetail = detail.filter((d) => d.framework === fw);
+      }
+      if (regression) {
+        jsonResult.baselineRegression = {
+          regressions: regression.regressions,
+          newPasses: regression.newPasses,
+          baselineScore: regression.baselineScore,
+          currentScore: regression.currentScore,
+        };
       }
       return mcpSuccess(jsonResult, { largeResult: true });
     }
@@ -219,6 +233,20 @@ export async function handleServerAudit(params: {
           summaryParts.push(`  ... and ${failingChecks.length - maxDisplay} more failing checks`);
         }
       }
+    }
+
+    // Baseline regression info
+    if (regression) {
+      if (regression.regressions.length > 0) {
+        summaryParts.push(
+          "",
+          `Regression: ${regression.regressions.length} check(s) regressed: ${regression.regressions.join(", ")}`,
+        );
+      }
+      if (regression.newPasses.length > 0) {
+        summaryParts.push(`New passes: ${regression.newPasses.length}: ${regression.newPasses.join(", ")}`);
+      }
+      summaryParts.push(`Best score: ${regression.baselineScore}`);
     }
 
     summaryParts.push(

@@ -10,8 +10,10 @@ import * as listChecksModule from "../../src/core/audit/listChecks";
 import * as watchModule from "../../src/core/audit/watch";
 import * as complianceScoringModule from "../../src/core/audit/compliance/scoring";
 import * as complianceFormatterModule from "../../src/core/audit/formatters/compliance";
+import * as regressionModule from "../../src/core/audit/regression";
 
 jest.mock("../../src/core/audit/index");
+jest.mock("../../src/core/audit/regression");
 jest.mock("../../src/utils/serverSelect");
 jest.mock("../../src/utils/ssh");
 jest.mock("../../src/core/audit/formatters/index");
@@ -36,6 +38,7 @@ const mockedListChecks = listChecksModule as jest.Mocked<typeof listChecksModule
 const mockedWatch = watchModule as jest.Mocked<typeof watchModule>;
 const mockedComplianceScoring = complianceScoringModule as jest.Mocked<typeof complianceScoringModule>;
 const mockedComplianceFormatter = complianceFormatterModule as jest.Mocked<typeof complianceFormatterModule>;
+const mockedRegression = regressionModule as jest.Mocked<typeof regressionModule>;
 
 // Mock AuditResult for testing
 const mockAuditResult = {
@@ -144,6 +147,11 @@ describe("auditCommand", () => {
     // Default fix mocks
     mockedFix.runFix.mockResolvedValue({ applied: [], skipped: [], errors: [] });
     mockedFix.runScoreCheck.mockResolvedValue(null);
+
+    // Default regression mocks
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
+    mockedRegression.loadBaseline.mockReturnValue(null);
+    mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
   });
 
   afterEach(() => {
@@ -512,6 +520,68 @@ describe("auditCommand", () => {
     // Should not throw
     await expect(auditCommand(undefined, { fix: true })).resolves.not.toThrow();
   });
+
+  it("should call saveBaseline after successful audit", async () => {
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
+    mockedRegression.loadBaseline.mockReturnValue(null);
+
+    const { auditCommand } = await import("../../src/commands/audit");
+    await auditCommand("test-server", {});
+
+    expect(mockedRegression.saveBaselineSafe).toHaveBeenCalledWith(mockAuditResult, null);
+  });
+
+  it("should call checkRegression when baseline exists and display regressions", async () => {
+    const loggerSpy = jest.spyOn(console, "log").mockImplementation();
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
+    mockedRegression.loadBaseline.mockReturnValue({
+      version: 1,
+      serverIp: "1.2.3.4",
+      lastUpdated: "2026-04-20T10:00:00Z",
+      bestScore: 80,
+      passedChecks: ["FW-UFW-ACTIVE", "SSH-PASSWORD-AUTH"],
+    });
+    mockedRegression.checkRegression.mockReturnValue({
+      regressions: ["SSH-ROOT-LOGIN"],
+      newPasses: [],
+      baselineScore: 80,
+      currentScore: 72,
+    });
+
+    const { auditCommand } = await import("../../src/commands/audit");
+    await auditCommand("test-server", {});
+
+    expect(mockedRegression.checkRegression).toHaveBeenCalled();
+    const output = loggerSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("Regression");
+    loggerSpy.mockRestore();
+  });
+
+  it("should call checkRegression when baseline exists and display new passes", async () => {
+    const loggerSpy = jest.spyOn(console, "log").mockImplementation();
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
+    mockedRegression.loadBaseline.mockReturnValue({
+      version: 1,
+      serverIp: "1.2.3.4",
+      lastUpdated: "2026-04-20T10:00:00Z",
+      bestScore: 70,
+      passedChecks: ["SSH-PASSWORD-AUTH"],
+    });
+    mockedRegression.checkRegression.mockReturnValue({
+      regressions: [],
+      newPasses: ["FW-UFW-ACTIVE"],
+      baselineScore: 70,
+      currentScore: 72,
+    });
+
+    const { auditCommand } = await import("../../src/commands/audit");
+    await auditCommand("test-server", {});
+
+    expect(mockedRegression.checkRegression).toHaveBeenCalled();
+    const output = loggerSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
+    expect(output).toContain("New passes");
+    loggerSpy.mockRestore();
+  });
 });
 
 describe("auditCommand --trend", () => {
@@ -567,6 +637,9 @@ describe("auditCommand --trend", () => {
     mockedHistory.computeTrend.mockReturnValue(mockTrendResult);
     mockedTrendFormatters.formatTrendTerminal.mockReturnValue("trend-terminal-output");
     mockedTrendFormatters.formatTrendJson.mockReturnValue('{"serverIp":"1.2.3.4"}');
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
+    mockedRegression.loadBaseline.mockReturnValue(null);
+    mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
   });
 
   afterEach(() => {
@@ -634,6 +707,9 @@ describe("auditCommand --list-checks", () => {
     mockedListChecks.listAllChecks.mockReturnValue([]);
     mockedListChecks.formatListChecksTerminal.mockReturnValue("terminal-checks");
     mockedListChecks.formatListChecksJson.mockReturnValue('{"checks":[]}');
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
+    mockedRegression.loadBaseline.mockReturnValue(null);
+    mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
   });
 
   afterEach(() => {
@@ -702,6 +778,9 @@ describe("auditCommand --watch", () => {
       (result) => `formatted: ${result.overallScore}/100`,
     );
     mockedWatch.watchAudit.mockResolvedValue(undefined);
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
+    mockedRegression.loadBaseline.mockReturnValue(null);
+    mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
   });
 
   afterEach(() => {
@@ -780,6 +859,9 @@ describe("auditCommand --compliance", () => {
       createdAt: "2026-01-01",
       mode: "bare",
     });
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
+    mockedRegression.loadBaseline.mockReturnValue(null);
+    mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
 
     mockedAuditCore.runAudit.mockResolvedValue({
       success: true,
@@ -868,6 +950,9 @@ describe("auditCommand --profile", () => {
       createdAt: "2026-01-01",
       mode: "bare",
     });
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
+    mockedRegression.loadBaseline.mockReturnValue(null);
+    mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
 
     mockedAuditCore.runAudit.mockResolvedValue({
       success: true,
