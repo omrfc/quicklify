@@ -149,7 +149,7 @@ describe("auditCommand", () => {
     mockedFix.runScoreCheck.mockResolvedValue(null);
 
     // Default regression mocks
-    mockedRegression.saveBaseline.mockResolvedValue();
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
     mockedRegression.loadBaseline.mockReturnValue(null);
     mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
   });
@@ -522,18 +522,18 @@ describe("auditCommand", () => {
   });
 
   it("should call saveBaseline after successful audit", async () => {
-    mockedRegression.saveBaseline.mockResolvedValue();
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
     mockedRegression.loadBaseline.mockReturnValue(null);
 
     const { auditCommand } = await import("../../src/commands/audit");
     await auditCommand("test-server", {});
 
-    expect(mockedRegression.saveBaseline).toHaveBeenCalledWith(mockAuditResult);
+    expect(mockedRegression.saveBaselineSafe).toHaveBeenCalledWith(mockAuditResult, null);
   });
 
   it("should call checkRegression when baseline exists and display regressions", async () => {
     const loggerSpy = jest.spyOn(console, "log").mockImplementation();
-    mockedRegression.saveBaseline.mockResolvedValue();
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
     mockedRegression.loadBaseline.mockReturnValue({
       version: 1,
       serverIp: "1.2.3.4",
@@ -559,7 +559,7 @@ describe("auditCommand", () => {
 
   it("should call checkRegression when baseline exists and display new passes", async () => {
     const loggerSpy = jest.spyOn(console, "log").mockImplementation();
-    mockedRegression.saveBaseline.mockResolvedValue();
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
     mockedRegression.loadBaseline.mockReturnValue({
       version: 1,
       serverIp: "1.2.3.4",
@@ -637,7 +637,7 @@ describe("auditCommand --trend", () => {
     mockedHistory.computeTrend.mockReturnValue(mockTrendResult);
     mockedTrendFormatters.formatTrendTerminal.mockReturnValue("trend-terminal-output");
     mockedTrendFormatters.formatTrendJson.mockReturnValue('{"serverIp":"1.2.3.4"}');
-    mockedRegression.saveBaseline.mockResolvedValue();
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
     mockedRegression.loadBaseline.mockReturnValue(null);
     mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
   });
@@ -707,7 +707,7 @@ describe("auditCommand --list-checks", () => {
     mockedListChecks.listAllChecks.mockReturnValue([]);
     mockedListChecks.formatListChecksTerminal.mockReturnValue("terminal-checks");
     mockedListChecks.formatListChecksJson.mockReturnValue('{"checks":[]}');
-    mockedRegression.saveBaseline.mockResolvedValue();
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
     mockedRegression.loadBaseline.mockReturnValue(null);
     mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
   });
@@ -778,7 +778,7 @@ describe("auditCommand --watch", () => {
       (result) => `formatted: ${result.overallScore}/100`,
     );
     mockedWatch.watchAudit.mockResolvedValue(undefined);
-    mockedRegression.saveBaseline.mockResolvedValue();
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
     mockedRegression.loadBaseline.mockReturnValue(null);
     mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
   });
@@ -859,7 +859,7 @@ describe("auditCommand --compliance", () => {
       createdAt: "2026-01-01",
       mode: "bare",
     });
-    mockedRegression.saveBaseline.mockResolvedValue();
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
     mockedRegression.loadBaseline.mockReturnValue(null);
     mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
 
@@ -950,7 +950,7 @@ describe("auditCommand --profile", () => {
       createdAt: "2026-01-01",
       mode: "bare",
     });
-    mockedRegression.saveBaseline.mockResolvedValue();
+    mockedRegression.saveBaselineSafe.mockResolvedValue();
     mockedRegression.loadBaseline.mockReturnValue(null);
     mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
 

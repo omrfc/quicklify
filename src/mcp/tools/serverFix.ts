@@ -39,7 +39,7 @@ import {
   type McpResponse,
 } from "../utils.js";
 import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
-import { saveBaseline, loadBaseline, checkRegression } from "../../core/audit/regression.js";
+import { saveBaselineSafe, loadBaseline, checkRegression } from "../../core/audit/regression.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 export const serverFixSchema = {
@@ -284,19 +284,14 @@ export async function handleServerFix(
     }
     const auditResult = result.data;
 
-    // Regression check — warn-only, included in response
     const baseline = loadBaseline(auditResult.serverIp);
-    let regressionInfo: { regressions: string[]; newPasses: string[]; baselineScore: number } | null = null;
-    if (baseline) {
-      const regression = checkRegression(baseline, auditResult);
-      if (regression.regressions.length > 0 || regression.newPasses.length > 0) {
-        regressionInfo = {
-          regressions: regression.regressions,
-          newPasses: regression.newPasses,
-          baselineScore: regression.baselineScore,
-        };
-      }
-    }
+    const regression = baseline ? checkRegression(baseline, auditResult) : null;
+    const baselineRegression = regression ? {
+      regressions: regression.regressions,
+      newPasses: regression.newPasses,
+      baselineScore: regression.baselineScore,
+      currentScore: regression.currentScore,
+    } : null;
 
     // ── Build check index for O(1) lookups (used by FORBIDDEN rejection + affectedCats) ──
     const checkIndex = new Map<string, { categoryName: string }>();
@@ -411,7 +406,7 @@ export async function handleServerFix(
         guardedCount,
         forbiddenCount,
         scoreBefore: auditResult.overallScore,
-        ...(regressionInfo ? { regressionInfo } : {}),
+        ...(baselineRegression ? { baselineRegression } : {}),
       }, { largeResult: true });
     }
 
@@ -511,9 +506,9 @@ export async function handleServerFix(
       backupPath: remoteBackupPath,
     });
 
-    // Promote new passes to baseline after successful fix
+    // Only save when fixes were applied — a no-op fix run should not overwrite the baseline
     if (applied.length > 0) {
-      await saveBaseline(auditResult).catch(() => {});
+      await saveBaselineSafe(auditResult);
     }
 
     // ── LIVE FIX — prune old backups ──────────────────────────────────────
@@ -556,7 +551,7 @@ export async function handleServerFix(
       ...(targetWarning ? { targetWarning } : {}),
       ...(diffSummary ? { diffSummary } : {}),
       ...(reportFile ? { reportFile } : {}),
-      ...(regressionInfo ? { regressionInfo } : {}),
+      ...(baselineRegression ? { baselineRegression } : {}),
     }, { largeResult: true });
   } catch (error: unknown) {
     return mcpError(sanitizeStderr(getErrorMessage(error)));

@@ -35,13 +35,16 @@ function extractPassedCheckIds(audit: AuditResult): string[] {
   return ids.sort();
 }
 
-export async function saveBaseline(audit: AuditResult): Promise<void> {
+export async function saveBaseline(
+  audit: AuditResult,
+  existing?: RegressionBaseline | null,
+): Promise<void> {
   const filePath = getBaselinePath(audit.serverIp);
   await withFileLock(filePath, () => {
-    const existing = loadBaseline(audit.serverIp);
+    const prev = existing ?? loadBaseline(audit.serverIp);
     const passedChecks = extractPassedCheckIds(audit);
-    const bestScore = existing
-      ? Math.max(existing.bestScore, audit.overallScore)
+    const bestScore = prev
+      ? Math.max(prev.bestScore, audit.overallScore)
       : audit.overallScore;
 
     const baseline: RegressionBaseline = {
@@ -57,6 +60,13 @@ export async function saveBaseline(audit: AuditResult): Promise<void> {
     secureWriteFileSync(tmpFile, JSON.stringify(baseline, null, 2), { encoding: "utf-8" });
     renameSync(tmpFile, filePath);
   });
+}
+
+export async function saveBaselineSafe(
+  audit: AuditResult,
+  existing?: RegressionBaseline | null,
+): Promise<void> {
+  await saveBaseline(audit, existing).catch(() => {});
 }
 
 export function checkRegression(

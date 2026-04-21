@@ -77,7 +77,7 @@ const sampleAuditResult: AuditResult = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockedRegression.saveBaseline.mockResolvedValue();
+  mockedRegression.saveBaselineSafe.mockResolvedValue();
   mockedRegression.loadBaseline.mockReturnValue(null);
   mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
 });
@@ -302,7 +302,7 @@ describe("regression baseline", () => {
 
   it("should call saveBaseline after successful audit", async () => {
     const result = await handleServerAudit({ server: "coolify-test" });
-    expect(mockedRegression.saveBaseline).toHaveBeenCalledWith(sampleAuditResult);
+    expect(mockedRegression.saveBaselineSafe).toHaveBeenCalledWith(sampleAuditResult, null);
   });
 
   it("should include baselineRegression in summary when baseline exists", async () => {

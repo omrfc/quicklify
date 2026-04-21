@@ -230,7 +230,7 @@ beforeEach(() => {
   mockedProfiles.listAllProfileNames.mockReturnValue(["web-server", "database", "mail-server"]);
 
   // Default regression mocks
-  mockedRegression.saveBaseline.mockResolvedValue();
+  mockedRegression.saveBaselineSafe.mockResolvedValue();
   mockedRegression.loadBaseline.mockReturnValue(null);
   mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
 });
@@ -1080,7 +1080,7 @@ describe("MCP server_fix tool", () => {
   // ── regression baseline ──────────────────────────────────────────────────────
 
   describe("regression baseline", () => {
-    it("should include regressionInfo in dry-run response when baseline exists", async () => {
+    it("should include baselineRegression in dry-run response when baseline exists", async () => {
       mockedRegression.loadBaseline.mockReturnValue({
         version: 1,
         serverIp: "1.2.3.4",
@@ -1099,15 +1099,15 @@ describe("MCP server_fix tool", () => {
 
       expect(result.isError).toBeUndefined();
       const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
-      expect(parsed.regressionInfo).toBeDefined();
-      expect((parsed.regressionInfo as any).newPasses).toEqual(["KERN-RANDOMIZE"]);
+      expect(parsed.baselineRegression).toBeDefined();
+      expect((parsed.baselineRegression as any).newPasses).toEqual(["KERN-RANDOMIZE"]);
     });
 
     it("should call saveBaseline after successful live fix", async () => {
       const result = await handleServerFix({ dryRun: false });
 
       expect(result.isError).toBeUndefined();
-      expect(mockedRegression.saveBaseline).toHaveBeenCalled();
+      expect(mockedRegression.saveBaselineSafe).toHaveBeenCalled();
     });
 
     it("should not call saveBaseline when no fixes applied", async () => {
@@ -1117,7 +1117,7 @@ describe("MCP server_fix tool", () => {
       const result = await handleServerFix({ dryRun: false });
 
       expect(result.isError).toBeUndefined();
-      expect(mockedRegression.saveBaseline).not.toHaveBeenCalled();
+      expect(mockedRegression.saveBaselineSafe).not.toHaveBeenCalled();
     });
   });
 });

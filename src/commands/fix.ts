@@ -33,7 +33,7 @@ import {
   rollbackAllFixes,
   rollbackToFix,
 } from "../core/audit/fix-history.js";
-import { saveBaseline, loadBaseline, checkRegression } from "../core/audit/regression.js";
+import { saveBaselineSafe, loadBaseline, checkRegression } from "../core/audit/regression.js";
 
 /**
  * `kastell fix --safe` command.
@@ -258,15 +258,13 @@ export async function fixSafeCommand(
 
   const auditResult = result.data;
 
-  // Regression check — warn-only, does not block fix
   const baseline = loadBaseline(auditResult.serverIp);
   if (baseline) {
     const regression = checkRegression(baseline, auditResult);
     if (regression.regressions.length > 0) {
       logger.warning(
-        `Regression detected: ${regression.regressions.length} check(s) previously passed now fail: ${regression.regressions.join(", ")}`,
+        `Regression: ${regression.regressions.length} check(s) previously passed now fail: ${regression.regressions.join(", ")}`,
       );
-      logger.info("Fix will proceed — regression gating available in future version.");
     }
     if (regression.newPasses.length > 0) {
       logger.info(`New passes: ${regression.newPasses.length} check(s) now passing: ${regression.newPasses.join(", ")}`);
@@ -524,8 +522,7 @@ export async function fixSafeCommand(
       }
     }
 
-    // Promote new passes to baseline after successful fix
-    await saveBaseline(auditResult).catch(() => {});
+    await saveBaselineSafe(auditResult);
   }
 
   // Save to fix history (FIXPRO-02)

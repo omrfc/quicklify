@@ -25,7 +25,7 @@ import type { AuditCliOptions } from "../core/audit/formatters/index.js";
 import type { AuditDiffResult } from "../core/audit/types.js";
 import { filterAuditResult, buildFilterAnnotation, parseSeverity } from "../core/audit/filter.js";
 import type { AuditFilter } from "../core/audit/filter.js";
-import { saveBaseline, loadBaseline, checkRegression } from "../core/audit/regression.js";
+import { saveBaselineSafe, loadBaseline, checkRegression } from "../core/audit/regression.js";
 
 function printDiff(diff: AuditDiffResult, json?: boolean): void {
   console.log(json ? formatDiffJson(diff) : formatDiffTerminal(diff));
@@ -229,18 +229,16 @@ export async function auditCommand(
   }
 
   const baseline = loadBaseline(auditResult.serverIp);
-  await saveBaseline(auditResult).catch(() => {
-    // Baseline save failure is non-fatal — don't break audit flow
-  });
+  await saveBaselineSafe(auditResult, baseline);
   if (baseline) {
     const regression = checkRegression(baseline, auditResult);
     if (regression.regressions.length > 0) {
       logger.warning(
-        `Regression: ${regression.regressions.length} check(s) that previously passed now fail: ${regression.regressions.join(", ")}`,
+        `Regression: ${regression.regressions.length} check(s) previously passed now fail: ${regression.regressions.join(", ")}`,
       );
     }
     if (regression.newPasses.length > 0) {
-      logger.success(
+      logger.info(
         `New passes: ${regression.newPasses.length} check(s) now passing: ${regression.newPasses.join(", ")}`,
       );
     }

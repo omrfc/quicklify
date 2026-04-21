@@ -221,7 +221,7 @@ beforeEach(() => {
   (fixReportFilename as jest.MockedFunction<typeof fixReportFilename>).mockReturnValue("kastell-fix-report-test-server-2026-03-29.md");
 
   // Default regression mocks
-  mockedRegression.saveBaseline.mockResolvedValue();
+  mockedRegression.saveBaselineSafe.mockResolvedValue();
   mockedRegression.loadBaseline.mockReturnValue(null);
   mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
 });
@@ -1353,7 +1353,7 @@ describe("fixSafeCommand", () => {
 
       await fixSafeCommand(undefined, { safe: true });
 
-      expect(mockedRegression.saveBaseline).toHaveBeenCalled();
+      expect(mockedRegression.saveBaselineSafe).toHaveBeenCalled();
     });
   });
 });
