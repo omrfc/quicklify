@@ -39,7 +39,7 @@ import {
   type McpResponse,
 } from "../utils.js";
 import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
-import { saveBaselineSafe, loadBaseline, checkRegression } from "../../core/audit/regression.js";
+import { saveBaselineSafe, loadBaseline, checkRegression, formatRegressionSummary, extractPassedCheckIds } from "../../core/audit/regression.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 export const serverFixSchema = {
@@ -476,6 +476,7 @@ export async function handleServerFix(
 
     // ── LIVE FIX — score delta ────────────────────────────────────────────
     let scoreAfter: number | null = null;
+    let postFixResult: Awaited<ReturnType<typeof runPostFixReAudit>> = null;
     if (applied.length > 0) {
       await mcpLog(mcpServer, "Verifying score...");
       const affectedCats = [
@@ -485,7 +486,7 @@ export async function handleServerFix(
             .filter((n): n is string => n !== undefined),
         ),
       ];
-      const postFixResult = await runPostFixReAudit(
+      postFixResult = await runPostFixReAudit(
         server.ip,
         platform,
         auditResult,
@@ -509,7 +510,7 @@ export async function handleServerFix(
 
     // Only save when fixes were applied — a no-op fix run should not overwrite the baseline
     if (applied.length > 0) {
-      await saveBaselineSafe(auditResult);
+      await saveBaselineSafe(postFixResult ?? auditResult);
     }
 
     // ── LIVE FIX — prune old backups ──────────────────────────────────────
