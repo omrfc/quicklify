@@ -545,7 +545,7 @@ describe("runServerDoctor", () => {
     expect(mockedRenameSync).toHaveBeenCalled();
   });
 
-  it("returns DoctorResult with serverName, serverIp, findings, ranAt, usedFreshData", async () => {
+  it("returns DoctorResult with serverName, serverIp, findings, ranAt, usedFreshData, score", async () => {
     mockedSsh.assertValidIp.mockImplementation(() => undefined);
 
     const result = await runServerDoctor(VALID_IP, SERVER_NAME, {});
@@ -556,6 +556,7 @@ describe("runServerDoctor", () => {
     expect(Array.isArray(data.findings)).toBe(true);
     expect(data.ranAt).toBeTruthy();
     expect(typeof data.usedFreshData).toBe("boolean");
+    expect(typeof data.score).toBe("number");
   });
 
   it("findings are sorted: critical first, then warning, then info", async () => {
@@ -748,5 +749,39 @@ describe("saveMetricsHistory mutation-killer", () => {
     saveMetricsHistory(IP, [snap]);
     const content = mockedSecureWriteFileSync.mock.calls[0][1] as string;
     expect(content).toContain("\n  ");
+  });
+});
+
+// ─── computeDoctorScore ─────────────────────────────────────────────────────────
+
+describe("computeDoctorScore", () => {
+  it("returns 100 for no findings", () => {
+    const { computeDoctorScore } = require("../../src/core/doctor");
+    expect(computeDoctorScore([])).toBe(100);
+  });
+
+  it("deducts proportionally for single warning", () => {
+    const { computeDoctorScore, DoctorFinding } = require("../../src/core/doctor");
+    const finding: DoctorFinding = {
+      id: "TEST", severity: "warning", description: "t", command: "t", weight: 5,
+    };
+    expect(computeDoctorScore([finding])).toBe(93);
+  });
+
+  it("returns 0 when all checks are critical", () => {
+    const { computeDoctorScore, DoctorFinding } = require("../../src/core/doctor");
+    const findings: DoctorFinding[] = Array.from({ length: 7 }, (_, i) => ({
+      id: `T${i}`, severity: "critical" as const, description: "t", command: "t", weight: 10,
+    }));
+    expect(computeDoctorScore(findings)).toBe(0);
+  });
+
+  it("calculates mixed severity correctly", () => {
+    const { computeDoctorScore, DoctorFinding } = require("../../src/core/doctor");
+    const findings: DoctorFinding[] = [
+      { id: "A", severity: "critical", description: "t", command: "t", weight: 10 },
+      { id: "B", severity: "warning", description: "t", command: "t", weight: 5 },
+    ];
+    expect(computeDoctorScore(findings)).toBe(79);
   });
 });

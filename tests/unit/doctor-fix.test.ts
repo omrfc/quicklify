@@ -35,6 +35,7 @@ function makeFinding(
     severity: "warning",
     description: "Some issue",
     command: "manual-command",
+    weight: 5,
     ...overrides,
   };
 }

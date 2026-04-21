@@ -163,9 +163,9 @@ describe("formatHealthMessage", () => {
 describe("formatDoctorMessage", () => {
   it("shows findings grouped by severity (critical first)", () => {
     const findings: DoctorFinding[] = [
-      { id: "RAM-WARN", severity: "warning", description: "RAM 82%", command: "free -h" },
-      { id: "DISK-HIGH", severity: "critical", description: "Disk 95%", command: "df -h" },
-      { id: "CPU-INFO", severity: "info", description: "CPU normal", command: "uptime" },
+      { id: "RAM-WARN", severity: "warning", description: "RAM 82%", command: "free -h", weight: 5 },
+      { id: "DISK-HIGH", severity: "critical", description: "Disk 95%", command: "df -h", weight: 10 },
+      { id: "CPU-INFO", severity: "info", description: "CPU normal", command: "uptime", weight: 1 },
     ];
     const msg = formatDoctorMessage("my-server", findings);
     expect(msg).toContain("3 finding");

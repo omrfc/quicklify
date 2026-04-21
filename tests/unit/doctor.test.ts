@@ -341,16 +341,19 @@ describe("doctorCommand — server mode", () => {
         severity: "critical" as const,
         description: "Disk projected full in 1 day",
         command: "df -h /",
+        weight: 10,
       },
       {
         id: "STALE_PACKAGES",
         severity: "warning" as const,
         description: "20 packages available for upgrade",
         command: "sudo apt update",
+        weight: 5,
       },
     ],
     ranAt: new Date().toISOString(),
     usedFreshData: false,
+    score: 79,
   };
 
   it("calls resolveServer with server arg and dispatches to runServerDoctor", async () => {
@@ -477,16 +480,19 @@ describe("doctorCommand — --fix mode", () => {
         description: "15 packages to upgrade",
         command: "sudo apt update",
         fixCommand: "sudo apt update && sudo apt upgrade -y",
+        weight: 5,
       },
       {
         id: "DISK_TREND",
         severity: "warning" as const,
         description: "Disk full in 5 days",
         command: "df -h",
+        weight: 5,
       },
     ],
     ranAt: new Date().toISOString(),
     usedFreshData: true,
+    score: 93,
   };
 
   beforeEach(() => {

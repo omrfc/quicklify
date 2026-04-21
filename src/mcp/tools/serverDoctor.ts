@@ -121,6 +121,7 @@ export async function handleServerDoctor(params: {
       critical: bySeverity.critical.length,
       warning: bySeverity.warning.length,
       info: bySeverity.info.length,
+      score: doctorResult.score,
       ranAt: doctorResult.ranAt,
       usedFreshData: doctorResult.usedFreshData,
       findings: findingLines,

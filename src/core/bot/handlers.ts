@@ -172,6 +172,7 @@ export function registerHandlers(bot: Bot): void {
         severity: "critical",
         description: `Disk usage high: ${latest.diskPct}%`,
         command: "df -h /",
+        weight: 10,
       });
     } else if (latest.diskPct >= 80) {
       findings.push({
@@ -179,6 +180,7 @@ export function registerHandlers(bot: Bot): void {
         severity: "warning",
         description: `Disk usage: ${latest.diskPct}%`,
         command: "df -h /",
+        weight: 5,
       });
     }
 
@@ -188,6 +190,7 @@ export function registerHandlers(bot: Bot): void {
         severity: "critical",
         description: `RAM usage high: ${latest.ramPct}%`,
         command: "free -h",
+        weight: 10,
       });
     } else if (latest.ramPct >= 80) {
       findings.push({
@@ -195,6 +198,7 @@ export function registerHandlers(bot: Bot): void {
         severity: "warning",
         description: `RAM usage: ${latest.ramPct}%`,
         command: "free -h",
+        weight: 5,
       });
     }
 
@@ -205,6 +209,7 @@ export function registerHandlers(bot: Bot): void {
         severity: "critical",
         description: `CPU load high: ${latest.cpuLoad1} (${latest.ncpu} cores)`,
         command: "uptime",
+        weight: 10,
       });
     } else if (loadPerCpu >= 1) {
       findings.push({
@@ -212,6 +217,7 @@ export function registerHandlers(bot: Bot): void {
         severity: "warning",
         description: `CPU load: ${latest.cpuLoad1} (${latest.ncpu} cores)`,
         command: "uptime",
+        weight: 5,
       });
     }
 

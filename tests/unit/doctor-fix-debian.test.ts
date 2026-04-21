@@ -94,6 +94,7 @@ describe("DOC-01 — runDoctorFix uses handler dispatch for apt-upgrade", () => 
       description: "11 packages available for upgrade",
       command: "sudo apt update && sudo apt upgrade",
       fixCommand: "apt-upgrade",
+      weight: 5,
     };
 
     mockedResolve.mockReturnValue(FAKE_CHAIN);
@@ -117,6 +118,7 @@ describe("DOC-01 — runDoctorFix uses handler dispatch for apt-upgrade", () => 
       description: "11 packages available for upgrade",
       command: "sudo apt update && sudo apt upgrade",
       fixCommand: "sudo apt update && sudo apt upgrade -y",
+      weight: 5,
     };
 
     mockedResolve.mockReturnValue(null);

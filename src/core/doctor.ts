@@ -25,6 +25,14 @@ export interface DoctorFinding {
   description: string;
   command: string;
   fixCommand?: string;
+  weight: number;
+}
+
+export function computeDoctorScore(findings: DoctorFinding[]): number {
+  if (findings.length === 0) return 100;
+  const maxPenalty = 70;
+  const totalPenalty = findings.reduce((sum, f) => sum + f.weight, 0);
+  return Math.max(0, Math.round(100 - (totalPenalty / maxPenalty) * 100));
 }
 
 export interface DoctorResult {
@@ -33,6 +41,7 @@ export interface DoctorResult {
   findings: DoctorFinding[];
   ranAt: string;
   usedFreshData: boolean;
+  score: number;
 }
 
 // ─── Metrics cache helpers ────────────────────────────────────────────────────
@@ -110,6 +119,7 @@ export function checkDiskTrend(
     severity,
     description: `Disk projected to reach 95% full in ~${daysRounded} day${daysRounded === 1 ? "" : "s"} at current growth rate`,
     command: `df -h / && kastell audit ${serverName}`,
+    weight: severity === "critical" ? 10 : 5,
   };
 }
 
@@ -132,6 +142,7 @@ export function checkSwapUsage(swapOutput: string): DoctorFinding | null {
     severity,
     description: `Swap usage is at ${pct}% — high swap can indicate memory pressure`,
     command: "free -h",
+    weight: severity === "critical" ? 10 : 5,
   };
 }
 
@@ -157,6 +168,7 @@ export function checkStalePackages(aptOutput: string): DoctorFinding | null {
     description: `${count} package${count === 1 ? "" : "s"} available for upgrade — keep packages updated to reduce security exposure`,
     command: "sudo apt update && sudo apt upgrade",
     fixCommand: "apt-upgrade",
+    weight: severity === "critical" ? 10 : 5,
   };
 }
 
@@ -177,6 +189,7 @@ export function checkFail2banBanRate(fail2banOutput: string): DoctorFinding | nu
     severity: "warning",
     description: `fail2ban has recorded ${total} total bans — review attack patterns and consider additional hardening`,
     command: "sudo fail2ban-client status",
+    weight: 5,
   };
 }
 
@@ -211,6 +224,7 @@ export function checkAuditRegressionStreak(
     severity: "warning",
     description: `Audit score has declined in ${maxStreak + 1} consecutive runs — security posture may be degrading`,
     command: `kastell audit ${serverName}`,
+    weight: 5,
   };
 }
 
@@ -239,6 +253,7 @@ export function checkBackupAge(
     severity,
     description: `Last backup was ${daysRounded} day${daysRounded === 1 ? "" : "s"} ago — consider running a backup soon`,
     command: `kastell backup ${serverName}`,
+    weight: severity === "critical" ? 10 : 5,
   };
 }
 
@@ -275,6 +290,7 @@ export function checkDockerDisk(dockerDfOutput: string): DoctorFinding | null {
     severity,
     description: `Docker has ~${gbDisplay} GB of reclaimable disk space`,
     command: "docker system prune -a",
+    weight: severity === "critical" ? 10 : 5,
   };
 }
 
@@ -403,6 +419,8 @@ export async function runServerDoctor(
     (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
   );
 
+  const score = computeDoctorScore(findings);
+
   return {
     success: true,
     data: {
@@ -411,6 +429,7 @@ export async function runServerDoctor(
       findings,
       ranAt: new Date().toISOString(),
       usedFreshData: fresh,
+      score,
     },
   };
 }

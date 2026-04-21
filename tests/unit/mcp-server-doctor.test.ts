@@ -34,22 +34,26 @@ const sampleDoctorResult: DoctorResult = {
       severity: "critical",
       description: "Disk projected to reach 95% full in ~2 days",
       command: "df -h / && kastell audit my-server",
+      weight: 10,
     },
     {
       id: "HIGH_SWAP",
       severity: "warning",
       description: "Swap usage is at 75%",
       command: "free -h",
+      weight: 5,
     },
     {
       id: "STALE_PACKAGES",
       severity: "info",
       description: "15 packages available for upgrade",
       command: "sudo apt update && sudo apt upgrade",
+      weight: 1,
     },
   ],
   ranAt: "2026-03-14T11:00:00Z",
   usedFreshData: false,
+  score: 77,
 };
 
 const sampleDoctorResultWithFixable: DoctorResult = {
@@ -62,16 +66,19 @@ const sampleDoctorResultWithFixable: DoctorResult = {
       description: "15 packages available for upgrade",
       command: "sudo apt update && sudo apt upgrade",
       fixCommand: "DEBIAN_FRONTEND=noninteractive sudo apt update && sudo apt upgrade -y",
+      weight: 1,
     },
     {
       id: "DISK_TREND",
       severity: "critical",
       description: "Disk projected to reach 95% full in ~2 days",
       command: "df -h / && kastell audit my-server",
+      weight: 10,
     },
   ],
   ranAt: "2026-03-14T11:00:00Z",
   usedFreshData: true,
+  score: 86,
 };
 
 beforeEach(() => {

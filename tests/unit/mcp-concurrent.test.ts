@@ -79,6 +79,7 @@ const sampleDoctorResult: DoctorResult = {
   findings: [],
   ranAt: "2026-03-08T00:00:00Z",
   usedFreshData: false,
+  score: 100,
 };
 
 describe("concurrent MCP tool invocations", () => {
