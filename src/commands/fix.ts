@@ -519,7 +519,9 @@ export async function fixSafeCommand(
       }
     }
 
-    await saveBaselineSafe(postFixResult ?? auditResult);
+    const resultToSave = postFixResult ?? auditResult;
+    const passedIdsToSave = postFixResult ? extractPassedCheckIds(postFixResult) : undefined;
+    await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
   }
 
   // Save to fix history (FIXPRO-02)

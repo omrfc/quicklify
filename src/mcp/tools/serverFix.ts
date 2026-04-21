@@ -510,7 +510,9 @@ export async function handleServerFix(
 
     // Only save when fixes were applied — a no-op fix run should not overwrite the baseline
     if (applied.length > 0) {
-      await saveBaselineSafe(postFixResult ?? auditResult);
+      const resultToSave = postFixResult ?? auditResult;
+      const passedIdsToSave = postFixResult ? extractPassedCheckIds(postFixResult) : undefined;
+      await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
     }
 
     // ── LIVE FIX — prune old backups ──────────────────────────────────────

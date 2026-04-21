@@ -321,6 +321,10 @@ describe("regression baseline", () => {
       baselineScore: 80,
       currentScore: 72,
     });
+    mockedRegression.formatRegressionSummary.mockReturnValue([
+      { severity: "warn", text: "Regression: 1 check(s) regressed: FW-UFW-ACTIVE" },
+      { severity: "info", text: "Best score: 80" },
+    ]);
 
     const result = await handleServerAudit({ server: "coolify-test", format: "summary" });
 

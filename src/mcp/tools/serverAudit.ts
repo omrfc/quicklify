@@ -238,16 +238,8 @@ export async function handleServerAudit(params: {
 
     // Baseline regression info
     if (regression) {
-      if (regression.regressions.length > 0) {
-        summaryParts.push(
-          "",
-          `Regression: ${regression.regressions.length} check(s) regressed: ${regression.regressions.join(", ")}`,
-        );
-      }
-      if (regression.newPasses.length > 0) {
-        summaryParts.push(`New passes: ${regression.newPasses.length}: ${regression.newPasses.join(", ")}`);
-      }
-      summaryParts.push(`Best score: ${regression.baselineScore}`);
+      const regressionLines = formatRegressionSummary(regression);
+      summaryParts.push("", ...regressionLines.map(l => l.text));
     }
 
     summaryParts.push(
