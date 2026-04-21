@@ -637,6 +637,9 @@ describe("auditCommand --trend", () => {
     mockedHistory.computeTrend.mockReturnValue(mockTrendResult);
     mockedTrendFormatters.formatTrendTerminal.mockReturnValue("trend-terminal-output");
     mockedTrendFormatters.formatTrendJson.mockReturnValue('{"serverIp":"1.2.3.4"}');
+    mockedRegression.saveBaseline.mockResolvedValue();
+    mockedRegression.loadBaseline.mockReturnValue(null);
+    mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
   });
 
   afterEach(() => {
@@ -704,6 +707,9 @@ describe("auditCommand --list-checks", () => {
     mockedListChecks.listAllChecks.mockReturnValue([]);
     mockedListChecks.formatListChecksTerminal.mockReturnValue("terminal-checks");
     mockedListChecks.formatListChecksJson.mockReturnValue('{"checks":[]}');
+    mockedRegression.saveBaseline.mockResolvedValue();
+    mockedRegression.loadBaseline.mockReturnValue(null);
+    mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
   });
 
   afterEach(() => {
@@ -772,6 +778,9 @@ describe("auditCommand --watch", () => {
       (result) => `formatted: ${result.overallScore}/100`,
     );
     mockedWatch.watchAudit.mockResolvedValue(undefined);
+    mockedRegression.saveBaseline.mockResolvedValue();
+    mockedRegression.loadBaseline.mockReturnValue(null);
+    mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
   });
 
   afterEach(() => {
@@ -850,6 +859,9 @@ describe("auditCommand --compliance", () => {
       createdAt: "2026-01-01",
       mode: "bare",
     });
+    mockedRegression.saveBaseline.mockResolvedValue();
+    mockedRegression.loadBaseline.mockReturnValue(null);
+    mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
 
     mockedAuditCore.runAudit.mockResolvedValue({
       success: true,
@@ -938,6 +950,9 @@ describe("auditCommand --profile", () => {
       createdAt: "2026-01-01",
       mode: "bare",
     });
+    mockedRegression.saveBaseline.mockResolvedValue();
+    mockedRegression.loadBaseline.mockReturnValue(null);
+    mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
 
     mockedAuditCore.runAudit.mockResolvedValue({
       success: true,

@@ -268,6 +268,9 @@ export async function fixSafeCommand(
       );
       logger.info("Fix will proceed — regression gating available in future version.");
     }
+    if (regression.newPasses.length > 0) {
+      logger.info(`New passes: ${regression.newPasses.length} check(s) now passing: ${regression.newPasses.join(", ")}`);
+    }
   }
 
   // Filter SAFE fixes

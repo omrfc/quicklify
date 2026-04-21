@@ -228,7 +228,6 @@ export async function auditCommand(
     logger.info(`Trend: ${trend}`);
   }
 
-  // Regression baseline — load before save so regression compares against previous state
   const baseline = loadBaseline(auditResult.serverIp);
   await saveBaseline(auditResult).catch(() => {
     // Baseline save failure is non-fatal — don't break audit flow

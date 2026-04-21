@@ -114,7 +114,6 @@ export async function handleServerAudit(params: {
     const auditResult = result.data;
     await mcpLog(mcpServer, `Audit complete, score: ${auditResult.overallScore}`);
 
-    // Regression baseline — load before save so regression compares against previous state
     const baseline = loadBaseline(auditResult.serverIp);
     await saveBaseline(auditResult).catch(() => {});
 
@@ -157,6 +156,9 @@ export async function handleServerAudit(params: {
 
     const format = params.format ?? "summary";
 
+    // Compute regression once and reuse across format branches
+    const regression = baseline ? checkRegression(baseline, auditResult) : null;
+
     if (format === "json") {
       const jsonResult: Record<string, unknown> = { ...filteredResult };
       if (params.framework) {
@@ -164,8 +166,7 @@ export async function handleServerAudit(params: {
         const detail = calculateComplianceDetail(filteredResult.categories);
         jsonResult.complianceDetail = detail.filter((d) => d.framework === fw);
       }
-      if (baseline) {
-        const regression = checkRegression(baseline, auditResult);
+      if (regression) {
         jsonResult.baselineRegression = {
           regressions: regression.regressions,
           newPasses: regression.newPasses,
@@ -236,8 +237,7 @@ export async function handleServerAudit(params: {
     }
 
     // Baseline regression info
-    if (baseline) {
-      const regression = checkRegression(baseline, auditResult);
+    if (regression) {
       if (regression.regressions.length > 0) {
         summaryParts.push(
           "",
