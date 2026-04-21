@@ -19,6 +19,12 @@ import type { AuditHistoryEntry } from "./audit/types.js";
 
 export type DoctorSeverity = "critical" | "warning" | "info";
 
+export const DOCTOR_SEVERITY_WEIGHTS: Record<DoctorSeverity, number> = {
+  critical: 10,
+  warning: 5,
+  info: 1,
+};
+
 export interface DoctorFinding {
   id: string;
   severity: DoctorSeverity;
@@ -30,6 +36,7 @@ export interface DoctorFinding {
 
 export function computeDoctorScore(findings: DoctorFinding[]): number {
   if (findings.length === 0) return 100;
+  // 7 checks × max weight 10 = 70 total possible penalty
   const maxPenalty = 70;
   const totalPenalty = findings.reduce((sum, f) => sum + f.weight, 0);
   return Math.max(0, Math.round(100 - (totalPenalty / maxPenalty) * 100));
@@ -119,7 +126,7 @@ export function checkDiskTrend(
     severity,
     description: `Disk projected to reach 95% full in ~${daysRounded} day${daysRounded === 1 ? "" : "s"} at current growth rate`,
     command: `df -h / && kastell audit ${serverName}`,
-    weight: severity === "critical" ? 10 : 5,
+    weight: DOCTOR_SEVERITY_WEIGHTS[severity],
   };
 }
 
@@ -142,7 +149,7 @@ export function checkSwapUsage(swapOutput: string): DoctorFinding | null {
     severity,
     description: `Swap usage is at ${pct}% — high swap can indicate memory pressure`,
     command: "free -h",
-    weight: severity === "critical" ? 10 : 5,
+    weight: DOCTOR_SEVERITY_WEIGHTS[severity],
   };
 }
 
@@ -168,7 +175,7 @@ export function checkStalePackages(aptOutput: string): DoctorFinding | null {
     description: `${count} package${count === 1 ? "" : "s"} available for upgrade — keep packages updated to reduce security exposure`,
     command: "sudo apt update && sudo apt upgrade",
     fixCommand: "apt-upgrade",
-    weight: severity === "critical" ? 10 : 5,
+    weight: DOCTOR_SEVERITY_WEIGHTS[severity],
   };
 }
 
@@ -189,7 +196,7 @@ export function checkFail2banBanRate(fail2banOutput: string): DoctorFinding | nu
     severity: "warning",
     description: `fail2ban has recorded ${total} total bans — review attack patterns and consider additional hardening`,
     command: "sudo fail2ban-client status",
-    weight: 5,
+    weight: DOCTOR_SEVERITY_WEIGHTS["warning"],
   };
 }
 
@@ -224,7 +231,7 @@ export function checkAuditRegressionStreak(
     severity: "warning",
     description: `Audit score has declined in ${maxStreak + 1} consecutive runs — security posture may be degrading`,
     command: `kastell audit ${serverName}`,
-    weight: 5,
+    weight: DOCTOR_SEVERITY_WEIGHTS["warning"],
   };
 }
 
@@ -253,7 +260,7 @@ export function checkBackupAge(
     severity,
     description: `Last backup was ${daysRounded} day${daysRounded === 1 ? "" : "s"} ago — consider running a backup soon`,
     command: `kastell backup ${serverName}`,
-    weight: severity === "critical" ? 10 : 5,
+    weight: DOCTOR_SEVERITY_WEIGHTS[severity],
   };
 }
 
@@ -290,7 +297,7 @@ export function checkDockerDisk(dockerDfOutput: string): DoctorFinding | null {
     severity,
     description: `Docker has ~${gbDisplay} GB of reclaimable disk space`,
     command: "docker system prune -a",
-    weight: severity === "critical" ? 10 : 5,
+    weight: DOCTOR_SEVERITY_WEIGHTS[severity],
   };
 }
 

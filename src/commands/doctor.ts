@@ -3,7 +3,7 @@ import { logger, createSpinner } from "../utils/logger.js";
 import { runServerDoctor } from "../core/doctor.js";
 import { runDoctorFix } from "../core/doctor-fix.js";
 import { runDoctorChecks, checkProviderTokens } from "../core/doctor-local.js";
-import chalk from "chalk";
+import { scoreColor } from "../core/audit/formatters/shared.js";
 import type { DoctorFinding, DoctorResult } from "../core/doctor.js";
 
 // ─── Server mode display helpers ──────────────────────────────────────────────
@@ -48,11 +48,10 @@ function displayFindings(result: DoctorResult): void {
 
     console.log();
     logger.info(`${total} finding${total === 1 ? "" : "s"} (${parts.join(", ")})`);
-
-    const scoreColorFn = result.score >= 80 ? chalk.green : result.score >= 50 ? chalk.yellow : chalk.red;
-    console.log();
-    logger.info(`Doctor Score: ${scoreColorFn(`${result.score}/100`)}`);
   }
+
+  console.log();
+  logger.info(`Doctor Score: ${scoreColor(result.score)(`${result.score}/100`)}`);
 
   if (!result.usedFreshData) {
     logger.info("Using cached data. Run with --fresh for live analysis.");

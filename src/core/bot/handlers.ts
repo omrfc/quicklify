@@ -10,7 +10,7 @@ import { join } from "path";
 import { findServer, getServers } from "../../utils/config.js";
 import { listSnapshots, loadSnapshot } from "../audit/snapshot.js";
 import { getGuardStates } from "../guard.js";
-import { loadMetricsHistory } from "../doctor.js";
+import { loadMetricsHistory, DOCTOR_SEVERITY_WEIGHTS } from "../doctor.js";
 import type { SnapshotListEntry } from "../audit/types.js";
 import type { DoctorFinding } from "../doctor.js";
 import {
@@ -172,7 +172,7 @@ export function registerHandlers(bot: Bot): void {
         severity: "critical",
         description: `Disk usage high: ${latest.diskPct}%`,
         command: "df -h /",
-        weight: 10,
+        weight: DOCTOR_SEVERITY_WEIGHTS["critical"],
       });
     } else if (latest.diskPct >= 80) {
       findings.push({
@@ -180,7 +180,7 @@ export function registerHandlers(bot: Bot): void {
         severity: "warning",
         description: `Disk usage: ${latest.diskPct}%`,
         command: "df -h /",
-        weight: 5,
+        weight: DOCTOR_SEVERITY_WEIGHTS["warning"],
       });
     }
 
@@ -190,7 +190,7 @@ export function registerHandlers(bot: Bot): void {
         severity: "critical",
         description: `RAM usage high: ${latest.ramPct}%`,
         command: "free -h",
-        weight: 10,
+        weight: DOCTOR_SEVERITY_WEIGHTS["critical"],
       });
     } else if (latest.ramPct >= 80) {
       findings.push({
@@ -198,7 +198,7 @@ export function registerHandlers(bot: Bot): void {
         severity: "warning",
         description: `RAM usage: ${latest.ramPct}%`,
         command: "free -h",
-        weight: 5,
+        weight: DOCTOR_SEVERITY_WEIGHTS["warning"],
       });
     }
 
@@ -209,7 +209,7 @@ export function registerHandlers(bot: Bot): void {
         severity: "critical",
         description: `CPU load high: ${latest.cpuLoad1} (${latest.ncpu} cores)`,
         command: "uptime",
-        weight: 10,
+        weight: DOCTOR_SEVERITY_WEIGHTS["critical"],
       });
     } else if (loadPerCpu >= 1) {
       findings.push({
@@ -217,7 +217,7 @@ export function registerHandlers(bot: Bot): void {
         severity: "warning",
         description: `CPU load: ${latest.cpuLoad1} (${latest.ncpu} cores)`,
         command: "uptime",
-        weight: 5,
+        weight: DOCTOR_SEVERITY_WEIGHTS["warning"],
       });
     }
 

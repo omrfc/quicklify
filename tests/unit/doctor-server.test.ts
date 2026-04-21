@@ -18,6 +18,7 @@ import {
   loadMetricsHistory,
   saveMetricsHistory,
   metricsHistoryPath,
+  computeDoctorScore,
   DoctorSeverity,
 } from "../../src/core/doctor";
 import type { DoctorFinding, DoctorResult } from "../../src/core/doctor";
@@ -756,12 +757,10 @@ describe("saveMetricsHistory mutation-killer", () => {
 
 describe("computeDoctorScore", () => {
   it("returns 100 for no findings", () => {
-    const { computeDoctorScore } = require("../../src/core/doctor");
     expect(computeDoctorScore([])).toBe(100);
   });
 
   it("deducts proportionally for single warning", () => {
-    const { computeDoctorScore, DoctorFinding } = require("../../src/core/doctor");
     const finding: DoctorFinding = {
       id: "TEST", severity: "warning", description: "t", command: "t", weight: 5,
     };
@@ -769,7 +768,6 @@ describe("computeDoctorScore", () => {
   });
 
   it("returns 0 when all checks are critical", () => {
-    const { computeDoctorScore, DoctorFinding } = require("../../src/core/doctor");
     const findings: DoctorFinding[] = Array.from({ length: 7 }, (_, i) => ({
       id: `T${i}`, severity: "critical" as const, description: "t", command: "t", weight: 10,
     }));
@@ -777,7 +775,6 @@ describe("computeDoctorScore", () => {
   });
 
   it("calculates mixed severity correctly", () => {
-    const { computeDoctorScore, DoctorFinding } = require("../../src/core/doctor");
     const findings: DoctorFinding[] = [
       { id: "A", severity: "critical", description: "t", command: "t", weight: 10 },
       { id: "B", severity: "warning", description: "t", command: "t", weight: 5 },
