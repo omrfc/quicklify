@@ -36,6 +36,7 @@ Commands:
   maintain [options] [query]               Run full maintenance cycle (status, update, health, reboot)
   snapshot [options] [subcommand] [query]  Manage server snapshots (create, list, delete)
   completions [shell]                      Generate shell completion scripts (bash, zsh, fish)
+  explain [options] <check-id>             Deep-dive into a single audit check — why it matters, how to fix it, compliance references
   audit [options] [server-name]            Run a security audit on a server
   evidence [options] [server]              Collect forensic evidence package from a server
   fix [options] [server]                   Apply safe auto-fixes from security audit (SAFE tier only)
