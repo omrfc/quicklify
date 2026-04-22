@@ -32,6 +32,7 @@ import { snapshotCommand } from "./commands/snapshot.js";
 import { completionsCommand } from "./commands/completions.js";
 import { registerAuthCommands } from "./commands/auth.js";
 import { auditCommand } from "./commands/audit.js";
+import { explainCommand } from "./commands/explain.js";
 import { evidenceCommand } from "./commands/evidence.js";
 import { lockCommand } from "./commands/lock.js";
 import { guardCommand } from "./commands/guard.js";
@@ -327,6 +328,14 @@ program
   .command("completions [shell]")
   .description("Generate shell completion scripts (bash, zsh, fish)")
   .action(completionsCommand);
+
+program
+  .command("explain <check-id>")
+  .description("Deep-dive into a single audit check — why it matters, how to fix it, compliance references")
+  .option("--format <format>", "Output format: terminal (default), json, md", "terminal")
+  .action(async (checkId: string, options: { format?: string }) => {
+    await explainCommand(checkId, options as { format?: "terminal" | "json" | "md" });
+  });
 
 program
   .command("audit [server-name]")
