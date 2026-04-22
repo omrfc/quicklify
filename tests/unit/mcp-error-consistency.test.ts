@@ -35,13 +35,13 @@ describe("MCP tool annotations (SC#5)", () => {
     const serverTs = readFileSync(join(__dirname, "../../src/mcp/server.ts"), "utf-8");
     const registerCalls = serverTs.match(/server\.registerTool\(/g) || [];
     const annotationBlocks = serverTs.match(/readOnlyHint:/g) || [];
-    expect(registerCalls.length).toBe(14);
-    expect(annotationBlocks.length).toBe(14);
+    expect(registerCalls.length).toBe(15);
+    expect(annotationBlocks.length).toBe(15);
   });
 
   it("read-only tools have readOnlyHint: true", () => {
     const serverTs = readFileSync(join(__dirname, "../../src/mcp/server.ts"), "utf-8");
-    const readOnlyTools = ["server_info", "server_logs", "server_audit", "server_doctor", "server_fleet"];
+    const readOnlyTools = ["server_info", "server_logs", "server_audit", "server_doctor", "server_fleet", "server_explain"];
     for (const tool of readOnlyTools) {
       const toolMatch = serverTs.match(new RegExp(`registerTool\\("${tool}"[\\s\\S]*?readOnlyHint:\\s*(true|false)`));
       expect(toolMatch).not.toBeNull();
