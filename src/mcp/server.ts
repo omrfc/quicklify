@@ -16,6 +16,7 @@ import { serverDoctorSchema, handleServerDoctor } from "./tools/serverDoctor.js"
 import { serverLockSchema, handleServerLock } from "./tools/serverLock.js";
 import { serverFleetSchema, handleServerFleet } from "./tools/serverFleet.js";
 import { serverFixSchema, handleServerFix } from "./tools/serverFix.js";
+import { serverExplainSchema, serverExplainHandler } from "./tools/serverExplain.js";
 import { setMcpVersion } from "./utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -263,6 +264,21 @@ Bare servers: use service 'system' or 'docker' for logs (not 'coolify'). server_
     },
   }, async (params) => {
     return handleServerFix(params, server);
+  });
+
+  server.registerTool("server_explain", {
+    description:
+      "Deep-dive into a single audit check. Returns what it does, why it matters, how to fix it, fix tier (SAFE/GUARDED/FORBIDDEN), and compliance references (CIS/PCI-DSS/HIPAA). No SSH connection required. Supports case-insensitive and fuzzy matching for check IDs.",
+    inputSchema: serverExplainSchema,
+    annotations: {
+      title: "Explain Audit Check",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  }, async (params) => {
+    return serverExplainHandler(params);
   });
 
   return server;
