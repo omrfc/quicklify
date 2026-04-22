@@ -14,6 +14,7 @@ import {
   selectChecksForTop,
   selectChecksForTarget,
   fixCommandsFromChecks,
+  extractAffectedCategories,
   type ScoredFixCheck,
 } from "../core/audit/fix.js";
 import { tryHandlerDispatch, type CollectedDiff } from "../core/audit/handlers/index.js";
@@ -259,11 +260,11 @@ export async function fixSafeCommand(
   const auditResult = result.data;
 
   const baseline = loadBaseline(auditResult.serverIp);
+  const preFixPassedIds = extractPassedCheckIds(auditResult);
   if (baseline) {
-    const passedIds = extractPassedCheckIds(auditResult);
-    const regression = checkRegression(baseline, auditResult, passedIds);
+    const regression = checkRegression(baseline, auditResult, preFixPassedIds);
     for (const line of formatRegressionSummary(regression)) {
-      if (line.severity === "warn") logger.warning(line.text);
+      if (line.severity === "warning") logger.warning(line.text);
       else logger.info(line.text);
     }
   }
@@ -484,19 +485,7 @@ export async function fixSafeCommand(
   if (applied.length > 0) {
     const scoreSpinner = createSpinner("Verifying score...");
     scoreSpinner.start();
-    const affectedCats = [
-      ...new Set(
-        applied
-          .map((checkId) => {
-            for (const cat of auditResult.categories) {
-              if (cat.checks.some((ch) => ch.id === checkId))
-                return cat.name;
-            }
-            return undefined;
-          })
-          .filter((n): n is string => n !== undefined),
-      ),
-    ];
+    const affectedCats = extractAffectedCategories(applied, auditResult.categories);
     const postFixResult = await runPostFixReAudit(
       ip,
       platform,
@@ -521,7 +510,7 @@ export async function fixSafeCommand(
     }
 
     const resultToSave = postFixResult ?? auditResult;
-    const passedIdsToSave = postFixResult ? extractPassedCheckIds(postFixResult) : undefined;
+    const passedIdsToSave = postFixResult ? extractPassedCheckIds(postFixResult) : preFixPassedIds;
     await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
   }
 

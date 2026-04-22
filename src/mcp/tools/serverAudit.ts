@@ -167,12 +167,7 @@ export async function handleServerAudit(params: {
         jsonResult.complianceDetail = detail.filter((d) => d.framework === fw);
       }
       if (regression) {
-        jsonResult.baselineRegression = {
-          regressions: regression.regressions,
-          newPasses: regression.newPasses,
-          baselineScore: regression.baselineScore,
-          currentScore: regression.currentScore,
-        };
+        jsonResult.baselineRegression = regression;
       }
       return mcpSuccess(jsonResult, { largeResult: true });
     }

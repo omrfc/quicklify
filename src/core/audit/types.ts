@@ -142,7 +142,7 @@ export interface RegressionResult {
 }
 
 export interface RegressionLine {
-  severity: "warn" | "info";
+  severity: "warning" | "info";
   text: string;
 }
 

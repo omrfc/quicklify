@@ -322,7 +322,7 @@ describe("regression baseline", () => {
       currentScore: 72,
     });
     mockedRegression.formatRegressionSummary.mockReturnValue([
-      { severity: "warn", text: "Regression: 1 check(s) regressed: FW-UFW-ACTIVE" },
+      { severity: "warning", text: "Regression: 1 check(s) regressed: FW-UFW-ACTIVE" },
       { severity: "info", text: "Best score: 80" },
     ]);
 

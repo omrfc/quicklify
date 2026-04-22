@@ -101,7 +101,7 @@ export function formatRegressionSummary(result: RegressionResult): RegressionLin
   const lines: RegressionLine[] = [];
   if (result.regressions.length > 0) {
     lines.push({
-      severity: "warn",
+      severity: "warning",
       text: `Regression: ${result.regressions.length} check(s) regressed: ${result.regressions.join(", ")}`,
     });
   }

@@ -34,6 +34,7 @@ import {
   sortChecksByImpact,
   selectChecksForTop,
   selectChecksForTarget,
+  extractAffectedCategories,
 } from "../../src/core/audit/fix.js";
 import {
   tryHandlerDispatch,
@@ -65,6 +66,7 @@ const mockedSshExec = sshExec as jest.MockedFunction<typeof sshExec>;
 const mockedRunAudit = runAudit as jest.MockedFunction<typeof runAudit>;
 const mockedPreviewSafeFixes = previewSafeFixes as jest.MockedFunction<typeof previewSafeFixes>;
 const mockedRunScoreCheck = runPostFixReAudit as jest.MockedFunction<typeof runPostFixReAudit>;
+const mockedExtractAffectedCategories = extractAffectedCategories as jest.MockedFunction<typeof extractAffectedCategories>;
 const mockedBackupServer = backupServer as jest.MockedFunction<typeof backupServer>;
 const mockedPrompt = inquirer.prompt as jest.MockedFunction<typeof inquirer.prompt>;
 const mockedLogger = logger as jest.Mocked<typeof logger>;
@@ -192,6 +194,8 @@ beforeEach(() => {
   mockedFixCommandsFromChecks.mockReturnValue([
     { checkId: "KERN-01", fixCommand: "sysctl -w net.ipv4.tcp_syncookies=1" },
   ]);
+
+  mockedExtractAffectedCategories.mockReturnValue(["Kernel"]);
 
   // Default prioritization mocks — pass checks through with impact=5
   mockedBuildImpactContext.mockReturnValue({
@@ -1328,7 +1332,7 @@ describe("fixSafeCommand", () => {
         currentScore: 70,
       });
       mockedRegression.formatRegressionSummary.mockReturnValue([
-        { severity: "warn", text: "Regression: 1 check(s) regressed: KERN-01" },
+        { severity: "warning", text: "Regression: 1 check(s) regressed: KERN-01" },
         { severity: "info", text: "Best score: 80" },
       ]);
 

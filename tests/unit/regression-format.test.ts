@@ -11,7 +11,7 @@ describe("formatRegressionSummary", () => {
     };
     const lines = formatRegressionSummary(result);
     expect(lines).toContainEqual({
-      severity: "warn",
+      severity: "warning",
       text: "Regression: 2 check(s) regressed: SSH-ROOT, FW-UFW",
     });
     expect(lines).toContainEqual({
@@ -47,7 +47,7 @@ describe("formatRegressionSummary", () => {
     };
     const lines = formatRegressionSummary(result);
     expect(lines.length).toBe(3);
-    expect(lines[0].severity).toBe("warn");
+    expect(lines[0].severity).toBe("warning");
     expect(lines[1].severity).toBe("info");
     expect(lines[2].severity).toBe("info");
   });

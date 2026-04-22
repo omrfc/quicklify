@@ -285,14 +285,9 @@ export async function handleServerFix(
     const auditResult = result.data;
 
     const baseline = loadBaseline(auditResult.serverIp);
-    const passedIds = extractPassedCheckIds(auditResult);
-    const regression = baseline ? checkRegression(baseline, auditResult, passedIds) : null;
-    const baselineRegression = regression ? {
-      regressions: regression.regressions,
-      newPasses: regression.newPasses,
-      baselineScore: regression.baselineScore,
-      currentScore: regression.currentScore,
-    } : null;
+    const preFixPassedIds = extractPassedCheckIds(auditResult);
+    const regression = baseline ? checkRegression(baseline, auditResult, preFixPassedIds) : null;
+    const baselineRegression = regression ?? null;
 
     // ── Build check index for O(1) lookups (used by FORBIDDEN rejection + affectedCats) ──
     const checkIndex = new Map<string, { categoryName: string }>();
@@ -512,7 +507,7 @@ export async function handleServerFix(
     // Only save when fixes were applied — a no-op fix run should not overwrite the baseline
     if (applied.length > 0) {
       const resultToSave = postFixResult ?? auditResult;
-      const passedIdsToSave = postFixResult ? extractPassedCheckIds(postFixResult) : undefined;
+      const passedIdsToSave = postFixResult ? extractPassedCheckIds(postFixResult) : preFixPassedIds;
       await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
     }
 

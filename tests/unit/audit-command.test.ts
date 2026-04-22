@@ -552,7 +552,7 @@ describe("auditCommand", () => {
       currentScore: 72,
     });
     mockedRegression.formatRegressionSummary.mockReturnValue([
-      { severity: "warn", text: "Regression: 1 check(s) regressed: SSH-ROOT-LOGIN" },
+      { severity: "warning", text: "Regression: 1 check(s) regressed: SSH-ROOT-LOGIN" },
       { severity: "info", text: "Best score: 80" },
     ]);
 

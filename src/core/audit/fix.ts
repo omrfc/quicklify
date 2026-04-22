@@ -382,6 +382,24 @@ export function fixCommandsFromChecks(
   return checks.map((c) => ({ checkId: c.id, fixCommand: c.fixCommand }));
 }
 
+export function extractAffectedCategories(
+  appliedCheckIds: string[],
+  categories: AuditResult["categories"],
+): string[] {
+  return [
+    ...new Set(
+      appliedCheckIds
+        .map((checkId) => {
+          for (const cat of categories) {
+            if (cat.checks.some((ch) => ch.id === checkId)) return cat.name;
+          }
+          return undefined;
+        })
+        .filter((name): name is string => name !== undefined),
+    ),
+  ];
+}
+
 /**
  * Run a post-fix re-audit on affected categories and return the merged AuditResult.
  * Returns null on failure or when nothing to check.
