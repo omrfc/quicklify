@@ -28,12 +28,13 @@ import { checkSshAvailable, sshExec } from "../../src/utils/ssh.js";
 import { runAudit } from "../../src/core/audit/index.js";
 import {
   previewSafeFixes,
-  runScoreCheck,
+  runPostFixReAudit,
   isFixCommandAllowed,
   fixCommandsFromChecks,
   sortChecksByImpact,
   selectChecksForTop,
   selectChecksForTarget,
+  extractAffectedCategories,
 } from "../../src/core/audit/fix.js";
 import {
   tryHandlerDispatch,
@@ -64,7 +65,8 @@ const mockedCheckSsh = checkSshAvailable as jest.MockedFunction<typeof checkSshA
 const mockedSshExec = sshExec as jest.MockedFunction<typeof sshExec>;
 const mockedRunAudit = runAudit as jest.MockedFunction<typeof runAudit>;
 const mockedPreviewSafeFixes = previewSafeFixes as jest.MockedFunction<typeof previewSafeFixes>;
-const mockedRunScoreCheck = runScoreCheck as jest.MockedFunction<typeof runScoreCheck>;
+const mockedRunScoreCheck = runPostFixReAudit as jest.MockedFunction<typeof runPostFixReAudit>;
+const mockedExtractAffectedCategories = extractAffectedCategories as jest.MockedFunction<typeof extractAffectedCategories>;
 const mockedBackupServer = backupServer as jest.MockedFunction<typeof backupServer>;
 const mockedPrompt = inquirer.prompt as jest.MockedFunction<typeof inquirer.prompt>;
 const mockedLogger = logger as jest.Mocked<typeof logger>;
@@ -193,6 +195,8 @@ beforeEach(() => {
     { checkId: "KERN-01", fixCommand: "sysctl -w net.ipv4.tcp_syncookies=1" },
   ]);
 
+  mockedExtractAffectedCategories.mockReturnValue(["Kernel"]);
+
   // Default prioritization mocks — pass checks through with impact=5
   mockedBuildImpactContext.mockReturnValue({
     catWeightMap: new Map(),
@@ -224,6 +228,7 @@ beforeEach(() => {
   mockedRegression.saveBaselineSafe.mockResolvedValue();
   mockedRegression.loadBaseline.mockReturnValue(null);
   mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
+  mockedRegression.formatRegressionSummary.mockReturnValue([{ severity: "info", text: "Best score: 0" }]);
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -361,7 +366,7 @@ describe("fixSafeCommand", () => {
     mockedPrompt.mockResolvedValue({ confirm: true });
     mockedBackupServer.mockResolvedValue({ success: true, backupPath: "/tmp/backup" } as BackupResult);
     mockedSshExec.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
-    mockedRunScoreCheck.mockResolvedValue(75);
+    mockedRunScoreCheck.mockResolvedValue({...makeResult([]), overallScore:75});
 
     await fixSafeCommand(undefined, { safe: true });
 
@@ -372,7 +377,7 @@ describe("fixSafeCommand", () => {
     expect(fixCommands.some((cmd) => cmd.includes("restart rsyslog"))).toBe(false);
   });
 
-  it("Test 6: calls runScoreCheck after successful fixes and logs score delta", async () => {
+  it("Test 6: calls runPostFixReAudit after successful fixes and logs score delta", async () => {
     mockedResolveServer.mockResolvedValue(testServer);
     mockedCheckSsh.mockReturnValue(true);
 
@@ -386,7 +391,7 @@ describe("fixSafeCommand", () => {
     mockedPrompt.mockResolvedValue({ confirm: true });
     mockedBackupServer.mockResolvedValue({ success: true, backupPath: "/tmp/backup" } as BackupResult);
     mockedSshExec.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
-    mockedRunScoreCheck.mockResolvedValue(85);
+    mockedRunScoreCheck.mockResolvedValue({...makeResult([]), overallScore:85});
 
     await fixSafeCommand(undefined, { safe: true });
 
@@ -402,7 +407,7 @@ describe("fixSafeCommand", () => {
     );
   });
 
-  it("Test 7: does NOT call runScoreCheck when no fixes were applied", async () => {
+  it("Test 7: does NOT call runPostFixReAudit when no fixes were applied", async () => {
     mockedResolveServer.mockResolvedValue(testServer);
     mockedCheckSsh.mockReturnValue(true);
 
@@ -705,7 +710,7 @@ describe("fixSafeCommand", () => {
       mockedPrompt.mockResolvedValue({ confirm: true });
       mockedBackupServer.mockResolvedValue({ success: true, backupPath: "/tmp/backup" } as BackupResult);
       mockedSshExec.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
-      mockedRunScoreCheck.mockResolvedValue(75);
+      mockedRunScoreCheck.mockResolvedValue({...makeResult([]), overallScore:75});
       mockedGenerateFixId.mockReturnValue("fix-2026-03-29-001");
       mockedBackupFilesBeforeFix.mockResolvedValue("/root/.kastell/fix-backups/fix-2026-03-29-001");
 
@@ -901,7 +906,7 @@ describe("fixSafeCommand", () => {
       mockedBackupServer.mockResolvedValue({ success: true, backupPath: "/tmp/backup" } as BackupResult);
       mockedSshExec.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
       // After fix, score is still well below target 99
-      mockedRunScoreCheck.mockResolvedValue(53);
+      mockedRunScoreCheck.mockResolvedValue({...makeResult([]), overallScore:53});
 
       await fixSafeCommand(undefined, { safe: true, target: "99" });
 
@@ -1326,6 +1331,10 @@ describe("fixSafeCommand", () => {
         baselineScore: 80,
         currentScore: 70,
       });
+      mockedRegression.formatRegressionSummary.mockReturnValue([
+        { severity: "warning", text: "Regression: 1 check(s) regressed: KERN-01" },
+        { severity: "info", text: "Best score: 80" },
+      ]);
 
       await fixSafeCommand(undefined, { safe: true, dryRun: true });
 
@@ -1349,7 +1358,7 @@ describe("fixSafeCommand", () => {
       mockedPrompt.mockResolvedValue({ confirm: true });
       mockedBackupServer.mockResolvedValue({ success: true, backupPath: "/tmp/backup" } as BackupResult);
       mockedSshExec.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
-      mockedRunScoreCheck.mockResolvedValue(75);
+      mockedRunScoreCheck.mockResolvedValue({...makeResult([]), overallScore:75});
 
       await fixSafeCommand(undefined, { safe: true });
 

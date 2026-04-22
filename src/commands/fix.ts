@@ -8,12 +8,13 @@ import { logger, createSpinner } from "../utils/logger.js";
 import { runAudit } from "../core/audit/index.js";
 import {
   previewSafeFixes,
-  runScoreCheck,
+  runPostFixReAudit,
   isFixCommandAllowed,
   sortChecksByImpact,
   selectChecksForTop,
   selectChecksForTarget,
   fixCommandsFromChecks,
+  extractAffectedCategories,
   type ScoredFixCheck,
 } from "../core/audit/fix.js";
 import { tryHandlerDispatch, type CollectedDiff } from "../core/audit/handlers/index.js";
@@ -33,7 +34,7 @@ import {
   rollbackAllFixes,
   rollbackToFix,
 } from "../core/audit/fix-history.js";
-import { saveBaselineSafe, loadBaseline, checkRegression } from "../core/audit/regression.js";
+import { saveBaselineSafe, loadBaseline, checkRegression, formatRegressionSummary, extractPassedCheckIds } from "../core/audit/regression.js";
 
 /**
  * `kastell fix --safe` command.
@@ -259,15 +260,12 @@ export async function fixSafeCommand(
   const auditResult = result.data;
 
   const baseline = loadBaseline(auditResult.serverIp);
+  const preFixPassedIds = extractPassedCheckIds(auditResult);
   if (baseline) {
-    const regression = checkRegression(baseline, auditResult);
-    if (regression.regressions.length > 0) {
-      logger.warning(
-        `Regression: ${regression.regressions.length} check(s) previously passed now fail: ${regression.regressions.join(", ")}`,
-      );
-    }
-    if (regression.newPasses.length > 0) {
-      logger.info(`New passes: ${regression.newPasses.length} check(s) now passing: ${regression.newPasses.join(", ")}`);
+    const regression = checkRegression(baseline, auditResult, preFixPassedIds);
+    for (const line of formatRegressionSummary(regression)) {
+      if (line.severity === "warning") logger.warning(line.text);
+      else logger.info(line.text);
     }
   }
 
@@ -487,32 +485,21 @@ export async function fixSafeCommand(
   if (applied.length > 0) {
     const scoreSpinner = createSpinner("Verifying score...");
     scoreSpinner.start();
-    const affectedCats = [
-      ...new Set(
-        applied
-          .map((checkId) => {
-            for (const cat of auditResult.categories) {
-              if (cat.checks.some((ch) => ch.id === checkId))
-                return cat.name;
-            }
-            return undefined;
-          })
-          .filter((n): n is string => n !== undefined),
-      ),
-    ];
-    newScore = await runScoreCheck(
+    const affectedCats = extractAffectedCategories(applied, auditResult.categories);
+    const postFixResult = await runPostFixReAudit(
       ip,
       platform,
       auditResult,
       affectedCats,
     );
     scoreSpinner.stop();
+    newScore = postFixResult?.overallScore ?? null;
     if (newScore !== null) {
       const delta = newScore - auditResult.overallScore;
       const sign = delta >= 0 ? "+" : "";
       const skippedCount = allSafeChecks.length - selectedChecks.length;
       logger.success(
-        `Score: ${auditResult.overallScore} \u2192 ${newScore} (${sign}${delta}) | Applied: ${applied.length} | Skipped: ${skippedCount} (GUARDED: ${guardedCount}, FORBIDDEN: ${forbiddenCount})`,
+        `Score: ${auditResult.overallScore} → ${newScore} (${sign}${delta}) | Applied: ${applied.length} | Skipped: ${skippedCount} (GUARDED: ${guardedCount}, FORBIDDEN: ${forbiddenCount})`,
       );
       // D-06: --target unreachable warning
       if (parsedTarget !== undefined && newScore < parsedTarget) {
@@ -522,7 +509,9 @@ export async function fixSafeCommand(
       }
     }
 
-    await saveBaselineSafe(auditResult);
+    const resultToSave = postFixResult ?? auditResult;
+    const passedIdsToSave = postFixResult ? extractPassedCheckIds(postFixResult) : preFixPassedIds;
+    await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
   }
 
   // Save to fix history (FIXPRO-02)

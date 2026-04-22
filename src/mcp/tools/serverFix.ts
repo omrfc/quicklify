@@ -3,7 +3,7 @@ import { getServers } from "../../utils/config.js";
 import { runAudit } from "../../core/audit/index.js";
 import {
   previewSafeFixes,
-  runScoreCheck,
+  runPostFixReAudit,
   isFixCommandAllowed,
   resolveTier,
   sortChecksByImpact,
@@ -39,7 +39,7 @@ import {
   type McpResponse,
 } from "../utils.js";
 import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
-import { saveBaselineSafe, loadBaseline, checkRegression } from "../../core/audit/regression.js";
+import { saveBaselineSafe, loadBaseline, checkRegression, extractPassedCheckIds } from "../../core/audit/regression.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 export const serverFixSchema = {
@@ -285,13 +285,9 @@ export async function handleServerFix(
     const auditResult = result.data;
 
     const baseline = loadBaseline(auditResult.serverIp);
-    const regression = baseline ? checkRegression(baseline, auditResult) : null;
-    const baselineRegression = regression ? {
-      regressions: regression.regressions,
-      newPasses: regression.newPasses,
-      baselineScore: regression.baselineScore,
-      currentScore: regression.currentScore,
-    } : null;
+    const preFixPassedIds = extractPassedCheckIds(auditResult);
+    const regression = baseline ? checkRegression(baseline, auditResult, preFixPassedIds) : null;
+    const baselineRegression = regression ?? null;
 
     // ── Build check index for O(1) lookups (used by FORBIDDEN rejection + affectedCats) ──
     const checkIndex = new Map<string, { categoryName: string }>();
@@ -476,6 +472,7 @@ export async function handleServerFix(
 
     // ── LIVE FIX — score delta ────────────────────────────────────────────
     let scoreAfter: number | null = null;
+    let postFixResult: Awaited<ReturnType<typeof runPostFixReAudit>> = null;
     if (applied.length > 0) {
       await mcpLog(mcpServer, "Verifying score...");
       const affectedCats = [
@@ -485,12 +482,13 @@ export async function handleServerFix(
             .filter((n): n is string => n !== undefined),
         ),
       ];
-      scoreAfter = await runScoreCheck(
+      postFixResult = await runPostFixReAudit(
         server.ip,
         platform,
         auditResult,
         affectedCats,
       );
+      scoreAfter = postFixResult?.overallScore ?? null;
     }
 
     // ── LIVE FIX — save history entry (FIXPRO-02) ────────────────────────
@@ -508,7 +506,9 @@ export async function handleServerFix(
 
     // Only save when fixes were applied — a no-op fix run should not overwrite the baseline
     if (applied.length > 0) {
-      await saveBaselineSafe(auditResult);
+      const resultToSave = postFixResult ?? auditResult;
+      const passedIdsToSave = postFixResult ? extractPassedCheckIds(postFixResult) : preFixPassedIds;
+      await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
     }
 
     // ── LIVE FIX — prune old backups ──────────────────────────────────────

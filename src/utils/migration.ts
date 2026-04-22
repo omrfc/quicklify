@@ -3,9 +3,10 @@ import { secureMkdirSync, secureWriteFileSync } from "./secureWrite.js";
 import { homedir } from "os";
 import { join } from "path";
 import chalk from "chalk";
+import { KASTELL_DIR } from "./paths.js";
 
 const OLD_CONFIG_DIR = join(homedir(), ".quicklify");
-const NEW_CONFIG_DIR = join(homedir(), ".kastell");
+const NEW_CONFIG_DIR = KASTELL_DIR;
 const MIGRATED_FLAG = join(NEW_CONFIG_DIR, ".migrated");
 
 /**

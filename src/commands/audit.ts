@@ -12,7 +12,7 @@ import { selectFormatter } from "../core/audit/formatters/index.js";
 import { saveAuditHistory, loadAuditHistory, detectTrend, computeTrend } from "../core/audit/history.js";
 import { formatTrendTerminal, formatTrendJson } from "../core/audit/formatters/trend.js";
 import { saveSnapshot, listSnapshots } from "../core/audit/snapshot.js";
-import { runFix, runScoreCheck } from "../core/audit/fix.js";
+import { runFix, runPostFixReAudit, extractAffectedCategories } from "../core/audit/fix.js";
 import { watchAudit } from "../core/audit/watch.js";
 import { diffAudits, resolveSnapshotRef, formatDiffTerminal, formatDiffJson } from "../core/audit/diff.js";
 import { getServers } from "../utils/config.js";
@@ -25,7 +25,7 @@ import type { AuditCliOptions } from "../core/audit/formatters/index.js";
 import type { AuditDiffResult } from "../core/audit/types.js";
 import { filterAuditResult, buildFilterAnnotation, parseSeverity } from "../core/audit/filter.js";
 import type { AuditFilter } from "../core/audit/filter.js";
-import { saveBaselineSafe, loadBaseline, checkRegression } from "../core/audit/regression.js";
+import { saveBaselineSafe, loadBaseline, checkRegression, formatRegressionSummary, extractPassedCheckIds } from "../core/audit/regression.js";
 
 function printDiff(diff: AuditDiffResult, json?: boolean): void {
   console.log(json ? formatDiffJson(diff) : formatDiffTerminal(diff));
@@ -229,18 +229,13 @@ export async function auditCommand(
   }
 
   const baseline = loadBaseline(auditResult.serverIp);
-  await saveBaselineSafe(auditResult, baseline);
+  const passedIds = extractPassedCheckIds(auditResult);
+  await saveBaselineSafe(auditResult, baseline, passedIds);
   if (baseline) {
-    const regression = checkRegression(baseline, auditResult);
-    if (regression.regressions.length > 0) {
-      logger.warning(
-        `Regression: ${regression.regressions.length} check(s) previously passed now fail: ${regression.regressions.join(", ")}`,
-      );
-    }
-    if (regression.newPasses.length > 0) {
-      logger.info(
-        `New passes: ${regression.newPasses.length} check(s) now passing: ${regression.newPasses.join(", ")}`,
-      );
+    const regression = checkRegression(baseline, auditResult, passedIds);
+    for (const line of formatRegressionSummary(regression)) {
+      if (line.severity === "warning") logger.warning(line.text);
+      else logger.info(line.text);
     }
   }
 
@@ -338,24 +333,14 @@ export async function auditCommand(
       // Score delta after fix (AUX-05, AUX-06, AUX-07)
       // Guard: only run when fixes were actually applied (not dry-run, not zero-fix)
       if (fixResult.applied.length > 0) {
-        const affectedCats = [
-          ...new Set(
-            fixResult.applied
-              .map((checkId) => {
-                for (const cat of auditResult.categories) {
-                  if (cat.checks.some((ch) => ch.id === checkId)) return cat.name;
-                }
-                return undefined;
-              })
-              .filter((name): name is string => name !== undefined),
-          ),
-        ];
+        const affectedCats = extractAffectedCategories(fixResult.applied, auditResult.categories);
 
-        const newScore = await runScoreCheck(ip, platform, auditResult, affectedCats);
+        const postFixResult = await runPostFixReAudit(ip, platform, auditResult, affectedCats);
+        const newScore = postFixResult?.overallScore ?? null;
         if (newScore !== null) {
           const delta = newScore - auditResult.overallScore;
           const sign = delta >= 0 ? "+" : "";
-          logger.success(`Score: ${auditResult.overallScore} \u2192 ${newScore} (${sign}${delta})`);
+          logger.success(`Score: ${auditResult.overallScore} → ${newScore} (${sign}${delta})`);
         }
       }
     }
