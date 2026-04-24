@@ -227,7 +227,9 @@ beforeEach(() => {
   // Default regression mocks
   mockedRegression.saveBaselineSafe.mockResolvedValue();
   mockedRegression.loadBaseline.mockReturnValue(null);
-  mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
+  mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0, scoreRegressed: false });
+  mockedRegression.hasRegression.mockReturnValue(false);
+  mockedRegression.shouldUpdateBaseline.mockReturnValue(true);
   mockedRegression.formatRegressionSummary.mockReturnValue([{ severity: "info", text: "Best score: 0" }]);
 });
 
@@ -1326,10 +1328,11 @@ describe("fixSafeCommand", () => {
         passedChecks: ["KERN-01"],
       });
       mockedRegression.checkRegression.mockReturnValue({
-        regressions: ["KERN-01"],
+        regressions: [],
         newPasses: [],
         baselineScore: 80,
-        currentScore: 70,
+        currentScore: 75,
+        scoreRegressed: false,
       });
       mockedRegression.formatRegressionSummary.mockReturnValue([
         { severity: "warning", text: "Regression: 1 check(s) regressed: KERN-01" },
@@ -1359,10 +1362,99 @@ describe("fixSafeCommand", () => {
       mockedBackupServer.mockResolvedValue({ success: true, backupPath: "/tmp/backup" } as BackupResult);
       mockedSshExec.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
       mockedRunScoreCheck.mockResolvedValue({...makeResult([]), overallScore:75});
+      mockedBackupFilesBeforeFix.mockResolvedValue("/root/.kastell/fix-backups/fix-2026-03-29-001");
 
-      await fixSafeCommand(undefined, { safe: true });
+      // Force shouldUpdateBaseline to return true so saveBaselineSafe gets called
+      const spy = jest.spyOn(require('../../src/core/audit/regression.js'), 'shouldUpdateBaseline').mockReturnValue(true);
+
+      await fixSafeCommand(undefined, { safe: true, interactive: false });
 
       expect(mockedRegression.saveBaselineSafe).toHaveBeenCalled();
+      expect(spy).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it("should bypass regression gate when --force is passed", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+
+      const auditResult = makeResult([
+        makeCategory("Kernel", [
+          makeCheck({ id: "KERN-01", category: "Kernel", severity: "warning", passed: false, fixCommand: "sysctl -w net.ipv4.tcp_syncookies=1", safeToAutoFix: "SAFE" }),
+        ]),
+      ], 70);
+      mockedRunAudit.mockResolvedValue({ success: true, data: auditResult });
+      mockedPreviewSafeFixes.mockReturnValue(defaultSafePlan);
+      mockedRegression.loadBaseline.mockReturnValue({
+        version: 1,
+        serverIp: "1.2.3.4",
+        lastUpdated: "2026-04-20T10:00:00Z",
+        bestScore: 80,
+        passedChecks: ["KERN-01"],
+      });
+      mockedRegression.checkRegression.mockReturnValue({
+        regressions: ["KERN-01"],
+        newPasses: [],
+        baselineScore: 80,
+        currentScore: 70,
+        scoreRegressed: true,
+      });
+      mockedRegression.hasRegression.mockReturnValue(true);
+      mockedRegression.formatRegressionSummary.mockReturnValue([
+        { severity: "warning", text: "Regression: 1 check(s) regressed: KERN-01" },
+      ]);
+      mockedPrompt.mockResolvedValue({ confirm: true });
+      mockedBackupServer.mockResolvedValue({ success: true, backupPath: "/tmp/backup" } as BackupResult);
+      mockedSshExec.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
+      mockedBackupFilesBeforeFix.mockResolvedValue("/root/.kastell/fix-backups/fix-2026-03-29-001");
+
+      await fixSafeCommand(undefined, { safe: true, interactive: false, force: true } as Parameters<typeof fixSafeCommand>[1] & { force: boolean });
+
+      expect(mockedRegression.checkRegression).toHaveBeenCalled();
+      expect(mockedBackupServer).toHaveBeenCalled();
+    });
+
+    it("should exit with warning in non-TTY mode when regression detected without --force", async () => {
+      const origIsTTY = process.stdin.isTTY;
+      Object.defineProperty(process.stdin, "isTTY", { value: false, configurable: true });
+
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+
+      const auditResult = makeResult([
+        makeCategory("Kernel", [
+          makeCheck({ id: "KERN-01", category: "Kernel", severity: "warning", passed: false, fixCommand: "sysctl -w net.ipv4.tcp_syncookies=1", safeToAutoFix: "SAFE" }),
+        ]),
+      ], 70);
+      mockedRunAudit.mockResolvedValue({ success: true, data: auditResult });
+      mockedPreviewSafeFixes.mockReturnValue(defaultSafePlan);
+      mockedRegression.loadBaseline.mockReturnValue({
+        version: 1,
+        serverIp: "1.2.3.4",
+        lastUpdated: "2026-04-20T10:00:00Z",
+        bestScore: 80,
+        passedChecks: ["KERN-01"],
+      });
+      mockedRegression.checkRegression.mockReturnValue({
+        regressions: ["KERN-01"],
+        newPasses: [],
+        baselineScore: 80,
+        currentScore: 70,
+        scoreRegressed: true,
+      });
+      mockedRegression.hasRegression.mockReturnValue(true);
+      mockedRegression.formatRegressionSummary.mockReturnValue([
+        { severity: "warning", text: "Regression: 1 check(s) regressed: KERN-01" },
+      ]);
+
+      await fixSafeCommand(undefined, { safe: true, dryRun: true });
+
+      expect(mockedLogger.warning).toHaveBeenCalledWith(
+        expect.stringContaining("--force"),
+      );
+      expect(mockedBackupServer).not.toHaveBeenCalled();
+
+      Object.defineProperty(process.stdin, "isTTY", { value: origIsTTY, configurable: true });
     });
   });
 });

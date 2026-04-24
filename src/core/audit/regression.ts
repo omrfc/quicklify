@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, renameSync } from "fs";
+import { readFileSync, existsSync, renameSync, readdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import { secureMkdirSync, secureWriteFileSync } from "../../utils/secureWrite.js";
 import { KASTELL_DIR } from "../../utils/paths.js";
@@ -94,7 +94,21 @@ export function checkRegression(
     newPasses: newPasses.sort(),
     baselineScore: baseline.bestScore,
     currentScore: audit.overallScore,
+    scoreRegressed: audit.overallScore < baseline.bestScore,
   };
+}
+
+export function hasRegression(result: RegressionResult): boolean {
+  return result.regressions.length > 0 || result.scoreRegressed;
+}
+
+export function shouldUpdateBaseline(
+  regression: RegressionResult | null,
+  forced: boolean,
+): boolean {
+  if (!regression) return true;
+  if (forced) return true;
+  return !hasRegression(regression);
 }
 
 export function formatRegressionSummary(result: RegressionResult): RegressionLine[] {
@@ -113,4 +127,53 @@ export function formatRegressionSummary(result: RegressionResult): RegressionLin
   }
   lines.push({ severity: "info", text: `Best score: ${result.baselineScore}` });
   return lines;
+}
+
+export function listBaselines(): RegressionBaseline[] {
+  if (!existsSync(REGRESSION_DIR)) return [];
+
+  const files = readdirSync(REGRESSION_DIR, { withFileTypes: true })
+    .filter((f) => f.isFile() && f.name.endsWith(".json"));
+
+  const baselines: RegressionBaseline[] = [];
+  for (const file of files) {
+    try {
+      const raw = readFileSync(join(REGRESSION_DIR, file.name), "utf-8");
+      const parsed = JSON.parse(raw) as RegressionBaseline;
+      if (parsed.version === 1 && Array.isArray(parsed.passedChecks)) baselines.push(parsed);
+    } catch {
+      // skip corrupt files
+    }
+  }
+  return baselines;
+}
+
+export function formatRelativeTime(date: Date | string): string {
+  const days = Math.floor((Date.now() - new Date(date).getTime()) / 86_400_000);
+  if (days === 0) return "today";
+  if (days === 1) return "1 day ago";
+  return `${days} days ago`;
+}
+
+export function formatBaselineStatus(baseline: RegressionBaseline): string {
+  const lastUpdated = formatRelativeTime(baseline.lastUpdated);
+
+  return [
+    `Server: ${baseline.serverIp}`,
+    `Best Score: ${baseline.bestScore}`,
+    `Tracked Checks: ${baseline.passedChecks.length}`,
+    `Last Updated: ${lastUpdated}`,
+  ].join("\n");
+}
+
+export function deleteBaseline(serverIp: string): void {
+  const filePath = getBaselinePath(serverIp);
+  try {
+    unlinkSync(filePath);
+  } catch (err) {
+    if ((err as { code?: string }).code === "ENOENT") {
+      throw new Error(`No baseline found for ${serverIp}`, { cause: err });
+    }
+    throw err;
+  }
 }

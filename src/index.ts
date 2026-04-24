@@ -42,6 +42,7 @@ import { botCommand } from "./commands/bot.js";
 import { fixSafeCommand } from "./commands/fix.js";
 import { scheduleCommand } from "./commands/schedule.js";
 import { changelogCommand } from "./commands/changelog.js";
+import { regressionStatusCommand, regressionResetCommand } from "./commands/regression.js";
 import { printHeader, printQuickHelp } from "./cli/header.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -398,8 +399,9 @@ program
   .option("--diff", "Show per-fix diff preview after applying")
   .option("--report", "Generate markdown fix report after applying fixes")
   .option("--no-interactive", "Skip confirmation prompt (for scheduled/automated runs)")
+  .option("--force", "Bypass regression gate and force operation")
   .action(
-    (server?: string, options?: { safe?: boolean; dryRun?: boolean; category?: string; checks?: string; rollback?: string; rollbackAll?: boolean; rollbackTo?: string; history?: boolean; top?: string; target?: string; profile?: string; diff?: boolean; report?: boolean; interactive?: boolean }) =>
+    (server?: string, options?: { safe?: boolean; dryRun?: boolean; category?: string; checks?: string; rollback?: string; rollbackAll?: boolean; rollbackTo?: string; history?: boolean; top?: string; target?: string; profile?: string; diff?: boolean; report?: boolean; interactive?: boolean; force?: boolean }) =>
       fixSafeCommand(server, options ?? {}),
   );
 
@@ -415,6 +417,27 @@ program
   .action((version?: string, options?: { all?: boolean }) =>
     changelogCommand(version, options),
   );
+
+const regressionCmd = program
+  .command("regression")
+  .description("Manage regression baselines");
+
+regressionCmd
+  .command("status")
+  .description("Show baseline status for all or specific server")
+  .argument("[server]", "Server IP to check")
+  .action(async (server?: string) => {
+    await regressionStatusCommand(server);
+  });
+
+regressionCmd
+  .command("reset")
+  .description("Delete baseline for a server")
+  .requiredOption("--server <ip>", "Server IP to reset")
+  .option("--force", "Skip confirmation prompt")
+  .action(async (options: { server: string; force?: boolean }) => {
+    await regressionResetCommand(options.server, options);
+  });
 
 registerAuthCommands(program);
 

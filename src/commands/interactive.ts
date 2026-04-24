@@ -69,6 +69,8 @@ const MENU: MenuCategory[] = [
       { name: "Manage domain & SSL", value: "domain", description: "Set custom domains and configure SSL certificates" },
       { name: "Collect forensic evidence", value: "evidence", description: "Gather logs, ports, firewall rules with SHA256 checksums" },
       { name: "Manage auth tokens", value: "auth", description: "Store, remove, or list provider API tokens in OS keychain" },
+      { name: "Regression baseline status", value: "regression-status", description: "Show baseline status for all or specific server" },
+      { name: "Reset regression baseline", value: "regression-reset", description: "Delete baseline for a server" },
     ],
   },
   {
@@ -1024,6 +1026,7 @@ const SUB_PROMPTS: Record<string, () => Promise<string[] | null>> = {
 const DIRECT_COMMANDS = new Set([
   "list", "add", "destroy", "restart", "remove", "restore", "export", "config",
   "health", "backup-list", "version", "changelog",
+  "regression-status", "regression-reset",
 ]);
 
 export async function interactiveMenu(): Promise<string[] | null> {
@@ -1045,6 +1048,8 @@ export async function interactiveMenu(): Promise<string[] | null> {
 
     // Special compound commands
     if (action === "backup-list") return ["backup", "list"];
+    if (action === "regression-status") return ["regression", "status"];
+    if (action === "regression-reset") return ["regression", "reset"];
     if (action === "bot") return ["bot", "start"];
     if (action in SCHEDULE_COMMANDS) return ["schedule", SCHEDULE_COMMANDS[action]];
 

@@ -34,7 +34,7 @@ import {
   rollbackAllFixes,
   rollbackToFix,
 } from "../core/audit/fix-history.js";
-import { saveBaselineSafe, loadBaseline, checkRegression, formatRegressionSummary, extractPassedCheckIds } from "../core/audit/regression.js";
+import { saveBaselineSafe, loadBaseline, checkRegression, formatRegressionSummary, extractPassedCheckIds, shouldUpdateBaseline, hasRegression } from "../core/audit/regression.js";
 
 /**
  * `kastell fix --safe` command.
@@ -60,6 +60,7 @@ export async function fixSafeCommand(
     diff?: boolean;
     report?: boolean;
     interactive?: boolean;
+    force?: boolean;
   },
 ): Promise<void> {
   // ── Flag validation (D-08, D-03, D-11, D-05, D-13) ─────────────────────────
@@ -258,14 +259,32 @@ export async function fixSafeCommand(
   }
 
   const auditResult = result.data;
+  const force = options.force === true;
 
   const baseline = loadBaseline(auditResult.serverIp);
   const preFixPassedIds = extractPassedCheckIds(auditResult);
-  if (baseline) {
-    const regression = checkRegression(baseline, auditResult, preFixPassedIds);
-    for (const line of formatRegressionSummary(regression)) {
+  const preFixRegression = baseline ? checkRegression(baseline, auditResult, preFixPassedIds) : null;
+  if (preFixRegression) {
+    for (const line of formatRegressionSummary(preFixRegression)) {
       if (line.severity === "warning") logger.warning(line.text);
       else logger.info(line.text);
+    }
+
+    if (hasRegression(preFixRegression) && !force) {
+      if (process.stdin.isTTY) {
+        const { confirm } = await import("@inquirer/prompts");
+        const proceed = await confirm({
+          message: "Regression detected. Continue with fix?",
+          default: false,
+        });
+        if (!proceed) {
+          logger.info("Fix cancelled by user.");
+          return;
+        }
+      } else {
+        logger.warning("Regression detected. Use --force to proceed in non-interactive mode.");
+        return;
+      }
     }
   }
 
@@ -511,7 +530,13 @@ export async function fixSafeCommand(
 
     const resultToSave = postFixResult ?? auditResult;
     const passedIdsToSave = postFixResult ? extractPassedCheckIds(postFixResult) : preFixPassedIds;
-    await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
+    const finalRegression = postFixResult && baseline
+      ? checkRegression(baseline, resultToSave, passedIdsToSave)
+      : preFixRegression;
+
+    if (shouldUpdateBaseline(finalRegression, force)) {
+      await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
+    }
   }
 
   // Save to fix history (FIXPRO-02)

@@ -39,7 +39,7 @@ import {
   type McpResponse,
 } from "../utils.js";
 import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
-import { saveBaselineSafe, loadBaseline, checkRegression, extractPassedCheckIds } from "../../core/audit/regression.js";
+import { saveBaselineSafe, loadBaseline, checkRegression, extractPassedCheckIds, shouldUpdateBaseline, hasRegression } from "../../core/audit/regression.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 export const serverFixSchema = {
@@ -110,6 +110,11 @@ export const serverFixSchema = {
     .optional()
     .default(false)
     .describe("Generate markdown fix report file in current directory"),
+  force: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("Bypass regression gate and force baseline update"),
 };
 
 /** Severity ordering for display (critical first) */
@@ -132,6 +137,7 @@ export async function handleServerFix(
     profile?: string;
     diff?: boolean;
     report?: boolean;
+    force?: boolean;
   },
   mcpServer?: McpServer,
 ): Promise<McpResponse> {
@@ -287,7 +293,15 @@ export async function handleServerFix(
     const baseline = loadBaseline(auditResult.serverIp);
     const preFixPassedIds = extractPassedCheckIds(auditResult);
     const regression = baseline ? checkRegression(baseline, auditResult, preFixPassedIds) : null;
-    const baselineRegression = regression ?? null;
+    const baselineRegression = regression;
+
+    const regressionWarning = regression && hasRegression(regression) && !params.force
+      ? {
+          regressions: regression.regressions,
+          scoreRegressed: regression.scoreRegressed,
+          message: `Regression detected: ${regression.regressions.length} check(s) regressed, score ${regression.scoreRegressed ? "dropped" : "stable"}. Use force:true to override.`,
+        }
+      : undefined;
 
     // ── Build check index for O(1) lookups (used by FORBIDDEN rejection + affectedCats) ──
     const checkIndex = new Map<string, { categoryName: string }>();
@@ -403,6 +417,7 @@ export async function handleServerFix(
         forbiddenCount,
         scoreBefore: auditResult.overallScore,
         ...(baselineRegression ? { baselineRegression } : {}),
+        ...(regressionWarning ? { regressionWarning } : {}),
       }, { largeResult: true });
     }
 
@@ -508,7 +523,13 @@ export async function handleServerFix(
     if (applied.length > 0) {
       const resultToSave = postFixResult ?? auditResult;
       const passedIdsToSave = postFixResult ? extractPassedCheckIds(postFixResult) : preFixPassedIds;
-      await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
+      const finalRegression = postFixResult && baseline
+        ? checkRegression(baseline, resultToSave, passedIdsToSave)
+        : regression;
+
+      if (shouldUpdateBaseline(finalRegression, Boolean(params.force))) {
+        await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
+      }
     }
 
     // ── LIVE FIX — prune old backups ──────────────────────────────────────
@@ -552,6 +573,7 @@ export async function handleServerFix(
       ...(diffSummary ? { diffSummary } : {}),
       ...(reportFile ? { reportFile } : {}),
       ...(baselineRegression ? { baselineRegression } : {}),
+      ...(regressionWarning ? { regressionWarning } : {}),
     }, { largeResult: true });
   } catch (error: unknown) {
     return mcpError(sanitizeStderr(getErrorMessage(error)));

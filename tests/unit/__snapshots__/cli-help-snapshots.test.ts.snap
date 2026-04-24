@@ -45,6 +45,7 @@ Commands:
   fleet [options]                          Show health and security posture of all registered servers
   bot                                      Telegram bot management
   changelog [options] [version]            Show release notes from CHANGELOG.md
+  regression                               Manage regression baselines
   auth                                     Manage provider API tokens (OS keychain)
   help [command]                           display help for command"
 `;
@@ -106,6 +107,7 @@ Options:
   --diff              Show per-fix diff preview after applying
   --report            Generate markdown fix report after applying fixes
   --no-interactive    Skip confirmation prompt (for scheduled/automated runs)
+  --force             Bypass regression gate and force operation
   -h, --help          display help for command"
 `;
 

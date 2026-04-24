@@ -22,10 +22,10 @@ import { formatComplianceReport } from "../core/audit/formatters/compliance.js";
 import { FRAMEWORK_KEY_MAP, type ProfileName } from "../core/audit/compliance/types.js";
 import type { FrameworkKey } from "../core/audit/compliance/mapper.js";
 import type { AuditCliOptions } from "../core/audit/formatters/index.js";
-import type { AuditDiffResult } from "../core/audit/types.js";
+import type { AuditDiffResult, RegressionResult } from "../core/audit/types.js";
 import { filterAuditResult, buildFilterAnnotation, parseSeverity } from "../core/audit/filter.js";
 import type { AuditFilter } from "../core/audit/filter.js";
-import { saveBaselineSafe, loadBaseline, checkRegression, formatRegressionSummary, extractPassedCheckIds } from "../core/audit/regression.js";
+import { saveBaselineSafe, loadBaseline, checkRegression, formatRegressionSummary, extractPassedCheckIds, shouldUpdateBaseline } from "../core/audit/regression.js";
 
 function printDiff(diff: AuditDiffResult, json?: boolean): void {
   console.log(json ? formatDiffJson(diff) : formatDiffTerminal(diff));
@@ -230,9 +230,17 @@ export async function auditCommand(
 
   const baseline = loadBaseline(auditResult.serverIp);
   const passedIds = extractPassedCheckIds(auditResult);
-  await saveBaselineSafe(auditResult, baseline, passedIds);
+
+  let regression: RegressionResult | null = null;
   if (baseline) {
-    const regression = checkRegression(baseline, auditResult, passedIds);
+    regression = checkRegression(baseline, auditResult, passedIds);
+  }
+
+  if (shouldUpdateBaseline(regression, false)) {
+    await saveBaselineSafe(auditResult, baseline, passedIds);
+  }
+
+  if (regression) {
     for (const line of formatRegressionSummary(regression)) {
       if (line.severity === "warning") logger.warning(line.text);
       else logger.info(line.text);

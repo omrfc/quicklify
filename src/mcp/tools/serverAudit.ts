@@ -17,7 +17,7 @@ import { calculateComplianceDetail } from "../../core/audit/compliance/scoring.j
 import { FRAMEWORK_KEY_MAP } from "../../core/audit/compliance/types.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { filterChecksByProfile, isValidProfile, listAllProfileNames } from "../../core/audit/profiles.js";
-import { saveBaselineSafe, loadBaseline, checkRegression, formatRegressionSummary, extractPassedCheckIds } from "../../core/audit/regression.js";
+import { saveBaselineSafe, loadBaseline, checkRegression, formatRegressionSummary, extractPassedCheckIds, shouldUpdateBaseline } from "../../core/audit/regression.js";
 
 
 export const serverAuditSchema = {
@@ -116,7 +116,11 @@ export async function handleServerAudit(params: {
 
     const baseline = loadBaseline(auditResult.serverIp);
     const passedIds = extractPassedCheckIds(auditResult);
-    await saveBaselineSafe(auditResult, baseline, passedIds);
+    const regression = baseline ? checkRegression(baseline, auditResult, passedIds) : null;
+
+    if (shouldUpdateBaseline(regression, false)) {
+      await saveBaselineSafe(auditResult, baseline, passedIds);
+    }
 
     // Apply category/severity filter if provided
     let filteredResult = auditResult;
@@ -156,8 +160,6 @@ export async function handleServerAudit(params: {
     }
 
     const format = params.format ?? "summary";
-
-    const regression = baseline ? checkRegression(baseline, auditResult, passedIds) : null;
 
     if (format === "json") {
       const jsonResult: Record<string, unknown> = { ...filteredResult };

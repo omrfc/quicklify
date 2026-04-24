@@ -232,7 +232,9 @@ beforeEach(() => {
   // Default regression mocks
   mockedRegression.saveBaselineSafe.mockResolvedValue();
   mockedRegression.loadBaseline.mockReturnValue(null);
-  mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0 });
+  mockedRegression.checkRegression.mockReturnValue({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0, scoreRegressed: false });
+  mockedRegression.hasRegression.mockReturnValue(false);
+  mockedRegression.shouldUpdateBaseline.mockReturnValue(true);
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -1093,6 +1095,7 @@ describe("MCP server_fix tool", () => {
         newPasses: ["KERN-RANDOMIZE"],
         baselineScore: 80,
         currentScore: 65,
+        scoreRegressed: false,
       });
 
       const result = await handleServerFix({ dryRun: true });
@@ -1103,7 +1106,99 @@ describe("MCP server_fix tool", () => {
       expect((parsed.baselineRegression as any).newPasses).toEqual(["KERN-RANDOMIZE"]);
     });
 
-    it("should call saveBaseline after successful live fix", async () => {
+    it("should include regressionWarning when regression detected and force is false", async () => {
+      mockedRegression.loadBaseline.mockReturnValue({
+        version: 1,
+        serverIp: "1.2.3.4",
+        lastUpdated: "2026-04-20T10:00:00Z",
+        bestScore: 80,
+        passedChecks: ["KERN-SYNCOOKIES", "SSH-KEY-AUTH"],
+      });
+      mockedRegression.checkRegression.mockReturnValue({
+        regressions: ["SSH-KEY-AUTH"],
+        newPasses: [],
+        baselineScore: 80,
+        currentScore: 70,
+        scoreRegressed: true,
+      });
+      mockedRegression.hasRegression.mockReturnValue(true);
+
+      const result = await handleServerFix({ dryRun: true });
+
+      expect(result.isError).toBeUndefined();
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect(parsed.regressionWarning).toBeDefined();
+      const warning = parsed.regressionWarning as { regressions: string[]; scoreRegressed: boolean; message: string };
+      expect(warning.regressions).toEqual(["SSH-KEY-AUTH"]);
+      expect(warning.scoreRegressed).toBe(true);
+      expect(warning.message).toContain("force:true");
+    });
+
+    it("should not include regressionWarning when force is true", async () => {
+      mockedRegression.loadBaseline.mockReturnValue({
+        version: 1,
+        serverIp: "1.2.3.4",
+        lastUpdated: "2026-04-20T10:00:00Z",
+        bestScore: 80,
+        passedChecks: ["KERN-SYNCOOKIES", "SSH-KEY-AUTH"],
+      });
+      mockedRegression.checkRegression.mockReturnValue({
+        regressions: ["SSH-KEY-AUTH"],
+        newPasses: [],
+        baselineScore: 80,
+        currentScore: 70,
+        scoreRegressed: true,
+      });
+      mockedRegression.hasRegression.mockReturnValue(true);
+
+      const result = await handleServerFix({ dryRun: true, force: true });
+
+      expect(result.isError).toBeUndefined();
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect(parsed.regressionWarning).toBeUndefined();
+    });
+
+    it("should not include regressionWarning when no regression", async () => {
+      mockedRegression.loadBaseline.mockReturnValue({
+        version: 1,
+        serverIp: "1.2.3.4",
+        lastUpdated: "2026-04-20T10:00:00Z",
+        bestScore: 80,
+        passedChecks: ["KERN-SYNCOOKIES"],
+      });
+      mockedRegression.checkRegression.mockReturnValue({
+        regressions: [],
+        newPasses: ["KERN-RANDOMIZE"],
+        baselineScore: 80,
+        currentScore: 85,
+        scoreRegressed: false,
+      });
+
+      const result = await handleServerFix({ dryRun: true });
+
+      expect(result.isError).toBeUndefined();
+      const parsed = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      expect(parsed.regressionWarning).toBeUndefined();
+    });
+
+    it("should call saveBaseline when no regressions and no score regression", async () => {
+      mockedRegression.loadBaseline.mockReturnValue({
+        version: 1,
+        serverIp: "1.2.3.4",
+        lastUpdated: "2026-04-20T10:00:00Z",
+        bestScore: 80,
+        passedChecks: ["KERN-SYNCOOKIES"],
+      });
+      mockedRegression.checkRegression.mockReturnValue({
+        regressions: [],
+        newPasses: ["KERN-RANDOMIZE"],
+        baselineScore: 80,
+        currentScore: 85,
+        scoreRegressed: false,
+      });
+      mockedRegression.hasRegression.mockReturnValue(false);
+      mockedRegression.shouldUpdateBaseline.mockReturnValue(true);
+
       const result = await handleServerFix({ dryRun: false });
 
       expect(result.isError).toBeUndefined();
