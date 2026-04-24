@@ -573,7 +573,7 @@ async function promptAudit(): Promise<string[] | null> {
         message: "Enter check ID (e.g. SSH-PASSWORD-AUTH):",
       },
     ]);
-    if (!checkId) return null;
+    if (!checkId?.trim()) return null;
     return ["explain", checkId.trim()];
   }
 

@@ -1,9 +1,12 @@
 import {
   findCheckById,
+  clearCheckCatalogCache,
   formatExplainTerminal,
   formatExplainJson,
   formatExplainMarkdown,
 } from "../../src/core/audit/explainCheck.js";
+
+beforeEach(() => { clearCheckCatalogCache(); });
 
 describe("findCheckById", () => {
   it("returns exact match", () => {

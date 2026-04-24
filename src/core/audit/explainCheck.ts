@@ -4,9 +4,11 @@
  */
 
 import chalk from "chalk";
-import { listAllChecks, CLOUDMETA_CATALOG_INPUT } from "./listChecks.js";
+import { CLOUDMETA_CATALOG_INPUT } from "./listChecks.js";
 import { CHECK_REGISTRY } from "./checks/index.js";
+import { COMPLIANCE_MAP } from "./compliance/mapper.js";
 import { resolveTier } from "./fix.js";
+import { severityChalk } from "./formatters/shared.js";
 import type { ComplianceRef, Severity, FixTier } from "./types.js";
 
 export interface ExplainResult {
@@ -50,15 +52,11 @@ function levenshtein(a: string, b: string): number {
 }
 
 function buildCheckCatalog(): ExplainResult[] {
-  const catalogEntries = listAllChecks();
-  const fullChecksById = new Map<string, ExplainResult>();
-
-  // First pass: build full checks from CHECK_REGISTRY
+  const result: ExplainResult[] = [];
   for (const entry of CHECK_REGISTRY) {
     const input = entry.sectionName === "CLOUDMETA" ? CLOUDMETA_CATALOG_INPUT : "";
-    const checks = entry.parser(input, "bare");
-    for (const fc of checks) {
-      fullChecksById.set(fc.id, {
+    for (const fc of entry.parser(input, "bare")) {
+      result.push({
         id: fc.id,
         name: fc.name,
         category: entry.name,
@@ -66,28 +64,11 @@ function buildCheckCatalog(): ExplainResult[] {
         explain: fc.explain ?? "",
         fixCommand: fc.fixCommand,
         fixTier: resolveTier(fc, entry.name),
-        complianceRefs: fc.complianceRefs ?? [],
+        complianceRefs: COMPLIANCE_MAP[fc.id] ?? [],
       });
     }
   }
-
-  // Second pass: build catalog with compliance refs from listAllChecks (COMPLIANCE_MAP)
-  return catalogEntries.map((ce) => {
-    const full = fullChecksById.get(ce.id);
-    if (full) {
-      // Enrich with compliance refs from catalog (COMPLIANCE_MAP)
-      return { ...full, complianceRefs: ce.complianceRefs };
-    }
-    return {
-      id: ce.id,
-      name: ce.name,
-      category: ce.category,
-      severity: ce.severity,
-      explain: ce.explain,
-      fixTier: "GUARDED" as FixTier,
-      complianceRefs: ce.complianceRefs,
-    };
-  });
+  return result;
 }
 
 export function findCheckById(checkId: string): FindCheckResult {
@@ -121,11 +102,7 @@ function getFullCheckCatalog(): ExplainResult[] {
 }
 
 function severityLabel(severity: Severity): string {
-  switch (severity) {
-    case "critical": return chalk.red.bold("CRITICAL");
-    case "warning": return chalk.yellow.bold("WARNING");
-    case "info": return chalk.blue.bold("INFO");
-  }
+  return severityChalk(severity)(severity.toUpperCase());
 }
 
 function tierLabel(tier: FixTier): string {

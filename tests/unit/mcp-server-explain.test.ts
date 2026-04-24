@@ -1,4 +1,7 @@
 import { serverExplainHandler, serverExplainSchema } from "../../src/mcp/tools/serverExplain.js";
+import { clearCheckCatalogCache } from "../../src/core/audit/explainCheck.js";
+
+beforeEach(() => { clearCheckCatalogCache(); });
 
 describe("serverExplainHandler", () => {
   it("returns check details for valid ID", async () => {
@@ -10,20 +13,24 @@ describe("serverExplainHandler", () => {
     expect(parsed.severity).toBe("critical");
     expect(parsed.explain).toBeDefined();
     expect(parsed.complianceRefs).toBeInstanceOf(Array);
+    expect(parsed._kastell_version).toBeDefined();
   });
 
   it("returns error for unknown ID with suggestions", async () => {
     const result = await serverExplainHandler({ checkId: "SSH-PASWORD-AUTH" });
+    expect(result.isError).toBe(true);
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed.error).toBeDefined();
-    expect(parsed.suggestions).toContain("SSH-PASSWORD-AUTH");
+    expect(parsed.error).toContain("Unknown check ID");
+    expect(parsed.error).toContain("SSH-PASSWORD-AUTH");
+    expect(parsed.hint).toBeDefined();
   });
 
   it("returns error for completely unknown ID", async () => {
     const result = await serverExplainHandler({ checkId: "ZZZZZ-999" });
+    expect(result.isError).toBe(true);
     const parsed = JSON.parse(result.content[0].text);
-    expect(parsed.error).toBeDefined();
-    expect(parsed.suggestions).toEqual([]);
+    expect(parsed.error).toContain("Unknown check ID");
+    expect(parsed.hint).toBeDefined();
   });
 });
 

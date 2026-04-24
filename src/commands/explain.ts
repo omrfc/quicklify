@@ -17,17 +17,21 @@ export async function explainCommand(
   const result = findCheckById(checkId);
 
   if (!result.match) {
-    if (result.suggestions.length > 0) {
-      logger.error(`Unknown check ID: ${checkId}`);
-      logger.info(`Did you mean: ${result.suggestions.join(", ")}?`);
-    } else {
-      logger.error(`Unknown check ID: ${checkId}`);
-      logger.info("Run `kastell audit --list-checks` to see all available checks.");
-    }
+    logger.error(`Unknown check ID: ${checkId}`);
+    logger.info(
+      result.suggestions.length > 0
+        ? `Did you mean: ${result.suggestions.join(", ")}?`
+        : "Run `kastell audit --list-checks` to see all available checks.",
+    );
     process.exit(1);
   }
 
+  const validFormats = ["terminal", "json", "md"] as const;
   const format = options.format ?? "terminal";
+  if (!validFormats.includes(format as typeof validFormats[number])) {
+    logger.error(`Invalid format: ${format}. Use terminal, json, or md.`);
+    process.exit(1);
+  }
   switch (format) {
     case "json":
       console.log(formatExplainJson(result.match));
