@@ -524,6 +524,7 @@ async function promptAudit(): Promise<string[] | null> {
     { name: "Compare two snapshots (diff)", value: "diff" },
     { name: "Interactive fix mode", value: "fix" },
     { name: "List all checks (no scan)", value: "list-checks" },
+    { name: "Explain a specific check (deep-dive)", value: "explain-check" },
     { name: "Run with compliance profile", value: "profile" },
     { name: "Compliance framework report", value: "compliance" },
     { name: "Save snapshot", value: "snapshot" },
@@ -563,6 +564,18 @@ async function promptAudit(): Promise<string[] | null> {
   }
 
   if (mode === "list-checks") return ["audit", "--list-checks"];
+
+  if (mode === "explain-check") {
+    const { checkId } = await inquirer.prompt([
+      {
+        type: "input",
+        name: "checkId",
+        message: "Enter check ID (e.g. SSH-PASSWORD-AUTH):",
+      },
+    ]);
+    if (!checkId?.trim()) return null;
+    return ["explain", checkId.trim()];
+  }
 
   if (mode === "snapshot") {
     const { snapName } = await inquirer.prompt([
