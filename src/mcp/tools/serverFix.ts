@@ -39,7 +39,7 @@ import {
   type McpResponse,
 } from "../utils.js";
 import { getErrorMessage, sanitizeStderr } from "../../utils/errorMapper.js";
-import { saveBaselineSafe, loadBaseline, checkRegression, extractPassedCheckIds } from "../../core/audit/regression.js";
+import { saveBaselineSafe, loadBaseline, checkRegression, extractPassedCheckIds, shouldUpdateBaseline } from "../../core/audit/regression.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 export const serverFixSchema = {
@@ -508,7 +508,12 @@ export async function handleServerFix(
     if (applied.length > 0) {
       const resultToSave = postFixResult ?? auditResult;
       const passedIdsToSave = postFixResult ? extractPassedCheckIds(postFixResult) : preFixPassedIds;
-      await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
+      const postFixBaseline = loadBaseline(resultToSave.serverIp);
+      const postFixRegression = postFixBaseline ? checkRegression(postFixBaseline, resultToSave, passedIdsToSave) : null;
+
+      if (shouldUpdateBaseline(postFixRegression, false)) {
+        await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
+      }
     }
 
     // ── LIVE FIX — prune old backups ──────────────────────────────────────

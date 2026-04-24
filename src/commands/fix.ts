@@ -34,7 +34,7 @@ import {
   rollbackAllFixes,
   rollbackToFix,
 } from "../core/audit/fix-history.js";
-import { saveBaselineSafe, loadBaseline, checkRegression, formatRegressionSummary, extractPassedCheckIds } from "../core/audit/regression.js";
+import { saveBaselineSafe, loadBaseline, checkRegression, formatRegressionSummary, extractPassedCheckIds, shouldUpdateBaseline } from "../core/audit/regression.js";
 
 /**
  * `kastell fix --safe` command.
@@ -511,7 +511,12 @@ export async function fixSafeCommand(
 
     const resultToSave = postFixResult ?? auditResult;
     const passedIdsToSave = postFixResult ? extractPassedCheckIds(postFixResult) : preFixPassedIds;
-    await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
+    const postFixBaseline = loadBaseline(resultToSave.serverIp);
+    const postFixRegression = postFixBaseline ? checkRegression(postFixBaseline, resultToSave, passedIdsToSave) : null;
+
+    if (shouldUpdateBaseline(postFixRegression, false)) {
+      await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
+    }
   }
 
   // Save to fix history (FIXPRO-02)
