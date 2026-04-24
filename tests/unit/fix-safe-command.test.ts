@@ -1374,6 +1374,46 @@ describe("fixSafeCommand", () => {
       spy.mockRestore();
     });
 
+    it("should not save baseline when shouldUpdateBaseline returns false", async () => {
+      mockedResolveServer.mockResolvedValue(testServer);
+      mockedCheckSsh.mockReturnValue(true);
+
+      const auditResult = makeResult([
+        makeCategory("Kernel", [
+          makeCheck({ id: "KERN-01", category: "Kernel", severity: "warning", passed: false, fixCommand: "sysctl -w net.ipv4.tcp_syncookies=1", safeToAutoFix: "SAFE" }),
+        ]),
+      ], 70);
+      mockedRunAudit.mockResolvedValue({ success: true, data: auditResult });
+      mockedPreviewSafeFixes.mockReturnValue(defaultSafePlan);
+      mockedPrompt.mockResolvedValue({ confirm: true });
+      mockedBackupServer.mockResolvedValue({ success: true, backupPath: "/tmp/backup" } as BackupResult);
+      mockedSshExec.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
+      mockedBackupFilesBeforeFix.mockResolvedValue("/root/.kastell/fix-backups/fix-2026-03-29-001");
+      mockedRegression.loadBaseline.mockReturnValue({
+        version: 1,
+        serverIp: "1.2.3.4",
+        lastUpdated: "2026-04-20T10:00:00Z",
+        bestScore: 80,
+        passedChecks: ["KERN-01"],
+      });
+      mockedRegression.checkRegression.mockReturnValue({
+        regressions: ["KERN-01"],
+        newPasses: [],
+        baselineScore: 80,
+        currentScore: 70,
+        scoreRegressed: true,
+      });
+      mockedRegression.hasRegression.mockReturnValue(true);
+      mockedRegression.formatRegressionSummary.mockReturnValue([
+        { severity: "warning", text: "Regression: 1 check(s) regressed: KERN-01" },
+      ]);
+      mockedRegression.shouldUpdateBaseline.mockReturnValue(false);
+
+      await fixSafeCommand(undefined, { safe: true, interactive: false, force: true } as Parameters<typeof fixSafeCommand>[1] & { force: boolean });
+
+      expect(mockedRegression.saveBaselineSafe).not.toHaveBeenCalled();
+    });
+
     it("should bypass regression gate when --force is passed", async () => {
       mockedResolveServer.mockResolvedValue(testServer);
       mockedCheckSsh.mockReturnValue(true);
