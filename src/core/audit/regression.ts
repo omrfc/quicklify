@@ -108,7 +108,7 @@ export function shouldUpdateBaseline(
 ): boolean {
   if (!regression) return true;
   if (forced) return true;
-  return regression.regressions.length === 0 && !regression.scoreRegressed;
+  return !hasRegression(regression);
 }
 
 export function formatRegressionSummary(result: RegressionResult): RegressionLine[] {
