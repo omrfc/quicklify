@@ -140,7 +140,7 @@ export function listBaselines(): RegressionBaseline[] {
     try {
       const raw = readFileSync(join(REGRESSION_DIR, file.name), "utf-8");
       const parsed = JSON.parse(raw) as RegressionBaseline;
-      if (parsed.version === 1) baselines.push(parsed);
+      if (parsed.version === 1 && Array.isArray(parsed.passedChecks)) baselines.push(parsed);
     } catch {
       // skip corrupt files
     }
@@ -160,7 +160,6 @@ export function formatBaselineStatus(baseline: RegressionBaseline): string {
 
   return [
     `Server: ${baseline.serverIp}`,
-    `Baseline: ${baseline.lastUpdated}`,
     `Best Score: ${baseline.bestScore}`,
     `Tracked Checks: ${baseline.passedChecks.length}`,
     `Last Updated: ${lastUpdated}`,

@@ -22,7 +22,7 @@ import { formatComplianceReport } from "../core/audit/formatters/compliance.js";
 import { FRAMEWORK_KEY_MAP, type ProfileName } from "../core/audit/compliance/types.js";
 import type { FrameworkKey } from "../core/audit/compliance/mapper.js";
 import type { AuditCliOptions } from "../core/audit/formatters/index.js";
-import type { AuditDiffResult } from "../core/audit/types.js";
+import type { AuditDiffResult, RegressionResult } from "../core/audit/types.js";
 import { filterAuditResult, buildFilterAnnotation, parseSeverity } from "../core/audit/filter.js";
 import type { AuditFilter } from "../core/audit/filter.js";
 import { saveBaselineSafe, loadBaseline, checkRegression, formatRegressionSummary, extractPassedCheckIds, shouldUpdateBaseline } from "../core/audit/regression.js";
@@ -231,7 +231,7 @@ export async function auditCommand(
   const baseline = loadBaseline(auditResult.serverIp);
   const passedIds = extractPassedCheckIds(auditResult);
 
-  let regression: import("../core/audit/types.js").RegressionResult | null = null;
+  let regression: RegressionResult | null = null;
   if (baseline) {
     regression = checkRegression(baseline, auditResult, passedIds);
   }

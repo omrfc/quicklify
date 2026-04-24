@@ -60,6 +60,7 @@ export async function fixSafeCommand(
     diff?: boolean;
     report?: boolean;
     interactive?: boolean;
+    force?: boolean;
   },
 ): Promise<void> {
   // ── Flag validation (D-08, D-03, D-11, D-05, D-13) ─────────────────────────
@@ -258,18 +259,18 @@ export async function fixSafeCommand(
   }
 
   const auditResult = result.data;
-  const force = (options as { force?: boolean }).force === true;
+  const force = options.force === true;
 
   const baseline = loadBaseline(auditResult.serverIp);
   const preFixPassedIds = extractPassedCheckIds(auditResult);
-  if (baseline) {
-    const regression = checkRegression(baseline, auditResult, preFixPassedIds);
-    for (const line of formatRegressionSummary(regression)) {
+  const preFixRegression = baseline ? checkRegression(baseline, auditResult, preFixPassedIds) : null;
+  if (preFixRegression) {
+    for (const line of formatRegressionSummary(preFixRegression)) {
       if (line.severity === "warning") logger.warning(line.text);
       else logger.info(line.text);
     }
 
-    if (hasRegression(regression) && !force) {
+    if (hasRegression(preFixRegression) && !force) {
       if (process.stdin.isTTY) {
         const { confirm } = await import("@inquirer/prompts");
         const proceed = await confirm({
@@ -529,9 +530,11 @@ export async function fixSafeCommand(
 
     const resultToSave = postFixResult ?? auditResult;
     const passedIdsToSave = postFixResult ? extractPassedCheckIds(postFixResult) : preFixPassedIds;
-    const postFixRegression = baseline ? checkRegression(baseline, resultToSave, passedIdsToSave) : null;
+    const finalRegression = postFixResult && baseline
+      ? checkRegression(baseline, resultToSave, passedIdsToSave)
+      : preFixRegression;
 
-    if (shouldUpdateBaseline(postFixRegression, force)) {
+    if (shouldUpdateBaseline(finalRegression, force)) {
       await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
     }
   }

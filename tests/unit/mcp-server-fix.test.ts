@@ -1182,14 +1182,27 @@ describe("MCP server_fix tool", () => {
     });
 
     it("should call saveBaseline when no regressions and no score regression", async () => {
-      // Note: This test verifies the conditional save path. The exact mock interactions
-      // for applied.length > 0 require deeper inspection of handler dispatch flow.
-      // See Task 7 for full verification.
+      mockedRegression.loadBaseline.mockReturnValue({
+        version: 1,
+        serverIp: "1.2.3.4",
+        lastUpdated: "2026-04-20T10:00:00Z",
+        bestScore: 80,
+        passedChecks: ["KERN-SYNCOOKIES"],
+      });
+      mockedRegression.checkRegression.mockReturnValue({
+        regressions: [],
+        newPasses: ["KERN-RANDOMIZE"],
+        baselineScore: 80,
+        currentScore: 85,
+        scoreRegressed: false,
+      });
+      mockedRegression.hasRegression.mockReturnValue(false);
+      mockedRegression.shouldUpdateBaseline.mockReturnValue(true);
+
       const result = await handleServerFix({ dryRun: false });
 
       expect(result.isError).toBeUndefined();
-      // saveBaselineSafe should be called when: applied.length > 0 AND shouldUpdateBaseline returns true
-      // shouldUpdateBaseline(true) when: regression is null OR (no regressions AND no score regression)
+      expect(mockedRegression.saveBaselineSafe).toHaveBeenCalled();
     });
 
     it("should not call saveBaseline when no fixes applied", async () => {

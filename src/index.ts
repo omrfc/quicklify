@@ -42,6 +42,7 @@ import { botCommand } from "./commands/bot.js";
 import { fixSafeCommand } from "./commands/fix.js";
 import { scheduleCommand } from "./commands/schedule.js";
 import { changelogCommand } from "./commands/changelog.js";
+import { regressionStatusCommand, regressionResetCommand } from "./commands/regression.js";
 import { printHeader, printQuickHelp } from "./cli/header.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -400,7 +401,7 @@ program
   .option("--no-interactive", "Skip confirmation prompt (for scheduled/automated runs)")
   .option("--force", "Bypass regression gate and force operation")
   .action(
-    (server?: string, options?: { safe?: boolean; dryRun?: boolean; category?: string; checks?: string; rollback?: string; rollbackAll?: boolean; rollbackTo?: string; history?: boolean; top?: string; target?: string; profile?: string; diff?: boolean; report?: boolean; interactive?: boolean }) =>
+    (server?: string, options?: { safe?: boolean; dryRun?: boolean; category?: string; checks?: string; rollback?: string; rollbackAll?: boolean; rollbackTo?: string; history?: boolean; top?: string; target?: string; profile?: string; diff?: boolean; report?: boolean; interactive?: boolean; force?: boolean }) =>
       fixSafeCommand(server, options ?? {}),
   );
 
@@ -408,8 +409,6 @@ program.addCommand(scheduleCommand());
 notifyCommand(program);
 fleetCommand(program);
 botCommand(program);
-
-import { regressionStatusCommand, regressionResetCommand } from "./commands/regression.js";
 
 program
   .command("changelog [version]")

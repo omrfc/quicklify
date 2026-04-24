@@ -293,7 +293,7 @@ export async function handleServerFix(
     const baseline = loadBaseline(auditResult.serverIp);
     const preFixPassedIds = extractPassedCheckIds(auditResult);
     const regression = baseline ? checkRegression(baseline, auditResult, preFixPassedIds) : null;
-    const baselineRegression = regression ?? null;
+    const baselineRegression = regression;
 
     const regressionWarning = regression && hasRegression(regression) && !params.force
       ? {
@@ -523,9 +523,11 @@ export async function handleServerFix(
     if (applied.length > 0) {
       const resultToSave = postFixResult ?? auditResult;
       const passedIdsToSave = postFixResult ? extractPassedCheckIds(postFixResult) : preFixPassedIds;
-      const postFixRegression = baseline ? checkRegression(baseline, resultToSave, passedIdsToSave) : null;
+      const finalRegression = postFixResult && baseline
+        ? checkRegression(baseline, resultToSave, passedIdsToSave)
+        : regression;
 
-      if (shouldUpdateBaseline(postFixRegression, Boolean(params.force))) {
+      if (shouldUpdateBaseline(finalRegression, Boolean(params.force))) {
         await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
       }
     }
