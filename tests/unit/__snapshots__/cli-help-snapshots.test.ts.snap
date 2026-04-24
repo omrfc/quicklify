@@ -106,6 +106,7 @@ Options:
   --diff              Show per-fix diff preview after applying
   --report            Generate markdown fix report after applying fixes
   --no-interactive    Skip confirmation prompt (for scheduled/automated runs)
+  --force             Bypass regression gate and force operation
   -h, --help          display help for command"
 `;
 

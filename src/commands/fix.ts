@@ -267,6 +267,24 @@ export async function fixSafeCommand(
       if (line.severity === "warning") logger.warning(line.text);
       else logger.info(line.text);
     }
+
+    const hasRegression = regression.regressions.length > 0 || regression.scoreRegressed;
+    if (hasRegression && !(options as { force?: boolean }).force) {
+      if (process.stdin.isTTY) {
+        const { confirm } = await import("@inquirer/prompts");
+        const proceed = await confirm({
+          message: "Regression detected. Continue with fix?",
+          default: false,
+        });
+        if (!proceed) {
+          logger.info("Fix cancelled by user.");
+          return;
+        }
+      } else {
+        logger.warning("Regression detected. Use --force to proceed in non-interactive mode.");
+        return;
+      }
+    }
   }
 
   // Filter SAFE fixes
@@ -514,7 +532,7 @@ export async function fixSafeCommand(
     const postFixBaseline = loadBaseline(resultToSave.serverIp);
     const postFixRegression = postFixBaseline ? checkRegression(postFixBaseline, resultToSave, passedIdsToSave) : null;
 
-    if (shouldUpdateBaseline(postFixRegression, false)) {
+    if (shouldUpdateBaseline(postFixRegression, (options as { force?: boolean }).force === true)) {
       await saveBaselineSafe(resultToSave, undefined, passedIdsToSave);
     }
   }
