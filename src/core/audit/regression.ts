@@ -94,7 +94,17 @@ export function checkRegression(
     newPasses: newPasses.sort(),
     baselineScore: baseline.bestScore,
     currentScore: audit.overallScore,
+    scoreRegressed: audit.overallScore < baseline.bestScore,
   };
+}
+
+export function shouldUpdateBaseline(
+  regression: RegressionResult | null,
+  forced: boolean,
+): boolean {
+  if (!regression) return true;
+  if (forced) return true;
+  return regression.regressions.length === 0 && !regression.scoreRegressed;
 }
 
 export function formatRegressionSummary(result: RegressionResult): RegressionLine[] {
