@@ -60,6 +60,16 @@ jest.mock("../../src/core/audit/handlers/index.js", () => ({
   tryHandlerDispatch: jest.fn(() => ({ handled: false })),
 }));
 
+jest.mock("../../src/core/audit/regression.js", () => ({
+  loadBaseline: jest.fn(() => null),
+  saveBaselineSafe: jest.fn(() => Promise.resolve()),
+  checkRegression: jest.fn(() => ({ regressions: [], newPasses: [], baselineScore: 0, currentScore: 0, scoreRegressed: false })),
+  hasRegression: jest.fn(() => false),
+  shouldUpdateBaseline: jest.fn(() => true),
+  extractPassedCheckIds: jest.fn(() => []),
+  formatRegressionSummary: jest.fn(() => []),
+}));
+
 jest.mock("../../src/core/audit/fix-history.js", () => ({
   loadFixHistory: jest.fn(() => []),
   saveFixHistory: jest.fn(),
