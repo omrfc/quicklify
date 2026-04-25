@@ -249,7 +249,6 @@ export async function auditCommand(
       printDiff(diff, options.json);
     }
     return;
-    return;
   }
 
   // --watch mode: delegate to watchAudit and return
