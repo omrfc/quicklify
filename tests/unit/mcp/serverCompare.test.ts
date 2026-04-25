@@ -1,18 +1,12 @@
 import * as config from "../../../src/utils/config";
-import * as auditIndex from "../../../src/core/audit/index";
 import * as diff from "../../../src/core/audit/diff";
-import * as ssh from "../../../src/utils/ssh";
 import { handleServerCompare } from "../../../src/mcp/tools/serverCompare";
 
 jest.mock("../../../src/utils/config");
-jest.mock("../../../src/core/audit/index");
 jest.mock("../../../src/core/audit/diff");
-jest.mock("../../../src/utils/ssh");
 
 const mockedConfig = config as jest.Mocked<typeof config>;
-const mockedAudit = auditIndex as jest.Mocked<typeof auditIndex>;
 const mockedDiff = diff as jest.Mocked<typeof diff>;
-const mockedSsh = ssh as jest.Mocked<typeof ssh>;
 
 const sampleServer = {
   id: "123",
@@ -51,7 +45,6 @@ function makeAudit(name: string) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockedSsh.assertValidIp.mockImplementation(() => {});
 });
 
 describe("handleServerCompare", () => {
@@ -67,12 +60,13 @@ describe("handleServerCompare", () => {
     expect(result.isError).toBe(true);
   });
 
-  it("uses snapshots when available", async () => {
+  it("returns category summary by default", async () => {
     mockedConfig.getServers.mockReturnValue([sampleServer, sampleServerB]);
     const auditA = makeAudit("server-a");
     const auditB = makeAudit("server-b");
-    mockedDiff.resolveSnapshotRef.mockResolvedValueOnce({ audit: auditA } as any);
-    mockedDiff.resolveSnapshotRef.mockResolvedValueOnce({ audit: auditB } as any);
+    mockedDiff.resolveAuditPair.mockResolvedValue({
+      success: true, data: { auditA, auditB },
+    });
     mockedDiff.buildCategorySummary.mockReturnValue({
       beforeLabel: "server-a", afterLabel: "server-b", scoreBefore: 80, scoreAfter: 80,
       scoreDelta: 0, categories: [], weakestCategory: null,
@@ -80,29 +74,15 @@ describe("handleServerCompare", () => {
 
     const result = await handleServerCompare({ serverA: "server-a", serverB: "server-b" });
     expect(result.isError).toBeUndefined();
-    expect(mockedAudit.runAudit).not.toHaveBeenCalled();
+    expect(mockedDiff.resolveAuditPair).toHaveBeenCalledWith(sampleServer, sampleServerB, false);
     expect(mockedDiff.buildCategorySummary).toHaveBeenCalled();
   });
 
-  it("falls back to live audit when snapshot missing", async () => {
+  it("passes fresh=true to resolveAuditPair", async () => {
     mockedConfig.getServers.mockReturnValue([sampleServer, sampleServerB]);
-    mockedDiff.resolveSnapshotRef.mockResolvedValueOnce(null);
-    mockedDiff.resolveSnapshotRef.mockResolvedValueOnce({ audit: makeAudit("server-b") } as any);
-    mockedAudit.runAudit.mockResolvedValueOnce({ success: true, data: makeAudit("server-a") });
-    mockedDiff.buildCategorySummary.mockReturnValue({
-      beforeLabel: "server-a", afterLabel: "server-b", scoreBefore: 80, scoreAfter: 80,
-      scoreDelta: 0, categories: [], weakestCategory: null,
+    mockedDiff.resolveAuditPair.mockResolvedValue({
+      success: true, data: { auditA: makeAudit("server-a"), auditB: makeAudit("server-b") },
     });
-
-    const result = await handleServerCompare({ serverA: "server-a", serverB: "server-b" });
-    expect(result.isError).toBeUndefined();
-    expect(mockedAudit.runAudit).toHaveBeenCalledTimes(1);
-  });
-
-  it("uses live audit for both when fresh=true", async () => {
-    mockedConfig.getServers.mockReturnValue([sampleServer, sampleServerB]);
-    mockedAudit.runAudit.mockResolvedValueOnce({ success: true, data: makeAudit("server-a") });
-    mockedAudit.runAudit.mockResolvedValueOnce({ success: true, data: makeAudit("server-b") });
     mockedDiff.buildCategorySummary.mockReturnValue({
       beforeLabel: "server-a", afterLabel: "server-b", scoreBefore: 80, scoreAfter: 80,
       scoreDelta: 0, categories: [], weakestCategory: null,
@@ -110,14 +90,14 @@ describe("handleServerCompare", () => {
 
     const result = await handleServerCompare({ serverA: "server-a", serverB: "server-b", fresh: true });
     expect(result.isError).toBeUndefined();
-    expect(mockedAudit.runAudit).toHaveBeenCalledTimes(2);
-    expect(mockedDiff.resolveSnapshotRef).not.toHaveBeenCalled();
+    expect(mockedDiff.resolveAuditPair).toHaveBeenCalledWith(sampleServer, sampleServerB, true);
   });
 
   it("returns check-level diff when detail=true", async () => {
     mockedConfig.getServers.mockReturnValue([sampleServer, sampleServerB]);
-    mockedDiff.resolveSnapshotRef.mockResolvedValueOnce({ audit: makeAudit("server-a") } as any);
-    mockedDiff.resolveSnapshotRef.mockResolvedValueOnce({ audit: makeAudit("server-b") } as any);
+    mockedDiff.resolveAuditPair.mockResolvedValue({
+      success: true, data: { auditA: makeAudit("server-a"), auditB: makeAudit("server-b") },
+    });
     mockedDiff.diffAudits.mockReturnValue({
       beforeLabel: "server-a", afterLabel: "server-b", scoreBefore: 80, scoreAfter: 80,
       scoreDelta: 0, improvements: [], regressions: [], unchanged: [], added: [], removed: [],
@@ -129,12 +109,13 @@ describe("handleServerCompare", () => {
     expect(mockedDiff.buildCategorySummary).not.toHaveBeenCalled();
   });
 
-  it("returns error when live audit fails", async () => {
+  it("returns error when resolveAuditPair fails", async () => {
     mockedConfig.getServers.mockReturnValue([sampleServer, sampleServerB]);
-    mockedAudit.runAudit.mockResolvedValueOnce({ success: false, error: "SSH timeout" });
-    mockedAudit.runAudit.mockResolvedValueOnce({ success: true, data: makeAudit("server-b") });
+    mockedDiff.resolveAuditPair.mockResolvedValue({
+      success: false, error: "SSH timeout",
+    });
 
-    const result = await handleServerCompare({ serverA: "server-a", serverB: "server-b", fresh: true });
+    const result = await handleServerCompare({ serverA: "server-a", serverB: "server-b" });
     expect(result.isError).toBe(true);
   });
 });

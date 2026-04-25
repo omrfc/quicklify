@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { getServers } from "../../utils/config.js";
-import { runAudit } from "../../core/audit/index.js";
-import { resolveSnapshotRef, buildCategorySummary, diffAudits } from "../../core/audit/diff.js";
-import { assertValidIp } from "../../utils/ssh.js";
-import type { AuditResult } from "../../core/audit/types.js";
-import type { KastellResult } from "../../types/index.js";
+import { resolveAuditPair, buildCategorySummary, diffAudits } from "../../core/audit/diff.js";
 import {
   mcpSuccess,
   mcpError,
@@ -49,57 +45,9 @@ export async function handleServerCompare(params: {
       );
     }
 
-    let auditA: AuditResult;
-    let auditB: AuditResult;
-
-    if (params.fresh) {
-      assertValidIp(serverA.ip);
-      assertValidIp(serverB.ip);
-      const [resultA, resultB] = await Promise.all([
-        runAudit(serverA.ip, serverA.name, serverA.mode ?? "bare"),
-        runAudit(serverB.ip, serverB.name, serverB.mode ?? "bare"),
-      ]);
-      if (!resultA.success) return mcpError(`Audit failed for ${serverA.name}: ${resultA.error}`);
-      if (!resultB.success) return mcpError(`Audit failed for ${serverB.name}: ${resultB.error}`);
-      auditA = resultA.data!;
-      auditB = resultB.data!;
-    } else {
-      const snapA = await resolveSnapshotRef(serverA.ip, "latest");
-      const snapB = await resolveSnapshotRef(serverB.ip, "latest");
-
-      if (snapA && snapB) {
-        auditA = snapA.audit;
-        auditB = snapB.audit;
-      } else {
-        const needLiveA = !snapA;
-        const needLiveB = !snapB;
-
-        if (needLiveA) assertValidIp(serverA.ip);
-        if (needLiveB) assertValidIp(serverB.ip);
-
-        const livePromises: Promise<KastellResult<AuditResult>>[] = [];
-        if (needLiveA) livePromises.push(runAudit(serverA.ip, serverA.name, serverA.mode ?? "bare"));
-        if (needLiveB) livePromises.push(runAudit(serverB.ip, serverB.name, serverB.mode ?? "bare"));
-
-        const liveResults = await Promise.all(livePromises);
-
-        let liveIdx = 0;
-        if (needLiveA) {
-          const res = liveResults[liveIdx++];
-          if (!res.success) return mcpError(`Audit failed for ${serverA.name}: ${res.error}`);
-          auditA = res.data!;
-        } else {
-          auditA = snapA!.audit;
-        }
-        if (needLiveB) {
-          const res = liveResults[liveIdx];
-          if (!res.success) return mcpError(`Audit failed for ${serverB.name}: ${res.error}`);
-          auditB = res.data!;
-        } else {
-          auditB = snapB!.audit;
-        }
-      }
-    }
+    const pairResult = await resolveAuditPair(serverA, serverB, !!params.fresh);
+    if (!pairResult.success) return mcpError(pairResult.error ?? "Compare failed");
+    const { auditA, auditB } = pairResult.data!;
 
     if (params.detail) {
       const diff = diffAudits(auditA, auditB, { before: serverA.name, after: serverB.name });

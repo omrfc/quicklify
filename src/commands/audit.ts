@@ -14,7 +14,7 @@ import { formatTrendTerminal, formatTrendJson } from "../core/audit/formatters/t
 import { saveSnapshot, listSnapshots } from "../core/audit/snapshot.js";
 import { runFix, runPostFixReAudit, extractAffectedCategories } from "../core/audit/fix.js";
 import { watchAudit } from "../core/audit/watch.js";
-import { diffAudits, resolveSnapshotRef, formatDiffTerminal, formatDiffJson, buildCategorySummary, formatCompareSummaryTerminal, formatCompareSummaryJson } from "../core/audit/diff.js";
+import { diffAudits, resolveSnapshotRef, formatDiffTerminal, formatDiffJson, buildCategorySummary, formatCompareSummaryTerminal, formatCompareSummaryJson, resolveAuditPair } from "../core/audit/diff.js";
 import { getServers } from "../utils/config.js";
 import { listAllChecks, formatListChecksTerminal, formatListChecksJson } from "../core/audit/listChecks.js";
 import { filterByProfile, calculateComplianceDetail } from "../core/audit/compliance/scoring.js";
@@ -22,8 +22,7 @@ import { formatComplianceReport } from "../core/audit/formatters/compliance.js";
 import { FRAMEWORK_KEY_MAP, type ProfileName } from "../core/audit/compliance/types.js";
 import type { FrameworkKey } from "../core/audit/compliance/mapper.js";
 import type { AuditCliOptions } from "../core/audit/formatters/index.js";
-import type { AuditDiffResult, RegressionResult, AuditResult } from "../core/audit/types.js";
-import type { KastellResult } from "../types/index.js";
+import type { AuditDiffResult, RegressionResult } from "../core/audit/types.js";
 import { filterAuditResult, buildFilterAnnotation, parseSeverity } from "../core/audit/filter.js";
 import type { AuditFilter } from "../core/audit/filter.js";
 import { saveBaselineSafe, loadBaseline, checkRegression, formatRegressionSummary, extractPassedCheckIds, shouldUpdateBaseline } from "../core/audit/regression.js";
@@ -175,78 +174,19 @@ export async function auditCommand(
     if (!serverA) { logger.error(`Server not found: ${serverARef}`); return; }
     if (!serverB) { logger.error(`Server not found: ${serverBRef}`); return; }
 
-    let auditA: AuditResult;
-    let auditB: AuditResult;
-
-    if (options.fresh) {
-      // Live audit both servers in parallel
-      const spinner = createSpinner("Running live audit on both servers...");
-      spinner.start();
-      assertValidIp(serverA.ip);
-      assertValidIp(serverB.ip);
-      const [resultA, resultB] = await Promise.all([
-        runAudit(serverA.ip, serverA.name, serverA.mode ?? "bare"),
-        runAudit(serverB.ip, serverB.name, serverB.mode ?? "bare"),
-      ]);
-      spinner.stop();
-      if (!resultA.success) { logger.error(`Audit failed for ${serverA.name}: ${resultA.error}`); return; }
-      if (!resultB.success) { logger.error(`Audit failed for ${serverB.name}: ${resultB.error}`); return; }
-      auditA = resultA.data!;
-      auditB = resultB.data!;
-    } else {
-      // Try snapshots first, fall back to live audit
-      const snapA = await resolveSnapshotRef(serverA.ip, "latest");
-      const snapB = await resolveSnapshotRef(serverB.ip, "latest");
-
-      if (snapA && snapB) {
-        auditA = snapA.audit;
-        auditB = snapB.audit;
-      } else {
-        // Live audit for missing snapshots
-        const spinner = createSpinner("Running live audit for servers without snapshots...");
-        spinner.start();
-        const needLiveA = !snapA;
-        const needLiveB = !snapB;
-
-        if (needLiveA) assertValidIp(serverA.ip);
-        if (needLiveB) assertValidIp(serverB.ip);
-
-        const livePromises: Promise<KastellResult<AuditResult>>[] = [];
-        if (needLiveA) livePromises.push(runAudit(serverA.ip, serverA.name, serverA.mode ?? "bare"));
-        if (needLiveB) livePromises.push(runAudit(serverB.ip, serverB.name, serverB.mode ?? "bare"));
-
-        const liveResults = await Promise.all(livePromises);
-        spinner.stop();
-
-        let liveIdx = 0;
-        if (needLiveA) {
-          const res = liveResults[liveIdx++];
-          if (!res.success) { logger.error(`Audit failed for ${serverA.name}: ${res.error}`); return; }
-          auditA = res.data!;
-        } else {
-          auditA = snapA!.audit;
-        }
-        if (needLiveB) {
-          const res = liveResults[liveIdx];
-          if (!res.success) { logger.error(`Audit failed for ${serverB.name}: ${res.error}`); return; }
-          auditB = res.data!;
-        } else {
-          auditB = snapB!.audit;
-        }
-      }
-    }
+    const spinner = createSpinner("Comparing servers...");
+    spinner.start();
+    const pairResult = await resolveAuditPair(serverA, serverB, !!options.fresh);
+    spinner.stop();
+    if (!pairResult.success) { logger.error(pairResult.error ?? "Compare failed"); return; }
+    const { auditA, auditB } = pairResult.data!;
 
     if (options.detail) {
-      // Check-level diff (existing behavior)
       const diff = diffAudits(auditA, auditB, { before: serverA.name, after: serverB.name });
-      printDiff(diff, options.json);
+      console.log(options.json ? formatDiffJson(diff) : formatDiffTerminal(diff));
     } else {
-      // Category summary table (new default)
       const summary = buildCategorySummary(auditA, auditB, { before: serverA.name, after: serverB.name });
       console.log(options.json ? formatCompareSummaryJson(summary) : formatCompareSummaryTerminal(summary));
-      // Preserve exit code behavior for regressions
-      const diff = diffAudits(auditA, auditB, { before: serverA.name, after: serverB.name });
-      printDiff(diff, options.json);
     }
     return;
   }
