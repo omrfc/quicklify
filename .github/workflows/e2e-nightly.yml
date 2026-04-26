@@ -102,7 +102,7 @@ jobs:
 
       - name: Upload audit result
         if: steps.provision.outputs.provisioned == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-audit-result
           path: audit-result.json
