@@ -26,21 +26,6 @@ jest.mock("../../src/core/audit/filter");
 jest.mock("../../src/core/audit/listChecks");
 jest.mock("../../src/core/audit/compliance/scoring");
 jest.mock("../../src/core/audit/formatters/compliance");
-jest.mock("../../src/utils/logger.js", () => ({
-  createSpinner: jest.fn(() => ({
-    start: jest.fn(),
-    stop: jest.fn(),
-    succeed: jest.fn(),
-    fail: jest.fn(),
-  })),
-  logger: {
-    info: jest.fn(),
-    error: jest.fn((msg: string) => console.log(`✖ ${msg}`)),
-    success: jest.fn(),
-    warning: jest.fn(),
-  },
-}));
-
 const mockedAuditCore = auditCore as jest.Mocked<typeof auditCore>;
 const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
 const mockedHistory = auditHistory as jest.Mocked<typeof auditHistory>;
@@ -54,7 +39,6 @@ const mockedWatch = watchModule as jest.Mocked<typeof watchModule>;
 const mockedComplianceScoring = complianceScoringModule as jest.Mocked<typeof complianceScoringModule>;
 const mockedComplianceFormatter = complianceFormatterModule as jest.Mocked<typeof complianceFormatterModule>;
 const mockedRegression = regressionModule as jest.Mocked<typeof regressionModule>;
-const mockedCreateSpinner = loggerModule.createSpinner as jest.Mocked<typeof loggerModule.createSpinner>;
 mockedRegression.formatRegressionSummary;
 mockedRegression.extractPassedCheckIds;
 
@@ -1051,10 +1035,12 @@ describe("auditCommand --profile", () => {
 describe("--ci flag", () => {
   let consoleSpy: jest.SpyInstance;
   let exitSpy: jest.SpyInstance;
+  let createSpinnerSpy: jest.SpyInstance;
 
   beforeEach(() => {
     consoleSpy = jest.spyOn(console, "log").mockImplementation();
     exitSpy = jest.spyOn(process, "exit").mockImplementation(() => undefined as never);
+    createSpinnerSpy = jest.spyOn(loggerModule, "createSpinner");
     process.exitCode = undefined;
     jest.clearAllMocks();
 
@@ -1099,13 +1085,14 @@ describe("--ci flag", () => {
   afterEach(() => {
     consoleSpy.mockRestore();
     exitSpy.mockRestore();
+    createSpinnerSpy.mockRestore();
   });
 
   it("should require --threshold when --ci is used", async () => {
     const { auditCommand } = await import("../../src/commands/audit");
     await auditCommand("test-server", { ci: true });
 
-    // --ci without --threshold shows error and returns early after resolving server
+    // --ci without --threshold shows error and returns early before server resolution
     const output = consoleSpy.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
     expect(output).toContain("--ci requires --threshold");
   });
@@ -1120,12 +1107,10 @@ describe("--ci flag", () => {
   });
 
   it("should suppress spinner when --ci is set", async () => {
-    const { createSpinner } = await import("../../src/utils/logger.js");
     const { auditCommand } = await import("../../src/commands/audit");
     await auditCommand("test-server", { ci: true, threshold: "70" });
 
-    // createSpinner should not be called when ci is true
-    expect(mockedCreateSpinner).not.toHaveBeenCalled();
+    expect(createSpinnerSpy).not.toHaveBeenCalled();
   });
 
   it("should set exitCode 1 when score below threshold in ci mode", async () => {

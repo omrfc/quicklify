@@ -95,6 +95,9 @@ describe("MCP server_fleet tool", () => {
       const result = await handleServerFleet({ sort: "name", categories: true });
 
       expect(result.isError).toBeUndefined();
+      expect(mockedFleet.runFleet).toHaveBeenCalledWith(
+        expect.objectContaining({ categories: true }),
+      );
       const parsed = JSON.parse(result.content[0].text);
       expect(parsed.rows[0].weakestCategory).toBe("Firewall");
       expect(parsed.rows[0].weakestCategoryScore).toBe(45);
