@@ -2,6 +2,7 @@ import { explainCommand } from "../../src/commands/explain.js";
 
 jest.mock("../../src/core/audit/explainCheck.js", () => ({
   findCheckById: jest.fn(),
+  formatSuggestions: jest.fn().mockReturnValue("Run `kastell audit --list-checks` to see all available checks."),
   formatExplainTerminal: jest.fn().mockReturnValue("terminal output"),
   formatExplainJson: jest.fn().mockReturnValue('{"id":"X"}'),
   formatExplainMarkdown: jest.fn().mockReturnValue("---\nid: X\n---"),

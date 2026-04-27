@@ -40,6 +40,14 @@ export function validateServerName(name: string): string | null {
 
 // ─── Add Server ───────────────────────────────────────────────────────────────
 
+export type PlatformStatus =
+  | "skipped"
+  | "ssh_unavailable"
+  | "running"
+  | "containers_detected"
+  | "not_detected"
+  | "verification_failed";
+
 export interface AddServerParams {
   provider: string;
   ip: string;
@@ -49,12 +57,9 @@ export interface AddServerParams {
   mode?: string;
 }
 
-export interface AddServerResult {
-  success: boolean;
-  server?: ServerRecord;
-  platformStatus?: string;
-  error?: string;
-}
+export type AddServerResult =
+  | { success: true; server: ServerRecord; platformStatus: PlatformStatus }
+  | { success: false; error: string };
 
 export async function addServerRecord(params: AddServerParams): Promise<AddServerResult> {
   // Validate provider
@@ -135,7 +140,7 @@ export async function addServerRecord(params: AddServerParams): Promise<AddServe
   const mode: ServerMode = isBare ? "bare" : "coolify";
 
   // Optional platform verification via SSH (skip entirely for bare mode)
-  let platformStatus = "skipped";
+  let platformStatus: PlatformStatus = "skipped";
   if (!params.skipVerify && mode !== "bare") {
     const healthPort = platform === "dokploy" ? DOKPLOY_PORT : COOLIFY_PORT;
     const healthPath = platform === "dokploy" ? "/" : "/api/health";

@@ -17,7 +17,7 @@ const mockedCoreManage = coreManage as jest.Mocked<typeof coreManage>;
 const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
 
 const baseAddResult = {
-  success: true,
+  success: true as const,
   server: {
     id: "manual-123",
     name: "my-server",
@@ -68,7 +68,7 @@ describe("addCommand", () => {
 
     it("should exit on invalid token (core returns error)", async () => {
       mockedCoreManage.addServerRecord.mockResolvedValue({
-        success: false,
+        success: false as const,
         error: "Invalid API token for hetzner",
       });
 
@@ -105,7 +105,7 @@ describe("addCommand", () => {
   describe("duplicate detection", () => {
     it("should reject duplicate IP (core returns error)", async () => {
       mockedCoreManage.addServerRecord.mockResolvedValue({
-        success: false,
+        success: false as const,
         error: "Server with IP 1.2.3.4 already exists: existing",
       });
 
@@ -165,7 +165,7 @@ describe("addCommand", () => {
 
     it("should exit when SSH not available", async () => {
       mockedCoreManage.addServerRecord.mockResolvedValue({
-        success: true,
+        success: true as const,
         server: baseAddResult.server,
         platformStatus: "ssh_unavailable",
       });

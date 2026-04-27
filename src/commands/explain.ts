@@ -1,5 +1,6 @@
 import {
   findCheckById,
+  formatSuggestions,
   formatExplainTerminal,
   formatExplainJson,
   formatExplainMarkdown,
@@ -18,11 +19,7 @@ export async function explainCommand(
 
   if (!result.match) {
     logger.error(`Unknown check ID: ${checkId}`);
-    logger.info(
-      result.suggestions.length > 0
-        ? `Did you mean: ${result.suggestions.join(", ")}?`
-        : "Run `kastell audit --list-checks` to see all available checks.",
-    );
+    logger.info(formatSuggestions(result.suggestions));
     process.exit(1);
   }
 

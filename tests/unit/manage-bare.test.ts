@@ -7,7 +7,11 @@ import * as config from "../../src/utils/config";
 import * as ssh from "../../src/utils/ssh";
 import * as providerFactory from "../../src/utils/providerFactory";
 import * as tokens from "../../src/core/tokens";
-import { addServerRecord, destroyCloudServer } from "../../src/core/manage";
+import { addServerRecord, destroyCloudServer, type AddServerResult } from "../../src/core/manage";
+
+function assertSuccess(result: AddServerResult): asserts result is Extract<AddServerResult, { success: true }> {
+  if (!result.success) throw new Error(`Expected success but got error: ${result.error}`);
+}
 import type { CloudProvider } from "../../src/providers/base";
 
 jest.mock("../../src/utils/config");
@@ -63,7 +67,7 @@ describe("addServerRecord — bare mode skips Coolify verification", () => {
       mode: "bare",
     });
 
-    expect(result.success).toBe(true);
+    assertSuccess(result);
     expect(result.platformStatus).toBe("skipped");
     // SSH should NOT be called for bare mode verification
     expect(mockedSsh.sshExec).not.toHaveBeenCalled();
@@ -77,8 +81,8 @@ describe("addServerRecord — bare mode skips Coolify verification", () => {
       mode: "bare",
     });
 
-    expect(result.success).toBe(true);
-    expect(result.server?.mode).toBe("bare");
+    assertSuccess(result);
+    expect(result.server.mode).toBe("bare");
     expect(mockedConfig.saveServer).toHaveBeenCalledWith(
       expect.objectContaining({ mode: "bare" }),
     );
@@ -97,7 +101,7 @@ describe("addServerRecord — default mode (backward compat)", () => {
       name: "coolify-server",
     });
 
-    expect(result.success).toBe(true);
+    assertSuccess(result);
     // sshExec should be called for Coolify verification
     expect(mockedSsh.sshExec).toHaveBeenCalled();
   });
@@ -110,8 +114,8 @@ describe("addServerRecord — default mode (backward compat)", () => {
       skipVerify: true,
     });
 
-    expect(result.success).toBe(true);
-    expect(result.server?.mode).toBe("bare");
+    assertSuccess(result);
+    expect(result.server.mode).toBe("bare");
     expect(mockedConfig.saveServer).toHaveBeenCalledWith(
       expect.objectContaining({ mode: "bare" }),
     );
@@ -129,8 +133,8 @@ describe("addServerRecord — cloud ID lookup", () => {
       mode: "bare",
     });
 
-    expect(result.success).toBe(true);
-    expect(result.server?.id).toBe("12345");
+    assertSuccess(result);
+    expect(result.server.id).toBe("12345");
   });
 
   it("falls back to manual-{timestamp} when findServerByIp returns null", async () => {
@@ -143,8 +147,8 @@ describe("addServerRecord — cloud ID lookup", () => {
       mode: "bare",
     });
 
-    expect(result.success).toBe(true);
-    expect(result.server?.id).toMatch(/^manual-\d+$/);
+    assertSuccess(result);
+    expect(result.server.id).toMatch(/^manual-\d+$/);
   });
 
   it("falls back to manual-{timestamp} when findServerByIp throws", async () => {
@@ -157,8 +161,8 @@ describe("addServerRecord — cloud ID lookup", () => {
       mode: "bare",
     });
 
-    expect(result.success).toBe(true);
-    expect(result.server?.id).toMatch(/^manual-\d+$/);
+    assertSuccess(result);
+    expect(result.server.id).toMatch(/^manual-\d+$/);
   });
 
   it("destroyCloudServer does not return the manually-added error for a cloud-ID server", async () => {
@@ -171,7 +175,7 @@ describe("addServerRecord — cloud ID lookup", () => {
       mode: "bare",
     });
 
-    expect(addResult.success).toBe(true);
+    assertSuccess(addResult);
     const cloudServer = addResult.server!;
 
     // Set up config mock so findServer returns the cloud-ID server

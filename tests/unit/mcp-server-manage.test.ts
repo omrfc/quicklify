@@ -11,7 +11,17 @@ import {
   addServerRecord,
   removeServerRecord,
   destroyCloudServer,
+  type AddServerResult,
 } from "../../src/core/manage";
+
+function assertAddSuccess(result: AddServerResult): asserts result is Extract<AddServerResult, { success: true }> {
+  if (!result.success) throw new Error(`Expected success but got error: ${result.error}`);
+}
+
+function assertAddFailure(result: AddServerResult): asserts result is Extract<AddServerResult, { success: false }> {
+  if (result.success) throw new Error("Expected failure but got success");
+}
+
 import type { CloudProvider } from "../../src/providers/base";
 
 jest.mock("../../src/utils/config");
@@ -242,6 +252,7 @@ describe("addServerRecord", () => {
       name: "test-server",
     });
     expect(result.success).toBe(false);
+    assertAddFailure(result);
     expect(result.error).toContain("Invalid provider");
   });
 
@@ -253,6 +264,7 @@ describe("addServerRecord", () => {
       name: "test-server",
     });
     expect(result.success).toBe(false);
+    assertAddFailure(result);
     expect(result.error).toContain("No API token");
   });
 
@@ -264,6 +276,7 @@ describe("addServerRecord", () => {
       name: "test-server",
     });
     expect(result.success).toBe(false);
+    assertAddFailure(result);
     expect(result.error).toContain("Invalid IP");
   });
 
@@ -276,6 +289,7 @@ describe("addServerRecord", () => {
       name: "new-server",
     });
     expect(result.success).toBe(false);
+    assertAddFailure(result);
     expect(result.error).toContain("already exists");
   });
 
@@ -288,6 +302,7 @@ describe("addServerRecord", () => {
       name: "AB",
     });
     expect(result.success).toBe(false);
+    assertAddFailure(result);
     expect(result.error).toContain("3-63 characters");
   });
 
@@ -303,6 +318,7 @@ describe("addServerRecord", () => {
       name: "test-server",
     });
     expect(result.success).toBe(false);
+    assertAddFailure(result);
     expect(result.error).toContain("Invalid API token");
   });
 
@@ -319,10 +335,11 @@ describe("addServerRecord", () => {
       name: "test-server",
     });
     expect(result.success).toBe(true);
+    assertAddSuccess(result);
     expect(result.server).toBeDefined();
-    expect(result.server!.name).toBe("test-server");
-    expect(result.server!.ip).toBe("5.6.7.8");
-    expect(result.server!.id).toMatch(/^manual-/);
+    expect(result.server.name).toBe("test-server");
+    expect(result.server.ip).toBe("5.6.7.8");
+    expect(result.server.id).toMatch(/^manual-/);
     expect(result.platformStatus).toBe("running");
     expect(mockedConfig.saveServer).toHaveBeenCalled();
   });
@@ -340,6 +357,7 @@ describe("addServerRecord", () => {
       skipVerify: true,
     });
     expect(result.success).toBe(true);
+    assertAddSuccess(result);
     expect(result.platformStatus).toBe("skipped");
     expect(mockedSsh.sshExec).not.toHaveBeenCalled();
   });
@@ -359,6 +377,7 @@ describe("addServerRecord", () => {
       name: "test-server",
     });
     expect(result.success).toBe(true);
+    assertAddSuccess(result);
     expect(result.platformStatus).toBe("containers_detected");
   });
 
@@ -375,6 +394,7 @@ describe("addServerRecord", () => {
       name: "test-server",
     });
     expect(result.success).toBe(true);
+    assertAddSuccess(result);
     expect(result.platformStatus).toBe("not_detected");
   });
 
@@ -391,6 +411,7 @@ describe("addServerRecord", () => {
       name: "test-server",
     });
     expect(result.success).toBe(true);
+    assertAddSuccess(result);
     // When SSH is unavailable, platform can't be detected, so mode falls back to "bare"
     // and bare mode skips verification entirely (platformStatus = "skipped")
     expect(result.platformStatus).toBe("skipped");

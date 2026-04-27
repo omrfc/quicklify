@@ -14,7 +14,7 @@ const mockedCoreManage = coreManage as jest.Mocked<typeof coreManage>;
 const mockedServerSelect = serverSelect as jest.Mocked<typeof serverSelect>;
 
 const bareAddResult = {
-  success: true,
+  success: true as const,
   server: {
     id: "manual-123",
     name: "bare-server",
@@ -89,7 +89,7 @@ describe("addCommand — bare mode", () => {
 
   it("should not pass mode to addServerRecord when mode is not specified (backward compat)", async () => {
     mockedCoreManage.addServerRecord.mockResolvedValue({
-      success: true,
+      success: true as const,
       server: {
         id: "manual-456",
         name: "coolify-server",

@@ -86,50 +86,51 @@ export async function handleServerManage(params: {
         });
 
         if (!result.success) {
-          return mcpError(result.error ?? "Add server failed", undefined, [
+          return mcpError(result.error, undefined, [
             { command: "server_info { action: 'list' }", reason: "Check existing servers" },
           ]);
         }
 
+        const serverName = result.server.name;
         const suggestedActions =
           mode === "bare"
             ? [
                 {
-                  command: `server_info { action: 'status', server: '${result.server!.name}' }`,
+                  command: `server_info { action: 'status', server: '${serverName}' }`,
                   reason: "Check server status",
                 },
                 {
-                  command: `server_secure { action: 'secure-setup', server: '${result.server!.name}' }`,
+                  command: `server_secure { action: 'secure-setup', server: '${serverName}' }`,
                   reason: "Harden SSH security + install fail2ban",
                 },
                 {
-                  command: `server_logs { action: 'logs', server: '${result.server!.name}' }`,
+                  command: `server_logs { action: 'logs', server: '${serverName}' }`,
                   reason: "View server logs",
                 },
               ]
             : [
                 {
-                  command: `server_info { action: 'status', server: '${result.server!.name}' }`,
+                  command: `server_info { action: 'status', server: '${serverName}' }`,
                   reason: "Check server status",
                 },
                 {
-                  command: `server_info { action: 'health', server: '${result.server!.name}' }`,
+                  command: `server_info { action: 'health', server: '${serverName}' }`,
                   reason: "Check Coolify health",
                 },
                 {
-                  command: `server_logs { action: 'logs', server: '${result.server!.name}' }`,
+                  command: `server_logs { action: 'logs', server: '${serverName}' }`,
                   reason: "View server logs",
                 },
               ];
 
         return mcpSuccess({
           success: true,
-          message: `Server "${result.server!.name}" added successfully`,
+          message: `Server "${serverName}" added successfully`,
           server: {
-            name: result.server!.name,
-            ip: result.server!.ip,
-            provider: result.server!.provider,
-            id: result.server!.id,
+            name: serverName,
+            ip: result.server.ip,
+            provider: result.server.provider,
+            id: result.server.id,
             mode,
           },
           platformStatus: result.platformStatus,

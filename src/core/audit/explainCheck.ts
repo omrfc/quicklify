@@ -101,6 +101,11 @@ function getFullCheckCatalog(): ExplainResult[] {
   return _catalogCache;
 }
 
+export function formatSuggestions(suggestions: string[]): string {
+  if (suggestions.length > 0) return `Did you mean: ${suggestions.join(", ")}?`;
+  return "Run `kastell audit --list-checks` to see all available checks.";
+}
+
 function severityLabel(severity: Severity): string {
   return severityChalk(severity)(severity.toUpperCase());
 }

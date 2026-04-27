@@ -1,8 +1,8 @@
 import { configCommand } from "../../src/commands/config";
-import * as defaults from "../../src/utils/defaults";
+import * as defaults from "../../src/utils/providerConfig";
 import * as yamlConfig from "../../src/utils/yamlConfig";
 
-jest.mock("../../src/utils/defaults");
+jest.mock("../../src/utils/providerConfig");
 jest.mock("../../src/utils/yamlConfig");
 
 const mockedDefaults = defaults as jest.Mocked<typeof defaults>;

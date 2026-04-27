@@ -90,23 +90,30 @@ async function runRegisterPath(): Promise<void> {
   });
 
   if (!result.success) {
-    spinner.fail(result.error ?? "Failed to add server");
+    spinner.fail(result.error);
     return;
   }
 
-  if (result.platformStatus === "ssh_unavailable") {
-    spinner.warn("SSH not available — server added without verification");
-  } else if (result.platformStatus === "running") {
-    spinner.succeed("Platform is running");
-  } else if (result.platformStatus === "containers_detected") {
-    spinner.succeed("Platform containers detected");
-  } else if (result.platformStatus === "skipped") {
-    spinner.succeed("Token validated");
-  } else {
-    spinner.warn("Could not verify platform — server added anyway");
+  switch (result.platformStatus) {
+    case "ssh_unavailable":
+      spinner.warn("SSH not available — server added without verification");
+      break;
+    case "running":
+      spinner.succeed("Platform is running");
+      break;
+    case "containers_detected":
+      spinner.succeed("Platform containers detected");
+      break;
+    case "skipped":
+      spinner.succeed("Token validated");
+      break;
+    case "not_detected":
+    case "verification_failed":
+      spinner.warn("Could not verify platform — server added anyway");
+      break;
   }
 
-  const server = result.server!;
+  const server = result.server;
   console.log();
   console.log(chalk.green("Server added successfully!"));
   console.log(`  Name: ${server.name}`);

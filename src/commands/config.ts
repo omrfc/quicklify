@@ -4,7 +4,7 @@ import {
   getDefault,
   resetDefaults,
   VALID_KEYS,
-} from "../utils/defaults.js";
+} from "../utils/providerConfig.js";
 import { logger } from "../utils/logger.js";
 import { classifyError } from "../utils/errorMapper.js";
 

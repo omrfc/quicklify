@@ -21,7 +21,7 @@ import {
   getDefault,
   resetDefaults,
   VALID_KEYS,
-} from "../../src/utils/defaults";
+} from "../../src/utils/providerConfig";
 
 const mockedExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockedReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;

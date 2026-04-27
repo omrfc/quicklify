@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { findCheckById } from "../../core/audit/explainCheck.js";
+import { findCheckById, formatSuggestions } from "../../core/audit/explainCheck.js";
 import { mcpError, mcpSuccess } from "../utils.js";
 
 export const serverExplainSchema = z.object({
@@ -12,11 +12,8 @@ export async function serverExplainHandler(params: ServerExplainParams) {
   const result = findCheckById(params.checkId);
 
   if (!result.match) {
-    const suggestions = result.suggestions.length > 0
-      ? ` Did you mean: ${result.suggestions.join(", ")}?`
-      : "";
     return mcpError(
-      `Unknown check ID: ${params.checkId}.${suggestions}`,
+      `Unknown check ID: ${params.checkId}. ${formatSuggestions(result.suggestions)}`,
       "Use server_audit with listChecks action or kastell audit --list-checks to see all available check IDs.",
     );
   }
