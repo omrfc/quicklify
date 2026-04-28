@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - 2026-04-28
+
+### Added
+- **`kastell init` 3-way wizard** — interactive setup with three paths: provision a new server, register an existing server, or configure defaults (compliance framework, notification channels)
+- **`kastell explain <check-id>`** — deep-dive into any audit check: why it matters, fix command, fix tier (SAFE/GUARDED/FORBIDDEN), CIS/PCI-DSS/HIPAA compliance references. Supports `--format terminal|json|md`
+- **`audit --ci` flag** — CI mode with JSON output, no spinner, requires `--threshold` for exit code gating
+- **`fleet --categories`** — shows weakest audit category per server in fleet dashboard
+- **`audit --compare` enhancements** — `--fresh` flag for live audit (skip snapshots), `--detail` for check-level diff instead of category summary
+- **`server_compare` MCP tool** — side-by-side server comparison with snapshot fallback and detail mode (16th MCP tool)
+- **Doctor score** — `computeDoctorScore` with severity-weighted findings, wired into CLI and MCP
+- **Regression gating** — pre-fix regression check with `--force` bypass, conditional baseline save, `kastell regression status/reset` commands
+- **Substring fuzzy match** — `kastell explain ssh-password` resolves to `SSH-PASSWORD-AUTH` (single match returns result, multiple returns suggestions)
+- **`defaults.json` support** — `loadDefaults`/`saveDefaults` with Zod validation for threshold/framework fallback
+
+### Changed
+- **Regression wiring** — `saveBaseline`/`checkRegression` integrated into all 4 callers (CLI audit, CLI fix, MCP serverAudit, MCP serverFix)
+- **`confirmOrCancel` helper** — extracted to `prompts.ts` with DI pattern, replacing inline confirm logic in fix and regression flows
+- **`hasRegression()` helper** — single source of truth for regression detection, replaces 3 inline copies
+- **`resolveAuditPair` extraction** — DRY compare logic with exit code bug fix
+- **`formatRegressionSummary`** — typed DRY helper for consistent regression display across CLI and MCP
+- **`runPostFixReAudit`** — returns full AuditResult for accurate post-fix baseline
+- **`scoreRegressed` removed from interface** — derived inline via `hasRegression()`, 8 test fixtures updated
+- **Discriminated union for `AddServerResult`** — type-safe success/failure branching in init wizard
+- **`providerConfig.ts` rename** — `utils/defaults.ts` renamed for clarity
+- **`formatSuggestions` DRY helper** — shared between explain command and MCP tool
+- **Index-based `listSnapshots`** — O(1) read instead of O(N) file parse
+- **Firewall port deduplication** — uses `adapter.platformPorts` as single source
+
+### Security
+- **Dependency updates** — actions/checkout v6, actions/setup-node v6, actions/upload-artifact v7
+
+### Tests
+- 255 suites, 10265 tests, 12 snapshots (up from 240 suites, 10127 tests in v2.0.0)
+- Coverage threshold: 90% global, 95% audit, 90% provider, 90% MCP
+
 ## [2.0.0] - 2026-04-20
 
 ### Added
