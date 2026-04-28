@@ -83,7 +83,12 @@ export function findCheckById(checkId: string): FindCheckResult {
   const ci = catalog.find((c) => c.id.toUpperCase() === upper);
   if (ci) return { match: ci, suggestions: [] };
 
-  // 3. Levenshtein ≤ 3
+  // 3. Substring match — e.g. "ssh-password" finds "SSH-PASSWORD-AUTH"
+  const subs = catalog.filter((c) => c.id.toUpperCase().includes(upper));
+  if (subs.length === 1) return { match: subs[0], suggestions: [] };
+  if (subs.length > 1) return { match: null, suggestions: subs.slice(0, 3).map((s) => s.id) };
+
+  // 4. Levenshtein ≤ 3
   const scored = catalog
     .map((c) => ({ id: c.id, dist: levenshtein(upper, c.id.toUpperCase()) }))
     .filter((s) => s.dist <= 3)

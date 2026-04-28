@@ -29,6 +29,18 @@ describe("findCheckById", () => {
     expect(result.suggestions).toContain("SSH-PASSWORD-AUTH");
   });
 
+  it("returns substring match when single check contains input", () => {
+    const result = findCheckById("ssh-password");
+    expect(result.match).not.toBeNull();
+    expect(result.match!.id).toBe("SSH-PASSWORD-AUTH");
+  });
+
+  it("returns suggestions when multiple checks match substring", () => {
+    const result = findCheckById("SSH");
+    expect(result.match).toBeNull();
+    expect(result.suggestions.length).toBeGreaterThan(1);
+  });
+
   it("returns null match with empty suggestions for unrelated input", () => {
     const result = findCheckById("ZZZZZ-NONEXISTENT-999");
     expect(result.match).toBeNull();
